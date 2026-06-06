@@ -18,6 +18,12 @@ const APP_USER_MODEL_ID = 'com.mineradio.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
 const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
+
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
 const QQ_LOGIN_COOKIE_PRIORITY = [
   'uin',
   'qqmusic_uin',
@@ -100,6 +106,45 @@ function getSenderWindow(event) {
 
 function getUpdateDownloadDir() {
   return path.join(app.getPath('userData'), 'updates');
+}
+
+function shouldEnsureDesktopShortcut() {
+  if (process.platform !== 'win32') return false;
+  if (process.env.MINERADIO_NO_DESKTOP_SHORTCUT === '1') return false;
+  return app.isPackaged || process.env.MINERADIO_CREATE_DESKTOP_SHORTCUT === '1';
+}
+
+function ensureDesktopShortcut() {
+  if (!shouldEnsureDesktopShortcut()) return { ok: false, skipped: true };
+  try {
+    const shortcutPath = path.join(app.getPath('desktop'), `${APP_NAME}.lnk`);
+    const target = process.execPath;
+    const shortcut = {
+      target,
+      cwd: path.dirname(target),
+      args: '',
+      description: 'Mineradio desktop music player',
+      icon: fs.existsSync(APP_ICON_ICO) ? APP_ICON_ICO : target,
+      iconIndex: 0,
+      appUserModelId: APP_USER_MODEL_ID,
+    };
+
+    if (fs.existsSync(shortcutPath) && shell.readShortcutLink) {
+      try {
+        const existing = shell.readShortcutLink(shortcutPath);
+        if (existing && path.resolve(existing.target || '') === path.resolve(target) && String(existing.args || '') === '') {
+          return { ok: true, path: shortcutPath, existing: true };
+        }
+      } catch (_) {}
+      shell.writeShortcutLink(shortcutPath, 'replace', shortcut);
+    } else {
+      shell.writeShortcutLink(shortcutPath, 'create', shortcut);
+    }
+    return { ok: true, path: shortcutPath, created: true };
+  } catch (e) {
+    console.warn('Desktop shortcut creation skipped:', e.message);
+    return { ok: false, error: e.message || 'DESKTOP_SHORTCUT_FAILED' };
+  }
 }
 
 function parseCookieHeader(cookieText) {
@@ -388,7 +433,7 @@ ipcMain.handle('mineradio-open-update-installer', async (_event, filePath) => {
 
 async function createWindow() {
   htmlFullscreenActive = false;
-  windowFullscreenActive = true;
+  windowFullscreenActive = false;
   const port = await findOpenPort(3000);
 
   process.env.HOST = '127.0.0.1';
@@ -419,7 +464,7 @@ async function createWindow() {
     minHeight: 540,
     show: false,
     frame: false,
-    fullscreen: true,
+    fullscreen: false,
     transparent: true,
     backgroundColor: '#00000000',
     hasShadow: true,
@@ -481,7 +526,10 @@ async function createWindow() {
 app.setName(APP_NAME);
 if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  ensureDesktopShortcut();
+  await createWindow();
+});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

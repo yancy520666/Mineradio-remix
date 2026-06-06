@@ -30,6 +30,9 @@ const {
   playlist_create,
   playlist_detail,
   playlist_track_all,
+  personalized,
+  recommend_resource,
+  recommend_songs,
   dj_detail,
   dj_program,
   dj_hot,
@@ -45,7 +48,10 @@ const http = require('http');
 const https = require('https');
 const fs   = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const tls = require('tls');
 const { once } = require('events');
+const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 
 const PORT = process.env.PORT || 3000;
@@ -54,6 +60,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
 const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
+const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || 'D:\\MineradioCache\\beatmaps';
 const APP_PACKAGE = readPackageInfo();
 const APP_VERSION = process.env.MINERADIO_VERSION || APP_PACKAGE.version || '0.9.9';
 const UPDATE_CONFIG = readUpdateConfig(APP_PACKAGE);
@@ -65,6 +72,27 @@ const UPDATE_FALLBACK_NOTES = [
 
 const updateDownloadJobs = new Map();
 
+function applySystemCertificateAuthorities() {
+  try {
+    if (typeof tls.getCACertificates !== 'function' || typeof tls.setDefaultCACertificates !== 'function') return;
+    const bundled = tls.getCACertificates('default') || [];
+    const system = tls.getCACertificates('system') || [];
+    if (!system.length) return;
+    const seen = new Set();
+    const merged = [];
+    bundled.concat(system).forEach(cert => {
+      if (!cert || seen.has(cert)) return;
+      seen.add(cert);
+      merged.push(cert);
+    });
+    if (merged.length > bundled.length) tls.setDefaultCACertificates(merged);
+  } catch (e) {
+    console.warn('[TLS] system CA merge skipped:', e.message);
+  }
+}
+
+applySystemCertificateAuthorities();
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript',
@@ -72,6 +100,7 @@ const MIME = {
   '.json': 'application/json',
   '.png':  'image/png',
   '.jpg':  'image/jpeg',
+  '.ico':  'image/x-icon',
   '.svg':  'image/svg+xml',
 };
 
@@ -145,6 +174,10 @@ function readUpdateConfig(pkg) {
     repo,
     configured: !!(owner && repo),
     preview: local.preview !== false,
+    manifest: process.env.MINERADIO_UPDATE_MANIFEST
+      || process.env.MINERADIO_UPDATE_MANIFEST_URL
+      || process.env.MINERADIO_UPDATE_MANIFEST_FILE
+      || '',
   };
 }
 function normalizeVersion(value) {
@@ -196,9 +229,148 @@ function pickReleaseAsset(assets) {
     downloadUrl: preferred.browser_download_url || '',
   };
 }
-function localUpdateFallback() {
+function updateAssetNameFromUrl(value) {
+  try {
+    const u = new URL(String(value || ''));
+    const base = path.basename(decodeURIComponent(u.pathname || ''));
+    if (base) return base;
+  } catch (_) {}
+  return path.basename(String(value || '').split('?')[0]) || '';
+}
+function normalizeManifestUpdateInfo(data) {
+  data = data || {};
+  const release = data.release || {};
+  const asset = release.asset || data.asset || {};
+  const latestVersion = normalizeVersion(
+    data.latestVersion
+    || data.version
+    || release.version
+    || release.tagName
+    || release.tag_name
+    || release.name
+    || APP_VERSION
+  ) || APP_VERSION;
+  const downloadUrl = release.downloadUrl || data.downloadUrl || asset.downloadUrl || asset.browser_download_url || '';
+  const notes = Array.isArray(release.notes) && release.notes.length
+    ? release.notes.slice(0, 4).map(cleanReleaseLine).filter(Boolean)
+    : (extractReleaseNotes(release.body || data.body).length ? extractReleaseNotes(release.body || data.body) : UPDATE_FALLBACK_NOTES);
+  const assetInfo = downloadUrl ? {
+    name: asset.name || updateAssetNameFromUrl(downloadUrl) || `Mineradio-${latestVersion}-Setup.exe`,
+    size: Number(asset.size || 0) || 0,
+    contentType: asset.contentType || asset.content_type || '',
+    downloadUrl,
+  } : null;
   return {
-    configured: false,
+    configured: true,
+    preview: false,
+    updateAvailable: data.updateAvailable != null ? !!data.updateAvailable : compareVersions(latestVersion, APP_VERSION) > 0,
+    currentVersion: APP_VERSION,
+    latestVersion,
+    release: {
+      tagName: release.tagName || release.tag_name || data.tagName || ('v' + latestVersion),
+      name: release.name || data.name || ('Mineradio v' + latestVersion),
+      version: latestVersion,
+      publishedAt: release.publishedAt || release.published_at || data.publishedAt || '',
+      htmlUrl: release.htmlUrl || release.html_url || data.htmlUrl || '',
+      downloadUrl,
+      asset: assetInfo,
+      summary: release.summary || data.summary || notes[0] || '发现新版本，建议更新。',
+      notes,
+    },
+    source: 'manifest',
+  };
+}
+async function readUpdateManifest(ref) {
+  const value = String(ref || '').trim();
+  if (!value) throw new Error('UPDATE_MANIFEST_MISSING');
+  if (/^https?:\/\//i.test(value)) {
+    const resp = await fetch(value, {
+      headers: { 'User-Agent': `Mineradio/${APP_VERSION}` },
+    });
+    if (!resp.ok) throw new Error('Update manifest ' + resp.status);
+    return resp.json();
+  }
+  const file = /^file:/i.test(value) ? fileURLToPath(value) : path.resolve(value);
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+async function fetchManifestUpdateInfo(ref) {
+  try {
+    const data = await readUpdateManifest(ref);
+    return normalizeManifestUpdateInfo(data);
+  } catch (err) {
+    return localUpdateFallback(err.message || 'Update manifest failed', { configured: true });
+  }
+}
+function beatCacheRootInfo() {
+  const dir = path.resolve(BEATMAP_CACHE_DIR);
+  const root = path.parse(dir).root;
+  const drive = root ? root.replace(/[\\\/]+$/, '').toUpperCase() : '';
+  const allowed = !!root && !/^C:$/i.test(drive);
+  const available = allowed && fs.existsSync(root);
+  return { dir, root, drive, allowed, available };
+}
+function ensureBeatMapCacheDir() {
+  const info = beatCacheRootInfo();
+  if (!info.allowed) {
+    const err = new Error('BEAT_CACHE_ON_C_DRIVE_DISABLED');
+    err.code = 'BEAT_CACHE_ON_C_DRIVE_DISABLED';
+    err.info = info;
+    throw err;
+  }
+  if (!info.available) {
+    const err = new Error('BEAT_CACHE_DRIVE_UNAVAILABLE');
+    err.code = 'BEAT_CACHE_DRIVE_UNAVAILABLE';
+    err.info = info;
+    throw err;
+  }
+  fs.mkdirSync(info.dir, { recursive: true });
+  return info.dir;
+}
+function safeBeatMapCacheFile(key) {
+  const raw = String(key || '').trim();
+  if (!raw || raw.length > 240) return null;
+  const hash = crypto.createHash('sha1').update(raw).digest('hex');
+  const label = raw.replace(/[^a-z0-9_.-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'beatmap';
+  return path.join(ensureBeatMapCacheDir(), `${label}-${hash}.json`);
+}
+function compactBeatMapCachePayload(body) {
+  const key = String(body && body.key || '').trim();
+  const map = body && body.map;
+  if (!key || !map || typeof map !== 'object') return null;
+  return {
+    v: 1,
+    key,
+    savedAt: Date.now(),
+    meta: {
+      provider: String(body.provider || '').slice(0, 32),
+      title: String(body.title || '').slice(0, 160),
+      artist: String(body.artist || '').slice(0, 160),
+      mode: String(body.mode || 'mr').slice(0, 32),
+    },
+    map,
+  };
+}
+function readBeatMapCache(key) {
+  const file = safeBeatMapCacheFile(key);
+  if (!file || !fs.existsSync(file)) return null;
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return raw && raw.map ? raw : null;
+}
+function writeBeatMapCache(body) {
+  const payload = compactBeatMapCachePayload(body);
+  if (!payload) return { ok: false, error: 'INVALID_BEATMAP_CACHE_PAYLOAD' };
+  const file = safeBeatMapCacheFile(payload.key);
+  if (!file) return { ok: false, error: 'INVALID_BEATMAP_CACHE_KEY' };
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(payload));
+  fs.renameSync(tmp, file);
+  return { ok: true, key: payload.key, savedAt: payload.savedAt, dir: path.dirname(file) };
+}
+function localUpdateFallback(reason, opts) {
+  opts = opts || {};
+  const configured = !!(opts.configured != null ? opts.configured : false);
+  return {
+    configured,
     preview: UPDATE_CONFIG.preview,
     updateAvailable: false,
     currentVersion: APP_VERSION,
@@ -212,9 +384,11 @@ function localUpdateFallback() {
       summary: '当前版本，更新检测已就绪。',
       notes: UPDATE_FALLBACK_NOTES,
     },
+    reason: reason || '',
   };
 }
 async function fetchLatestUpdateInfo() {
+  if (UPDATE_CONFIG.manifest) return fetchManifestUpdateInfo(UPDATE_CONFIG.manifest);
   if (!UPDATE_CONFIG.configured || UPDATE_CONFIG.provider !== 'github') return localUpdateFallback();
   const apiUrl = `https://api.github.com/repos/${encodeURIComponent(UPDATE_CONFIG.owner)}/${encodeURIComponent(UPDATE_CONFIG.repo)}/releases/latest`;
   const controller = new AbortController();
@@ -227,7 +401,7 @@ async function fetchLatestUpdateInfo() {
         'Accept': 'application/vnd.github+json',
       },
     });
-    if (!resp.ok) throw new Error('GitHub Releases ' + resp.status);
+    if (!resp.ok) return localUpdateFallback('GitHub Releases ' + resp.status, { configured: true });
     const data = await resp.json();
     const latestVersion = normalizeVersion(data.tag_name || data.name || APP_VERSION) || APP_VERSION;
     const asset = pickReleaseAsset(data.assets);
@@ -250,6 +424,8 @@ async function fetchLatestUpdateInfo() {
         notes,
       },
     };
+  } catch (err) {
+    return localUpdateFallback(err.message || 'Update check failed', { configured: true });
   } finally {
     clearTimeout(timer);
   }
@@ -378,7 +554,7 @@ function readRequestBody(req) {
     let raw = '';
     req.on('data', chunk => {
       raw += chunk;
-      if (raw.length > 1024 * 1024) req.destroy();
+      if (raw.length > 8 * 1024 * 1024) req.destroy();
     });
     req.on('end', () => {
       if (!raw) { resolve({}); return; }
@@ -546,6 +722,23 @@ function mapSongRecord(s) {
     fee: s.fee,
   };
 }
+function mapDiscoverPlaylist(pl, tag) {
+  pl = pl || {};
+  const creator = pl.creator || pl.user || {};
+  const id = pl.id || pl.resourceId || pl.creativeId;
+  return {
+    provider: 'netease',
+    source: 'netease',
+    type: 'playlist',
+    id,
+    name: pl.name || pl.title || '',
+    cover: pl.picUrl || pl.coverImgUrl || pl.coverUrl || pl.uiElement && pl.uiElement.image && pl.uiElement.image.imageUrl || '',
+    trackCount: pl.trackCount || pl.songCount || pl.programCount || 0,
+    playCount: pl.playCount || pl.playcount || 0,
+    creator: creator.nickname || creator.name || '',
+    tag: tag || pl.alg || '',
+  };
+}
 async function requireLogin(res) {
   const info = await getLoginInfo();
   if (!info.loggedIn || !info.userId) {
@@ -584,6 +777,59 @@ async function handleSearch(keywords, limit) {
   }
 
   return mapped;
+}
+
+async function handleDiscoverHome() {
+  const info = await getLoginInfo();
+  const loggedIn = !!(info && info.loggedIn);
+  const tasks = [
+    personalized({ limit: 8, cookie: userCookie, timestamp: Date.now() }),
+    dj_hot({ limit: 6, offset: 0, cookie: userCookie, timestamp: Date.now() }),
+    loggedIn ? recommend_resource({ cookie: userCookie, timestamp: Date.now() }) : Promise.resolve(null),
+    loggedIn ? recommend_songs({ cookie: userCookie, timestamp: Date.now() }) : Promise.resolve(null),
+  ];
+  const result = await Promise.allSettled(tasks);
+
+  const personalizedBody = result[0].status === 'fulfilled' && result[0].value && result[0].value.body || {};
+  const publicPlaylists = (personalizedBody.result || personalizedBody.data || [])
+    .map(pl => mapDiscoverPlaylist(pl, '推荐歌单'))
+    .filter(pl => pl.id && pl.name)
+    .slice(0, 8);
+
+  const podcastBody = result[1].status === 'fulfilled' && result[1].value && result[1].value.body || {};
+  const podcastRaw = podcastBody.djRadios || podcastBody.djradios || podcastBody.radios || podcastBody.data || [];
+  const podcasts = (Array.isArray(podcastRaw) ? podcastRaw : [])
+    .map(mapPodcastRadio)
+    .filter(p => p.id)
+    .slice(0, 6);
+
+  let privatePlaylists = [];
+  if (result[2].status === 'fulfilled' && result[2].value) {
+    const body = result[2].value.body || {};
+    const raw = body.recommend || body.data || [];
+    privatePlaylists = (Array.isArray(raw) ? raw : [])
+      .map(pl => mapDiscoverPlaylist(pl, '私人推荐'))
+      .filter(pl => pl.id && pl.name)
+      .slice(0, 6);
+  }
+
+  let dailySongs = [];
+  if (result[3].status === 'fulfilled' && result[3].value) {
+    const body = result[3].value.body || {};
+    const raw = body.data && (body.data.dailySongs || body.data.recommend) || body.recommend || [];
+    dailySongs = (Array.isArray(raw) ? raw : [])
+      .map(mapSongRecord)
+      .filter(song => song.id && song.name)
+      .slice(0, 12);
+  }
+
+  return {
+    loggedIn,
+    user: loggedIn ? { userId: info.userId, nickname: info.nickname || '', avatar: info.avatar || '' } : null,
+    dailySongs,
+    playlists: privatePlaylists.concat(publicPlaylists).slice(0, 10),
+    podcasts,
+  };
 }
 
 const QQ_MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
@@ -709,6 +955,27 @@ async function qqGetJSON(targetUrl, params, opts) {
   return parseJSONText(text);
 }
 
+function audioProxyHeadersFor(audioUrl, range) {
+  const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/' };
+  try {
+    const host = new URL(audioUrl).hostname.toLowerCase();
+    if (host.includes('qq.com') || host.includes('qpic.cn')) headers.Referer = 'https://y.qq.com/';
+  } catch (e) {}
+  if (range) headers.Range = range;
+  return headers;
+}
+
+function audioContentTypeForUrl(audioUrl, upstreamType) {
+  let pathname = '';
+  try { pathname = new URL(audioUrl).pathname.toLowerCase(); } catch (e) {}
+  if (/\.flac$/.test(pathname)) return 'audio/flac';
+  if (/\.mp3$/.test(pathname)) return 'audio/mpeg';
+  if (/\.(m4a|mp4)$/.test(pathname)) return 'audio/mp4';
+  if (/\.ogg$/.test(pathname)) return 'audio/ogg';
+  if (/\.wav$/.test(pathname)) return 'audio/wav';
+  return upstreamType || 'audio/mpeg';
+}
+
 function mapQQPlaylist(pl, kind) {
   pl = pl || {};
   const id = pl.dissid || pl.tid || pl.dirid || pl.id || pl.diss_id;
@@ -728,7 +995,7 @@ function mapQQPlaylist(pl, kind) {
 
 function mapQQPlaylistTrack(raw) {
   raw = raw || {};
-  const track = raw.songid || raw.songmid || raw.mid || raw.name ? raw : (raw.track_info || raw.song || {});
+  const track = raw.songid || raw.songmid || raw.mid || raw.name ? raw : (raw.track_info || raw.songInfo || raw.songinfo || raw.song || {});
   const album = track.album || {};
   const artists = mapQQArtists(track.singer || track.singers || []);
   const mid = track.mid || track.songmid || raw.mid || raw.songmid || '';
@@ -832,6 +1099,12 @@ function qqAlbumCover(albumMid, size) {
   return 'https://y.qq.com/music/photo_new/T002R' + px + 'x' + px + 'M000' + albumMid + '.jpg?max_age=2592000';
 }
 
+function qqSingerAvatar(singerMid, size) {
+  if (!singerMid) return '';
+  const px = size || 300;
+  return 'https://y.qq.com/music/photo_new/T001R' + px + 'x' + px + 'M000' + singerMid + '.jpg?max_age=2592000';
+}
+
 function mapQQArtists(raw) {
   return (raw || [])
     .map(a => ({
@@ -924,6 +1197,50 @@ async function qqSongDetail(mid, fallback) {
   });
   const data = json && json.songinfo && json.songinfo.data;
   return mapQQTrack(data && data.track_info, fallback);
+}
+
+async function handleQQArtistDetail(mid, limit) {
+  const singerMid = String(mid || '').trim();
+  const num = Math.max(10, Math.min(80, parseInt(limit || '36', 10) || 36));
+  if (!singerMid) return { provider: 'qq', error: 'MISSING_SINGER_MID', artist: null, songs: [] };
+  const json = await qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    singer: {
+      module: 'music.web_singer_info_svr',
+      method: 'get_singer_detail_info',
+      param: { sort: 5, singermid: singerMid, sin: 0, num },
+    },
+  }, { cookie: true });
+  const block = json && json.singer;
+  if (!block || Number(block.code || 0) !== 0) {
+    return { provider: 'qq', error: block && (block.message || block.msg || block.code) || 'QQ_ARTIST_DETAIL_FAILED', artist: null, songs: [] };
+  }
+  const data = block.data || {};
+  const info = data.singer_info || data.singerInfo || {};
+  const rawSongs = Array.isArray(data.songlist) ? data.songlist : [];
+  const songs = rawSongs
+    .map(raw => mapQQTrack(raw && (raw.track_info || raw.songInfo || raw.songinfo || raw.song) || raw, {}))
+    .filter(song => song && song.name && (song.mid || song.id));
+  const matchedSongArtist = songs[0] && (songs[0].artists || []).find(a => a && a.mid === singerMid);
+  const artistMid = info.mid || singerMid;
+  const artistName = info.name || info.title || (matchedSongArtist && matchedSongArtist.name) || '';
+  const totalSong = Number(data.total_song || data.song_count || 0) || songs.length;
+  return {
+    provider: 'qq',
+    artist: {
+      provider: 'qq',
+      id: info.id || '',
+      mid: artistMid,
+      name: artistName,
+      avatar: info.pic || info.avatar || qqSingerAvatar(artistMid, 300),
+      fans: Number(info.fans || 0) || 0,
+      musicSize: totalSong,
+      albumSize: Number(data.total_album || 0) || 0,
+      mvSize: Number(data.total_mv || 0) || 0,
+    },
+    total: totalSong,
+    songs,
+  };
 }
 
 async function handleQQSearch(keywords, limit) {
@@ -1072,6 +1389,108 @@ async function handleQQSongComments(id, mid, limit, offset) {
   const comments = (raw || []).map(mapQQComment).filter(c => c.content);
   const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || comments.length;
   return { provider: 'qq', id: topid, total, comments, hot: !!(offset === 0 && Array.isArray(hotList) && hotList.length) };
+}
+
+function decodeHtmlEntities(text) {
+  return String(text || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ');
+}
+
+function decodeQQLyricText(text) {
+  let raw = decodeHtmlEntities(String(text || '').trim());
+  if (!raw) return '';
+  const compact = raw.replace(/\s+/g, '');
+  const looksBase64 = compact.length >= 8 && compact.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(compact);
+  if (looksBase64 && !/^\s*\[/.test(raw)) {
+    try {
+      const decoded = Buffer.from(compact, 'base64').toString('utf8').replace(/^\uFEFF/, '');
+      if (decoded && (decoded.includes('[') || /[\u4e00-\u9fa5]/.test(decoded))) raw = decoded;
+    } catch (e) {
+      console.warn('[QQLyric] base64 decode failed:', e.message);
+    }
+  }
+  return decodeHtmlEntities(raw).replace(/\r\n/g, '\n').trim();
+}
+
+function normalizeQQSongId(id) {
+  const n = String(id || '').replace(/\D/g, '');
+  return n ? Number(n) : 0;
+}
+
+async function handleQQLyric(mid, id) {
+  const songMID = String(mid || '').trim();
+  const songID = normalizeQQSongId(id);
+  if (!songMID && !songID) return { provider: 'qq', error: 'Missing QQ song mid or id', lyric: '' };
+
+  let lyricText = '';
+  let transText = '';
+  let qrcText = '';
+  let romaText = '';
+  let source = 'qq-musicu';
+
+  try {
+    const param = {};
+    if (songMID) param.songMID = songMID;
+    if (songID) param.songID = songID;
+    const json = await qqMusicRequest({
+      comm: { ct: 24, cv: 0 },
+      lyric: {
+        module: 'music.musichallSong.PlayLyricInfo',
+        method: 'GetPlayLyricInfo',
+        param,
+      },
+    }, { cookie: true });
+    const data = json && json.lyric && json.lyric.data;
+    lyricText = decodeQQLyricText(data && data.lyric);
+    transText = decodeQQLyricText(data && data.trans);
+    qrcText = decodeQQLyricText(data && data.qrc);
+    romaText = decodeQQLyricText(data && data.roma);
+  } catch (e) {
+    console.warn('[QQLyric] musicu failed:', e.message);
+  }
+
+  if (!lyricText && songMID) {
+    try {
+      const body = await qqGetJSON('https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg', {
+        songmid: songMID,
+        songtype: '0',
+        format: 'json',
+        nobase64: '1',
+        g_tk: '5381',
+        loginUin: qqCookieUin() || '0',
+        hostUin: '0',
+        inCharset: 'utf8',
+        outCharset: 'utf-8',
+        notice: '0',
+        platform: 'yqq.json',
+        needNewCode: '0',
+      }, { headers: { Referer: 'https://y.qq.com/portal/player.html' } });
+      lyricText = decodeQQLyricText(body && body.lyric);
+      transText = decodeQQLyricText(body && (body.trans || body.tlyric)) || transText;
+      source = 'qq-legacy';
+    } catch (e) {
+      console.warn('[QQLyric] legacy failed:', e.message);
+    }
+  }
+
+  return {
+    provider: 'qq',
+    id: songID || '',
+    mid: songMID,
+    lyric: lyricText,
+    tlyric: transText,
+    yrc: '',
+    qrc: qrcText,
+    roma: romaText,
+    source: lyricText ? source : 'qq-empty',
+  };
 }
 
 function mapPodcastRadio(r) {
@@ -1351,6 +1770,7 @@ const server = http.createServer(async (req, res) => {
         owner: UPDATE_CONFIG.owner,
         repo: UPDATE_CONFIG.repo,
         preview: UPDATE_CONFIG.preview,
+        manifestOverride: !!UPDATE_CONFIG.manifest,
       },
     });
     return;
@@ -1360,11 +1780,10 @@ const server = http.createServer(async (req, res) => {
     try {
       sendJSON(res, await fetchLatestUpdateInfo());
     } catch (err) {
-      console.error('[UpdateLatest]', err);
       sendJSON(res, {
-        ...localUpdateFallback(),
+        ...localUpdateFallback(err.message || 'Update check failed', { configured: UPDATE_CONFIG.configured }),
         error: err.message || 'Update check failed',
-      }, 500);
+      });
     }
     return;
   }
@@ -1387,6 +1806,72 @@ const server = http.createServer(async (req, res) => {
       ? updateDownloadJobs.get(id)
       : Array.from(updateDownloadJobs.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
     sendJSON(res, publicUpdateJob(job), job ? 200 : 404);
+    return;
+  }
+
+  if (pn === '/api/beatmap/cache/status') {
+    const info = beatCacheRootInfo();
+    sendJSON(res, {
+      enabled: info.allowed && info.available,
+      dir: info.dir,
+      drive: info.drive,
+      reason: !info.allowed ? 'C_DRIVE_DISABLED' : (!info.available ? 'TARGET_DRIVE_UNAVAILABLE' : ''),
+      mode: info.allowed && info.available ? 'disk' : 'memory-only',
+    });
+    return;
+  }
+
+  if (pn === '/api/beatmap/cache') {
+    if (req.method === 'GET') {
+      const key = url.searchParams.get('key') || '';
+      try {
+        const entry = readBeatMapCache(key);
+        sendJSON(res, entry
+          ? { ok: true, hit: true, key: entry.key || key, map: entry.map, meta: entry.meta || {}, savedAt: entry.savedAt || 0 }
+          : { ok: true, hit: false, key });
+      } catch (err) {
+        const info = err.info || beatCacheRootInfo();
+        sendJSON(res, {
+          ok: false,
+          hit: false,
+          enabled: false,
+          mode: 'memory-only',
+          key,
+          reason: err.code || err.message || 'BEAT_CACHE_READ_FAILED',
+          dir: info.dir,
+        });
+      }
+      return;
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const body = await readRequestBody(req);
+        sendJSON(res, writeBeatMapCache(body));
+      } catch (err) {
+        const info = err.info || beatCacheRootInfo();
+        sendJSON(res, {
+          ok: false,
+          enabled: false,
+          mode: 'memory-only',
+          reason: err.code || err.message || 'BEAT_CACHE_WRITE_FAILED',
+          dir: info.dir,
+        });
+      }
+      return;
+    }
+
+    sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+    return;
+  }
+
+  if (pn === '/api/discover/home') {
+    try {
+      sendJSON(res, await handleDiscoverHome());
+    } catch (err) {
+      console.error('[DiscoverHome]', err);
+      sendJSON(res, { error: err.message, loggedIn: false, dailySongs: [], playlists: [], podcasts: [] }, 500);
+    }
     return;
   }
 
@@ -1424,6 +1909,20 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[QQSongUrl]', err);
       sendJSON(res, { provider: 'qq', url: '', playable: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/qq/lyric') {
+    try {
+      const mid = url.searchParams.get('mid') || url.searchParams.get('songmid') || '';
+      const id = url.searchParams.get('id') || url.searchParams.get('qqId') || '';
+      if (!mid && !id) { sendJSON(res, { provider: 'qq', error: 'Missing QQ song mid or id', lyric: '' }, 400); return; }
+      const data = await handleQQLyric(mid, id);
+      sendJSON(res, data);
+    } catch (err) {
+      console.error('[QQLyric]', err);
+      sendJSON(res, { provider: 'qq', error: err.message, lyric: '' }, 500);
     }
     return;
   }
@@ -1485,6 +1984,23 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[QQPlaylistTracks]', err);
       sendJSON(res, { provider: 'qq', error: err.message, tracks: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/qq/artist/detail') {
+    try {
+      const mid = url.searchParams.get('mid') || url.searchParams.get('singermid') || '';
+      const limit = Math.max(10, Math.min(80, parseInt(url.searchParams.get('limit') || '36', 10) || 36));
+      if (!mid) {
+        sendJSON(res, { provider: 'qq', error: 'MISSING_SINGER_MID', artist: null, songs: [] }, 400);
+        return;
+      }
+      const data = await handleQQArtistDetail(mid, limit);
+      sendJSON(res, data);
+    } catch (err) {
+      console.error('[QQArtistDetail]', err);
+      sendJSON(res, { provider: 'qq', error: err.message, artist: null, songs: [] }, 500);
     }
     return;
   }
@@ -2039,11 +2555,10 @@ const server = http.createServer(async (req, res) => {
       const audioUrl = url.searchParams.get('url');
       if (!audioUrl) { res.writeHead(400); res.end('Missing url'); return; }
       const range = req.headers.range || '';
-      const hdr = { 'User-Agent': UA, 'Referer': 'https://music.163.com/' };
-      if (range) hdr['Range'] = range;
+      const hdr = audioProxyHeadersFor(audioUrl, range);
       const up = await fetch(audioUrl, { headers: hdr });
       const out = {
-        'Content-Type': up.headers.get('content-type') || 'audio/mpeg',
+        'Content-Type': audioContentTypeForUrl(audioUrl, up.headers.get('content-type')),
         'Access-Control-Allow-Origin': '*',
         'Accept-Ranges': 'bytes',
       };
@@ -2058,6 +2573,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 静态资源 ----------
+  if (pn === '/favicon.ico') {
+    serveStatic(res, path.join(__dirname, 'build', 'icon.ico'));
+    return;
+  }
+
   let filePath = pn === '/' ? '/index.html' : pn;
   filePath = path.join(__dirname, 'public', filePath);
   serveStatic(res, filePath);
