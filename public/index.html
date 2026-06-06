@@ -762,24 +762,29 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 .source-fallback-close:hover{background:rgba(255,255,255,.10);color:#fff}
 .source-fallback-body{font-size:11.5px;line-height:1.55;color:rgba(255,255,255,.58)}
 
-#visual-guide{position:fixed;inset:0;z-index:260;display:none;pointer-events:none}
+#visual-guide{position:fixed;inset:0;z-index:260;display:none;pointer-events:auto;cursor:pointer}
 #visual-guide.show{display:block}
-.visual-guide-scrim{position:absolute;inset:0;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.020),rgba(0,0,0,.40) 34%,rgba(0,0,0,.62));opacity:0;transition:opacity .28s cubic-bezier(.16,1,.3,1)}
+.visual-guide-scrim{position:absolute;inset:0;background:linear-gradient(120deg,rgba(244,210,138,.05),rgba(255,83,103,.035) 34%,rgba(9,10,14,.38) 58%,rgba(0,0,0,.66)),radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.045),rgba(0,0,0,.36) 34%,rgba(0,0,0,.68));opacity:0;transition:opacity .28s cubic-bezier(.16,1,.3,1)}
 #visual-guide.show .visual-guide-scrim{opacity:1}
-.visual-guide-ring{position:absolute;left:0;top:0;width:80px;height:48px;border-radius:16px;border:1.5px solid rgba(255,255,255,.72);box-shadow:0 0 0 7px rgba(255,83,103,.13),0 0 42px rgba(255,83,103,.24),inset 0 0 20px rgba(255,255,255,.08);opacity:0;transform:translate3d(0,0,0) scale(.98);transition:left .38s cubic-bezier(.16,1,.3,1),top .38s cubic-bezier(.16,1,.3,1),width .38s cubic-bezier(.16,1,.3,1),height .38s cubic-bezier(.16,1,.3,1),border-radius .38s cubic-bezier(.16,1,.3,1),opacity .24s,transform .38s cubic-bezier(.16,1,.3,1)}
+.visual-guide-ring{position:absolute;left:0;top:0;width:80px;height:48px;border-radius:16px;border:1.5px solid rgba(255,255,255,.74);box-shadow:0 0 0 7px rgba(255,83,103,.13),0 0 42px rgba(255,83,103,.24),inset 0 0 20px rgba(255,255,255,.08);opacity:0;transform:translate3d(0,0,0) scale(.98);transition:left .38s cubic-bezier(.16,1,.3,1),top .38s cubic-bezier(.16,1,.3,1),width .38s cubic-bezier(.16,1,.3,1),height .38s cubic-bezier(.16,1,.3,1),border-radius .38s cubic-bezier(.16,1,.3,1),opacity .24s,transform .38s cubic-bezier(.16,1,.3,1);pointer-events:none;overflow:hidden}
+.visual-guide-ring::before{content:'';position:absolute;inset:6px;border:1px solid rgba(244,210,138,.34);border-radius:inherit;opacity:.62}
+.visual-guide-ring::after{content:'';position:absolute;left:10px;right:10px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.86),transparent);animation:visual-guide-scan 1.8s cubic-bezier(.16,1,.3,1) infinite}
 #visual-guide.show .visual-guide-ring{opacity:1;transform:translate3d(0,0,0) scale(1)}
 .visual-guide-ring.shelf-target{border-color:rgba(255,255,255,.16);box-shadow:inset -34px 0 56px rgba(255,255,255,.045),0 0 54px rgba(255,255,255,.06);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.035));}
-.visual-guide-card{position:absolute;width:min(316px,calc(100vw - 32px));padding:17px 18px 15px;border-radius:16px;border:1px solid rgba(255,255,255,.11);background:linear-gradient(145deg,rgba(22,22,27,.92),rgba(9,9,13,.94));box-shadow:0 28px 86px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(28px) saturate(1.16);-webkit-backdrop-filter:blur(28px) saturate(1.16);pointer-events:auto;opacity:0;transform:translateY(10px) scale(.982);transition:left .38s cubic-bezier(.16,1,.3,1),top .38s cubic-bezier(.16,1,.3,1),opacity .26s,transform .38s cubic-bezier(.16,1,.3,1),filter .38s}
+.visual-guide-card{position:absolute;width:min(326px,calc(100vw - 32px));padding:17px 18px 15px;border-radius:14px;border:1px solid rgba(244,210,138,.18);background:linear-gradient(145deg,rgba(28,27,32,.94),rgba(9,10,14,.95));box-shadow:0 28px 86px rgba(0,0,0,.62),0 0 0 1px rgba(255,83,103,.10),inset 0 1px 0 rgba(255,255,255,.10);backdrop-filter:blur(28px) saturate(1.16);-webkit-backdrop-filter:blur(28px) saturate(1.16);pointer-events:auto;cursor:default;opacity:0;transform:translateY(10px) scale(.982);transition:left .38s cubic-bezier(.16,1,.3,1),top .38s cubic-bezier(.16,1,.3,1),opacity .26s,transform .38s cubic-bezier(.16,1,.3,1),filter .38s;overflow:hidden}
+.visual-guide-card::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(255,83,103,.70),rgba(244,210,138,.56),transparent)}
 #visual-guide.show .visual-guide-card{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
 .visual-guide-kicker{font-size:10px;font-weight:760;letter-spacing:.16em;color:rgba(255,83,103,.78);text-transform:uppercase;margin-bottom:8px}
 .visual-guide-title{font-size:16px;font-weight:760;color:rgba(255,255,255,.96);letter-spacing:.2px;margin-bottom:7px}
 .visual-guide-body{font-size:12.5px;line-height:1.62;color:rgba(255,255,255,.64);letter-spacing:.1px}
+.visual-guide-hint{margin-top:11px;padding:8px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.038);font-size:11px;color:rgba(244,210,138,.72)}
 .visual-guide-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
 .visual-guide-progress{font-size:10.5px;color:rgba(255,255,255,.38);font-variant-numeric:tabular-nums}
 .visual-guide-actions button{height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:rgba(255,255,255,.70);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:0 12px;transition:background .18s,border-color .18s,color .18s,transform .18s}
 .visual-guide-actions button:hover{background:rgba(255,255,255,.085);border-color:rgba(255,255,255,.20);color:#fff;transform:translateY(-1px)}
 .visual-guide-actions .primary{border-color:rgba(255,83,103,.42);background:rgba(255,83,103,.14);color:#fff}
 .visual-guide-actions .primary:hover{border-color:rgba(255,83,103,.62);background:rgba(255,83,103,.20)}
+@keyframes visual-guide-scan{0%,100%{transform:translateY(0);opacity:.26}42%{opacity:.72}70%{transform:translateY(82px);opacity:.18}}
 
 /* ============================================================ */
 /*  控制台 — 简化版                                              */
@@ -1508,7 +1513,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
         <div>
           <div class="update-kicker">MINERADIO</div>
           <div id="update-modal-title" class="update-title">New release</div>
-          <div id="update-modal-version" class="update-version">v0.9.9</div>
+          <div id="update-modal-version" class="update-version">v0.9.10</div>
         </div>
       </div>
       <div class="update-hero">
@@ -1544,6 +1549,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
     <div id="visual-guide-kicker" class="visual-guide-kicker">Guide</div>
     <div id="visual-guide-title" class="visual-guide-title"></div>
     <div id="visual-guide-body" class="visual-guide-body"></div>
+    <div id="visual-guide-hint" class="visual-guide-hint">点击空白处也可以继续</div>
     <div class="visual-guide-actions">
       <button type="button" onclick="closeVisualGuide(true)">跳过</button>
       <div id="visual-guide-progress" class="visual-guide-progress"></div>
@@ -1596,7 +1602,7 @@ var LYRIC_LAYOUT_STORE_KEY = 'mineradio-lyric-layout-v1';
 var PLAYBACK_QUALITY_STORE_KEY = 'mineradio-playback-quality-v1';
 var UPLOAD_TIP_STORE_KEY = 'mineradio-upload-tip-seen';
 var DIY_MODE_STORE_KEY = 'mineradio-diy-player-mode-v1';
-var VISUAL_GUIDE_SEEN_STORE_KEY = 'mineradio-visual-guide-seen-v1';
+var VISUAL_GUIDE_SEEN_STORE_KEY = 'mineradio-visual-guide-seen-v2';
 var LOCAL_BEATMAP_STORE_KEY = 'mineradio-local-beatmaps-v1';
 var LOCAL_BEAT_PREF_STORE_KEY = 'mineradio-local-beatmap-prefs-v1';
 var LOCAL_BEAT_COMBOS = ['', 'downbeat', 'push', 'drop', 'rebound', 'accent'];
@@ -1639,8 +1645,8 @@ var updatePreviewState = {
   downloadJobId: '',
   installerPath: '',
   installerOpened: false,
-  currentVersion: '0.9.9',
-  version: '0.9.9',
+  currentVersion: '0.9.10',
+  version: '0.9.10',
   configured: false,
   preview: true,
   updateAvailable: false,
@@ -3238,7 +3244,7 @@ var particlePointerLocalHit = new THREE.Vector3();
 var particlePointerQuat = new THREE.Quaternion();
 var particlePointerFrame = { dirty:false, ndcX:0, ndcY:0 };
 var CLICK_THRESHOLD = 6;  // 像素, 拖动 > 6px 视为 drag
-var UI_HIT_SELECTOR = '#search-area,#top-right,#fx-panel,#fx-fab,#playlist-panel,#bottom-bar,#thumb-wrap,#trial-banner,#source-fallback-notice,.modal-mask,#toast,#ai-depth-chip,#beat-chip,#drop-overlay';
+var UI_HIT_SELECTOR = '#search-area,#top-right,#fx-panel,#fx-fab,#playlist-panel,#bottom-bar,#thumb-wrap,#empty-home,#visual-guide,#trial-banner,#source-fallback-notice,.modal-mask,#toast,#ai-depth-chip,#beat-chip,#drop-overlay';
 
 function isPointerOverUi(e) {
   if (!e) return false;
@@ -8524,6 +8530,7 @@ function shelfPreviewIsVisible() {
 function canShowShelfHoverCueAt(e) {
   if (!e) return false;
   if (document.body.classList.contains('splash-active') || immersiveMode) return false;
+  if (visualGuideActive || emptyHomeActive || homeForcedOpen) return false;
   if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
   if (shelfPinnedOpen) return false;
   if (shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return false;
@@ -15256,44 +15263,50 @@ function showToast(msg) {
 
 var visualGuideSteps = [
   {
+    target: 'stage',
+    kicker: '01 / Welcome',
+    title: '先看见 Mineradio 的舞台',
+    body: '第一次打开会先给你一个视觉入口：粒子、封面、歌词和歌单架都会围绕播放状态展开。'
+  },
+  {
     selector: '#search-box',
-    kicker: '01 / Start',
+    kicker: '02 / Start',
     title: '先搜索一首歌',
     body: '输入歌名、歌手或关键词，点击结果即可播放。默认模式只保留最短上手路径。'
   },
   {
     selector: '#bottom-bar',
-    kicker: '02 / Player',
+    kicker: '03 / Player',
     title: '底部就是主控制台',
     body: '播放、切歌、拖动进度和查看当前歌曲都在这里完成。复杂控制会留给 DIY 玩家模式。'
   },
   {
     selector: '#mini-queue-btn',
-    kicker: '03 / Listen',
+    kicker: '04 / Listen',
     title: '队列和歌词保留在默认模式',
     body: '队列按钮管理接下来播放的歌，旁边的“词”按钮控制舞台歌词效果。'
   },
   {
     selector: '#playlist-panel',
-    kicker: '04 / Library',
+    kicker: '05 / Library',
     title: '左侧也可以打开歌单',
     body: '靠近左侧边缘会唤出歌单和队列面板，可以浏览个人歌单、播客和当前播放列表。'
   },
   {
     selector: '#immersive-btn',
-    kicker: '05 / Visual',
+    kicker: '06 / Visual',
     title: '沉浸式是快速入口',
     body: '想专注看节奏、粒子和歌词效果时，直接进入沉浸式；移动到底部会唤出控制台。'
   },
   {
     target: 'shelf',
-    kicker: '06 / Shelf',
+    kicker: '07 / Shelf',
     title: '右侧是 3D 歌单架',
     body: '光标移到右侧时，歌单架会半透明浮现并吸引粒子聚焦过去。点击卡片可以打开歌单或队列内容。'
   },
   {
     selector: '#diy-mode-btn',
-    kicker: '07 / DIY',
+    kicker: '08 / DIY',
     title: '高级功能在 DIY 玩家模式',
     body: '视觉控制台、上传/封面、自定义歌词、音质和更多面板都会在这里展开。'
   }
@@ -15412,16 +15425,25 @@ function showVisualGuideStep(index) {
   var title = document.getElementById('visual-guide-title');
   var body = document.getElementById('visual-guide-body');
   var kicker = document.getElementById('visual-guide-kicker');
+  var hint = document.getElementById('visual-guide-hint');
   var progress = document.getElementById('visual-guide-progress');
   var next = document.getElementById('visual-guide-next');
   if (title) title.textContent = step.title;
   if (body) body.textContent = step.body;
   if (kicker) kicker.textContent = step.kicker;
+  if (hint) hint.textContent = visualGuideStep === steps.length - 1 ? '点击空白处完成引导' : '点击空白处也可以继续';
   if (progress) progress.textContent = (visualGuideStep + 1) + ' / ' + steps.length;
   if (next) next.textContent = visualGuideStep === steps.length - 1 ? '完成' : '下一步';
   scheduleVisualGuidePositioning();
 }
 function guideTargetRect(step) {
+  if (step && step.target === 'stage') {
+    var stageW = Math.min(620, Math.max(260, innerWidth - 72));
+    var stageH = Math.min(310, Math.max(178, innerHeight * 0.34));
+    var stageLeft = innerWidth * 0.5 - stageW * 0.5;
+    var stageTop = Math.max(116, innerHeight * 0.32 - stageH * 0.5);
+    return { left: stageLeft, top: stageTop, width: stageW, height: stageH, right: stageLeft + stageW, bottom: stageTop + stageH };
+  }
   if (step && step.target === 'shelf' && typeof shelfCueRect === 'function') {
     var shelfRect = shelfCueRect();
     var shelfLeft = shelfRect.left;
@@ -15486,7 +15508,7 @@ function positionVisualGuideStep() {
     scrim.style.setProperty('--gx', ((rect.left + rect.width / 2) / Math.max(1, innerWidth) * 100).toFixed(2) + '%');
     scrim.style.setProperty('--gy', ((rect.top + rect.height / 2) / Math.max(1, innerHeight) * 100).toFixed(2) + '%');
   }
-  var cardW = Math.min(316, innerWidth - 32);
+  var cardW = Math.min(326, innerWidth - 32);
   var cardH = card.offsetHeight || 170;
   var cardLeft = rect.left + rect.width / 2 - cardW / 2;
   cardLeft = Math.max(16, Math.min(innerWidth - cardW - 16, cardLeft));
@@ -15522,6 +15544,16 @@ function closeVisualGuide(markSeen) {
   if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
   if (bottom && !visualGuideState.bottomWasVisible && !playing) bottom.classList.remove('visible', 'soft-hidden');
 }
+function handleVisualGuideSurfaceClick(e) {
+  if (!visualGuideActive) return;
+  if (e && e.target && e.target.closest && e.target.closest('button')) return;
+  if (e && e.preventDefault) e.preventDefault();
+  nextVisualGuideStep();
+}
+(function bindVisualGuideSurfaceClick(){
+  var guide = document.getElementById('visual-guide');
+  if (guide) guide.addEventListener('click', handleVisualGuideSurfaceClick);
+})();
 
 // ============================================================
 //  动态库加载
@@ -16391,7 +16423,8 @@ function dismissSplash() {
     document.body.classList.remove('splash-revealing');
     if (s && s.parentNode) s.style.display = 'none';
     var homeShown = updateEmptyHomeVisibility({ forceLoad: true });
-    if (!homeShown && !maybeRunStartupVisualGuide('splash')) maybeRunStartupLoginGuide('splash');
+    var guideStarted = maybeRunStartupVisualGuide('splash');
+    if (!guideStarted && !homeShown) maybeRunStartupLoginGuide('splash');
     setTimeout(maybeShowUploadTipOnce, 1800);
   }, 1180);
 }
