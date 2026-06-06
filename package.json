@@ -49,10 +49,15 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Mineradio",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
       "include": "build/installer.nsh",
       "artifactName": "Mineradio-${version}-Setup.${ext}"
     },
