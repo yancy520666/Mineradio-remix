@@ -19,6 +19,7 @@ win-unpacked/
 .cookie
 .qq-cookie
 updates/
+backups/
 *.log
 *.tmp
 *.cache

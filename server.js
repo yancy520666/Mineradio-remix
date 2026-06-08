@@ -59,7 +59,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
-const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
+const UPDATE_WORK_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
+const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DOWNLOAD_DIR || path.join(UPDATE_WORK_DIR, 'downloads');
+const UPDATE_PATCH_BACKUP_DIR = process.env.MINERADIO_PATCH_BACKUP_DIR || path.join(UPDATE_WORK_DIR, 'backups', 'patches');
 const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || 'D:\\MineradioCache\\beatmaps';
 const APP_PACKAGE = readPackageInfo();
 const APP_VERSION = process.env.MINERADIO_VERSION || APP_PACKAGE.version || '0.9.11';
@@ -645,7 +647,7 @@ function decodePatchFile(file) {
 }
 function backupPatchTarget(job, rel, target) {
   if (!fs.existsSync(target)) return;
-  const backup = path.join(UPDATE_DOWNLOAD_DIR, 'patch-backups', job.id, rel);
+  const backup = path.join(UPDATE_PATCH_BACKUP_DIR, job.id, rel);
   fs.mkdirSync(path.dirname(backup), { recursive: true });
   fs.copyFileSync(target, backup);
 }
