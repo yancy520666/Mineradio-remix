@@ -117,14 +117,15 @@
 
 - 用户明确要求上传 GitHub 后，已将 Home 视觉升级、封面清晰度控制、封面粒子割裂线修复和交接说明更新提交并推送到 `origin/main`。
 - 已推送提交：`21f6052 Polish home visuals and cover particles`。
-- 这次只同步源码仓库；`dist/latest.yml` 和 GitHub Release 安装包仍停留在 `0.9.11` 旧发布产物，用户端在线更新还不会拿到这次修复。
+- 按用户“不能只上传源码，要包含软件 exe”的要求，继续升版本到 `0.9.12` 并重新构建 Windows 安装包。
+- 已生成 `dist/Mineradio-0.9.12-Setup.exe`、`dist/Mineradio-0.9.12-Setup.exe.blockmap`、`dist/latest.yml`。
+- 已生成轻量快速补丁 `dist/Mineradio-0.9.11-to-0.9.12.patch.json`，补丁只覆盖 `package.json`、`package-lock.json`、`public/index.html`，用于已安装 `0.9.11` 的用户快速更新视觉和封面粒子修复。
 
 ## 未完成/待确认事项
 
 - 搜索结果排序仍需要继续优化：例如“日落大道”应优先梁博原唱，“Beauty and a Beat”应优先原唱/官方版本，避免翻唱排第一。
 - 3D 歌单架交互仍需继续优化：悬停展开和点击后可用状态之间要更丝滑，避免用户误以为悬停后可直接使用。
 - Home 页面与后方 3D 歌单架的交互穿透问题需要继续关注。
-- 如果要让普通用户通过安装包或在线更新获得 2026-06-10/13 的视觉和封面粒子修复，需要升版本、重新打包 exe、生成 blockmap/latest.yml，并更新 GitHub Release。
 - 如果之后修改发布资产，记得同步 GitHub Release、`latest.yml`、blockmap，并检查本地 `dist` 根部资产是否一致。
 
 ## 每次任务完成后的固定动作
