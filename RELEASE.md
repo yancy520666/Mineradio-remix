@@ -16,30 +16,31 @@
 Release tag 建议使用：
 
 ```text
-v0.9.9
+v0.9.13
 ```
 
 Release 标题建议使用：
 
 ```text
-Mineradio v0.9.9
+Mineradio v0.9.13
 ```
 
 Release 正文建议使用：
 
 ```markdown
-Mineradio v0.9.9 是首次公开发布准备版本，包含 Windows 安装包、桌面快捷方式创建、GitHub Releases 更新检测与下载入口，以及搜索排序、3D 歌单架交互等近期修复。
+Mineradio v0.9.13 是一次开场动画和进入体验优化版本。
 
 ## 下载
 
-- Windows 安装包：`Mineradio-0.9.9-Setup.exe`
+- Windows 安装包：`Mineradio-0.9.13-Setup.exe`
 
 ## 更新
 
-- 接入 GitHub Releases 更新检测与安装包下载入口
-- 打包版首次启动会补创建桌面快捷方式
-- 优化搜索结果排序，降低翻唱覆盖原唱的概率
-- 优化 3D 歌单架悬停到点击的过渡手感
+- 开场动画升级为 WebGL 光流线场，融合 `ShipSwiftAnimatedLoop` 的 RGB 分通道、Warp 流动和高亮线场质感。
+- 去掉刻意的环形/花瓣式爆点，改为更自然的斜向流线相位变化。
+- 动画播放完成后不再自动进入主页，会停留在“点击进入”状态；点击任意位置或按 Enter/空格后进入 Home。
+- 保留 2D canvas fallback，WebGL 不可用时仍可显示启动页。
+- 提供 `Mineradio-0.9.12-to-0.9.13.patch.json` 快速补丁，已安装 `0.9.12` 的用户可以轻量更新。
 
 ## 致谢
 
@@ -54,9 +55,10 @@ Release 资产必须上传 Windows 安装包，而不是只上传源码或 `win-
 
 建议上传：
 
-- `dist/Mineradio-0.9.9-Setup.exe`
+- `dist/Mineradio-0.9.13-Setup.exe`
 - `dist/latest.yml`（如果本次构建生成）
 - `dist/*.blockmap`（如果本次构建生成）
+- `dist/Mineradio-0.9.12-to-0.9.13.patch.json`（如果本次包含快速补丁）
 
 ## 更新检测
 
