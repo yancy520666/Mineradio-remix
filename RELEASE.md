@@ -16,31 +16,32 @@
 Release tag 建议使用：
 
 ```text
-v0.9.13
+v1.0.0
 ```
 
 Release 标题建议使用：
 
 ```text
-Mineradio v0.9.13
+Mineradio v1.0.0
 ```
 
 Release 正文建议使用：
 
 ```markdown
-Mineradio v0.9.13 是一次开场动画和进入体验优化版本。
+Mineradio v1.0.0 是 Mineradio 的首个正式发布版，把天气电台、首页内容、Wallpaper 银河背景、Emily 播放态视觉和 3D 歌单架整理成一个完整桌面体验。
 
 ## 下载
 
-- Windows 安装包：`Mineradio-0.9.13-Setup.exe`
+- Windows 安装包：`Mineradio-1.0.0-Setup.exe`
 
-## 更新
+## 亮点
 
-- 开场动画升级为 WebGL 光流线场，融合 `ShipSwiftAnimatedLoop` 的 RGB 分通道、Warp 流动和高亮线场质感。
-- 去掉刻意的环形/花瓣式爆点，改为更自然的斜向流线相位变化。
-- 动画播放完成后不再自动进入主页，会停留在“点击进入”状态；点击任意位置或按 Enter/空格后进入 Home。
-- 保留 2D canvas fallback，WebGL 不可用时仍可显示启动页。
-- 提供 `Mineradio-0.9.12-to-0.9.13.patch.json` 快速补丁，已安装 `0.9.12` 的用户可以轻量更新。
+- 新增 Open-Meteo 天气电台，会根据城市、天气和时间生成适合当前氛围的播放队列。
+- 首页升级为正式产品首屏，包含天气电台、每日推荐、私人电台、继续听、听歌画像和我的歌单。
+- 启动后未播放状态保持 Wallpaper 银河背景，不叠加旧 idle 白点、灰点、斜线或中心光球。
+- 播放音乐后仍切换到 Emily / 默认播放态视觉，歌词舞台、粒子舞台和控制台保持完整。
+- 优化窗口模式下主页自适应，紧凑窗口中 6 张主卡片和推荐内容不再挤出首屏。
+- 天气电台过滤 AI / Suno / Udio / 白噪音 / 雨声助眠等低质结果，并优先混入每日推荐和私人推荐曲库。
 
 ## 致谢
 
@@ -55,10 +56,9 @@ Release 资产必须上传 Windows 安装包，而不是只上传源码或 `win-
 
 建议上传：
 
-- `dist/Mineradio-0.9.13-Setup.exe`
+- `dist/Mineradio-1.0.0-Setup.exe`
 - `dist/latest.yml`（如果本次构建生成）
 - `dist/*.blockmap`（如果本次构建生成）
-- `dist/Mineradio-0.9.12-to-0.9.13.patch.json`（如果本次包含快速补丁）
 
 ## 更新检测
 
