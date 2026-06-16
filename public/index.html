@@ -21,14 +21,14 @@ try {
 html,body{font-family:var(--font-sans);background:#000;color:#fff;overflow:hidden;height:100vh;width:100vw;user-select:none;-webkit-font-smoothing:antialiased}
 body.cursor-hidden,body.cursor-hidden *{cursor:none!important}
 html.desktop-shell-root,html.desktop-shell-root body{background:transparent}
-:root{--font-sans:"Noto Sans SC","PingFang SC","HarmonyOS Sans SC","Alibaba PuHuiTi","Inter",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--font-mono:"JetBrains Mono","Geist Mono","SF Mono",ui-monospace,monospace;--fc-bg:#08090B;--fc-paper:#0E1014;--fc-ink:#E8ECEF;--fc-ink-2:#D2D7DC;--fc-muted:#8A9099;--fc-hair:#1A1D22;--fc-hair-2:#262A31;--fc-accent:#00F5D4;--fc-accent-hov:#00E0BE;--fc-blue:#2442ff;--fc-warm:#f8f4ee;--chill-ink:#030608;--chill-deep:#061116;--chill-cyan:#8fe9ff;--chill-blue:#73a7ff;--chill-mint:#9cffdf;--chill-soft:rgba(214,248,255,.9);--champagne:#f4d28a;--champagne-deep:#9a6f2c;--home-accent:#00f5d4;--visual-tint:#9db8cf;--source-netease:#d95b67;--source-qq:#00F5D4;--source-local:#9db8cf}
+:root{--font-sans:"Noto Sans SC","PingFang SC","HarmonyOS Sans SC","Alibaba PuHuiTi","Inter",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--font-mono:"JetBrains Mono","Geist Mono","SF Mono",ui-monospace,monospace;--fc-bg:#08090B;--fc-paper:#0E1014;--fc-ink:#E8ECEF;--fc-ink-2:#D2D7DC;--fc-muted:#8A9099;--fc-hair:#1A1D22;--fc-hair-2:#262A31;--fc-accent:#00F5D4;--fc-accent-hov:#00E0BE;--fc-accent-rgb:0,245,212;--fc-blue:#2442ff;--fc-warm:#f8f4ee;--chill-ink:#030608;--chill-deep:#061116;--chill-cyan:#8fe9ff;--chill-blue:#73a7ff;--chill-mint:#9cffdf;--chill-soft:rgba(214,248,255,.9);--champagne:#f4d28a;--champagne-deep:#9a6f2c;--home-accent:#00f5d4;--home-accent-rgb:0,245,212;--visual-tint:#9db8cf;--source-netease:#d95b67;--source-qq:#00F5D4;--source-local:#9db8cf}
 :root{--glass-bg:linear-gradient(112deg,rgba(72,74,76,.62),rgba(24,27,30,.70) 48%,rgba(8,12,14,.74));--glass-bg-focus:linear-gradient(112deg,rgba(88,91,92,.68),rgba(28,32,35,.76) 50%,rgba(8,13,15,.82));--glass-border:rgba(0,245,212,.30);--glass-border-soft:rgba(255,255,255,.095);--glass-shadow:0 22px 64px rgba(0,0,0,.30),0 0 34px rgba(0,245,212,.052),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -24px 58px rgba(0,0,0,.16);--glass-shadow-focus:0 24px 72px rgba(0,0,0,.34),0 0 0 1px rgba(0,245,212,.13),0 0 42px rgba(0,245,212,.075),inset 0 1px 0 rgba(255,255,255,.20)}
 body::after,#desktop-window-shell::after{content:none}
 
 #desktop-window-shell{display:contents}
 #desktop-titlebar{display:none}
 body.desktop-shell{background:transparent}
-body.desktop-shell #desktop-window-shell{display:block;position:fixed;inset:0;overflow:hidden;border-radius:34px;clip-path:inset(0 round 34px);background:linear-gradient(180deg,#030708 0%,#010303 100%);box-shadow:0 24px 80px rgba(0,0,0,.46);transform:translateZ(0)}
+body.desktop-shell #desktop-window-shell{display:block;position:fixed;inset:0;overflow:hidden;border-radius:34px;clip-path:inset(0 round 34px);background:transparent;box-shadow:0 24px 80px rgba(0,0,0,.46);transform:translateZ(0)}
 body.desktop-shell.desktop-maximized #desktop-window-shell,body.desktop-shell.desktop-fullscreen #desktop-window-shell,html:fullscreen body.desktop-shell #desktop-window-shell{border-radius:0!important;clip-path:none!important;box-shadow:none!important}
 body.desktop-shell #desktop-titlebar{position:fixed;z-index:500;top:0;left:0;right:0;height:44px;padding:0 12px 0 18px;display:flex;align-items:center;justify-content:space-between;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;-webkit-app-region:drag;pointer-events:none}
 body.desktop-shell #desktop-titlebar::after{content:none}
@@ -68,8 +68,12 @@ body.desktop-shell.desktop-fullscreen #top-right{top:24px}
 @media (max-width:720px){body.desktop-shell #top-right{right:12px;top:58px}body.desktop-shell #search-area.peek{top:58px}}
 
 /* ---------- 背景 ---------- */
+#custom-bg{position:fixed;inset:0;z-index:0;background:var(--custom-bg-color,#000);overflow:hidden;transition:background .35s ease}
+#custom-bg::before{content:'';position:absolute;inset:-1px;background-image:var(--custom-bg-image,none);background-size:cover;background-position:center;opacity:var(--custom-bg-image-opacity,0);filter:none;transform:scale(1.002);transition:opacity .35s ease,background-image .35s ease;pointer-events:none}
+#custom-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.16));opacity:var(--custom-bg-overlay-opacity,0);pointer-events:none}
 #album-bg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;filter:blur(120px) brightness(0.18) saturate(1.5);transform:scale(1.4);transition:background-image 1.5s ease,opacity 1.5s ease;opacity:0}
 #album-bg.visible{opacity:1}
+body.custom-background-override #album-bg{opacity:0!important}
 #canvas-container{position:fixed;inset:0;z-index:1;transition:opacity 1450ms cubic-bezier(.16,1,.3,1),transform 1450ms cubic-bezier(.16,1,.3,1)}
 body.splash-active:not(.splash-revealing) #canvas-container{opacity:.16;transform:scale(1)}
 body.splash-active.splash-revealing #canvas-container{opacity:1;transform:scale(1)}
@@ -310,6 +314,12 @@ body.desktop-shell.desktop-fullscreen #upload-actions{margin-top:0}
 .upload-tip-close{position:absolute;right:9px;top:8px;width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:rgba(255,255,255,.38);cursor:pointer;font-size:15px;line-height:18px;padding:0;font-family:inherit}
 .upload-tip-close:hover{background:rgba(255,255,255,.08);color:#fff}
 #user-btn{padding:0 16px;width:auto;min-width:58px;height:44px;border-radius:24px;gap:8px;font-size:12px;letter-spacing:.4px}
+.user-capsule-hide-btn{width:18px;height:28px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);color:rgba(255,255,255,.34);font-size:11px;line-height:1;opacity:0;transform:translateX(6px) scale(.92);transition:opacity .18s,transform .18s,background .18s,color .18s,border-color .18s;cursor:pointer}
+#top-right:hover .user-capsule-hide-btn,.user-capsule-hide-btn.on{opacity:1;transform:translateX(0) scale(1)}
+.user-capsule-hide-btn:hover,.user-capsule-hide-btn.on{border-color:rgba(var(--fc-accent-rgb),.34);background:rgba(var(--fc-accent-rgb),.10);color:#fff}
+body.user-capsule-auto-hide #top-right{right:-96px;opacity:0;visibility:hidden;pointer-events:none;transition:right .28s cubic-bezier(.16,1,.3,1),opacity .18s,visibility 0s linear .18s,transform .24s}
+body.user-capsule-auto-hide #top-right:hover,body.user-capsule-auto-hide.user-capsule-peek #top-right{right:18px;opacity:1;visibility:visible;pointer-events:auto;transition:right .28s cubic-bezier(.16,1,.3,1),opacity .16s,transform .24s}
+body.user-capsule-auto-hide #top-right::before{content:'';position:absolute;right:100%;top:-18px;width:82px;height:80px}
 #home-btn{width:44px;min-width:44px;border-color:rgba(0,245,212,.18);background:rgba(255,255,255,.04);color:rgba(232,236,239,.78)}
 #home-btn:hover{border-color:rgba(0,245,212,.44);background:rgba(0,245,212,.075);color:#fff;box-shadow:0 14px 38px rgba(0,245,212,.08)}
 body.empty-home-active #home-btn{border-color:rgba(255,83,103,.36);background:rgba(255,83,103,.11);color:#fff}
@@ -809,37 +819,38 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 .collect-item.busy{opacity:.58;pointer-events:none}
 .collect-item img,.collect-item .cover-placeholder{width:38px;height:38px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0}
 .collect-empty{padding:18px 8px;text-align:center;color:rgba(255,255,255,.38);font-size:11.5px}
-.track-detail-modal{width:min(660px,92vw);max-width:min(660px,92vw);max-height:min(760px,calc(100vh - 88px));padding:28px;text-align:left;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;scrollbar-width:none;-ms-overflow-style:none}
+.track-detail-modal{width:min(700px,92vw);max-width:min(700px,92vw);max-height:min(780px,calc(100vh - 88px));padding:28px;text-align:left;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;scrollbar-width:none;-ms-overflow-style:none;background:linear-gradient(145deg,rgba(31,32,35,.94),rgba(13,14,17,.94));border-color:rgba(255,255,255,.13);box-shadow:0 34px 100px rgba(0,0,0,.58),0 0 0 1px rgba(var(--fc-accent-rgb),.05),inset 0 1px 0 rgba(255,255,255,.10)}
 .track-detail-modal h2{text-align:center;margin-bottom:16px}
 #track-detail-body{min-height:0;overflow:auto;padding-right:0;overscroll-behavior:contain}
 #track-detail-body{scrollbar-width:none;-ms-overflow-style:none}
 #track-detail-body::-webkit-scrollbar{width:0;height:0}
 .track-detail-modal::-webkit-scrollbar,.track-detail-modal *::-webkit-scrollbar{width:0!important;height:0!important}
 .track-detail-modal *{scrollbar-width:none;-ms-overflow-style:none}
-.detail-hero{display:flex;align-items:center;gap:14px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.035);margin-bottom:14px}
+.detail-hero{display:flex;align-items:center;gap:16px;padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.032));margin-bottom:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
 .detail-cover{width:72px;height:72px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0;box-shadow:0 14px 36px rgba(0,0,0,.34)}
 .detail-artist-avatar{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 24%,rgba(255,255,255,.18),rgba(255,255,255,.04) 44%,rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.075);color:rgba(255,255,255,.74);font-size:20px;font-weight:800}
-.detail-title{font-size:15px;color:rgba(255,255,255,.94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-title{font-size:18px;font-weight:760;color:rgba(255,255,255,.96);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .detail-sub{margin-top:4px;font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .detail-grid{display:grid;grid-template-columns:92px 1fr;gap:8px 12px;margin-top:14px;font-size:12px}
 .detail-k{color:rgba(255,255,255,.38)}
 .detail-v{color:rgba(255,255,255,.78);min-width:0;overflow:hidden;text-overflow:ellipsis}
 .detail-chip-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
-.detail-chip{height:25px;padding:0 10px;border-radius:999px;border:1px solid rgba(244,210,138,.16);background:rgba(244,210,138,.055);color:rgba(244,210,138,.72);font-size:10.5px;display:flex;align-items:center}
+.detail-chip{height:25px;padding:0 10px;border-radius:999px;border:1px solid rgba(var(--fc-accent-rgb),.20);background:rgba(var(--fc-accent-rgb),.065);color:rgba(255,255,255,.80);font-size:10.5px;display:flex;align-items:center}
 .detail-section{margin-top:16px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px}
 .detail-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .detail-section-title{font-size:12px;font-weight:800;letter-spacing:.12em;color:rgba(255,255,255,.64)}
 .detail-loading,.detail-empty{padding:14px 4px;text-align:center;color:rgba(255,255,255,.34);font-size:11.5px}
 .detail-scroll{max-height:none;overflow:visible;padding-right:0;scrollbar-width:none;-ms-overflow-style:none}
 .detail-scroll::-webkit-scrollbar{width:0;height:0}
-.comment-item,.artist-song-item{display:flex;gap:10px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.032);margin-bottom:7px}
+.comment-item,.artist-song-item{display:flex;gap:11px;padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.045);margin-bottom:7px}
 .comment-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0}
 .comment-main,.artist-song-main{min-width:0;flex:1}
 .comment-meta,.artist-song-meta{font-size:10.5px;color:rgba(255,255,255,.38);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comment-text{margin-top:4px;font-size:12px;line-height:1.55;color:rgba(255,255,255,.76);word-break:break-word}
-.artist-song-item{align-items:center;cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
-.artist-song-item:hover{background:rgba(244,210,138,.08);border-color:rgba(244,210,138,.22);transform:translateY(-1px)}
+.artist-song-item{align-items:center;cursor:pointer;transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
+.artist-song-item:hover{background:rgba(255,255,255,.075);border-color:rgba(244,210,138,.25);transform:translateY(-1px);box-shadow:0 12px 32px rgba(0,0,0,.20)}
 .artist-song-rank{width:26px;color:rgba(244,210,138,.62);font-size:11px;font-variant-numeric:tabular-nums;text-align:center}
+.artist-song-cover{width:42px;height:42px;border-radius:9px;object-fit:cover;background:rgba(255,255,255,.08);flex:0 0 auto;box-shadow:0 10px 24px rgba(0,0,0,.28)}
 .artist-song-name{font-size:12.5px;color:rgba(255,255,255,.90);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-height:720px),(max-width:1100px){
   .track-detail-modal{width:min(620px,94vw);max-height:calc(100vh - 64px);padding:22px}
@@ -1014,8 +1025,11 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .lyric-color-row.linked:hover .lyric-color-value{color:rgba(255,255,255,.52)}
 .fx-font-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0 10px}
 .fx-font-grid button{min-height:32px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.030);color:rgba(255,255,255,.58);font-family:inherit;font-size:11px;cursor:pointer;transition:background .18s,border-color .18s,color .18s,transform .18s}
+.fx-font-grid.expanded{grid-template-columns:repeat(4,minmax(0,1fr))}
+.fx-font-grid button[data-font="gothic"]{font-family:"UnifrakturCook","UnifrakturMaguntia","Old English Text MT","Blackletter","Cinzel Decorative",serif;font-size:12.5px}
+.fx-font-grid button[data-font="stone-song"],.fx-font-grid button[data-font="bold-song"]{font-family:"Source Han Serif SC","Noto Serif SC","STZhongsong","SimSun",serif;font-weight:800}
 .fx-font-grid button:hover{background:rgba(255,255,255,.06);color:#fff;transform:translateY(-1px)}
-.fx-font-grid button.active{border-color:rgba(0,245,212,.36);background:rgba(0,245,212,.09);color:#eafffb}
+.fx-font-grid button.active{border-color:rgba(var(--fc-accent-rgb),.36);background:rgba(var(--fc-accent-rgb),.09);color:#fff}
 .fx-color-row-label{font-size:11px;color:rgba(255,255,255,.66);line-height:1.2}
 .fx-color-row-label small{display:block;margin-top:2px;font-size:9.5px;color:rgba(255,255,255,.34);letter-spacing:.35px}
 
@@ -1070,10 +1084,13 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 /* ============================================================ */
 #playlist-panel{position:fixed;z-index:17;top:78px;left:-410px;width:340px;max-height:calc(100vh - 120px);overflow:auto;background:rgba(12,12,18,0.42);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px;backdrop-filter:blur(40px) saturate(1.4);-webkit-backdrop-filter:blur(40px) saturate(1.4);box-shadow:0 24px 80px rgba(0,0,0,0.45);opacity:0;transition:left .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1);pointer-events:none;transform:translateX(-16px);overscroll-behavior:contain}
 #playlist-panel.show, #playlist-panel.peek{left:32px;opacity:1;pointer-events:auto;transform:translateX(0)}
+#playlist-panel.pinned{border-color:rgba(var(--fc-accent-rgb),.28);box-shadow:0 24px 80px rgba(0,0,0,0.45),0 0 34px rgba(var(--fc-accent-rgb),.08)}
 #playlist-panel::-webkit-scrollbar{width:3px}
-#playlist-panel::-webkit-scrollbar-thumb{background:rgba(0,245,212,.20);border-radius:3px}
+#playlist-panel::-webkit-scrollbar-thumb{background:rgba(var(--fc-accent-rgb),.20);border-radius:3px}
 .queue-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
 .queue-head-act{display:flex;align-items:center;gap:6px}
+.playlist-pin-btn{width:30px;min-width:30px;flex:0 0 auto;padding:0}
+.playlist-pin-btn.active{border-color:rgba(var(--fc-accent-rgb),.38);background:rgba(var(--fc-accent-rgb),.10);color:#fff}
 .panel-tabs{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .panel-tab{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:rgba(255,255,255,.55);cursor:pointer;font-size:11px;transition:all .2s;font-family:inherit}
 .panel-tab.active{background:rgba(0,245,212,.10);border-color:rgba(0,245,212,.34);color:#eafffb}
@@ -1107,6 +1124,28 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .pl-card.podcast-child{margin-left:10px;background:rgba(255,255,255,.03)}
 .podcast-inline-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 7px}
 .podcast-inline-head .pl-section-label{margin:0}
+.panel-tab.active,.queue-item.now,.mini-queue-item.now,.preset-card.active,.fx-toggle.on,.fx-seg button.active{border-color:rgba(var(--fc-accent-rgb),.34)!important;background:rgba(var(--fc-accent-rgb),.085)!important;color:#fff!important}
+#search-box:focus-within,#fx-panel,#fx-fab:hover,#fx-fab.active,#upload-btn:hover,#home-btn:hover{border-color:rgba(var(--fc-accent-rgb),.42)!important;box-shadow:0 16px 46px rgba(var(--fc-accent-rgb),.08),inset 0 1px 0 rgba(255,255,255,.10)}
+.song-action-btn:hover,.qi-act button.queue-next:hover,.mini-queue-remove.mini-queue-next:hover{background:rgba(var(--fc-accent-rgb),.12)!important;border-color:rgba(var(--fc-accent-rgb),.30)!important;color:#fff!important}
+.pl-section-label,.fx-section-label,.fx-fold-head .arrow{color:rgba(var(--fc-accent-rgb),.58)}
+.search-result .add-btn:hover,.quality-option.active,.fx-mini-btn.active,.fx-mini-btn.ghost.active,.playlist-pin-btn.active{border-color:rgba(var(--fc-accent-rgb),.38)!important;background:rgba(var(--fc-accent-rgb),.12)!important;color:#fff!important;box-shadow:0 10px 28px rgba(var(--fc-accent-rgb),.08)}
+#home-btn,#upload-btn,#play-btn{border-color:rgba(var(--fc-accent-rgb),.24)!important}
+#home-btn:hover,#upload-btn:hover,#play-btn:hover,.ctrl-btn:hover{border-color:rgba(var(--fc-accent-rgb),.42)!important;background:rgba(var(--fc-accent-rgb),.085)!important;box-shadow:0 14px 38px rgba(var(--fc-accent-rgb),.10),inset 0 1px 0 rgba(255,255,255,.12)!important;color:#fff}
+#play-btn{background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(12,16,18,.54) 48%,rgba(var(--fc-accent-rgb),.050))!important;box-shadow:0 12px 34px rgba(0,0,0,.30),0 0 18px rgba(var(--fc-accent-rgb),.055),inset 0 1px 0 rgba(255,255,255,.18),inset 0 -10px 24px rgba(0,0,0,.20)!important}
+body.empty-home-active #home-btn{border-color:rgba(var(--fc-accent-rgb),.42)!important;background:rgba(var(--fc-accent-rgb),.14)!important}
+.home-card[data-home-tone],.home-tile[data-home-tone]{--tone-a:var(--home-accent);--tone-b:color-mix(in srgb,var(--home-accent) 58%,#2442ff);--tone-c:color-mix(in srgb,var(--home-accent) 42%,#f8f4ee)}
+.home-hero{border-color:color-mix(in srgb,var(--home-accent) 34%,rgba(255,255,255,.085));background:linear-gradient(145deg,color-mix(in srgb,var(--home-accent) 18%,rgba(33,29,34,.64)),rgba(9,10,14,.76) 48%,color-mix(in srgb,var(--home-accent) 10%,rgba(17,20,25,.70)))}
+.home-hero::before{background:linear-gradient(118deg,color-mix(in srgb,var(--home-accent) 18%,rgba(255,255,255,.060)),transparent 24%,color-mix(in srgb,var(--home-accent) 13%,rgba(255,83,103,.070)) 54%,color-mix(in srgb,var(--home-accent) 15%,rgba(122,215,194,.055)) 82%,transparent 100%),linear-gradient(90deg,rgba(255,255,255,.032) 0 1px,transparent 1px 48px),linear-gradient(0deg,rgba(255,255,255,.024) 0 1px,transparent 1px 44px)}
+.home-card,.home-tile,.home-mosaic-cell{border-color:color-mix(in srgb,var(--home-accent) 22%,rgba(255,255,255,.080));box-shadow:0 20px 64px rgba(0,0,0,.28),0 0 26px color-mix(in srgb,var(--home-accent) 8%,transparent),inset 0 1px 0 rgba(255,255,255,.060)}
+.home-card{background:linear-gradient(142deg,color-mix(in srgb,var(--home-accent) 13%,rgba(18,21,26,.66)),rgba(8,9,13,.76))}
+.home-card::before{background:linear-gradient(118deg,color-mix(in srgb,var(--home-accent) 24%,transparent),transparent 38%,color-mix(in srgb,var(--home-accent) 14%,transparent) 74%,transparent),linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 38px)}
+.home-card:hover,.home-tile:hover{border-color:color-mix(in srgb,var(--home-accent) 44%,rgba(255,255,255,.18));box-shadow:0 26px 78px rgba(0,0,0,.34),0 0 34px color-mix(in srgb,var(--home-accent) 16%,transparent),inset 0 1px 0 rgba(255,255,255,.085)}
+.home-tile{background:linear-gradient(145deg,color-mix(in srgb,var(--home-accent) 12%,rgba(255,255,255,.060)),rgba(255,255,255,.025))}
+.home-sleeve{background:linear-gradient(135deg,color-mix(in srgb,var(--home-accent) 72%,rgba(255,255,255,.10)),color-mix(in srgb,var(--home-accent) 46%,#2442ff) 48%,rgba(248,244,238,.30))}
+.home-disc{background:repeating-radial-gradient(circle,rgba(255,255,255,.10) 0 1px,transparent 1px 10px),conic-gradient(from 210deg,var(--home-accent),color-mix(in srgb,var(--home-accent) 55%,#2442ff),#f8f4ee,color-mix(in srgb,var(--home-accent) 72%,#7ad7c2),var(--home-accent))}
+.home-mosaic-cell:not(.has-cover)::before{background:linear-gradient(135deg,color-mix(in srgb,var(--home-accent) 68%,transparent),color-mix(in srgb,var(--home-accent) 36%,#2442ff) 46%,rgba(10,10,14,.20)),repeating-linear-gradient(110deg,rgba(255,255,255,.16) 0 2px,transparent 2px 18px)}
+.home-mosaic-cell:nth-child(2):not(.has-cover)::before{background:linear-gradient(135deg,color-mix(in srgb,var(--home-accent) 72%,#7ad7c2),color-mix(in srgb,var(--home-accent) 42%,#9db8cf) 48%,rgba(10,10,14,.24)),repeating-linear-gradient(0deg,rgba(255,255,255,.16) 0 2px,transparent 2px 16px)}
+.home-mosaic-cell:nth-child(3):not(.has-cover)::before{background:linear-gradient(135deg,rgba(248,244,238,.38),color-mix(in srgb,var(--home-accent) 46%,transparent) 58%,rgba(10,10,14,.24)),repeating-linear-gradient(90deg,rgba(255,255,255,.15) 0 2px,transparent 2px 15px)}
 
 /* ============================================================ */
 /*  舞台歌词 (大字 + 3D 入场 + 呼吸)                              */
@@ -1176,6 +1215,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
     </button>
   </div>
 </div>
+<div id="custom-bg"></div>
 <div id="album-bg"></div>
 <div id="canvas-container"></div>
 <canvas id="idle-guide-canvas" aria-hidden="true"></canvas>
@@ -1232,18 +1272,18 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
   <div class="empty-home-shell">
     <div class="home-hero">
       <div class="home-hero-inner">
-        <div class="home-kicker" id="home-weather-kicker">Open-Meteo Weather Radio</div>
-        <div class="home-title" id="home-weather-title">天气电台</div>
-        <div class="home-sub" id="home-subtitle">根据城市、天气和时间，为这一刻生成一组能直接播放的歌。</div>
+        <div class="home-kicker" id="home-weather-kicker">Mineradio · Your Library</div>
+        <div class="home-title" id="home-weather-title">我的音乐库</div>
+        <div class="home-sub" id="home-subtitle">从你的歌单、最近播放和常听歌手开始，天气电台放在需要氛围的时候再开。</div>
         <div class="home-weather-meta" id="home-weather-meta">
           <span class="home-weather-pill">上海</span>
           <span class="home-weather-pill">正在整理天气</span>
         </div>
         <div class="home-quick-row">
-          <button class="home-chip" type="button" data-home-radio-start="1" onclick="startWeatherRadio()">启动电台</button>
-          <button class="home-chip" type="button" onclick="locateWeatherRadio()">定位天气</button>
-          <button class="home-chip" type="button" onclick="changeWeatherCity()">换城市</button>
-          <button class="home-chip" type="button" onclick="runHomeSearch('独立音乐')">独立音乐</button>
+          <button class="home-chip" type="button" onclick="openHomeLibrary()">我的歌单</button>
+          <button class="home-chip" type="button" onclick="openHomeInsight()">常听歌手</button>
+          <button class="home-chip" type="button" onclick="playHomeRecent()">继续听</button>
+          <button class="home-chip" type="button" data-home-radio-start="1" onclick="startWeatherRadio()">天气电台</button>
         </div>
         <div class="home-visual" aria-hidden="true">
           <div class="home-sleeve"></div>
@@ -1267,10 +1307,10 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
     </div>
 
     <div class="home-grid">
-      <button class="home-card" data-home-tone="daily" data-home-radio-start="1" type="button" onclick="startWeatherRadio()">
-        <div class="home-card-label">Weather</div>
-        <div class="home-card-title" id="home-weather-card-title">天气电台</div>
-        <div class="home-card-sub" id="home-weather-card-sub">正在整理这一刻的声音</div>
+      <button class="home-card" data-home-tone="library" type="button" onclick="openHomeLibrary()">
+        <div class="home-card-label">Library</div>
+        <div class="home-card-title" id="home-weather-card-title">我的歌单</div>
+        <div class="home-card-sub" id="home-weather-card-sub">打开左侧歌单库</div>
         <div class="home-card-art" id="home-weather-art"></div>
       </button>
       <button class="home-card" data-home-tone="mix" type="button" onclick="playHomeDaily()">
@@ -1317,6 +1357,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 
 <!-- 顶部右侧 (只保留用户) -->
 <div id="top-right">
+  <button id="user-capsule-hide-btn" class="user-capsule-hide-btn" type="button" onclick="toggleUserCapsuleAutoHide(event)" title="自动隐藏账号胶囊">‹</button>
   <button id="home-btn" class="icon-btn" onclick="goHome()" title="回到 Home" aria-label="回到 Home">
     <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/></svg>
   </button>
@@ -1339,14 +1380,29 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
   <div class="preset-grid" id="preset-grid"></div>
   <div class="fx-section-label">自定义颜色</div>
   <div class="lyric-color-row">
+    <input id="ui-accent-picker" class="lyric-color-picker" type="color" value="#00f5d4" title="界面高亮色">
+    <div class="fx-color-row-label">界面高亮<small id="ui-accent-value">#00F5D4</small></div>
+    <button class="fx-mini-btn ghost" type="button" onclick="resetUiAccentColor()">默认</button>
+  </div>
+  <div class="lyric-color-row">
     <input id="visual-tint-picker" class="lyric-color-picker" type="color" value="#9db8cf" title="视觉主色">
     <div class="fx-color-row-label">视觉主色<small id="visual-tint-value">封面取色</small></div>
     <button class="fx-mini-btn ghost" id="visual-tint-auto-btn" type="button" onclick="setVisualTintAuto()">封面</button>
   </div>
   <div class="lyric-color-row">
-    <input id="home-accent-picker" class="lyric-color-picker" type="color" value="#00f5d4" title="Home 边框色">
-    <div class="fx-color-row-label">Home 边框<small id="home-accent-value">#00F5D4</small></div>
+    <input id="home-accent-picker" class="lyric-color-picker" type="color" value="#00f5d4" title="Home 填充色">
+    <div class="fx-color-row-label">Home 填充<small id="home-accent-value">#00F5D4</small></div>
     <button class="fx-mini-btn ghost" type="button" onclick="resetHomeAccentColor()">默认</button>
+  </div>
+  <div class="lyric-color-row">
+    <input id="bg-color-picker" class="lyric-color-picker" type="color" value="#000000" title="背景颜色">
+    <div class="fx-color-row-label">背景颜色<small id="bg-color-value">#000000</small></div>
+    <button class="fx-mini-btn ghost" type="button" onclick="resetCustomBackgroundColor()">默认</button>
+  </div>
+  <div class="lyric-color-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('background-image-input').click()">选择图片</button>
+    <div class="fx-color-row-label">背景图片<small id="bg-image-value">未设置</small></div>
+    <button class="fx-mini-btn ghost" type="button" onclick="clearCustomBackgroundImage()">清除</button>
   </div>
 
   <div class="fx-section-label">主控</div>
@@ -1388,11 +1444,17 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
         </div>
       </div>
       <div class="fx-section-label">歌词字体</div>
-      <div class="fx-font-grid" id="lyric-font-grid">
+      <div class="fx-font-grid expanded" id="lyric-font-grid">
         <button type="button" data-font="sans" onclick="setLyricFont('sans')">默认</button>
         <button type="button" data-font="hei" onclick="setLyricFont('hei')">黑体</button>
         <button type="button" data-font="song" onclick="setLyricFont('song')">宋体</button>
-        <button type="button" data-font="round" onclick="setLyricFont('round')">圆体</button>
+        <button type="button" data-font="bold-song" onclick="setLyricFont('bold-song')">粗宋</button>
+        <button type="button" data-font="stone-song" onclick="setLyricFont('stone-song')">石印宋</button>
+        <button type="button" data-font="kai-song" onclick="setLyricFont('kai-song')">楷宋</button>
+        <button type="button" data-font="serif-en" onclick="setLyricFont('serif-en')">Serif</button>
+        <button type="button" data-font="gothic" onclick="setLyricFont('gothic')">Gothic</button>
+        <button type="button" data-font="editorial" onclick="setLyricFont('editorial')">Editorial</button>
+        <button type="button" data-font="humanist" onclick="setLyricFont('humanist')">Humanist</button>
         <button type="button" data-font="mono" onclick="setLyricFont('mono')">等宽</button>
         <button type="button" data-font="display" onclick="setLyricFont('display')">标题</button>
       </div>
@@ -1470,6 +1532,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
   <div class="queue-head">
     <div><div class="fx-title">歌单 / 队列</div><div class="fx-sub">QUEUE · 鼠标移开自动隐藏</div></div>
     <div class="queue-head-act">
+      <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn" onclick="togglePlaylistPanelPinned()" title="常开歌单">钉</button>
       <button class="fx-mini-btn ghost" onclick="shuffleQueue()">随机</button>
     </div>
   </div>
@@ -1599,6 +1662,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 </div>
 
 <input type="file" id="file-input" accept=".mp3,.flac,.wav,.ogg,.m4a,.jpg,.jpeg,.png,.webp" multiple style="display:none">
+<input type="file" id="background-image-input" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none">
 <div id="drop-overlay"><div class="drop-text">拖放音乐或封面</div></div>
 <div id="loading-overlay"><div class="spinner"></div></div>
 
@@ -1855,6 +1919,8 @@ var LYRIC_LAYOUT_STORE_KEY = 'mineradio-lyric-layout-v1';
 var PLAYBACK_QUALITY_STORE_KEY = 'mineradio-playback-quality-v1';
 var UPLOAD_TIP_STORE_KEY = 'mineradio-upload-tip-seen';
 var DIY_MODE_STORE_KEY = 'mineradio-diy-player-mode-v1';
+var PLAYLIST_PANEL_PIN_STORE_KEY = 'mineradio-playlist-panel-pinned-v1';
+var USER_CAPSULE_AUTO_HIDE_STORE_KEY = 'mineradio-user-capsule-auto-hide-v1';
 var VISUAL_GUIDE_SEEN_STORE_KEY = 'mineradio-visual-guide-seen-v2';
 var LOCAL_BEATMAP_STORE_KEY = 'mineradio-local-beatmaps-v1';
 var LOCAL_BEAT_PREF_STORE_KEY = 'mineradio-local-beatmap-prefs-v1';
@@ -1971,6 +2037,42 @@ function readDiyModePreference() {
 }
 function saveDiyModePreference(on) {
   try { localStorage.setItem(DIY_MODE_STORE_KEY, on ? '1' : '0'); } catch (e) {}
+}
+function readBooleanPreference(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (raw == null) return !!fallback;
+    return raw === '1';
+  } catch (e) {
+    return !!fallback;
+  }
+}
+function saveBooleanPreference(key, on) {
+  try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) {}
+}
+function applyUserCapsuleAutoHideState() {
+  document.body.classList.toggle('user-capsule-auto-hide', !!userCapsuleAutoHide);
+  var btn = document.getElementById('user-capsule-hide-btn');
+  if (btn) {
+    btn.classList.toggle('on', !!userCapsuleAutoHide);
+    btn.textContent = userCapsuleAutoHide ? '›' : '‹';
+    btn.title = userCapsuleAutoHide ? '取消自动隐藏账号胶囊' : '自动隐藏账号胶囊';
+  }
+}
+function toggleUserCapsuleAutoHide(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  userCapsuleAutoHide = !userCapsuleAutoHide;
+  saveBooleanPreference(USER_CAPSULE_AUTO_HIDE_STORE_KEY, userCapsuleAutoHide);
+  applyUserCapsuleAutoHideState();
+  showToast(userCapsuleAutoHide ? '账号胶囊已自动隐藏' : '账号胶囊已固定显示');
+}
+function updateUserCapsuleAutoHideFromPointer(x, y) {
+  if (!userCapsuleAutoHide || immersiveMode) {
+    document.body.classList.remove('user-capsule-peek');
+    return;
+  }
+  var nearTopRight = x > innerWidth - 112 && y < 126;
+  document.body.classList.toggle('user-capsule-peek', nearTopRight);
 }
 function isDiyMode() {
   return !!diyPlayerMode;
@@ -2203,7 +2305,11 @@ var fxDefaults = {
   lyricWeight: 900,
   visualTintMode: 'auto',
   visualTintColor: '#9db8cf',
+  uiAccentColor: '#00f5d4',
   homeAccentColor: '#00f5d4',
+  backgroundColor: '#000000',
+  backgroundColorCustom: false,
+  backgroundImage: '',
   floatLayer: false, cinema: true, edge: true, aiDepth: false, bloom: false, lyricGlow: true,
   lyricGlowBeat: true,
   lyricGlowParticles: false,
@@ -2224,6 +2330,8 @@ var controlsShelfSuppressUntil = 0;
 var cursorHideTimer = null;
 var CURSOR_HIDE_DELAY = 2500;
 var fxPanelPinned = false;
+var playlistPanelPinned = readBooleanPreference(PLAYLIST_PANEL_PIN_STORE_KEY, false);
+var userCapsuleAutoHide = readBooleanPreference(USER_CAPSULE_AUTO_HIDE_STORE_KEY, false);
 var immersiveMode = false;
 var immersiveState = {
   shelfMode: null,
@@ -2256,15 +2364,17 @@ function pulseObjectValue(target, key, amount, duration) {
 //  Three.js 场景
 // ============================================================
 var scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = null;
 var camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
 var RENDER_DPR_CAP = 1.35;
 function getRenderPixelRatio() {
   return Math.min(window.devicePixelRatio || 1, RENDER_DPR_CAP);
 }
 var renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(getRenderPixelRatio());
 renderer.setSize(innerWidth, innerHeight);
+renderer.domElement.style.background = 'transparent';
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
 // ============================================================
@@ -4262,8 +4372,8 @@ void main(){
       float groove = 0.5 + 0.5 * sin((d - coverR) * mix(98.0, 58.0, hiResGuard));
       float fineGroove = 0.5 + 0.5 * sin((d - coverR) * mix(170.0, 92.0, hiResGuard) + aRand * 3.0);
       float tick = smoothstep(0.82, 0.995, hash11(floor((angle0 + PI) * 38.0) + floor(d * 72.0) * 2.1));
-      vec3 vinyl = vec3(0.022, 0.023, 0.024) + vec3(0.020 * grooveGuard) * groove + vec3(0.010 * grooveGuard) * fineGroove;
-      vinyl = mix(vinyl, coverColor * 0.22, 0.14 * (1.0 - vinylN));
+      vec3 vinyl = vec3(0.052, 0.054, 0.058) + vec3(0.052 * grooveGuard) * groove + vec3(0.026 * grooveGuard) * fineGroove;
+      vinyl = mix(vinyl, coverColor * 0.32, 0.18 * (1.0 - vinylN));
       float whiteRing = max(border * 0.92, outerRim * 0.26);
       vColor = mix(vinyl, vec3(0.92, 0.94, 0.94), whiteRing);
       vColor = mix(vColor, vec3(1.0), tick * highDrive * (0.06 + border * 0.12) * grooveGuard);
@@ -4412,7 +4522,7 @@ void main(){
   if (uPreset > 4.5) {
     vBright = 0.94 + maxRippleAmp * 0.34 + uBass * 0.020 + uEnergy * 0.026 + uBurstAmt * 0.025;
   } else if (uPreset > 3.5) {
-    vBright = 0.70 + maxRippleAmp * 0.52 + uBass * 0.05 + edgeBoost * 0.08 + uEnergy * 0.03 + uBeat * 0.10 + uBurstAmt * 0.12;
+    vBright = 0.94 + maxRippleAmp * 0.64 + uBass * 0.08 + edgeBoost * 0.12 + uEnergy * 0.05 + uBeat * 0.16 + uBurstAmt * 0.16;
   }
   vRipple = clamp(maxRippleAmp * 1.5, 0.0, 1.0);
 
@@ -4461,7 +4571,7 @@ void main(){
     sz = clamp(depthSize * (1.02 + flowDrive), 0.95, 4.80);
   } else if (uPreset > 3.5) {
     float ringDrive = uBass * 0.30 + uMid * 0.18 + uTreble * 0.22 + uBeat * 0.30;
-    sz = clamp(depthSize * (0.82 + ringDrive * 0.54), 0.95, 3.55);
+    sz = clamp(depthSize * (0.90 + ringDrive * 0.62), 1.05, 3.90);
   }
   // 加载态下粒子稍大
   sz = mix(sz, sz * loadingMistSize, uLoading);
@@ -4953,6 +5063,7 @@ function readSavedLyricLayout() {
   try {
     var raw = JSON.parse(localStorage.getItem(LYRIC_LAYOUT_STORE_KEY) || '{}') || {};
     return {
+      preset: clampRange(Number(raw.preset) || 0, 0, 5),
       lyricScale: clampRange(Number(raw.lyricScale) || 1, 0.35, 1.65),
       lyricOffsetX: clampRange(Number(raw.lyricOffsetX) || 0, -2.0, 2.0),
       lyricOffsetY: clampRange(Number(raw.lyricOffsetY) || 0, -1.2, 1.35),
@@ -4968,9 +5079,16 @@ function readSavedLyricLayout() {
       lyricLetterSpacing: clampRange(Number(raw.lyricLetterSpacing) || 0, -0.04, 0.18),
       lyricLineHeight: clampRange(Number(raw.lyricLineHeight) || 1, 0.86, 1.35),
       lyricWeight: clampRange(Number(raw.lyricWeight) || 900, 500, 900),
+      lyricGlow: raw.lyricGlow !== false,
+      lyricGlowBeat: raw.lyricGlowBeat !== false,
+      lyricGlowParticles: !!raw.lyricGlowParticles,
       visualTintMode: raw.visualTintMode === 'custom' ? 'custom' : 'auto',
       visualTintColor: normalizeHexColor(raw.visualTintColor || '#9db8cf'),
+      uiAccentColor: normalizeHexColor(raw.uiAccentColor || '#00f5d4', '#00f5d4'),
       homeAccentColor: normalizeHexColor(raw.homeAccentColor || '#00f5d4'),
+      backgroundColor: normalizeHexColor(raw.backgroundColor || '#000000', '#000000'),
+      backgroundColorCustom: raw.backgroundColorCustom === true || normalizeHexColor(raw.backgroundColor || '#000000', '#000000') !== '#000000',
+      backgroundImage: normalizeCustomBackgroundImage(raw.backgroundImage),
       coverResolution: normalizeCoverResolution(raw.coverResolution)
     };
   } catch (e) {
@@ -4980,6 +5098,7 @@ function readSavedLyricLayout() {
 function saveLyricLayout() {
   try {
     localStorage.setItem(LYRIC_LAYOUT_STORE_KEY, JSON.stringify({
+      preset: clampRange(Number(fx.preset) || 0, 0, presetMeta.length - 1),
       lyricScale: clampRange(Number(fx.lyricScale) || 1, 0.35, 1.65),
       lyricOffsetX: clampRange(Number(fx.lyricOffsetX) || 0, -2.0, 2.0),
       lyricOffsetY: clampRange(Number(fx.lyricOffsetY) || 0, -1.2, 1.35),
@@ -4995,34 +5114,50 @@ function saveLyricLayout() {
       lyricLetterSpacing: clampRange(Number(fx.lyricLetterSpacing) || 0, -0.04, 0.18),
       lyricLineHeight: clampRange(Number(fx.lyricLineHeight) || 1, 0.86, 1.35),
       lyricWeight: clampRange(Number(fx.lyricWeight) || 900, 500, 900),
+      lyricGlow: !!fx.lyricGlow,
+      lyricGlowBeat: !!fx.lyricGlowBeat,
+      lyricGlowParticles: !!fx.lyricGlowParticles,
       visualTintMode: fx.visualTintMode === 'custom' ? 'custom' : 'auto',
       visualTintColor: normalizeHexColor(fx.visualTintColor || '#9db8cf'),
+      uiAccentColor: normalizeHexColor(fx.uiAccentColor || '#00f5d4', '#00f5d4'),
       homeAccentColor: normalizeHexColor(fx.homeAccentColor || '#00f5d4'),
+      backgroundColor: normalizeHexColor(fx.backgroundColor || '#000000', '#000000'),
+      backgroundColorCustom: !!fx.backgroundColorCustom,
+      backgroundImage: normalizeCustomBackgroundImage(fx.backgroundImage),
       coverResolution: normalizeCoverResolution(fx.coverResolution)
     }));
   } catch (e) {}
 }
-function normalizeHexColor(value) {
+function normalizeHexColor(value, fallback) {
   var hex = String(value || '').trim();
   if (/^#[0-9a-f]{3}$/i.test(hex)) {
     hex = '#' + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) + hex.charAt(3) + hex.charAt(3);
   }
-  return /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : '#a9b8c8';
+  fallback = /^#[0-9a-f]{6}$/i.test(String(fallback || '')) ? String(fallback).toLowerCase() : '#a9b8c8';
+  return /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : fallback;
 }
 function normalizeLyricFontKey(value) {
   value = String(value || 'sans');
-  return /^(sans|hei|song|round|mono|display)$/.test(value) ? value : 'sans';
+  return /^(sans|hei|song|bold-song|stone-song|kai-song|serif-en|gothic|editorial|humanist|round|mono|display)$/.test(value) ? value : 'sans';
 }
 function lyricFontStackForKey(key) {
   key = normalizeLyricFontKey(key);
   if (key === 'hei') return '"Noto Sans SC","Microsoft YaHei",SimHei,"PingFang SC",sans-serif';
   if (key === 'song') return '"Noto Serif SC","Source Han Serif SC",SimSun,"Songti SC",serif';
+  if (key === 'bold-song') return '"Source Han Serif SC Heavy","Source Han Serif SC","Noto Serif SC Black","Noto Serif SC","STZhongsong","SimSun",serif';
+  if (key === 'stone-song') return '"FZYaSongS-B-GB","FZCuSong-B09S","Source Han Serif SC Heavy","Noto Serif SC Black","STZhongsong","SimSun",serif';
+  if (key === 'kai-song') return '"Kaiti SC","STKaiti","KaiTi","Source Han Serif SC","Noto Serif SC",serif';
+  if (key === 'serif-en') return 'Georgia,"Times New Roman","Noto Serif SC","Source Han Serif SC",serif';
+  if (key === 'gothic') return '"UnifrakturCook","UnifrakturMaguntia","Old English Text MT","Blackletter","Cinzel Decorative","Noto Serif SC",serif';
+  if (key === 'editorial') return '"Didot","Bodoni 72","Libre Baskerville",Georgia,"Noto Serif SC",serif';
+  if (key === 'humanist') return '"Avenir Next","Segoe UI","Inter","Noto Sans SC","PingFang SC",sans-serif';
   if (key === 'round') return '"HarmonyOS Sans SC","Microsoft YaHei UI","PingFang SC","Noto Sans SC",sans-serif';
   if (key === 'mono') return '"JetBrains Mono",Consolas,"Noto Sans SC","Microsoft YaHei",monospace';
   if (key === 'display') return '"Alibaba PuHuiTi","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
   return 'Inter,"Noto Sans SC","PingFang SC","Microsoft YaHei",Arial,sans-serif';
 }
 function lyricFontWeightValue() {
+  if (normalizeLyricFontKey(fx && fx.lyricFont) === 'stone-song') return 900;
   return Math.round(clampRange(Number(fx && fx.lyricWeight) || 900, 500, 900) / 50) * 50;
 }
 function lyricFontCss(fontSize) {
@@ -5078,6 +5213,75 @@ function lyricFillText(ctx, text, x, y, fontSize) {
 function lyricStrokeText(ctx, text, x, y, fontSize) {
   drawTextWithLetterSpacing(ctx, text, x, y, lyricLetterSpacingPx(fontSize), true);
 }
+function applyStonePrintTexture(ctx, W, H, fontSize) {
+  if (normalizeLyricFontKey(fx && fx.lyricFont) !== 'stone-song') return;
+  var size = clampRange(fontSize || 128, 42, 180);
+  var bandTop = H * 0.10;
+  var bandH = H * 0.80;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+
+  var noiseW = 300, noiseH = 110;
+  var noise = document.createElement('canvas');
+  noise.width = noiseW; noise.height = noiseH;
+  var nctx = noise.getContext('2d');
+  var img = nctx.createImageData(noiseW, noiseH);
+  for (var p = 0; p < noiseW * noiseH; p++) {
+    var x0 = p % noiseW;
+    var y0 = Math.floor(p / noiseW);
+    var vein = Math.sin(x0 * 0.19 + y0 * 0.043) * 0.10 + Math.sin(y0 * 0.31) * 0.06;
+    var r = Math.random() + vein;
+    var a = 0;
+    if (r > 0.82) a = 78 + Math.random() * 92;
+    else if (r > 0.62) a = 22 + Math.random() * 54;
+    else if (r > 0.48) a = 4 + Math.random() * 24;
+    img.data[p * 4] = 255;
+    img.data[p * 4 + 1] = 255;
+    img.data[p * 4 + 2] = 255;
+    img.data[p * 4 + 3] = a;
+  }
+  nctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = 0.34;
+  ctx.drawImage(noise, 0, bandTop, W, bandH);
+
+  var chips = Math.round(size * 7.2);
+  for (var i = 0; i < chips; i++) {
+    var x = Math.random() * W;
+    var y = bandTop + Math.random() * bandH;
+    var w = 0.7 + Math.random() * (size * 0.052);
+    var h = 0.45 + Math.random() * (size * 0.026);
+    ctx.globalAlpha = 0.16 + Math.random() * 0.36;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((Math.random() - 0.5) * 0.38);
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
+  ctx.lineCap = 'round';
+  for (var s = 0; s < 44; s++) {
+    var sx = Math.random() * W;
+    var sy = bandTop + Math.random() * bandH;
+    ctx.globalAlpha = 0.09 + Math.random() * 0.16;
+    ctx.lineWidth = 0.45 + Math.random() * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + 10 + Math.random() * 86, sy + (Math.random() - 0.5) * 4.8);
+    ctx.stroke();
+  }
+
+  for (var c = 0; c < 26; c++) {
+    var cx = Math.random() * W;
+    var cy = bandTop + Math.random() * bandH;
+    var radius = 1.8 + Math.random() * (size * 0.060);
+    ctx.globalAlpha = 0.08 + Math.random() * 0.18;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, radius * (0.7 + Math.random() * 1.4), radius * (0.25 + Math.random() * 0.55), Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 function hexToRgb(hex) {
   hex = normalizeHexColor(hex).slice(1);
   return {
@@ -5085,6 +5289,25 @@ function hexToRgb(hex) {
     g: parseInt(hex.slice(2, 4), 16),
     b: parseInt(hex.slice(4, 6), 16)
   };
+}
+function normalizeCustomBackgroundImage(value) {
+  var src = String(value || '').trim();
+  if (!src) return '';
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(src)) return src;
+  if (/^https?:\/\//i.test(src)) return src;
+  return '';
+}
+function uiAccentHex(fallback) {
+  return normalizeHexColor((fx && fx.uiAccentColor) || fallback || '#00f5d4', fallback || '#00f5d4');
+}
+function uiAccentRgba(alpha, fallback) {
+  var c = hexToRgb(uiAccentHex(fallback));
+  return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + (alpha == null ? 1 : alpha) + ')';
+}
+function readableInkForHex(hex) {
+  var c = hexToRgb(hex || '#00f5d4');
+  var lum = (c.r * 0.299 + c.g * 0.587 + c.b * 0.114) / 255;
+  return lum > 0.54 ? '#06100f' : '#f8fbff';
 }
 function lyricPaletteFromHex(hex) {
   var c = hexToRgb(hex);
@@ -5117,6 +5340,33 @@ function silverBlueLyricPalette() {
     glow: 'rgba(138,190,255,0.26)',
   };
 }
+function setLyricSparkOpacity(data, value) {
+  if (!data || !data.sparkMat) return;
+  value = clampRange(Number(value) || 0, 0, 1);
+  if (data.sparkMat.uniforms && data.sparkMat.uniforms.uOpacity) data.sparkMat.uniforms.uOpacity.value = value;
+  else data.sparkMat.opacity = value;
+}
+function getLyricSparkOpacity(data) {
+  if (!data || !data.sparkMat) return 0;
+  if (data.sparkMat.uniforms && data.sparkMat.uniforms.uOpacity) return Number(data.sparkMat.uniforms.uOpacity.value) || 0;
+  return Number(data.sparkMat.opacity) || 0;
+}
+function setLyricSparkSize(data, value) {
+  if (!data || !data.sparkMat) return;
+  value = Math.max(0.002, Number(value) || 0.035);
+  if (data.sparkMat.uniforms && data.sparkMat.uniforms.uSize) data.sparkMat.uniforms.uSize.value = value;
+  else data.sparkMat.size = value;
+}
+function getLyricSparkSize(data) {
+  if (!data || !data.sparkMat) return 0.035;
+  if (data.sparkMat.uniforms && data.sparkMat.uniforms.uSize) return Number(data.sparkMat.uniforms.uSize.value) || 0.035;
+  return Number(data.sparkMat.size) || 0.035;
+}
+function setLyricSparkColor(data, color) {
+  if (!data || !data.sparkMat) return;
+  if (data.sparkMat.uniforms && data.sparkMat.uniforms.uColor) data.sparkMat.uniforms.uColor.value.copy(color);
+  else if (data.sparkMat.color) data.sparkMat.color.copy(color);
+}
 function applyLyricPaletteToMesh(mesh) {
   if (!mesh || !mesh.userData || !mesh.userData.lyric) return;
   var pal = stageLyrics.palette || {};
@@ -5132,7 +5382,7 @@ function applyLyricPaletteToMesh(mesh) {
     data.textMat.needsUpdate = true;
   }
   if (data.glowMat) data.glowMat.color.copy(lyricThreeColor(pal.glowColor || pal.secondary || pal.primary, '#9cffdf', 0.36));
-  if (data.sparkMat) data.sparkMat.color.copy(lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff0b8', 0.46));
+  if (data.sparkMat) setLyricSparkColor(data, lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff0b8', 0.46));
   if (data.sunMat) data.sunMat.color.copy(lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff0b8', 0.50));
 }
 function effectiveLyricPalette(pal) {
@@ -5328,6 +5578,7 @@ function makeLyricMask(text) {
       lyricFillText(ctx, lines[di], x, y0 + di * lineHeight, fontSize);
     }
   }
+  applyStonePrintTexture(ctx, W, H, fontSize);
   var tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
@@ -5616,10 +5867,41 @@ function buildLyricMesh(text) {
   }
   pgeo.setAttribute('position', new THREE.BufferAttribute(ppos, 3));
   pgeo.setAttribute('seed', new THREE.BufferAttribute(pseed, 1));
-  var pmat = new THREE.PointsMaterial({
-    map:dotTexture, size:0.052, transparent:true, opacity:0,
-    depthWrite:false, depthTest:false, blending:THREE.AdditiveBlending,
-    color:lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff7d2', 0.30)
+  var pmat = new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: dotTexture },
+      uSize: { value: 0.052 },
+      uOpacity: { value: 0 },
+      uColor: { value: lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff7d2', 0.30) },
+      uPixel: uniforms.uPixel
+    },
+    vertexShader: [
+      'attribute float seed;',
+      'uniform float uSize;',
+      'uniform float uPixel;',
+      'varying float vSeed;',
+      'void main(){',
+      '  vSeed = seed;',
+      '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+      '  float jitter = 0.58 + fract(sin(seed * 19.17) * 43758.5453) * 1.18;',
+      '  float depth = clamp(2.2 / max(0.35, -mv.z), 0.54, 1.55);',
+      '  gl_PointSize = uSize * jitter * depth * uPixel * 120.0;',
+      '  gl_Position = projectionMatrix * mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'precision highp float;',
+      'uniform sampler2D uMap;',
+      'uniform vec3 uColor;',
+      'uniform float uOpacity;',
+      'varying float vSeed;',
+      'void main(){',
+      '  vec4 tex = texture2D(uMap, gl_PointCoord);',
+      '  float twinkle = 0.72 + fract(sin(vSeed * 7.31) * 91.7) * 0.28;',
+      '  gl_FragColor = vec4(uColor * twinkle, tex.a * uOpacity);',
+      '}'
+    ].join('\n'),
+    transparent:true, depthWrite:false, depthTest:false, blending:THREE.AdditiveBlending
   });
   var sparks = new THREE.Points(pgeo, pmat);
   sparks.renderOrder = 44;
@@ -5723,10 +6005,10 @@ function updateStageLyrics3D(dt) {
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -1.2, 1.35);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 1.02 : 1.15), -1.6, 1.6);
   } else if (shouldOffsetLyricsForShelfDetail()) {
-    layoutScale *= 0.78;
-    layoutX = clampRange(layoutX - 1.16, -2.0, 2.0);
-    layoutY = clampRange(layoutY + 0.10, -1.2, 1.35);
-    layoutZ = clampRange(layoutZ + 0.72, -1.6, 1.6);
+    layoutScale *= 0.70;
+    layoutX = clampRange(layoutX - 1.58, -2.0, 2.0);
+    layoutY = clampRange(layoutY + 0.08, -1.2, 1.35);
+    layoutZ = clampRange(layoutZ + 0.84, -1.6, 1.6);
   }
   var lockDistance = (wallpaperShelfLyrics ? 5.58 : 4.85) + layoutZ;
   var cameraLockedLyrics = (fx.lyricCameraLock || wallpaperLyricLock) && camera;
@@ -5799,10 +6081,13 @@ function updateStageLyrics3D(dt) {
       }
       if (data.sparkMat) {
         var sparkTarget = lyricGlowStrength > 0 && fx.lyricGlowParticles ? Math.min(1.0, (0.30 + solar * 0.30 + stageLyrics.beatGlow * 0.24) * Math.min(2.0, glowDrive)) : 0;
-        data.sparkMat.opacity += (sparkTarget - data.sparkMat.opacity) * (sparkTarget > data.sparkMat.opacity ? 0.13 : 0.075);
+        var sparkOpacity = getLyricSparkOpacity(data);
+        sparkOpacity += (sparkTarget - sparkOpacity) * (sparkTarget > sparkOpacity ? 0.13 : 0.075);
+        setLyricSparkOpacity(data, sparkOpacity);
         var sparkSizeTarget = fx.lyricGlowParticles ? (0.050 + solar * 0.016 + stageLyrics.beatGlow * 0.026 + bass * 0.008) : 0.035;
-        data.sparkMat.size += (sparkSizeTarget - data.sparkMat.size) * 0.12;
-        data.sparkMat.color.copy(lyricSunHotColor).lerp(lyricSunColor, 0.22 + solar * 0.18);
+        setLyricSparkSize(data, getLyricSparkSize(data) + (sparkSizeTarget - getLyricSparkSize(data)) * 0.12);
+        var sparkColor = lyricSunHotColor.clone().lerp(lyricSunColor, 0.22 + solar * 0.18);
+        setLyricSparkColor(data, sparkColor);
       }
       var seed = mesh.userData.floatSeed || 0;
       if (data.sunMat) {
@@ -5821,7 +6106,7 @@ function updateStageLyrics3D(dt) {
       mesh.position.y += ((0.18 + Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) - mesh.position.y) * 0.075;
       mesh.position.z += ((1.48 + Math.cos(t * 0.48 + seed) * 0.080) - mesh.position.z) * 0.080;
       mesh.rotation.z = Math.sin(t * 0.34 + seed) * 0.018;
-      if (data.sparks && data.sparkMat) data.sparks.visible = fx.lyricGlowParticles || data.sparkMat.opacity > 0.015;
+      if (data.sparks && data.sparkMat) data.sparks.visible = fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015;
       if (data.sparks && data.basePositions) {
         var pos = data.sparks.geometry.attributes.position;
         var arr = pos.array, base = data.basePositions;
@@ -5844,7 +6129,11 @@ function updateStageLyrics3D(dt) {
     if (data.textMat) data.textMat.uniforms.uOpacity.value = opacity;
     if (data.textMat && data.textMat.uniforms.uSolar) data.textMat.uniforms.uSolar.value *= 0.86;
     if (data.glowMat) data.glowMat.opacity = lyricGlowStrength > 0 ? opacity * 0.08 * lyricGlowStrength : 0;
-    if (data.sparkMat) data.sparkMat.opacity = lyricGlowStrength > 0 && fx.lyricGlowParticles ? opacity * 0.36 * lyricGlowStrength : 0;
+    if (data.sparkMat) {
+      var outgoingSpark = lyricGlowStrength > 0 && fx.lyricGlowParticles ? Math.max(opacity * 0.24 * lyricGlowStrength, (1 - a) * 0.18 * lyricGlowStrength) : 0;
+      setLyricSparkOpacity(data, outgoingSpark);
+      setLyricSparkSize(data, 0.046 + (1 - a) * 0.020);
+    }
     if (data.sunMat) data.sunMat.opacity = lyricGlowStrength > 0 ? opacity * 0.08 * lyricGlowStrength : 0;
     mesh.position.z -= dt * 0.26;
     mesh.position.y += dt * 0.08;
@@ -6232,7 +6521,7 @@ function queueAIDepthForCover(srcCanvas, edgeCanvas, token, opts, cacheSeed, for
     mergeAIDepthIntoEdgeTexture(edgeCanvas, aiCanvas);
     coverEdgeTex.image = edgeCanvas;
     coverEdgeTex.needsUpdate = true;
-    uniforms.uAiBoost.value = 1.0;
+    setCoverDepthState(1, 1.0, 360);
     setCoverDepthCache(cacheSeed, edgeCanvas, true);
     showToast('AI 深度已后台增强');
   }, force ? 240 : 1800, force ? 1200 : 3000);
@@ -6248,11 +6537,12 @@ function queueAIDepthForCurrentCover(force) {
 var colorMixTween = null;
 function startColorMixTween(durationMs) {
   if (colorMixTween) cancelAnimationFrame(colorMixTween.raf);
+  durationMs = Math.max(1, durationMs || 1);
   var start = performance.now();
   uniforms.uColorMixT.value = 0;
   function step(now) {
     var t = Math.min(1, (now - start) / durationMs);
-    t = t * t * (3 - 2 * t);
+    t = visualEase(t);
     uniforms.uColorMixT.value = t;
     if (t < 1) colorMixTween = { raf: requestAnimationFrame(step) };
     else colorMixTween = null;
@@ -6304,6 +6594,11 @@ function revealIdleParticles(target, durationMs) {
 var loadingTween = null;
 var loadingShownAt = 0;
 var loadingHideTimer = null;
+var coverDepthTween = null;
+function visualEase(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t * t * (3 - 2 * t);
+}
 function tweenLoading(to, durationMs, onComplete) {
   if (loadingTween) cancelAnimationFrame(loadingTween.raf);
   durationMs = Math.max(1, durationMs || 1);
@@ -6311,7 +6606,7 @@ function tweenLoading(to, durationMs, onComplete) {
   var from = uniforms.uLoading.value;
   function step(now) {
     var t = Math.min(1, (now - start) / durationMs);
-    var eased = t * t * (3 - 2 * t);
+    var eased = visualEase(t);
     uniforms.uLoading.value = from + (to - from) * eased;
     if (t < 1) loadingTween = { raf: requestAnimationFrame(step) };
     else {
@@ -6328,21 +6623,53 @@ function showLoading() {
     clearTimeout(loadingHideTimer);
     loadingHideTimer = null;
   }
-  tweenLoading(1, 360);
+  var current = uniforms.uLoading.value || 0;
+  tweenLoading(Math.max(current, 0.82), current > 0.04 ? 170 : 220);
 }
 function hideLoading() {
   if (loadingHideTimer) clearTimeout(loadingHideTimer);
   var elapsed = loadingShownAt ? performance.now() - loadingShownAt : 999;
-  var wait = Math.max(0, 520 - elapsed);
+  var wait = Math.max(0, 180 - elapsed);
   loadingHideTimer = setTimeout(function(){
     loadingHideTimer = null;
     var current = uniforms.uLoading.value || 0;
-    if (current > 0.02 && current < 0.72) {
-      tweenLoading(0.72, 120, function(){ tweenLoading(0, 420); });
-    } else {
-      tweenLoading(0, 420);
+    if (current <= 0.015) {
+      uniforms.uLoading.value = 0;
+      return;
     }
+    tweenLoading(0, current > 0.58 ? 260 : 200);
   }, wait);
+}
+
+function setCoverDepthState(depthTo, aiTo, durationMs) {
+  depthTo = Math.max(0, Math.min(1, Number(depthTo) || 0));
+  aiTo = Math.max(0, Math.min(1, Number(aiTo) || 0));
+  if (coverDepthTween) {
+    cancelAnimationFrame(coverDepthTween.raf);
+    coverDepthTween = null;
+  }
+  durationMs = Math.max(1, durationMs || 1);
+  var depthFrom = uniforms.uHasDepth.value || 0;
+  var aiFrom = uniforms.uAiBoost.value || 0;
+  if (durationMs <= 1 || (Math.abs(depthFrom - depthTo) < 0.001 && Math.abs(aiFrom - aiTo) < 0.001)) {
+    uniforms.uHasDepth.value = depthTo;
+    uniforms.uAiBoost.value = aiTo;
+    return;
+  }
+  var start = performance.now();
+  function step(now) {
+    var t = Math.min(1, (now - start) / durationMs);
+    var eased = visualEase(t);
+    uniforms.uHasDepth.value = depthFrom + (depthTo - depthFrom) * eased;
+    uniforms.uAiBoost.value = aiFrom + (aiTo - aiFrom) * eased;
+    if (t < 1) coverDepthTween = { raf: requestAnimationFrame(step) };
+    else {
+      uniforms.uHasDepth.value = depthTo;
+      uniforms.uAiBoost.value = aiTo;
+      coverDepthTween = null;
+    }
+  }
+  coverDepthTween = { raf: requestAnimationFrame(step) };
 }
 
 function coverApplyStillCurrent(opts) {
@@ -6395,11 +6722,9 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   if (cachedDepth && cachedDepth.canvas) {
     coverEdgeTex.image = cachedDepth.canvas;
     coverEdgeTex.needsUpdate = true;
-    uniforms.uHasDepth.value = 1;
-    uniforms.uAiBoost.value = cachedDepth.ai ? 1.0 : 0.55;
+    setCoverDepthState(1, cachedDepth.ai ? 1.0 : 0.55, opts.deferHeavy ? 180 : 120);
   } else {
-    uniforms.uHasDepth.value = opts.deferHeavy ? (uniforms.uHasDepth.value > 0.5 ? 0.22 : 0) : 0;
-    uniforms.uAiBoost.value = opts.deferHeavy ? 0.20 : 0;
+    setCoverDepthState(opts.deferHeavy ? (uniforms.uHasDepth.value > 0.5 ? 0.22 : 0) : 0, opts.deferHeavy ? 0.20 : 0, opts.deferHeavy ? 120 : 1);
   }
 
   if (thumbSrc) {
@@ -6409,7 +6734,8 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   if (shelfManager) shelfManager.onCoverChange(thumbSrc);
 
   // 启动颜色渐变 (1.4 秒)
-  startColorMixTween(opts.fromResolutionChange ? 520 : 1400);
+  var colorMixMs = opts.colorMixDuration || (fx.preset === 0 ? 520 : 1400);
+  startColorMixTween(opts.fromResolutionChange ? (fx.preset === 0 ? 300 : 520) : colorMixMs);
 
   function refreshCoverDependentColors() {
     if (token !== coverProcessToken || !coverApplyStillCurrent(opts)) return;
@@ -6424,8 +6750,7 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
     if (token !== coverProcessToken || !coverApplyStillCurrent(opts)) return;
     setCoverDepthCache(cacheSeed, edgeCv, false);
     coverEdgeTex.image = edgeCv; coverEdgeTex.needsUpdate = true;
-    uniforms.uHasDepth.value = 1;
-    uniforms.uAiBoost.value = 0.55;
+    setCoverDepthState(1, 0.55, opts.deferHeavy ? 260 : 180);
     refreshCoverDependentColors();
 
     queueAIDepthForCover(cv, edgeCv, token, opts, cacheSeed, false);
@@ -8947,7 +9272,7 @@ function loadCoverFromUrl(directUrl, opts) {
     if (!coverApplyStillCurrent(opts)) return;
     currentCoverSource = null;
     coverProcessToken++;
-    uniforms.uHasCover.value = 0; uniforms.uHasDepth.value = 0;
+    uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
     resetFloatColorsToIdle();
     document.getElementById('album-bg').classList.remove('visible');
     document.getElementById('thumb-cover').removeAttribute('src');
@@ -8958,7 +9283,7 @@ function loadCoverFromUrl(directUrl, opts) {
   document.getElementById('album-bg').classList.add('visible');
   var proxiedUrl = coverProxySrc(directUrl);
   if (!proxiedUrl) {
-    uniforms.uHasCover.value = 0; uniforms.uHasDepth.value = 0;
+    uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
     resetFloatColorsToIdle();
     setControlCoverSrc('');
     return;
@@ -8985,7 +9310,7 @@ function loadCoverFromUrl(directUrl, opts) {
     img2.onerror = function() {
       if (!coverApplyStillCurrent(opts)) return;
       currentCoverSource = null;
-      uniforms.uHasCover.value = 0; uniforms.uHasDepth.value = 0;
+      uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
       resetFloatColorsToIdle();
       setControlCoverSrc('');
     };
@@ -9480,7 +9805,7 @@ function makeShelfManager() {
       item.type || '', item.title || '', item.sub || '', item.tag || '',
       item.playlistId || '', item.podcastKey || '', item.queueIndex == null ? '' : item.queueIndex,
       item.cover || '', coverState, card && card.isCenter ? 1 : 0, card && card.selected ? 1 : 0,
-      card && card.dofBucket == null ? -1 : card.dofBucket, pulseBucket
+      card && card.dofBucket == null ? -1 : card.dofBucket, pulseBucket, uiAccentHex()
     ].join('|');
   }
 
@@ -9504,7 +9829,7 @@ function makeShelfManager() {
 
     // v7.2 高亮: 整张卡用渐变描边 (而非粗边框)
     if (isNow) {
-      ctx.strokeStyle = 'rgba(244,210,138,0.86)';
+      ctx.strokeStyle = uiAccentRgba(0.86);
       ctx.lineWidth = 2.2 + Math.sin(uniforms.uTime.value * 3) * 0.5 + bass * 2.0;
     } else {
       ctx.strokeStyle = 'rgba(255,255,255,0.16)';
@@ -9530,7 +9855,7 @@ function makeShelfManager() {
     // 文本区
     var tx = pad + coverSize + 32;
     ctx.font = '700 17px Inter, Arial';
-    ctx.fillStyle = isNow ? '#f4d28a' : 'rgba(255,255,255,0.92)';
+    ctx.fillStyle = isNow ? uiAccentRgba(0.92) : 'rgba(255,255,255,0.92)';
     ctx.fillText(item.tag || '', tx, pad + 36);
 
     ctx.font = '700 30px Inter, Arial';
@@ -9542,7 +9867,7 @@ function makeShelfManager() {
     wrapText(ctx, item.sub || '', tx, pad + 156, W - tx - pad - 14, 24, 2);
 
     // 律动进度条
-    ctx.strokeStyle = isNow ? 'rgba(244,210,138,0.90)' : 'rgba(255,255,255,0.30)';
+    ctx.strokeStyle = isNow ? uiAccentRgba(0.90) : 'rgba(255,255,255,0.30)';
     ctx.lineWidth = 3.5;
     ctx.beginPath();
     ctx.moveTo(tx, H - pad - 22);
@@ -9554,12 +9879,14 @@ function makeShelfManager() {
       if (item.type === 'playlist') {
         makeRoundRect(ctx, tx, actionY, 138, 38, 18);
         var playGrad = ctx.createLinearGradient(tx, actionY, tx + 138, actionY + 38);
-        playGrad.addColorStop(0, '#fff1bd');
-        playGrad.addColorStop(0.58, '#f4d28a');
-        playGrad.addColorStop(1, '#c8953c');
+        playGrad.addColorStop(0, 'rgba(255,255,255,0.88)');
+        playGrad.addColorStop(0.55, uiAccentRgba(0.94));
+        playGrad.addColorStop(1, uiAccentRgba(0.58));
         ctx.fillStyle = playGrad; ctx.fill();
+        ctx.strokeStyle = uiAccentRgba(0.44);
+        ctx.lineWidth = 1.1; ctx.stroke();
         ctx.font = '800 14px Inter, "Microsoft YaHei", Arial';
-        ctx.fillStyle = '#211303';
+        ctx.fillStyle = readableInkForHex(uiAccentHex());
         ctx.fillText('▶ 播放歌单', tx + 25, actionY + 24);
 
         makeRoundRect(ctx, tx + 150, actionY, 104, 38, 18);
@@ -9571,7 +9898,7 @@ function makeShelfManager() {
         ctx.fillText('详情', tx + 184, actionY + 24);
       } else if (item.type === 'queue') {
         ctx.font = '600 14px Inter, "Microsoft YaHei", Arial';
-        ctx.fillStyle = 'rgba(244,210,138,0.84)';
+        ctx.fillStyle = uiAccentRgba(0.84);
         ctx.fillText('点击播放', tx, actionY + 25);
       }
     }
@@ -10079,6 +10406,13 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       }
     },
     rebuild: rebuild,
+    refreshTheme: function() {
+      cards.forEach(function(c) {
+        c.drawKey = '';
+        drawCard(c, c.item);
+      });
+      if (contentList && contentList.refreshTheme) contentList.refreshTheme();
+    },
     raycastCards: function(raycaster) {
       if (!group || !group.visible || !cards.length) return null;
       var visibleMeshes = cards.filter(function(c){ return c.mesh.visible; }).map(function(c){ return c.mesh; });
@@ -10179,6 +10513,16 @@ function safeShelfRebuild(reason, asyncCards) {
     return false;
   }
 }
+var deferredShelfRebuild = { raf: 0, reason: '', asyncCards: true };
+function scheduleShelfRebuild(reason, asyncCards) {
+  deferredShelfRebuild.reason = reason || deferredShelfRebuild.reason || 'deferred';
+  deferredShelfRebuild.asyncCards = asyncCards !== false;
+  if (deferredShelfRebuild.raf) cancelAnimationFrame(deferredShelfRebuild.raf);
+  deferredShelfRebuild.raf = requestAnimationFrame(function(){
+    deferredShelfRebuild.raf = 0;
+    safeShelfRebuild(deferredShelfRebuild.reason, deferredShelfRebuild.asyncCards);
+  });
+}
 function safeShelfCloseContent(reason) {
   if (!shelfManager || typeof shelfManager.closeContent !== 'function') return false;
   try {
@@ -10249,6 +10593,9 @@ function makeContentListManager() {
     while (out.length > 1 && ctx.measureText(out + '...').width > maxWidth) out = out.slice(0, -1);
     return out + '...';
   }
+  function canvasAccent(alpha, fallback) {
+    return uiAccentRgba(alpha, fallback);
+  }
 
   function ensurePanel() {
     if (panel || !group) return;
@@ -10278,14 +10625,14 @@ function makeContentListManager() {
     bg.addColorStop(0.42, 'rgba(8,8,14,0.82)');
     bg.addColorStop(1, 'rgba(4,4,8,0.68)');
     ctx.fillStyle = bg; ctx.fill();
-    ctx.strokeStyle = 'rgba(244,210,138,0.22)';
+    ctx.strokeStyle = canvasAccent(0.28);
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.font = '800 38px Inter, "Microsoft YaHei", Arial';
     ctx.fillStyle = 'rgba(255,246,220,0.94)';
     ctx.fillText(ellipsize(ctx, playlistTitle || '歌单详情', W - 310), 72, 92);
     ctx.font = '500 18px Inter, "Microsoft YaHei", Arial';
-    ctx.fillStyle = 'rgba(244,210,138,0.62)';
+    ctx.fillStyle = canvasAccent(0.62);
     var playableCount = allTracks.filter(function(song){ return song && song.id && song.type !== 'podcast-radio'; }).length;
     var contentCount = allTracks.filter(function(song){ return song && song.id; }).length;
     var isLoading = allTracks.length === 1 && isLoadingLabel(allTracks[0] && allTracks[0].name);
@@ -10312,10 +10659,10 @@ function makeContentListManager() {
     }
     var sweep = (Math.sin((uniforms.uTime.value || 0) * 1.7) + 1) * 0.5;
     var shine = ctx.createLinearGradient(70, 154, W - 80, 154);
-    shine.addColorStop(0, 'rgba(244,210,138,0)');
-    shine.addColorStop(Math.max(0.01, sweep * 0.72), 'rgba(244,210,138,0.12)');
-    shine.addColorStop(Math.min(0.99, sweep * 0.72 + 0.14), 'rgba(244,210,138,0.54)');
-    shine.addColorStop(1, 'rgba(244,210,138,0)');
+    shine.addColorStop(0, canvasAccent(0));
+    shine.addColorStop(Math.max(0.01, sweep * 0.72), canvasAccent(0.14));
+    shine.addColorStop(Math.min(0.99, sweep * 0.72 + 0.14), canvasAccent(0.56));
+    shine.addColorStop(1, canvasAccent(0));
     ctx.fillStyle = shine;
     ctx.fillRect(72, 154, W - 144, 2);
     panel.texture.needsUpdate = true;
@@ -10360,8 +10707,8 @@ function makeContentListManager() {
     makeRoundRect(ctx, 14, 10, W - 28, H - 20, 22);
     var rowGrad = ctx.createLinearGradient(0, 0, W, H);
     if (isCenter) {
-      rowGrad.addColorStop(0, 'rgba(74,56,20,1)');
-      rowGrad.addColorStop(0.48, 'rgba(31,25,15,0.995)');
+      rowGrad.addColorStop(0, canvasAccent(0.28));
+      rowGrad.addColorStop(0.48, 'rgba(26,28,28,0.995)');
       rowGrad.addColorStop(1, 'rgba(8,8,14,0.99)');
     } else {
       rowGrad.addColorStop(0, 'rgba(38,38,44,0.96)');
@@ -10369,18 +10716,18 @@ function makeContentListManager() {
     }
     ctx.fillStyle = rowGrad;
     ctx.fill();
-    ctx.strokeStyle = isCenter ? 'rgba(244,210,138,0.78)' : 'rgba(255,255,255,0.10)';
+    ctx.strokeStyle = isCenter ? canvasAccent(0.78) : 'rgba(255,255,255,0.10)';
     ctx.lineWidth = isCenter ? 2 : 1;
     ctx.stroke();
     if (isCenter) {
-      ctx.shadowColor = 'rgba(244,210,138,0.32)';
+      ctx.shadowColor = canvasAccent(0.32);
       ctx.shadowBlur = 18;
-      ctx.strokeStyle = 'rgba(255,241,190,0.34)';
+      ctx.strokeStyle = canvasAccent(0.34);
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
     ctx.font = '700 18px Inter, Arial';
-    ctx.fillStyle = isCenter ? 'rgba(244,210,138,0.95)' : 'rgba(255,255,255,0.34)';
+    ctx.fillStyle = isCenter ? canvasAccent(0.95) : 'rgba(255,255,255,0.34)';
     var n = String(row.index + 1);
     if (n.length < 2) n = '0' + n;
     ctx.fillText(n, 32, 52);
@@ -10391,7 +10738,7 @@ function makeContentListManager() {
     var hasSongCover = !!songCover;
     if (actionReady || hasSongCover) {
       makeRoundRect(ctx, coverX, coverY, coverSize, coverSize, 13);
-      ctx.fillStyle = isCenter ? 'rgba(255,241,190,0.12)' : 'rgba(255,255,255,0.07)';
+      ctx.fillStyle = isCenter ? canvasAccent(0.12) : 'rgba(255,255,255,0.07)';
       ctx.fill();
       if (hasSongCover) {
         var songCoverRec = playlistCoverCache[songCover];
@@ -10426,8 +10773,8 @@ function makeContentListManager() {
         var skGrad = ctx.createLinearGradient(textX, barY, textX + barW, barY);
         var hot = (phase + sk * 0.14) % 1;
         skGrad.addColorStop(0, 'rgba(255,255,255,0.08)');
-        skGrad.addColorStop(Math.max(0, hot - 0.18), 'rgba(244,210,138,0.10)');
-        skGrad.addColorStop(Math.min(0.99, hot), 'rgba(244,210,138,0.34)');
+        skGrad.addColorStop(Math.max(0, hot - 0.18), canvasAccent(0.10));
+        skGrad.addColorStop(Math.min(0.99, hot), canvasAccent(0.34));
         skGrad.addColorStop(1, 'rgba(255,255,255,0.08)');
         ctx.fillStyle = skGrad; ctx.fill();
       }
@@ -10438,7 +10785,7 @@ function makeContentListManager() {
     ctx.fillStyle = isCenter ? 'rgba(255,247,224,0.96)' : 'rgba(255,255,255,0.80)';
     ctx.fillText(ellipsize(ctx, song.name || '', textMax), textX, 44);
     ctx.font = '500 15px Inter, "Microsoft YaHei", Arial';
-    ctx.fillStyle = isCenter ? 'rgba(244,210,138,0.62)' : 'rgba(255,255,255,0.42)';
+    ctx.fillStyle = isCenter ? canvasAccent(0.62) : 'rgba(255,255,255,0.42)';
     ctx.fillText(ellipsize(ctx, song.artist || '', textMax), textX, 72);
     // center 行右侧显示红心/收藏/播放按钮
     if (isCenter && actionReady) {
@@ -10453,39 +10800,67 @@ function makeContentListManager() {
       drawCanvasHeart(ctx, likeX + miniBtn / 2, btnY + 26, 20, liked ? '#ff7a90' : 'rgba(255,255,255,0.76)');
 
       makeRoundRect(ctx, collectX, btnY + 2, miniBtn, btnH - 4, 15);
-      ctx.fillStyle = 'rgba(255,255,255,0.075)';
+      var collectGrad = ctx.createLinearGradient(collectX, btnY + 2, collectX + miniBtn, btnY + btnH);
+      collectGrad.addColorStop(0, 'rgba(255,255,255,0.080)');
+      collectGrad.addColorStop(1, canvasAccent(0.075));
+      ctx.fillStyle = collectGrad;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(244,210,138,0.22)';
+      ctx.strokeStyle = canvasAccent(0.22);
       ctx.lineWidth = 1.1;
       ctx.stroke();
-      ctx.font = '800 18px Inter, Arial';
-      ctx.fillStyle = 'rgba(244,210,138,0.86)';
-      ctx.fillText('+', collectX + 16, btnY + 30);
+      var collectCx = collectX + miniBtn / 2;
+      var collectCy = btnY + btnH / 2;
+      ctx.strokeStyle = canvasAccent(0.72);
+      ctx.lineWidth = 2.35;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(collectCx - 11, collectCy + 1);
+      ctx.lineTo(collectCx - 11, collectCy + 12);
+      ctx.lineTo(collectCx + 11, collectCy + 12);
+      ctx.lineTo(collectCx + 11, collectCy + 1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(collectCx, collectCy - 9);
+      ctx.lineTo(collectCx, collectCy + 5);
+      ctx.moveTo(collectCx - 7, collectCy - 2);
+      ctx.lineTo(collectCx + 7, collectCy - 2);
+      ctx.stroke();
 
       makeRoundRect(ctx, nextX, btnY + 2, miniBtn, btnH - 4, 15);
-      ctx.fillStyle = 'rgba(0,245,212,0.075)';
+      var nextGrad = ctx.createLinearGradient(nextX, btnY + 2, nextX + miniBtn, btnY + btnH);
+      nextGrad.addColorStop(0, canvasAccent(0.14));
+      nextGrad.addColorStop(0.62, canvasAccent(0.085));
+      nextGrad.addColorStop(1, 'rgba(255,255,255,0.055)');
+      ctx.fillStyle = nextGrad;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(0,245,212,0.24)';
+      ctx.strokeStyle = canvasAccent(0.38);
       ctx.lineWidth = 1.1;
       ctx.stroke();
-      ctx.font = '700 13px "Microsoft YaHei", Inter, Arial';
-      ctx.fillStyle = 'rgba(225,255,250,0.90)';
-      ctx.fillText('下首', nextX + 8, btnY + 30);
+      var nextCx = nextX + miniBtn / 2;
+      var nextCy = btnY + btnH / 2;
+      ctx.strokeStyle = canvasAccent(0.94);
+      ctx.lineWidth = 2.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(nextCx, nextCy - 8);
+      ctx.lineTo(nextCx, nextCy + 8);
+      ctx.moveTo(nextCx - 8, nextCy);
+      ctx.lineTo(nextCx + 8, nextCy);
+      ctx.stroke();
       }
 
       makeRoundRect(ctx, btnX, btnY, btnW, btnH, 18);
-      ctx.fillStyle = 'rgba(255,234,178,0.96)';
-      ctx.fill();
       var btnGrad = ctx.createLinearGradient(btnX, btnY, btnX + btnW, btnY + btnH);
-      btnGrad.addColorStop(0, '#fff1bd');
-      btnGrad.addColorStop(0.56, '#f4d28a');
-      btnGrad.addColorStop(1, '#c8953c');
+      btnGrad.addColorStop(0, 'rgba(255,255,255,0.88)');
+      btnGrad.addColorStop(0.56, canvasAccent(0.94));
+      btnGrad.addColorStop(1, canvasAccent(0.58));
       ctx.fillStyle = btnGrad; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+      ctx.strokeStyle = canvasAccent(0.42);
       ctx.lineWidth = 1.2;
       ctx.stroke();
       ctx.font = '700 15px Inter, Arial';
-      ctx.fillStyle = '#241505';
+      ctx.fillStyle = readableInkForHex(uiAccentHex());
       ctx.fillText('播放', btnX + 36, btnY + 29);
     }
     row.texture.needsUpdate = true;
@@ -10597,6 +10972,13 @@ function makeContentListManager() {
 
   return {
     isOpen: function() { return open; },
+    refreshTheme: function() {
+      panelDirty = true;
+      rowsDirty = true;
+      if (!open || !group) return;
+      drawPanelIfNeeded(true);
+      syncRenderedRows(true);
+    },
     open: async function(playlistId, title, fromCard) {
       open = true;
       playlistTitle = title;
@@ -10798,6 +11180,11 @@ function makeContentListManager() {
       var row = rows.find(function(r){ return r.mesh === hits[0].object; });
       return { row: row, uv: hits[0].uv };
     },
+    raycastPanel: function(rc) {
+      if (!panel || !panel.mesh) return null;
+      var hits = rc.intersectObject(panel.mesh, false);
+      return hits && hits.length ? hits[0] : null;
+    },
     playRow: function(row) {
       // 把整个歌单导入队列, 从这首开始播
       pulseObjectValue(row, 'fxPulse', 1.0, 0.34);
@@ -10819,7 +11206,7 @@ function makeContentListManager() {
       safeRenderQueuePanel('content-play-row');
       safeShelfRebuild('content-play-row');
       forcePlaybackControlsInteractive();
-      playQueueAt(playIndex).catch(function(e){
+      playQueueAt(playIndex, { preserveHomeState: true }).catch(function(e){
         console.warn('[ContentPlayRow]', e);
       });
       // 关闭内容框
@@ -11025,7 +11412,8 @@ renderer.domElement.addEventListener('wheel', function(e){
     var cl = shelfManager.getContentList();
     if (cl) {
       var rowHit = cl.raycastRows(rc);
-      if (!rowHit) return;
+      var panelHit = !rowHit && cl.raycastPanel ? cl.raycastPanel(rc) : null;
+      if (!rowHit && !panelHit) return;
       e.preventDefault(); e.stopImmediatePropagation();
       cl.scrollBy(e.deltaY > 0 ? 1 : -1);
       return;
@@ -11416,9 +11804,6 @@ function renderHomeTiles() {
   var tiles = [];
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weatherSongs = homeWeatherRadioState.radio && homeWeatherRadioState.radio.songs || [];
-  weatherSongs.slice(0, 2).forEach(function(song, i){
-    tiles.push({ kind: 'weatherSong', index: i, song: song, title: song.name || '天气电台歌曲', sub: song.artist || songSourceLabel(song) });
-  });
   var summary = homeListenSummary();
   if (summary.recent && tiles.length < 5) {
     tiles.push({ kind: 'recent', title: summary.recent.name || '继续听', sub: summary.recent.artist || summary.recent.source || '', cover: summary.recent.cover, record: summary.recent });
@@ -11439,12 +11824,16 @@ function renderHomeTiles() {
       });
     }
   }
+  if (tiles.length < 5) {
+    weatherSongs.slice(0, 5 - tiles.length).forEach(function(song, i){
+      tiles.push({ kind: 'weatherSong', index: i, song: song, title: song.name || '天气电台歌曲', sub: song.artist || songSourceLabel(song) });
+    });
+  }
   if (!tiles.length) tiles = fallbackHomeTiles();
   tiles = tiles.slice(0, 5);
-  if (title) title.textContent = weatherSongs.length ? '天气延伸' : (summary.recent ? '接着听' : (loggedOutHome ? '先从这里开始' : '今日精选'));
+  if (title) title.textContent = summary.recent ? '接着听' : (loggedOutHome ? '先从这里开始' : '你的歌单与推荐');
   if (note) {
-    var weatherNote = homeWeatherRadioState.loading ? '正在读天气' : (weatherSongs.length ? '来自 ' + (homeWeatherRadioState.weather && homeWeatherRadioState.weather.location && homeWeatherRadioState.weather.location.name || homeWeatherRadioState.city) : '');
-    var liveNote = weatherNote || (homeDiscoverState.updatedAt ? '刚刚更新 · 点击即可播放' : '点击即可播放');
+    var liveNote = homeDiscoverState.updatedAt ? '刚刚更新 · 点击即可播放' : '点击即可播放';
     note.textContent = homeDiscoverState.loading ? '正在整理推荐' : (loggedOutHome && !weatherSongs.length ? '不会自动拉取外部推荐' : (homeDiscoverState.error ? '离线精选' : liveNote));
   }
   row.innerHTML = tiles.map(function(item, i){
@@ -11469,12 +11858,11 @@ function renderHomeDiscover() {
   var weatherTitle = document.getElementById('home-weather-title');
   var weatherKicker = document.getElementById('home-weather-kicker');
   var weatherMeta = document.getElementById('home-weather-meta');
-  if (weatherTitle) weatherTitle.textContent = radio && radio.title || '天气电台';
-  if (weatherKicker) weatherKicker.textContent = 'Open-Meteo · ' + weatherLocation;
+  if (weatherTitle) weatherTitle.textContent = '我的音乐库';
+  if (weatherKicker) weatherKicker.textContent = 'Mineradio · Your Library';
   if (sub) {
-    if (homeWeatherRadioState.loading) sub.textContent = '正在读取 ' + weatherLocation + ' 的天气，并生成这一刻的播放队列。';
-    else if (weather) sub.textContent = (radio && radio.subtitle || '根据天气和时间生成一组歌曲') + '。';
-    else sub.textContent = '根据城市、天气和时间，为这一刻生成一组能直接播放的歌。';
+    if (loggedOutHome) sub.textContent = '登录后会把你的歌单、常听歌手和最近播放放在这里；也可以直接搜索或导入本地音乐。';
+    else sub.textContent = '从你的歌单、最近播放和常听歌手开始，天气电台放在需要氛围的时候再开。';
   }
   if (weatherMeta) {
     var meta = [];
@@ -11505,10 +11893,9 @@ function renderHomeDiscover() {
   var profileSub = document.getElementById('home-profile-sub');
   var libTitle = document.getElementById('home-library-title');
   var libSub = document.getElementById('home-library-sub');
-  if (weatherCardTitle) weatherCardTitle.textContent = radio && radio.title || '天气电台';
+  if (weatherCardTitle) weatherCardTitle.textContent = playlistItem ? playlistItem.name : '我的歌单';
   if (weatherCardSub) {
-    var weatherCount = radio && radio.songs && radio.songs.length || 0;
-    weatherCardSub.textContent = homeWeatherRadioState.loading ? '正在生成队列' : (weatherCount ? weatherCount + ' 首 · ' + weatherLocation : '点一下生成天气队列');
+    weatherCardSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '打开左侧歌单库')) : '打开左侧歌单库';
   }
   if (continueTitle) continueTitle.textContent = summary.recent ? summary.recent.name : '继续听';
   if (continueSub) continueSub.textContent = summary.recent ? (summary.recent.artist || summary.recent.source || '最近播放') : '最近播放会出现在这里';
@@ -11521,7 +11908,7 @@ function renderHomeDiscover() {
     if (privateSub) privateSub.textContent = '登录后从推荐和歌单开播';
     if (libTitle) libTitle.textContent = '了解怎么使用';
     if (libSub) libSub.textContent = '用 3 步看懂播放器和视觉舞台';
-    setHomeArt('home-weather-art', radio && radio.songs && radio.songs[0] && radio.songs[0].cover, 280);
+    setHomeArt('home-weather-art', '', 280);
     setHomeArt('home-daily-art', '', 280);
     setHomeArt('home-private-art', '', 280);
     setHomeArt('home-continue-art', summary.recent && summary.recent.cover, 280);
@@ -11534,7 +11921,7 @@ function renderHomeDiscover() {
     if (privateSub) privateSub.textContent = playlistItem ? (((playlistItem.trackCount || 0) ? playlistItem.trackCount + ' 首 · ' : '') + (playlistItem.creator || '私人推荐')) : '从你的推荐和歌单里开播';
     if (libTitle) libTitle.textContent = '我的歌单';
     if (libSub) libSub.textContent = playlistItem ? ((playlistItem.trackCount || 0) + ' 首 · ' + (playlistItem.creator || '推荐歌单')) : '网易云与 QQ 音乐';
-    setHomeArt('home-weather-art', radio && radio.songs && radio.songs[0] && radio.songs[0].cover || daily && daily.cover, 280);
+    setHomeArt('home-weather-art', (userPlaylists[0] && userPlaylists[0].cover) || (playlistItem && playlistItem.cover) || daily && daily.cover, 280);
     setHomeArt('home-daily-art', daily && daily.cover, 280);
     setHomeArt('home-private-art', playlistItem && playlistItem.cover || daily && daily.cover, 280);
     setHomeArt('home-continue-art', summary.recent && summary.recent.cover || playlistItem && playlistItem.cover, 280);
@@ -11672,7 +12059,7 @@ async function startWeatherRadio() {
   });
   currentIdx = 0;
   homeForcedOpen = false;
-  homeSuppressed = false;
+  if (!opts.preserveHomeState) homeSuppressed = false;
   setHomeControlsLocked(false);
   safeRenderQueuePanel('weather-radio-start');
   safeShelfRebuild('weather-radio-start', true);
@@ -11976,6 +12363,7 @@ function openHomePlaylist(index) {
     runHomeSearch('');
     return;
   }
+  openPlaylistPanelTab('playlists', true);
   var item = homeDiscoverState.playlists[index];
   if (!item || !item.id) {
     openHomeLibrary();
@@ -11987,6 +12375,7 @@ function openHomePodcast(index) {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
+  openPlaylistPanelTab('podcasts', true);
   var item = homeDiscoverState.podcasts[index];
   if (!item || !item.id) {
     setSearchMode('podcast');
@@ -12009,10 +12398,7 @@ function openHomeLibrary() {
   }
   homeSuppressed = false;
   setHomeControlsLocked(false);
-  switchPlaylistTab('playlists');
-  var panel = document.getElementById('playlist-panel');
-  if (panel && panel.dataset) panel.dataset.preserveTabOnOpen = '1';
-  setPeek(panel, true, 'pl');
+  openPlaylistPanelTab('playlists', true);
   refreshUserPlaylists(true);
 }
 function goHome() {
@@ -12213,8 +12599,11 @@ function renderArtistSongList(songs) {
   detailArtistSongs = (songs || []).map(cloneSong);
   if (!detailArtistSongs.length) return '<div class="detail-empty">暂无热门歌曲</div>';
   return '<div class="detail-scroll">' + detailArtistSongs.map(function(s, i){
+    var cover = songCoverSrc(s, 80);
+    var coverHtml = cover ? '<img class="artist-song-cover" src="' + escHtml(cover) + '" alt="" onerror="this.style.opacity=0.18">' : '<div class="artist-song-cover"></div>';
     return '<div class="artist-song-item" onclick="playArtistDetailSong(' + i + ')">' +
       '<div class="artist-song-rank">' + String(i + 1).padStart(2, '0') + '</div>' +
+      coverHtml +
       '<div class="artist-song-main"><div class="artist-song-name">' + escHtml(s.name || '') + '</div>' +
       '<div class="artist-song-meta">' + escHtml((s.album || '未知专辑') + (s.duration ? (' · ' + songDurationLabel(s)) : '')) + '</div></div>' +
     '</div>';
@@ -13883,7 +14272,7 @@ async function playQueueAt(idx, opts) {
   markPlayPhase('session-finalize');
   safePlaybackStep('session-finalize', function(){ finalizeListenSession(false); });
   homeForcedOpen = false;
-  homeSuppressed = false;
+  if (!opts.preserveHomeState) homeSuppressed = false;
   currentIdx = idx;
   trackSwitchToken++;
   markPlayPhase('cancel-previous-track');
@@ -13911,7 +14300,7 @@ async function playQueueAt(idx, opts) {
   safePlaybackStep('like-buttons', function(){ updateLikeButtons(song); });
   safePlaybackStep('like-status', function(){ syncLikeStatusForSong(song); });
   safePlaybackStep('cinema-track-profile', function(){ resetCinemaTrackProfile(song); });
-  safePlaybackStep('empty-home', function(){ updateEmptyHomeVisibility(); });
+  safePlaybackStep('empty-home', function(){ if (!opts.preserveHomeState) updateEmptyHomeVisibility(); });
   safePlaybackStep('track-ui', function(){
     document.getElementById('hint').classList.add('hidden');
     document.getElementById('thumb-title').textContent = song.name;
@@ -13929,7 +14318,7 @@ async function playQueueAt(idx, opts) {
   markPlayPhase('cover-load');
   safePlaybackStep('cover-load', function(){
     var customCover = getCustomCoverForSong(song);
-    var coverOpts = { trackToken: token, deferHeavy: true, delay: firstVisualPlay ? 560 : 260, timeout: firstVisualPlay ? 1300 : 900 };
+    var coverOpts = { trackToken: token, deferHeavy: true, delay: firstVisualPlay ? 48 : 18, timeout: firstVisualPlay ? 240 : 180 };
     if (customCover) applyCoverDataUrl(customCover, coverOpts);
     else loadCoverFromUrl(song.cover ? coverUrlWithSize(song.cover, 400) : '', coverOpts);
   });
@@ -13941,7 +14330,7 @@ async function playQueueAt(idx, opts) {
   if (firstVisualPlay) {
     safePlaybackStep('first-visual-alpha', function(){
       firstPlayDone = true;
-      tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 1800);
+      tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 220);
     });
   }
 
@@ -14074,7 +14463,7 @@ async function playQueueAt(idx, opts) {
       fetchLyric(song, token);
     }
     safeRenderQueuePanel('play-queue-at');
-    safeShelfRebuild('play-queue-at');
+    scheduleShelfRebuild('play-queue-at', true);
     safePlaybackStep('shelf-preview-suppress-end', suppressShelfPreviewForPlaybackSwitch);
   } catch (err) {
     console.error('Play failed:', { phase: playPhase, error: err }, err);
@@ -14133,8 +14522,8 @@ async function togglePlay() {
   if (playToggleBusy) return;
   playToggleBusy = true;
   try {
+    forcePlaybackControlsInteractive();
     if ((!audio || !audio.src) && playQueue.length && currentIdx >= 0) {
-      forcePlaybackControlsInteractive();
       await playQueueAt(currentIdx, { manual: true });
       return;
     }
@@ -14142,13 +14531,14 @@ async function togglePlay() {
     if (audio.paused || audio.ended) {
       await attemptAudioPlay({ manual: true });
     } else {
-      updateListenStatsTick(true);
-      audio.pause();
+      try { audio.pause(); } catch (pauseErr) { console.warn('[TogglePlayPause]', pauseErr); }
       playing = false;
       setPlayIcon(false);
       hideLoading();
+      safePlaybackStep('listen-stats-pause', function(){ updateListenStatsTick(true); });
       forcePlaybackControlsInteractive();
-      scheduleControlsHide(900);
+      safePlaybackStep('sync-pause-state', function(){ syncPlaybackStateFromAudioEvent('manual-pause'); });
+      safePlaybackStep('pause-controls-hide', function(){ scheduleControlsHide(520); });
     }
   } catch (err) {
     console.warn('[TogglePlay]', err);
@@ -14156,7 +14546,7 @@ async function togglePlay() {
     setPlayIcon(playing);
     hideLoading();
     forcePlaybackControlsInteractive();
-    showToast('播放控制失败');
+    if (!audio || !audio.src) showToast('播放控制失败');
   } finally {
     playToggleBusy = false;
   }
@@ -14168,14 +14558,18 @@ function setPlayIcon(p) {
 }
 function nextTrack() {
   if (!playQueue.length) return;
+  playToggleBusy = false;
+  forcePlaybackControlsInteractive();
   if (playMode === 'shuffle') currentIdx = Math.floor(Math.random() * playQueue.length);
   else currentIdx = (currentIdx + 1) % playQueue.length;
-  playQueueAt(currentIdx);
+  Promise.resolve(playQueueAt(currentIdx)).finally(forcePlaybackControlsInteractive);
 }
 function prevTrack() {
   if (!playQueue.length) return;
+  playToggleBusy = false;
+  forcePlaybackControlsInteractive();
   currentIdx = (currentIdx - 1 + playQueue.length) % playQueue.length;
-  playQueueAt(currentIdx);
+  Promise.resolve(playQueueAt(currentIdx)).finally(forcePlaybackControlsInteractive);
 }
 function shuffleQueue() {
   for (var i = playQueue.length - 1; i > 0; i--) {
@@ -14571,6 +14965,30 @@ function togglePlaylistPanel(force) {
     else animateVisiblePanelList(document.getElementById('podcast-list'), '.pl-card', el);
   }
 }
+function applyPlaylistPanelPinState(openPanel) {
+  var panel = document.getElementById('playlist-panel');
+  var btn = document.getElementById('playlist-pin-btn');
+  if (panel) {
+    panel.classList.toggle('pinned', !!playlistPanelPinned);
+    if (playlistPanelPinned || openPanel) {
+      panel.dataset.preserveTabOnOpen = '1';
+      setPeek(panel, true, 'pl');
+    }
+  }
+  if (btn) {
+    btn.classList.toggle('active', !!playlistPanelPinned);
+    btn.title = playlistPanelPinned ? '取消常开歌单' : '常开歌单';
+  }
+}
+function setPlaylistPanelPinned(on, silent) {
+  playlistPanelPinned = !!on;
+  saveBooleanPreference(PLAYLIST_PANEL_PIN_STORE_KEY, playlistPanelPinned);
+  applyPlaylistPanelPinState(playlistPanelPinned);
+  if (!silent) showToast(playlistPanelPinned ? '左侧歌单已常开' : '左侧歌单已恢复自动隐藏');
+}
+function togglePlaylistPanelPinned() {
+  setPlaylistPanelPinned(!playlistPanelPinned);
+}
 function scrollPlaylistPanelToCurrent() {
   var panel = document.getElementById('playlist-panel');
   var list = document.getElementById('queue-list');
@@ -14616,6 +15034,14 @@ function toggleMiniQueue(e) {
 }
 function closeMiniQueue() {
   setMiniQueueOpen(false);
+}
+function openPlaylistPanelTab(tab, preserve) {
+  tab = tab === 'podcasts' ? 'podcasts' : (tab === 'playlists' ? 'playlists' : 'queue');
+  var panel = document.getElementById('playlist-panel');
+  if (panel && panel.dataset && preserve !== false) panel.dataset.preserveTabOnOpen = '1';
+  switchPlaylistTab(tab);
+  setPeek(panel, true, 'pl');
+  if (tab === 'playlists' || tab === 'podcasts') refreshUserPlaylists(false);
 }
 function renderMiniQueuePanel(opts) {
   opts = opts || {};
@@ -15059,7 +15485,7 @@ function handleFiles(files) {
     safeRenderQueuePanel('play-local-file');
     safeShelfRebuild('play-local-file', true);
     suppressShelfPreviewForPlaybackSwitch();
-    if (firstVisualPlay) { firstPlayDone = true; tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 1800); }
+    if (firstVisualPlay) { firstPlayDone = true; tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 260); }
     if (!audio) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
     else audio.pause();
     bindPlaybackProgressEvents(audio);
@@ -15086,13 +15512,13 @@ function handleFiles(files) {
       if (currentLocalSong && currentLocalSong.localUrl === url) prepareLocalBeatAnalysis(currentLocalSong, url);
     }, 520);
     var localCover = getCustomCoverForSong(currentLocalSong);
-    var localCoverOpts = { trackToken: token, deferHeavy: firstVisualPlay, delay: firstVisualPlay ? 560 : 0, timeout: firstVisualPlay ? 1300 : 360 };
+    var localCoverOpts = { trackToken: token, deferHeavy: firstVisualPlay, delay: firstVisualPlay ? 60 : 0, timeout: firstVisualPlay ? 300 : 180 };
     if (localCover) applyCoverDataUrl(localCover, localCoverOpts);
     else if (!imgFile) loadCoverFromUrl('', localCoverOpts);
   }
   if (imgFile) {
     var uploadCoverOpts = audioFile
-      ? { trackToken: trackSwitchToken, deferHeavy: !!firstVisualPlay, delay: firstVisualPlay ? 560 : 0, timeout: firstVisualPlay ? 1300 : 360 }
+      ? { trackToken: trackSwitchToken, deferHeavy: !!firstVisualPlay, delay: firstVisualPlay ? 60 : 0, timeout: firstVisualPlay ? 300 : 180 }
       : null;
     loadCoverFromFile(imgFile, uploadCoverOpts);
   }
@@ -15197,7 +15623,9 @@ function updateLyricGlowControls() {
 }
 function applyHomeAccentColor() {
   var color = normalizeHexColor(fx.homeAccentColor || '#00f5d4');
+  var rgb = hexToRgb(color);
   document.documentElement.style.setProperty('--home-accent', color);
+  document.documentElement.style.setProperty('--home-accent-rgb', rgb.r + ',' + rgb.g + ',' + rgb.b);
 }
 function updateHomeAccentControls() {
   applyHomeAccentColor();
@@ -15211,10 +15639,113 @@ function setHomeAccentColor(color, silent) {
   fx.homeAccentColor = normalizeHexColor(color || '#00f5d4');
   updateHomeAccentControls();
   saveLyricLayout();
-  if (!silent) showToast('Home 边框: ' + fx.homeAccentColor.toUpperCase());
+  if (!silent) showToast('Home 填充: ' + fx.homeAccentColor.toUpperCase());
 }
 function resetHomeAccentColor() {
   setHomeAccentColor(fxDefaults.homeAccentColor || '#00f5d4');
+}
+function applyCustomBackground() {
+  var color = normalizeHexColor(fx.backgroundColor || '#000000', '#000000');
+  var image = normalizeCustomBackgroundImage(fx.backgroundImage);
+  var override = !!image || !!fx.backgroundColorCustom;
+  var root = document.documentElement;
+  var layer = document.getElementById('custom-bg');
+  root.style.setProperty('--custom-bg-color', color);
+  document.body.classList.toggle('custom-background-override', override);
+  if (layer) {
+    layer.style.setProperty('--custom-bg-image', image ? 'url("' + cssImageUrl(image) + '")' : 'none');
+    layer.style.setProperty('--custom-bg-image-opacity', image ? '1' : '0');
+    layer.style.setProperty('--custom-bg-overlay-opacity', image ? '0.18' : '0');
+  }
+}
+function updateCustomBackgroundControls() {
+  applyCustomBackground();
+  var color = normalizeHexColor(fx.backgroundColor || '#000000', '#000000');
+  var picker = document.getElementById('bg-color-picker');
+  var value = document.getElementById('bg-color-value');
+  var imageValue = document.getElementById('bg-image-value');
+  if (picker) picker.value = color;
+  if (value) value.textContent = color.toUpperCase();
+  if (imageValue) imageValue.textContent = normalizeCustomBackgroundImage(fx.backgroundImage) ? '已设置' : '未设置';
+}
+function setCustomBackgroundColor(color, silent, customFlag) {
+  fx.backgroundColor = normalizeHexColor(color || '#000000', '#000000');
+  fx.backgroundColorCustom = customFlag !== false;
+  updateCustomBackgroundControls();
+  saveLyricLayout();
+  if (!silent) showToast('背景颜色: ' + fx.backgroundColor.toUpperCase());
+}
+function resetCustomBackgroundColor() {
+  setCustomBackgroundColor(fxDefaults.backgroundColor || '#000000', false, false);
+}
+function setCustomBackgroundImage(src, silent) {
+  fx.backgroundImage = normalizeCustomBackgroundImage(src);
+  updateCustomBackgroundControls();
+  saveLyricLayout();
+  if (!silent) showToast(fx.backgroundImage ? '背景图片已应用' : '背景图片已清除');
+}
+function clearCustomBackgroundImage() {
+  setCustomBackgroundImage('');
+}
+function readBackgroundImageFile(file) {
+  if (!file || !/^image\//i.test(file.type || '')) {
+    showToast('请选择图片文件');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var maxSide = 2200;
+      var iw = img.naturalWidth || img.width || 1;
+      var ih = img.naturalHeight || img.height || 1;
+      var scale = Math.min(1, maxSide / Math.max(iw, ih));
+      var w = Math.max(1, Math.round(iw * scale));
+      var h = Math.max(1, Math.round(ih * scale));
+      var cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      var cx = cv.getContext('2d');
+      cx.drawImage(img, 0, 0, w, h);
+      var out = '';
+      try { out = cv.toDataURL('image/webp', 0.84); } catch (err) {}
+      if (!/^data:image\/webp/i.test(out)) {
+        try { out = cv.toDataURL('image/jpeg', 0.86); } catch (err2) { out = String(e.target.result || ''); }
+      }
+      setCustomBackgroundImage(out);
+    };
+    img.onerror = function(){ showToast('背景图片读取失败'); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){ showToast('背景图片读取失败'); };
+  reader.readAsDataURL(file);
+}
+function applyUiAccentColor() {
+  var color = normalizeHexColor(fx.uiAccentColor || '#00f5d4', '#00f5d4');
+  var rgb = hexToRgb(color);
+  var root = document.documentElement;
+  root.style.setProperty('--fc-accent', color);
+  root.style.setProperty('--fc-accent-hov', color);
+  root.style.setProperty('--fc-accent-rgb', rgb.r + ',' + rgb.g + ',' + rgb.b);
+  root.style.setProperty('--glass-border', 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.30)');
+  root.style.setProperty('--glass-shadow-focus', '0 24px 72px rgba(0,0,0,.34),0 0 0 1px rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.13),0 0 42px rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.075),inset 0 1px 0 rgba(255,255,255,.20)');
+}
+function updateUiAccentControls() {
+  applyUiAccentColor();
+  var color = normalizeHexColor(fx.uiAccentColor || '#00f5d4', '#00f5d4');
+  var picker = document.getElementById('ui-accent-picker');
+  var value = document.getElementById('ui-accent-value');
+  if (picker) picker.value = color;
+  if (value) value.textContent = color.toUpperCase();
+}
+function setUiAccentColor(color, silent) {
+  fx.uiAccentColor = normalizeHexColor(color || '#00f5d4', '#00f5d4');
+  updateUiAccentControls();
+  if (shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
+  saveLyricLayout();
+  if (!silent) showToast('界面高亮: ' + fx.uiAccentColor.toUpperCase());
+}
+function resetUiAccentColor() {
+  setUiAccentColor(fxDefaults.uiAccentColor || '#00f5d4');
 }
 function updateVisualTintControls() {
   var picker = document.getElementById('visual-tint-picker');
@@ -15345,16 +15876,16 @@ function refreshPresetGrid() {
 function triggerPresetParticleTransition(fromPreset, toPreset) {
   presetTransition.active = true;
   presetTransition.start = uniforms.uTime.value;
-  presetTransition.duration = toPreset === 5 ? 1.22 : 0.92;
+  presetTransition.duration = toPreset === 5 ? 0.30 : 0.24;
   presetTransition.from = fromPreset;
   presetTransition.to = toPreset;
   var newVisual = toPreset >= 4;
   var wallpaperFlow = toPreset === 5;
-  uniforms.uScatter.value = Math.max(uniforms.uScatter.value, fx.scatter + (newVisual ? (wallpaperFlow ? 0.018 : 0.052) : 0.28));
-  uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, wallpaperFlow ? 0.14 : 0.34);
-  camPunch = Math.max(camPunch, wallpaperFlow ? 0.10 : 0.32);
-  for (var i = 0; i < 5; i++) {
-    triggerRipple((Math.random() - 0.5) * 3.8, (Math.random() - 0.5) * 3.8, 0.72 + Math.random() * 0.45);
+  uniforms.uScatter.value = Math.max(uniforms.uScatter.value, fx.scatter + (newVisual ? (wallpaperFlow ? 0.008 : 0.024) : 0.12));
+  uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, wallpaperFlow ? 0.05 : 0.15);
+  camPunch = Math.max(camPunch, wallpaperFlow ? 0.04 : 0.12);
+  for (var i = 0; i < 3; i++) {
+    triggerRipple((Math.random() - 0.5) * 3.4, (Math.random() - 0.5) * 3.4, 0.58 + Math.random() * 0.32);
   }
   var card = document.querySelector('.preset-card[data-preset="' + toPreset + '"]');
   if (card) {
@@ -15371,9 +15902,9 @@ function tickPresetTransition() {
   var wave = Math.sin(t * Math.PI);
   var newVisual = presetTransition.to >= 4;
   var wallpaperFlow = presetTransition.to === 5;
-  uniforms.uScatter.value = Math.max(uniforms.uScatter.value, fx.scatter + wave * (newVisual ? (wallpaperFlow ? 0.020 : 0.062) : 0.44));
-  uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, wave * (wallpaperFlow ? 0.12 : (newVisual ? 0.32 : 0.42)));
-  uniforms.uPointScale.value = fx.point * (1 + wave * (wallpaperFlow ? 0.045 : 0.13));
+  uniforms.uScatter.value = Math.max(uniforms.uScatter.value, fx.scatter + wave * (newVisual ? (wallpaperFlow ? 0.008 : 0.026) : 0.16));
+  uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, wave * (wallpaperFlow ? 0.045 : (newVisual ? 0.12 : 0.15)));
+  uniforms.uPointScale.value = fx.point * (1 + wave * (wallpaperFlow ? 0.016 : 0.048));
   if (raw >= 1) {
     presetTransition.active = false;
     syncFxUniforms();
@@ -15399,6 +15930,7 @@ function setPreset(p, opts) {
     orbit.baselineTheta = p === 5 ? -0.52 : 0.0;
   }
   if (changed && !opts.silent) showToast('视觉预设: ' + presetMeta[p].name);
+  if (changed && !opts.noSave) saveLyricLayout();
 }
 
 function syncFxUniforms() {
@@ -15474,7 +16006,9 @@ function updateFxInputs() {
   updateLyricHighlightControls();
   updateLyricGlowControls();
   updateLyricFontControls();
+  updateUiAccentControls();
   updateHomeAccentControls();
+  updateCustomBackgroundControls();
   updateVisualTintControls();
   syncFxUniforms();
 }
@@ -15553,6 +16087,11 @@ function bindFxPanel() {
     lyricGlowPicker.addEventListener('input', function(){ setLyricGlowCustom(lyricGlowPicker.value, true); });
     lyricGlowPicker.addEventListener('change', function(){ showToast('溢光颜色: ' + normalizeHexColor(lyricGlowPicker.value).toUpperCase()); });
   }
+  var uiAccentPicker = document.getElementById('ui-accent-picker');
+  if (uiAccentPicker) {
+    uiAccentPicker.addEventListener('input', function(){ setUiAccentColor(uiAccentPicker.value, true); });
+    uiAccentPicker.addEventListener('change', function(){ showToast('界面高亮: ' + normalizeHexColor(uiAccentPicker.value, '#00f5d4').toUpperCase()); });
+  }
   var visualTintPicker = document.getElementById('visual-tint-picker');
   if (visualTintPicker) {
     visualTintPicker.addEventListener('input', function(){ setVisualTintCustom(visualTintPicker.value, true); });
@@ -15561,7 +16100,20 @@ function bindFxPanel() {
   var homeAccentPicker = document.getElementById('home-accent-picker');
   if (homeAccentPicker) {
     homeAccentPicker.addEventListener('input', function(){ setHomeAccentColor(homeAccentPicker.value, true); });
-    homeAccentPicker.addEventListener('change', function(){ showToast('Home 边框: ' + normalizeHexColor(homeAccentPicker.value).toUpperCase()); });
+    homeAccentPicker.addEventListener('change', function(){ showToast('Home 填充: ' + normalizeHexColor(homeAccentPicker.value).toUpperCase()); });
+  }
+  var bgColorPicker = document.getElementById('bg-color-picker');
+  if (bgColorPicker) {
+    bgColorPicker.addEventListener('input', function(){ setCustomBackgroundColor(bgColorPicker.value, true); });
+    bgColorPicker.addEventListener('change', function(){ showToast('背景颜色: ' + normalizeHexColor(bgColorPicker.value, '#000000').toUpperCase()); });
+  }
+  var bgImageInput = document.getElementById('background-image-input');
+  if (bgImageInput) {
+    bgImageInput.addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if (file) readBackgroundImageFile(file);
+      e.target.value = '';
+    });
   }
   // 三态
   document.querySelectorAll('#shelf-seg button').forEach(function(b){
@@ -15578,7 +16130,7 @@ function toggleFx(key) {
   var toggle = document.getElementById(toggleId);
   if (toggle) toggle.classList.toggle('on', fx[key]);
   syncFxUniforms();
-  if (key === 'lyricCameraLock') saveLyricLayout();
+  if (key === 'lyricCameraLock' || key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles') saveLyricLayout();
   if (key === 'floatLayer') { if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer(); }
   if (key === 'lyricGlow') showToast(fx.lyricGlow ? '歌词溢光已开启' : '歌词溢光已关闭');
   if (key === 'lyricGlowBeat') showToast(fx.lyricGlowBeat ? '歌词溢光跟随鼓点' : '歌词溢光已脱离鼓点');
@@ -18242,6 +18794,7 @@ function setPeek(el, on, key) {
   if (immersiveMode && on && (key === 'search' || key === 'fx' || key === 'pl')) return;
   if (on && !diyPlayerMode && key === 'fx') return;
   if (!on && key === 'search' && emptyHomeActive && !immersiveMode) return;
+  if (!on && key === 'pl' && playlistPanelPinned) return;
   if (on) {
     var wasPeek = el.classList.contains('peek');
     if (peekTimers[key]) { clearTimeout(peekTimers[key]); peekTimers[key] = null; }
@@ -18353,6 +18906,7 @@ window.addEventListener('mousemove', function(e){
   var fp = document.getElementById('fx-panel');
   var pp = document.getElementById('playlist-panel');
   var ex = e.clientX, ey = e.clientY, W = innerWidth, H = innerHeight;
+  updateUserCapsuleAutoHideFromPointer(ex, ey);
   if (document.body.classList.contains('splash-active')) {
     updateShelfHoverCueFromPointer(null);
     setFocusZone(null);
@@ -19127,7 +19681,9 @@ bindFxPanel();
 bindQualityControl();
 bindVolumeControls();
 bindPlayerControlAnimations();
+applyUserCapsuleAutoHideState();
 setShelfMode(fx.shelf);
+applyPlaylistPanelPinState(false);
 if (fx.floatLayer) createFloatLayer();
 if (fx.particleLyrics) createLyricsParticles();
 if (fx.backCover) createBackCoverLayer();
