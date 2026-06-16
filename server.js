@@ -121,29 +121,60 @@ const MIME = {
 
 // ---------- Cookie 持久化 ----------
 const COOKIE_ATTRIBUTE_NAMES = new Set(['path', 'domain', 'expires', 'max-age', 'samesite', 'secure', 'httponly']);
-function normalizeCookieHeader(input) {
-  const values = Array.isArray(input) ? input : [input];
-  const picked = new Map();
-  values.forEach(value => {
-    String(value || '').split(';').forEach(part => {
+function collectCookiePair(picked, key, value) {
+  key = String(key || '').trim();
+  if (!key || COOKIE_ATTRIBUTE_NAMES.has(key.toLowerCase())) return;
+  if (value === null || value === undefined) return;
+  picked.set(key, String(value).trim());
+}
+function collectCookieInput(input, picked) {
+  if (input === null || input === undefined) return;
+  if (Array.isArray(input)) {
+    input.forEach(item => collectCookieInput(item, picked));
+    return;
+  }
+  if (typeof input === 'object') {
+    if (input.name && Object.prototype.hasOwnProperty.call(input, 'value')) {
+      collectCookiePair(picked, input.name, input.value);
+      return;
+    }
+    Object.keys(input).forEach(key => {
+      const value = input[key];
+      if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) {
+        collectCookiePair(picked, key, value.value);
+      } else if (typeof value !== 'object') {
+        collectCookiePair(picked, key, value);
+      }
+    });
+    return;
+  }
+  String(input).split(/\r?\n/).forEach(line => {
+    line.split(';').forEach(part => {
       const raw = String(part || '').trim();
       const idx = raw.indexOf('=');
       if (idx <= 0) return;
-      const key = raw.slice(0, idx).trim();
-      if (!key || COOKIE_ATTRIBUTE_NAMES.has(key.toLowerCase())) return;
-      picked.set(key, raw.slice(idx + 1).trim());
+      collectCookiePair(picked, raw.slice(0, idx), raw.slice(idx + 1));
     });
   });
+}
+function normalizeCookieHeader(input) {
+  const picked = new Map();
+  collectCookieInput(input, picked);
   return Array.from(picked.entries())
     .filter(([key, value]) => key && value != null && String(value) !== '')
     .map(([key, value]) => `${key}=${value}`)
     .join('; ');
 }
+function rawCookieFallback(input) {
+  if (typeof input === 'string') return input.trim();
+  if (Array.isArray(input) && input.every(item => typeof item === 'string')) return input.join('; ').trim();
+  return '';
+}
 let userCookie = '';
 try { if (fs.existsSync(COOKIE_FILE)) userCookie = fs.readFileSync(COOKIE_FILE, 'utf8').trim(); }
 catch (e) { userCookie = ''; }
 function saveCookie(c) {
-  userCookie = normalizeCookieHeader(c);
+  userCookie = normalizeCookieHeader(c) || rawCookieFallback(c);
   try { fs.writeFileSync(COOKIE_FILE, userCookie); } catch (e) {}
 }
 
@@ -151,7 +182,7 @@ let qqCookie = '';
 try { if (fs.existsSync(QQ_COOKIE_FILE)) qqCookie = fs.readFileSync(QQ_COOKIE_FILE, 'utf8').trim(); }
 catch (e) { qqCookie = ''; }
 function saveQQCookie(c) {
-  qqCookie = normalizeCookieHeader(c);
+  qqCookie = normalizeCookieHeader(c) || rawCookieFallback(c);
   try { fs.writeFileSync(QQ_COOKIE_FILE, qqCookie); } catch (e) {}
 }
 
@@ -906,6 +937,9 @@ function classifyQQPlaybackRestriction(info, hasSession) {
   const lower = rawMsg.toLowerCase();
   if (!hasSession) {
     return playbackRestriction('qq', 'login_required', 'QQ 音乐需要登录或授权后才能获取播放地址', 'login', { code, rawMessage: rawMsg });
+  }
+  if (code === 104003) {
+    return playbackRestriction('qq', 'copyright_unavailable', 'QQ 音乐没有给当前版本返回播放地址，通常是版权、会员或官方版本限制，可以换一个搜索结果或切到网易云源', 'switch_source', { code, rawMessage: rawMsg });
   }
   if (/vip|会员|付费|购买|数字专辑|专辑|pay/.test(lower + rawMsg)) {
     return playbackRestriction('qq', 'paid_required', 'QQ 音乐歌曲需要会员、购买或数字专辑权限', 'upgrade', { code, rawMessage: rawMsg });
@@ -1700,11 +1734,13 @@ async function getQQLoginInfo() {
     });
     const body = parseJSONText(text);
     const info = normalizeQQProfile(body, cookieObj);
-    if (body && (body.code === 1000 || body.result === 301)) return { ...fallback, stale: true };
+    if (body && (body.code === 1000 || body.result === 301)) {
+      return { ...fallback, profileUnavailable: true };
+    }
     return info;
   } catch (e) {
     console.warn('[QQLogin] profile check failed:', e.message);
-    return { ...fallback, stale: true };
+    return { ...fallback, profileUnavailable: true };
   }
 }
 
@@ -2780,7 +2816,7 @@ const server = http.createServer(async (req, res) => {
       const normalized = normalizeQQCookieInput(raw);
       const obj = parseCookieString(normalized);
       if (!qqCookieUin(obj) || !qqCookieMusicKey(obj)) {
-        sendJSON(res, { provider: 'qq', loggedIn: false, error: 'INVALID_QQ_COOKIE', message: 'QQ cookie 缺少 uin 或 qqmusic_key/qm_keyst' }, 400);
+        sendJSON(res, { provider: 'qq', loggedIn: false, error: 'INVALID_QQ_COOKIE', message: 'QQ cookie 缺少 uin 或有效登录票据' }, 400);
         return;
       }
       saveQQCookie(normalized);
@@ -2973,6 +3009,35 @@ const server = http.createServer(async (req, res) => {
       const info = await handleSongUrl(sid, loginInfo, quality);
       sendJSON(res, { ...info, loggedIn: loginInfo.loggedIn, vipType: loginInfo.vipType || 0 });
     } catch (err) { console.error('[SongUrl]', err); sendJSON(res, { error: err.message }, 500); }
+    return;
+  }
+
+  if (pn === '/api/login/cookie') {
+    try {
+      const body = await readRequestBody(req);
+      const raw = body.cookie || body.data || body.text || '';
+      const normalized = normalizeCookieHeader(raw);
+      const obj = parseCookieString(normalized);
+      if (!obj.MUSIC_U) {
+        sendJSON(res, { loggedIn: false, error: 'INVALID_NETEASE_COOKIE', message: '网易云 cookie 缺少 MUSIC_U' }, 400);
+        return;
+      }
+      saveCookie(normalized);
+      let info = await getLoginInfo();
+      if (!info.loggedIn && userCookie) {
+        info = {
+          loggedIn: true,
+          pendingProfile: true,
+          nickname: '网易云用户',
+          avatar: '',
+          vipType: 0,
+        };
+      }
+      sendJSON(res, { ...info, saved: true, hasCookie: !!userCookie });
+    } catch (err) {
+      console.error('[LoginCookie]', err);
+      sendJSON(res, { loggedIn: false, error: err.message }, 500);
+    }
     return;
   }
 

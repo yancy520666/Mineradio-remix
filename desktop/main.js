@@ -16,6 +16,8 @@ const MIN_WINDOWED_HEIGHT = 540;
 const APP_NAME = 'Mineradio';
 const APP_USER_MODEL_ID = 'com.mineradio.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
+const NETEASE_LOGIN_PARTITION = 'persist:mineradio-netease-login';
+const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
 const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
 
@@ -44,6 +46,18 @@ const QQ_LOGIN_COOKIE_PRIORITY = [
   'p_uin',
   'ptcz',
   'RK',
+];
+const NETEASE_LOGIN_COOKIE_PRIORITY = [
+  'MUSIC_U',
+  '__csrf',
+  'NMTID',
+  'MUSIC_A',
+  '__remember_me',
+  '_ntes_nuid',
+  '_ntes_nnid',
+  'WEVNSM',
+  'WNMCID',
+  'JSESSIONID-WYYY',
 ];
 
 function findOpenPort(startPort) {
@@ -170,20 +184,32 @@ function qqCookieHasLogin(cookieText) {
   return !!(uin && musicKey);
 }
 
+function neteaseCookieHasLogin(cookieText) {
+  const obj = parseCookieHeader(cookieText);
+  return !!obj.MUSIC_U;
+}
+
 function isQQCookieDomain(domain) {
   const normalized = String(domain || '').replace(/^\./, '').toLowerCase();
   return normalized === 'qq.com' || normalized.endsWith('.qq.com') || normalized.endsWith('qqmusic.qq.com');
 }
 
-function buildCookieHeader(cookies) {
+function isNeteaseCookieDomain(domain) {
+  const normalized = String(domain || '').replace(/^\./, '').toLowerCase();
+  return normalized === '163.com' || normalized.endsWith('.163.com') ||
+    normalized === 'music.163.com' || normalized.endsWith('.music.163.com') ||
+    normalized === 'netease.com' || normalized.endsWith('.netease.com');
+}
+
+function buildCookieHeaderFor(cookies, isAllowedDomain, priority) {
   const picked = new Map();
   (cookies || []).forEach((cookie) => {
-    if (!cookie || !cookie.name || !isQQCookieDomain(cookie.domain)) return;
+    if (!cookie || !cookie.name || !isAllowedDomain(cookie.domain)) return;
     picked.set(cookie.name, cookie.value || '');
   });
 
   const ordered = [];
-  QQ_LOGIN_COOKIE_PRIORITY.forEach((name) => {
+  (priority || []).forEach((name) => {
     if (picked.has(name)) {
       ordered.push([name, picked.get(name)]);
       picked.delete(name);
@@ -197,9 +223,119 @@ function buildCookieHeader(cookies) {
     .join('; ');
 }
 
+function buildCookieHeader(cookies) {
+  return buildCookieHeaderFor(cookies, isQQCookieDomain, QQ_LOGIN_COOKIE_PRIORITY);
+}
+
 async function readQQLoginCookieHeader(cookieSession) {
   const cookies = await cookieSession.cookies.get({});
   return buildCookieHeader(cookies);
+}
+
+async function readNeteaseLoginCookieHeader(cookieSession) {
+  const cookies = await cookieSession.cookies.get({});
+  return buildCookieHeaderFor(cookies, isNeteaseCookieDomain, NETEASE_LOGIN_COOKIE_PRIORITY);
+}
+
+async function openNeteaseMusicLoginWindow(owner) {
+  const cookieSession = session.fromPartition(NETEASE_LOGIN_PARTITION);
+  const initialCookie = await readNeteaseLoginCookieHeader(cookieSession);
+  if (neteaseCookieHasLogin(initialCookie)) return { ok: true, cookie: initialCookie, reused: true };
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let pollTimer = null;
+
+    const loginWindow = new BrowserWindow({
+      width: 940,
+      height: 760,
+      minWidth: 780,
+      minHeight: 580,
+      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      modal: false,
+      show: false,
+      autoHideMenuBar: true,
+      title: '网易云音乐登录',
+      backgroundColor: '#111111',
+      icon: APP_ICON_ICO,
+      webPreferences: {
+        partition: NETEASE_LOGIN_PARTITION,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    const finish = async (result) => {
+      if (settled) return;
+      settled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (loginWindow && !loginWindow.isDestroyed()) {
+        loginWindow.close();
+      }
+      resolve(result);
+    };
+
+    const checkCookies = async () => {
+      try {
+        const cookie = await readNeteaseLoginCookieHeader(cookieSession);
+        if (neteaseCookieHasLogin(cookie)) {
+          finish({ ok: true, cookie });
+        }
+      } catch (e) {
+        console.warn('Netease login cookie check failed:', e.message);
+      }
+    };
+
+    loginWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\/([^/]+\.)?(163|music\.163|netease)\.com/i.test(url)) {
+        loginWindow.loadURL(url).catch((e) => console.warn('Netease login popup navigation failed:', e.message));
+      } else if (/^https?:\/\//i.test(url)) {
+        shell.openExternal(url).catch(() => {});
+      }
+      return { action: 'deny' };
+    });
+
+    loginWindow.webContents.on('did-finish-load', () => {
+      checkCookies();
+      loginWindow.webContents.executeJavaScript(`
+        setTimeout(() => {
+          const docs = [document];
+          document.querySelectorAll('iframe').forEach((frame) => {
+            try { if (frame.contentDocument) docs.push(frame.contentDocument); } catch (_) {}
+          });
+          for (const doc of docs) {
+            const nodes = Array.from(doc.querySelectorAll('a, button, span, div'));
+            const loginNode = nodes.find((node) => {
+              const text = (node.textContent || '').trim();
+              if (!/登录|立即登录/.test(text)) return false;
+              const rect = node.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0;
+            });
+            if (loginNode) { loginNode.click(); return true; }
+          }
+          return false;
+        }, 900);
+      `, true).catch(() => {});
+    });
+
+    loginWindow.on('ready-to-show', () => loginWindow.show());
+    loginWindow.on('closed', async () => {
+      if (settled) return;
+      if (pollTimer) clearInterval(pollTimer);
+      try {
+        const cookie = await readNeteaseLoginCookieHeader(cookieSession);
+        resolve(neteaseCookieHasLogin(cookie)
+          ? { ok: true, cookie }
+          : { ok: false, cancelled: true, message: '网易云登录窗口已关闭' });
+      } catch (e) {
+        resolve({ ok: false, error: e.message || '网易云登录窗口已关闭' });
+      }
+    });
+
+    pollTimer = setInterval(checkCookies, 1200);
+    loginWindow.loadURL(NETEASE_LOGIN_URL).catch((e) => finish({ ok: false, error: e.message }));
+  });
 }
 
 async function openQQMusicLoginWindow(owner) {
@@ -298,6 +434,14 @@ async function openQQMusicLoginWindow(owner) {
 
 async function clearQQMusicLoginSession() {
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
+  await cookieSession.clearStorageData({
+    storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
+  });
+  return { ok: true };
+}
+
+async function clearNeteaseMusicLoginSession() {
+  const cookieSession = session.fromPartition(NETEASE_LOGIN_PARTITION);
   await cookieSession.clearStorageData({
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
   });
@@ -409,6 +553,14 @@ ipcMain.handle('desktop-window-get-state', (event) => {
 
 ipcMain.handle('desktop-window-close', (event) => {
   getSenderWindow(event)?.close();
+});
+
+ipcMain.handle('netease-music-open-login', async (event) => {
+  return openNeteaseMusicLoginWindow(getSenderWindow(event));
+});
+
+ipcMain.handle('netease-music-clear-login', async () => {
+  return clearNeteaseMusicLoginSession();
 });
 
 ipcMain.handle('qq-music-open-login', async (event) => {
