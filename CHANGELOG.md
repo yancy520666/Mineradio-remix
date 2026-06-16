@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.1
+
+- Smooth Emily visual loading and track-change transitions.
+- Remove the forced loading-state jump, shorten the Emily cover color mix, and fade cover depth in gradually.
+- Publish a `1.0.0 -> 1.0.1` quick patch so installed users can receive an update prompt.
+
 ## v1.0.0
 
 - 调整播放器控制台显隐规则：播放、切歌、天气电台开播不再主动弹出底部控制台；只有底部手柄/热区唤出时显示，鼠标移出热区后快速收起。
