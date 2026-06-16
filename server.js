@@ -1148,6 +1148,7 @@ async function requestJson(targetUrl, opts, body) {
 }
 
 function clampNumber(value, min, max, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
@@ -1386,6 +1387,46 @@ function weatherRadioSeedQueries(mood) {
   return ['孙燕姿 天黑黑', '周杰伦 晴天', '五月天 温柔', '陈奕迅 稳稳的幸福', '王菲'];
 }
 
+function fallbackWeatherForRadio(params, err) {
+  params = params || {};
+  const name = String(params.city || params.q || params.location || WEATHER_DEFAULT_LOCATION.name).trim() || WEATHER_DEFAULT_LOCATION.name;
+  return {
+    provider: 'open-meteo',
+    location: {
+      name,
+      country: '',
+      admin1: '',
+      latitude: null,
+      longitude: null,
+      timezone: params.timezone || WEATHER_DEFAULT_LOCATION.timezone,
+      fallback: true,
+    },
+    label: '天气暂不可用',
+    weatherCode: null,
+    temperature: null,
+    apparentTemperature: null,
+    humidity: null,
+    precipitation: null,
+    cloudCover: null,
+    windSpeed: null,
+    windGusts: null,
+    isDay: null,
+    time: '',
+    updatedAt: Date.now(),
+    error: err && err.message || '',
+    mood: {
+      key: 'fallback',
+      title: '临时电台',
+      tagline: '天气暂时没有回来，先放一组稳妥的歌',
+      energy: 0.54,
+      warmth: 0.55,
+      focus: 0.55,
+      melancholy: 0.35,
+      keywords: ['华语 流行', 'indie pop', 'city pop', '轻快 歌单', 'chill pop'],
+    },
+  };
+}
+
 function uniqueSongsByKey(songs) {
   const seen = new Set();
   const out = [];
@@ -1405,22 +1446,25 @@ function tagWeatherPoolSongs(songs, source) {
 async function fetchWeatherPlaylistSongs(playlist, limit) {
   const id = playlist && playlist.id;
   if (!id) return [];
+  let rawTracks = [];
   try {
-    let rawTracks = [];
     if (typeof playlist_track_all === 'function') {
       const all = await playlist_track_all({ id, limit: limit || 36, offset: 0, cookie: userCookie, timestamp: Date.now() });
       rawTracks = (all.body && (all.body.songs || all.body.tracks)) || [];
     }
-    if (!rawTracks.length && typeof playlist_detail === 'function') {
+  } catch (e) {
+    console.warn('[WeatherRadio] playlist_track_all failed:', playlist && playlist.name, e.message);
+  }
+  if (!rawTracks.length && typeof playlist_detail === 'function') {
+    try {
       const detail = await playlist_detail({ id, s: 0, cookie: userCookie, timestamp: Date.now() });
       const pl = (detail.body && detail.body.playlist) || {};
       rawTracks = pl.tracks || [];
+    } catch (e) {
+      console.warn('[WeatherRadio] playlist_detail failed:', playlist && playlist.name, e.message);
     }
-    return rawTracks.map(mapSongRecord).filter(song => song.id && song.name).slice(0, limit || 36);
-  } catch (e) {
-    console.warn('[WeatherRadio] playlist pool failed:', playlist && playlist.name, e.message);
-    return [];
   }
+  return rawTracks.map(mapSongRecord).filter(song => song.id && song.name).slice(0, limit || 36);
 }
 
 async function filterLikelyPlayableWeatherSongs(songs) {
@@ -1526,33 +1570,34 @@ function orderWeatherSongs(songs, mood) {
 }
 
 async function buildWeatherRadio(params) {
-  const weather = await fetchOpenMeteoWeather(params);
+  let weather;
+  try {
+    weather = await fetchOpenMeteoWeather(params);
+  } catch (e) {
+    console.warn('[WeatherRadio] weather provider failed, using fallback radio:', e.message);
+    weather = fallbackWeatherForRadio(params, e);
+  }
   const queries = weatherRadioSeedQueries(weather.mood);
   let songs = [];
-  try {
-    const discover = await handleDiscoverHome();
-    if (discover && Array.isArray(discover.dailySongs)) songs = songs.concat(tagWeatherPoolSongs(discover.dailySongs, 'daily'));
-    if (discover && Array.isArray(discover.playlists) && discover.playlists.length) {
-      const privatePools = await Promise.all(discover.playlists.slice(0, 2).map(pl => fetchWeatherPlaylistSongs(pl, 18)));
-      privatePools.forEach(pool => { songs = songs.concat(tagWeatherPoolSongs(pool, 'private')); });
-    }
-  } catch (e) {
-    console.warn('[WeatherRadio] discover pool failed:', e.message);
-  }
-  const settled = await Promise.allSettled(queries.slice(0, 5).map(q => handleSearch(q, 8)));
+  const settled = await Promise.allSettled(queries.slice(0, 4).map(q => handleSearch(q, 6)));
   settled.forEach(result => {
     if (result.status === 'fulfilled' && Array.isArray(result.value)) songs = songs.concat(result.value);
   });
+  if (songs.length < 10 && weather.mood && Array.isArray(weather.mood.keywords)) {
+    const more = await Promise.allSettled(weather.mood.keywords.slice(0, 2).map(q => handleSearch(q, 6)));
+    more.forEach(result => {
+      if (result.status === 'fulfilled' && Array.isArray(result.value)) songs = songs.concat(result.value);
+    });
+  }
   songs = orderWeatherSongs(songs, weather.mood);
-  songs = await filterLikelyPlayableWeatherSongs(songs);
   return {
     ok: true,
     weather,
     radio: {
       title: weather.mood.title,
       subtitle: weather.mood.tagline,
-      seedQueries: queries.slice(0, 5),
-      songs,
+      seedQueries: queries.slice(0, 4),
+      songs: songs.slice(0, 18),
       updatedAt: Date.now(),
     },
   };
@@ -3251,8 +3296,12 @@ const server = http.createServer(async (req, res) => {
 
       // 新版本 NeteaseCloudMusicApi 通常提供 playlist_track_all；旧版本退回 playlist_detail。
       if (typeof playlist_track_all === 'function') {
-        const all = await playlist_track_all({ id, limit: 500, offset: 0, cookie: userCookie, timestamp: Date.now() });
-        rawTracks = (all.body && (all.body.songs || all.body.tracks)) || [];
+        try {
+          const all = await playlist_track_all({ id, limit: 500, offset: 0, cookie: userCookie, timestamp: Date.now() });
+          rawTracks = (all.body && (all.body.songs || all.body.tracks)) || [];
+        } catch (err) {
+          console.warn('[PlaylistTracks] playlist_track_all failed, fallback to detail:', err.message);
+        }
       }
 
       if (!rawTracks.length && typeof playlist_detail === 'function') {
