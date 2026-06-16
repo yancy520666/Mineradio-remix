@@ -11945,10 +11945,9 @@ function currentCoverSong() {
   return currentLocalSong || null;
 }
 function songDurationLabel(song) {
-  var raw = Number(song && song.duration);
-  if (!isFinite(raw) || raw <= 0) raw = audio && isFinite(audio.duration) ? audio.duration : 0;
-  if (!raw) return '未知';
-  var sec = raw > 1000 ? raw / 1000 : raw;
+  var sec = playbackDurationFromSong(song);
+  if (!sec && audio && isFinite(audio.duration) && audio.duration > 0) sec = audio.duration;
+  if (!sec) return '未知';
   return formatProgramTime(sec);
 }
 function songSourceLabel(song) {
@@ -13742,9 +13741,11 @@ async function playQueueAt(idx, opts) {
     markPlayPhase('audio-element');
     if (!audio) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
     else audio.pause();
+    bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
     var proxyAudioUrl = '/api/audio?url=' + encodeURIComponent(data.url);
     audio.src = proxyAudioUrl;
+    updatePlaybackProgressUi();
     audio.onended = function(){
       if (token !== trackSwitchToken) return;
       finalizeListenSession(true);
@@ -14673,12 +14674,43 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
 
 // 进度条
 var progressDragState = { active: false, lastParticleAt: 0 };
+function normalizePlaybackDurationSeconds(value) {
+  var raw = Number(value);
+  if (!isFinite(raw) || raw <= 0) return 0;
+  return raw > 1000 ? raw / 1000 : raw;
+}
+function playbackDurationFromSong(song) {
+  if (!song) return 0;
+  return normalizePlaybackDurationSeconds(song.duration || song.durationMs || song.dt || 0);
+}
+function getPlaybackDurationSeconds() {
+  if (audio && isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+  return playbackDurationFromSong(currentCoverSong());
+}
+function getPlaybackCurrentSeconds() {
+  return audio && isFinite(audio.currentTime) && audio.currentTime > 0 ? audio.currentTime : 0;
+}
 function setProgressVisual(percent) {
   percent = clampRange(percent || 0, 0, 100);
   var fill = document.getElementById('progress-fill');
   var thumb = document.getElementById('progress-thumb');
   if (fill) fill.style.width = percent + '%';
   if (thumb) thumb.style.left = percent + '%';
+}
+function updatePlaybackProgressUi() {
+  var durationSec = getPlaybackDurationSeconds();
+  var currentSec = getPlaybackCurrentSeconds();
+  if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
+  setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
+  var timeDisplay = document.getElementById('time-display');
+  if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+}
+function bindPlaybackProgressEvents(audioEl) {
+  if (!audioEl || audioEl._mineradioProgressBound) return;
+  audioEl._mineradioProgressBound = true;
+  ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'play', 'pause', 'emptied'].forEach(function(name){
+    audioEl.addEventListener(name, updatePlaybackProgressUi);
+  });
 }
 function emitProgressDragParticles(x, y) {
   var now = performance.now();
@@ -14698,11 +14730,12 @@ function emitProgressDragParticles(x, y) {
   }
 }
 function seekFromProgressPointer(e, emitParticles) {
-  if (!audio || !audio.duration) return;
+  var durationSec = getPlaybackDurationSeconds();
+  if (!audio || !durationSec) return;
   var bar = document.getElementById('progress-bar');
   var rect = bar.getBoundingClientRect();
   var ratio = clampRange((e.clientX - rect.left) / rect.width, 0, 1);
-  audio.currentTime = ratio * audio.duration;
+  audio.currentTime = ratio * durationSec;
   setProgressVisual(ratio * 100);
   syncBeatMapPlaybackCursor(audio.currentTime);
   if (emitParticles) emitProgressDragParticles(e.clientX, rect.top + rect.height / 2);
@@ -14729,13 +14762,10 @@ progressBar.addEventListener('pointerup', endProgressDrag);
 progressBar.addEventListener('pointercancel', endProgressDrag);
 progressBar.addEventListener('lostpointercapture', function(){ progressDragState.active = false; progressBar.classList.remove('is-dragging'); });
 setInterval(function(){
-  if (!audio || !audio.duration) return;
+  if (!audio) { updatePlaybackProgressUi(); return; }
   updateListenStatsTick(false);
-  setProgressVisual(audio.currentTime / audio.duration * 100);
-  var m = Math.floor(audio.currentTime / 60), s = Math.floor(audio.currentTime % 60);
-  var m2 = Math.floor(audio.duration / 60), s2 = Math.floor(audio.duration % 60);
-  document.getElementById('time-display').textContent = m + ':' + (s<10?'0':'') + s + ' / ' + m2 + ':' + (s2<10?'0':'') + s2;
-  updateLyricsHighlight();
+  updatePlaybackProgressUi();
+  if (audio.currentTime) updateLyricsHighlight();
 }, 200);
 
 // ============================================================
@@ -14788,8 +14818,10 @@ function handleFiles(files) {
     if (firstVisualPlay) { firstPlayDone = true; tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 1800); }
     if (!audio) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
     else audio.pause();
+    bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
     audio.src = url;
+    updatePlaybackProgressUi();
     lyricSunEnergy = 0; lyricSunTarget = 0; lyricSunHold = 0; lyricSunAvg = 0; lyricSunPeak = 0.55;
     audio.onended = function(){ finalizeListenSession(true); playing = false; setPlayIcon(false); };
     audio.onloadedmetadata = function(){
