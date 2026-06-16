@@ -120,11 +120,30 @@ const MIME = {
 };
 
 // ---------- Cookie 持久化 ----------
+const COOKIE_ATTRIBUTE_NAMES = new Set(['path', 'domain', 'expires', 'max-age', 'samesite', 'secure', 'httponly']);
+function normalizeCookieHeader(input) {
+  const values = Array.isArray(input) ? input : [input];
+  const picked = new Map();
+  values.forEach(value => {
+    String(value || '').split(';').forEach(part => {
+      const raw = String(part || '').trim();
+      const idx = raw.indexOf('=');
+      if (idx <= 0) return;
+      const key = raw.slice(0, idx).trim();
+      if (!key || COOKIE_ATTRIBUTE_NAMES.has(key.toLowerCase())) return;
+      picked.set(key, raw.slice(idx + 1).trim());
+    });
+  });
+  return Array.from(picked.entries())
+    .filter(([key, value]) => key && value != null && String(value) !== '')
+    .map(([key, value]) => `${key}=${value}`)
+    .join('; ');
+}
 let userCookie = '';
 try { if (fs.existsSync(COOKIE_FILE)) userCookie = fs.readFileSync(COOKIE_FILE, 'utf8').trim(); }
 catch (e) { userCookie = ''; }
 function saveCookie(c) {
-  userCookie = c || '';
+  userCookie = normalizeCookieHeader(c);
   try { fs.writeFileSync(COOKIE_FILE, userCookie); } catch (e) {}
 }
 
@@ -132,7 +151,7 @@ let qqCookie = '';
 try { if (fs.existsSync(QQ_COOKIE_FILE)) qqCookie = fs.readFileSync(QQ_COOKIE_FILE, 'utf8').trim(); }
 catch (e) { qqCookie = ''; }
 function saveQQCookie(c) {
-  qqCookie = c || '';
+  qqCookie = normalizeCookieHeader(c);
   try { fs.writeFileSync(QQ_COOKIE_FILE, qqCookie); } catch (e) {}
 }
 
@@ -840,7 +859,8 @@ function qqCookieUin(obj) {
 }
 function qqCookieMusicKey(obj) {
   obj = obj || qqCookieObject();
-  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.skey || '';
+  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.skey ||
+    obj.psrf_qqaccess_token || obj.psrf_qqrefresh_token || obj.wxrefresh_token || obj.wxskey || '';
 }
 function normalizeQQCookieInput(cookieText) {
   const obj = parseCookieString(cookieText);
@@ -1680,11 +1700,11 @@ async function getQQLoginInfo() {
     });
     const body = parseJSONText(text);
     const info = normalizeQQProfile(body, cookieObj);
-    if (body && (body.code === 1000 || body.result === 301)) return { ...fallback, loggedIn: false, stale: true };
+    if (body && (body.code === 1000 || body.result === 301)) return { ...fallback, stale: true };
     return info;
   } catch (e) {
     console.warn('[QQLogin] profile check failed:', e.message);
-    return fallback;
+    return { ...fallback, stale: true };
   }
 }
 
@@ -2455,20 +2475,37 @@ async function handleSongUrl(id, loginInfo, qualityPreference) {
 
 // ---------- 业务: 登录态/用户信息 ----------
 function readCookieFromResponse(resp) {
-  let c = resp && (resp.cookie || (resp.body && resp.body.cookie) || (resp.body && resp.body.data && resp.body.data.cookie));
-  if (Array.isArray(c)) c = c.join('; ');
-  return typeof c === 'string' ? c.trim() : '';
+  const candidates = [
+    resp && resp.cookie,
+    resp && resp.body && resp.body.cookie,
+    resp && resp.body && resp.body.data && resp.body.data.cookie,
+    resp && resp.body && resp.body.data && resp.body.data.cookies,
+  ];
+  for (const candidate of candidates) {
+    const cookie = normalizeCookieHeader(candidate);
+    if (cookie) return cookie;
+  }
+  return '';
 }
 function normalizeLoginInfo(profile, account) {
-  if (!profile || !(profile.userId || profile.userId === 0)) return { loggedIn: false };
+  profile = profile || {};
+  account = account || {};
+  const userId = profile.userId || profile.user_id || profile.id || account.userId || account.id || '';
+  if (!(userId || userId === 0)) return { loggedIn: false };
   const vipType = (account && account.vipType) || profile.vipType || 0;
   return {
     loggedIn: true,
-    userId: profile.userId,
+    userId,
     nickname: profile.nickname || profile.userName || '网易云用户',
     avatar: profile.avatarUrl || profile.avatar || '',
     vipType,
   };
+}
+function isNeteaseAuthInvalidPayload(payload) {
+  const code = normalizeApiCode(payload);
+  if (code === 301 || code === 401) return true;
+  const msg = normalizeApiMessage(payload);
+  return /未登录|需要登录|请先登录|login/i.test(msg) && code >= 300;
 }
 async function getLoginInfo() {
   if (!userCookie) return { loggedIn: false };
@@ -2489,11 +2526,11 @@ async function getLoginInfo() {
     const body = acc.body || {};
     const info = normalizeLoginInfo(body.profile, body.account);
     if (info.loggedIn) return info;
-    saveCookie('');
-    return { loggedIn: false };
+    if (isNeteaseAuthInvalidPayload(acc)) saveCookie('');
+    return { loggedIn: false, hasCookie: !!userCookie };
   } catch (e) {
     console.warn('[Login] account check failed:', e.message);
-    return { loggedIn: false };
+    return { loggedIn: false, hasCookie: !!userCookie };
   }
 }
 
@@ -2988,11 +3025,26 @@ const server = http.createServer(async (req, res) => {
   if (pn === '/api/login/qr/check') {
     try {
       const key = url.searchParams.get('key');
-      const r = await login_qr_check({ key, noCookie: true, timestamp: Date.now() });
-      const body = r.body || {};
-      const code = Number(body.code || r.code);
-      const msg  = body.message || r.message || '';
-      const cookie = readCookieFromResponse(r);
+      let r = await login_qr_check({ key, noCookie: true, timestamp: Date.now() });
+      let body = r.body || {};
+      let code = Number(body.code || r.code);
+      let msg  = body.message || r.message || '';
+      let cookie = readCookieFromResponse(r);
+      if (code === 803 && !cookie) {
+        try {
+          const retry = await login_qr_check({ key, timestamp: Date.now() });
+          const retryCookie = readCookieFromResponse(retry);
+          if (retryCookie) {
+            r = retry;
+            body = retry.body || body;
+            code = Number(body.code || retry.code || code);
+            msg = body.message || retry.message || msg;
+            cookie = retryCookie;
+          }
+        } catch (retryErr) {
+          console.warn('[Login] qr cookie retry failed:', retryErr.message);
+        }
+      }
       // 803 = 授权成功, 802 = 已扫待确认, 801 = 等待扫码, 800 = 二维码过期
       if (code === 803) {
         if (cookie) saveCookie(cookie);
@@ -3000,6 +3052,15 @@ const server = http.createServer(async (req, res) => {
         if (!info.loggedIn) {
           const profile = body.profile || (body.data && body.data.profile) || {};
           info = normalizeLoginInfo(profile, body.account || (body.data && body.data.account));
+        }
+        if (!info.loggedIn && cookie) {
+          info = {
+            loggedIn: true,
+            pendingProfile: true,
+            nickname: (body.nickname || (body.profile && body.profile.nickname) || '网易云用户'),
+            avatar: body.avatarUrl || (body.profile && body.profile.avatarUrl) || '',
+            vipType: 0,
+          };
         }
         sendJSON(res, { code, message: msg, ...info, hasCookie: !!cookie });
         return;

@@ -161,9 +161,12 @@ function parseCookieHeader(cookieText) {
 
 function qqCookieHasLogin(cookieText) {
   const obj = parseCookieHeader(cookieText);
-  const rawUin = obj.uin || obj.qqmusic_uin || obj.wxuin || obj.p_uin || '';
+  const rawUin = Number(obj.login_type) === 2
+    ? (obj.wxuin || obj.uin || obj.p_uin || '')
+    : (obj.uin || obj.qqmusic_uin || obj.wxuin || obj.p_uin || '');
   const uin = String(rawUin).replace(/\D/g, '');
-  const musicKey = obj.qm_keyst || obj.qqmusic_key || obj.p_skey || obj.skey || '';
+  const musicKey = obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.skey ||
+    obj.psrf_qqaccess_token || obj.psrf_qqrefresh_token || obj.wxrefresh_token || obj.wxskey || '';
   return !!(uin && musicKey);
 }
 

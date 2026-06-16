@@ -16306,17 +16306,25 @@ async function checkQr() {
     if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; stopQrPoll(); }
     else if (r.code === 801) { $st.textContent = '请在 App 中扫码'; $st.className = ''; }
     else if (r.code === 802) { $st.textContent = '已扫码, 请在手机确认…'; $st.className = 'scan'; }
-    else if (r.code === 803 && r.loggedIn) {
-      $st.textContent = '登录成功！'; $st.className = 'scan';
+    else if (r.code === 803 && (r.loggedIn || r.hasCookie)) {
+      $st.textContent = r.pendingProfile ? '登录成功，正在同步账号资料…' : '登录成功！'; $st.className = 'scan';
       stopQrPoll();
-      loginStatus = r;
+      loginStatus = r.loggedIn ? r : Object.assign({}, r, { loggedIn: true, pendingProfile: true, nickname: r.nickname || '网易云用户' });
       activeAccountProvider = 'netease';
       renderUserBtn();
       setTimeout(async function(){
         var fresh = await refreshLoginStatus(true);
+        if (!fresh || !fresh.loggedIn) {
+          loginStatus = Object.assign({}, loginStatus, { loggedIn: true, pendingProfile: true });
+          renderUserBtn();
+          fresh = loginStatus;
+        }
         closeLoginModal();
         showToast('欢迎 ' + (fresh && fresh.nickname ? fresh.nickname : ''));
-      }, 500);
+      }, r.pendingProfile ? 1200 : 500);
+    } else if (r.code === 803) {
+      $st.textContent = '扫码已确认，但没有拿到登录凭证，请刷新二维码重试'; $st.className = 'fail';
+      stopQrPoll();
     }
   } catch (e) { console.warn(e); }
 }
