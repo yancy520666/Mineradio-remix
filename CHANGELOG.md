@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.2
+
+- Add collect-to-playlist and play-next actions to artist detail songs.
+- Publish quick patches for `1.0.1 -> 1.0.2` and `1.0.0 -> 1.0.2`, plus a full installer for cross-version upgrades.
+
 ## v1.0.1
 
 - Smooth Emily visual loading and track-change transitions.
