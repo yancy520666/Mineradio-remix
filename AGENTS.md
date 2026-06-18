@@ -77,7 +77,7 @@ node --check server.js
    - 需要的 `Mineradio-旧版本-x.y.z.json` 轻量补丁
 6. 0.9 系列补丁跳过；1.0.x 系列可按需生成跨小版本补丁。
 
-GitHub CLI 若遇到本机代理 `127.0.0.1:26001` 失效，可在当前命令里临时清空代理环境变量。
+GitHub CLI / `gh auth` / Release 上传需要代理时，优先使用可用本机代理 `127.0.0.1:10808`；不要再走旧代理 `127.0.0.1:26001`，该端口会连接拒绝。临时命令可先清空 `HTTP_PROXY`/`HTTPS_PROXY`，再设为 `http://127.0.0.1:10808`。
 
 ## User Preferences
 
