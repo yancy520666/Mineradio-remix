@@ -9,7 +9,7 @@
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
-- 当前版本基线：`v1.0.4`
+- 当前版本基线：`v1.0.5`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
 
 ## Workspace Organization
@@ -23,6 +23,17 @@
 
 ## Release Memory
 
+- `v1.0.5` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.5`
+- `v1.0.5` Release 资产包括：
+  - `latest.yml`
+  - `Mineradio-1.0.5-Setup.exe`
+  - `Mineradio-1.0.5-Setup.exe.blockmap`
+  - `Mineradio-1.0.0-to-1.0.5.patch.json`
+  - `Mineradio-1.0.1-to-1.0.5.patch.json`
+  - `Mineradio-1.0.2-to-1.0.5.patch.json`
+  - `Mineradio-1.0.3-to-1.0.5.patch.json`
+  - `Mineradio-1.0.4-to-1.0.5.patch.json`
+- `v1.0.5` 更新链路新增国内分流下载、下载速度/剩余时间显示、失败原因提示、digest 校验和更严格的补丁版本匹配。
 - `v1.0.4` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.4`
 - `v1.0.4` Release 资产包括：
   - `latest.yml`
