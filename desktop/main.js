@@ -22,9 +22,6 @@ const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 const QQ_LOGIN_COOKIE_PRIORITY = [
   'uin',
@@ -103,7 +100,11 @@ function getWindowState(win) {
     isMaximized: false,
     isNativeFullScreen: false,
     isHtmlFullScreen: false,
+    isWindowFullScreen: false,
     isFullScreen: false,
+    isMinimized: false,
+    isVisible: false,
+    isFocused: false,
   };
   return {
     isMaximized: win.isMaximized(),
@@ -111,6 +112,9 @@ function getWindowState(win) {
     isHtmlFullScreen: htmlFullscreenActive,
     isWindowFullScreen: windowFullscreenActive,
     isFullScreen: win.isFullScreen() || htmlFullscreenActive || windowFullscreenActive,
+    isMinimized: win.isMinimized(),
+    isVisible: win.isVisible(),
+    isFocused: win.isFocused(),
   };
 }
 
@@ -641,7 +645,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
     },
   });
 
@@ -668,6 +672,12 @@ async function createWindow() {
 
   mainWindow.on('maximize', () => sendWindowState(mainWindow));
   mainWindow.on('unmaximize', () => sendWindowState(mainWindow));
+  mainWindow.on('minimize', () => sendWindowState(mainWindow));
+  mainWindow.on('restore', () => sendWindowState(mainWindow));
+  mainWindow.on('show', () => sendWindowState(mainWindow));
+  mainWindow.on('hide', () => sendWindowState(mainWindow));
+  mainWindow.on('focus', () => sendWindowState(mainWindow));
+  mainWindow.on('blur', () => sendWindowState(mainWindow));
   mainWindow.on('enter-full-screen', () => {
     windowFullscreenActive = true;
     sendWindowState(mainWindow);

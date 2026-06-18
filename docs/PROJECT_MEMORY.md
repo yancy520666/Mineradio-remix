@@ -9,7 +9,7 @@
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
-- 当前版本基线：`v1.0.3`
+- 当前版本基线：`v1.0.4`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
 
 ## Workspace Organization
@@ -23,6 +23,15 @@
 
 ## Release Memory
 
+- `v1.0.4` 发布资产已在本地生成，准备上传 GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.4`
+- `v1.0.4` Release 资产包括：
+  - `latest.yml`
+  - `Mineradio-1.0.4-Setup.exe`
+  - `Mineradio-1.0.4-Setup.exe.blockmap`
+  - `Mineradio-1.0.0-to-1.0.4.patch.json`
+  - `Mineradio-1.0.1-to-1.0.4.patch.json`
+  - `Mineradio-1.0.2-to-1.0.4.patch.json`
+  - `Mineradio-1.0.3-to-1.0.4.patch.json`
 - `v1.0.3` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.3`
 - `v1.0.3` Release 资产包括：
   - `latest.yml`
@@ -87,3 +96,10 @@
 - 关键参数/实现：真实代码/Git 仓库移动到 `E:\桌面\播放器软件\Mineradio\resources\app`；可运行程序在 `E:\桌面\播放器软件\Mineradio\Mineradio.exe`。
 - 禁止回退或改坏的点：以后不要修改外层旧源码路径；改代码必须进入 `resources\app`，否则用户打开 exe 看不到效果。
 - 补充：运行版 `node_modules` 可能没有打包依赖；发布前如缺少 `electron-builder`，在 `resources\app` 里执行 `npm install`。
+
+### 2026-06-18 - 保留最小化内存优化边界
+
+- 用户认可/要求保留：用户确认当前内存优化处理很好，可以在最小化/窗口隐藏时尽量降低占用。
+- 涉及文件：`desktop/main.js`、`public/index.html`。
+- 关键参数/实现：Electron 保持后台节流能力并向前端回传 `isMinimized/isVisible/isFocused`；前端只在 `document.hidden`、窗口最小化或不可见时进入 `render-deep-sleep` 与低帧渲染。
+- 禁止回退或改坏的点：不要再因为窗口失焦、放在副屏或非焦点状态就降低帧率、降低 DPR 或弱化电影镜头；非焦点可见窗口应保持正常视觉运行。
