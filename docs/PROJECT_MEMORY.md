@@ -4,7 +4,9 @@
 
 ## Stable Project Facts
 
-- 项目目录：`E:\桌面\播放器软件\Mineradio`
+- 可运行程序：`E:\桌面\播放器软件\Mineradio\Mineradio.exe`
+- 运行版主目录：`E:\桌面\播放器软件\Mineradio`
+- 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
 - 当前版本基线：`v1.0.3`
@@ -77,3 +79,10 @@
 - 涉及文件：根目录 `AGENTS.md`、项目 `AGENTS.md`、本文件、用户技能 `mineradio-project-memory`。
 - 关键参数/实现：新对话先读取项目说明；遇到“保留/喜欢/记住”类表达时更新本文件。
 - 禁止回退或改坏的点：不要再把项目藏回 `editable-install\...\resources\app`；不要把散落备份重新放到根目录。
+
+### 2026-06-18 - 将 win-unpacked 设为 Mineradio 主运行目录
+
+- 用户认可/要求保留：用户实际检查软件靠 `win-unpacked` 里的 `Mineradio.exe`，所以 `win-unpacked` 已提升为 `E:\桌面\播放器软件\Mineradio` 主目录。
+- 涉及文件：`E:\桌面\播放器软件\AGENTS.md`、`E:\桌面\播放器软件\Mineradio\AGENTS.md`、`AGENTS.md`、本文件。
+- 关键参数/实现：真实代码/Git 仓库移动到 `E:\桌面\播放器软件\Mineradio\resources\app`；可运行程序在 `E:\桌面\播放器软件\Mineradio\Mineradio.exe`。
+- 禁止回退或改坏的点：以后不要修改外层旧源码路径；改代码必须进入 `resources\app`，否则用户打开 exe 看不到效果。
