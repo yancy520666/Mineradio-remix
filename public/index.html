@@ -1602,6 +1602,65 @@ html.control-glass-svg-ok .search-history-chip:hover{
   stroke:currentColor!important;
 }
 
+/* Visual console organization and adaptive popovers. */
+.fx-panel-tabs{
+  position:sticky;
+  top:-18px;
+  z-index:4;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:5px;
+  margin:-2px -2px 14px;
+  padding:5px;
+  border-radius:14px;
+  background:rgba(0,0,0,.50);
+  border:1px solid rgba(255,255,255,.075);
+  box-shadow:0 10px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter:blur(18px) saturate(1.12);
+  -webkit-backdrop-filter:blur(18px) saturate(1.12);
+}
+.fx-panel-tabs button{
+  min-width:0;
+  height:30px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:rgba(255,255,255,.52);
+  font:700 11px/1 var(--font-sans);
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:background .18s,color .18s,box-shadow .18s,transform .18s;
+}
+.fx-panel-tabs button:hover{color:#fff;background:rgba(255,255,255,.055)}
+.fx-panel-tabs button.active{
+  color:#fff;
+  background:rgba(var(--fc-accent-rgb),.15);
+  box-shadow:inset 0 0 0 1px rgba(var(--fc-accent-rgb),.24),0 8px 22px rgba(var(--fc-accent-rgb),.08);
+}
+.fx-tab-page{display:none}
+.fx-tab-page.active{display:block}
+.fx-tab-page>.fx-section-label:first-child{margin-top:0}
+#fx-panel .fx-fold{margin-top:10px}
+#fx-panel .fx-fold.open{background:rgba(255,255,255,.026)}
+.lyric-color-row.bg-cover-mode #bg-color-picker{
+  border-color:rgba(255,255,255,.26)!important;
+  background:conic-gradient(from 210deg,#f8f4ee,#9db8cf,#2442ff,#f4d28a,#f8f4ee)!important;
+  box-shadow:0 0 0 1px rgba(var(--fc-accent-rgb),.12),0 10px 24px rgba(0,0,0,.22)!important;
+}
+.lyric-color-row.bg-cover-mode #bg-color-picker::-webkit-color-swatch{opacity:.18}
+.lyric-color-row.bg-cover-mode .fx-color-row-label small{color:rgba(var(--fc-accent-rgb),.78)}
+.cover-color-pop,.color-lab-pop{
+  transform:none!important;
+  max-height:calc(100vh - 28px);
+  overflow:auto;
+}
+@media (max-width:720px){
+  .fx-panel-tabs{display:flex;overflow-x:auto;scrollbar-width:none;top:-14px}
+  .fx-panel-tabs::-webkit-scrollbar{display:none}
+  .fx-panel-tabs button{flex:0 0 auto;min-width:58px;padding:0 10px}
+  .cover-color-pop,.color-lab-pop{width:calc(100vw - 28px)!important}
+}
+
 /* ============================================================ */
 /*  舞台歌词 (大字 + 3D 入场 + 呼吸)                              */
 /* ============================================================ */
@@ -1875,7 +1934,7 @@ html.control-glass-svg-ok .search-history-chip:hover{
   <div class="lyric-color-row">
     <input id="bg-color-picker" class="lyric-color-picker" type="color" value="#000000" title="背景颜色">
     <div class="fx-color-row-label">背景颜色<small id="bg-color-value">#000000</small></div>
-    <button class="fx-mini-btn ghost" type="button" onclick="resetCustomBackgroundColor()">默认</button>
+    <button class="fx-mini-btn ghost" type="button" onclick="resetCustomBackgroundColor()">&#23553;&#38754;</button>
   </div>
   <div class="lyric-color-row image-pick-row">
     <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('background-image-input').click()">选择</button>
@@ -2853,6 +2912,7 @@ var fxDefaults = {
   homeAccentColor: '#00f5d4',
   homeIconColor: '#f4d28a',
   visualIconColor: '#7fd8ff',
+  backgroundColorMode: 'cover',
   backgroundColor: '#000000',
   backgroundOpacity: 1,
   backgroundColorCustom: false,
@@ -5867,6 +5927,12 @@ function readSavedLyricLayout() {
     if (savedPreset === 3 && raw.visualPresetSchema !== VISUAL_PRESET_SCHEMA) {
       savedPreset = 5;
     }
+    var savedBgColor = normalizeHexColor(raw.backgroundColor || '#000000', '#000000');
+    var savedBgOpacity = clampRange(raw.backgroundOpacity == null ? fxDefaults.backgroundOpacity : Number(raw.backgroundOpacity), 0, 1);
+    var savedBgMode = /^(cover|custom)$/.test(String(raw.backgroundColorMode || '')) ? String(raw.backgroundColorMode) : '';
+    var savedBgCustom = savedBgMode
+      ? savedBgMode === 'custom'
+      : (raw.backgroundColorCustom === true || (raw.backgroundColorCustom !== false && savedBgColor !== '#000000') || savedBgOpacity < 1);
     return {
       preset: savedPreset,
       intensity: clampRange(Number(raw.intensity) || fxDefaults.intensity, 0.2, 1.6),
@@ -5907,9 +5973,10 @@ function readSavedLyricLayout() {
       homeAccentColor: normalizeHexColor(raw.homeAccentColor || '#00f5d4'),
       homeIconColor: normalizeHexColor(raw.homeIconColor || fxDefaults.homeIconColor || '#f4d28a', '#f4d28a'),
       visualIconColor: normalizeHexColor(raw.visualIconColor || fxDefaults.visualIconColor || '#7fd8ff', '#7fd8ff'),
-      backgroundColor: normalizeHexColor(raw.backgroundColor || '#000000', '#000000'),
-      backgroundOpacity: clampRange(raw.backgroundOpacity == null ? fxDefaults.backgroundOpacity : Number(raw.backgroundOpacity), 0, 1),
-      backgroundColorCustom: raw.backgroundColorCustom === true || normalizeHexColor(raw.backgroundColor || '#000000', '#000000') !== '#000000' || Number(raw.backgroundOpacity) < 1,
+      backgroundColorMode: savedBgCustom ? 'custom' : 'cover',
+      backgroundColor: savedBgColor,
+      backgroundOpacity: savedBgOpacity,
+      backgroundColorCustom: savedBgCustom,
       backgroundImage: normalizeCustomBackgroundImage(raw.backgroundImage),
       backgroundMedia: normalizeCustomBackgroundMedia(raw.backgroundMedia || raw.backgroundImage),
       coverResolution: normalizeCoverResolution(raw.coverResolution),
@@ -5966,9 +6033,10 @@ function saveLyricLayout() {
       homeAccentColor: normalizeHexColor(fx.homeAccentColor || '#00f5d4'),
       homeIconColor: normalizeHexColor(fx.homeIconColor || '#f4d28a', '#f4d28a'),
       visualIconColor: normalizeHexColor(fx.visualIconColor || '#7fd8ff', '#7fd8ff'),
+      backgroundColorMode: fx.backgroundColorMode === 'custom' || fx.backgroundColorCustom ? 'custom' : 'cover',
       backgroundColor: normalizeHexColor(fx.backgroundColor || '#000000', '#000000'),
       backgroundOpacity: clampRange(fx.backgroundOpacity == null ? fxDefaults.backgroundOpacity : Number(fx.backgroundOpacity), 0, 1),
-      backgroundColorCustom: !!fx.backgroundColorCustom,
+      backgroundColorCustom: fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom,
       backgroundImage: normalizeCustomBackgroundImage(fx.backgroundImage),
       backgroundMedia: normalizeCustomBackgroundMedia(fx.backgroundMedia || fx.backgroundImage),
       coverResolution: normalizeCoverResolution(fx.coverResolution),
@@ -6300,6 +6368,35 @@ function closeColorLab() {
   colorLabState.picker = null;
   colorLabState.id = '';
 }
+function placeFxFloatingPanel(pop, anchor, opts) {
+  if (!pop || !anchor || !anchor.getBoundingClientRect) return;
+  opts = opts || {};
+  var gap = opts.gap == null ? 12 : opts.gap;
+  var pad = opts.pad == null ? 14 : opts.pad;
+  var rect = anchor.getBoundingClientRect();
+  var vw = Math.max(320, window.innerWidth || document.documentElement.clientWidth || 320);
+  var vh = Math.max(320, window.innerHeight || document.documentElement.clientHeight || 320);
+  var pw = Math.min(pop.offsetWidth || pop.getBoundingClientRect().width || 330, vw - pad * 2);
+  var ph = Math.min(pop.offsetHeight || pop.getBoundingClientRect().height || 260, vh - pad * 2);
+  var left;
+  var top;
+  if (vw < 760) {
+    left = Math.max(pad, Math.min(vw - pw - pad, rect.left + rect.width / 2 - pw / 2));
+    top = rect.bottom + gap;
+    if (top + ph > vh - pad) top = Math.max(pad, rect.top - ph - gap);
+  } else {
+    var roomRight = vw - rect.right - pad;
+    var roomLeft = rect.left - pad;
+    if (roomRight >= pw + gap || roomRight >= roomLeft) left = rect.right + gap;
+    else left = rect.left - pw - gap;
+    left = Math.max(pad, Math.min(vw - pw - pad, left));
+    top = rect.top + rect.height / 2 - ph / 2;
+    top = Math.max(pad, Math.min(vh - ph - pad, top));
+  }
+  pop.style.left = Math.round(left) + 'px';
+  pop.style.top = Math.round(top) + 'px';
+  pop.style.transform = 'none';
+}
 function openColorLabForPicker(picker) {
   var pop = document.getElementById('color-lab-pop');
   if (!picker || !pop) return;
@@ -6312,9 +6409,6 @@ function openColorLabForPicker(picker) {
   var label = picker.closest('.lyric-color-row');
   var title = document.getElementById('color-lab-title');
   if (title) title.textContent = label ? (label.textContent || 'Color').replace(/#[0-9a-f]{6}/ig, '').trim().slice(0, 24) : 'Color';
-  pop.style.left = '50%';
-  pop.style.top = '50%';
-  pop.style.transform = 'translate(-50%,-50%)';
   syncColorLabUi(picker.value || '#000000');
   var presets = document.getElementById('color-lab-presets');
   if (presets) {
@@ -6323,6 +6417,7 @@ function openColorLabForPicker(picker) {
     }).join('');
   }
   pop.classList.add('show');
+  placeFxFloatingPanel(pop, label || picker, { gap: 12, pad: 14 });
 }
 function updateColorLabFromSv(e) {
   var sv = document.getElementById('color-lab-sv');
@@ -6381,6 +6476,20 @@ function bindColorLabRows() {
     });
   });
 }
+function repositionFxFloatingPanels() {
+  var colorPop = document.getElementById('color-lab-pop');
+  if (colorPop && colorPop.classList.contains('show') && colorLabState.picker) {
+    placeFxFloatingPanel(colorPop, colorLabState.picker.closest('.lyric-color-row') || colorLabState.picker, { gap: 12, pad: 14 });
+  }
+  var coverPop = document.getElementById('cover-color-pop');
+  if (coverPop && coverPop.classList.contains('show')) {
+    placeFxFloatingPanel(coverPop, document.getElementById('visual-tint-auto-btn') || document.getElementById('visual-tint-picker') || coverPop, { gap: 12, pad: 14 });
+  }
+}
+window.addEventListener('resize', function(){
+  if (window.requestAnimationFrame) requestAnimationFrame(repositionFxFloatingPanels);
+  else repositionFxFloatingPanels();
+});
 function uiAccentHex(fallback) {
   return normalizeHexColor((fx && fx.uiAccentColor) || fallback || '#00f5d4', fallback || '#00f5d4');
 }
@@ -17231,7 +17340,8 @@ function applyCustomBackground() {
   var image = media && media.type === 'image' ? media.src : '';
   var hasVideo = !!(media && media.type === 'video');
   var opacity = clampRange(fx.backgroundOpacity == null ? 1 : Number(fx.backgroundOpacity), 0, 1);
-  var override = !!media || !!fx.backgroundColorCustom || opacity < 1;
+  var customColor = fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom;
+  var override = !!media || customColor || opacity < 1;
   var root = document.documentElement;
   var layer = document.getElementById('custom-bg');
   var video = document.getElementById('custom-bg-video');
@@ -17284,23 +17394,38 @@ function updateCustomBackgroundControls() {
   var picker = document.getElementById('bg-color-picker');
   var value = document.getElementById('bg-color-value');
   var imageValue = document.getElementById('bg-image-value');
+  var customColor = fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom;
   if (picker) picker.value = color;
-  if (value) value.textContent = color.toUpperCase();
+  if (value) value.textContent = customColor ? color.toUpperCase() : '\u5c01\u9762\u6e10\u53d8';
+  if (picker && picker.closest) {
+    var row = picker.closest('.lyric-color-row');
+    if (row) row.classList.toggle('bg-cover-mode', !customColor);
+  }
   setRange('fx-bgopacity', fx.backgroundOpacity == null ? 1 : fx.backgroundOpacity);
   if (imageValue) imageValue.textContent = customBackgroundMediaLabel(fx.backgroundMedia || fx.backgroundImage);
 }
 function setCustomBackgroundColor(color, silent, customFlag) {
   fx.backgroundColor = normalizeHexColor(color || '#000000', '#000000');
+  fx.backgroundColorMode = customFlag === false ? 'cover' : 'custom';
   fx.backgroundColorCustom = customFlag !== false;
   updateCustomBackgroundControls();
   saveLyricLayout();
   if (!silent) showToast('背景颜色: ' + fx.backgroundColor.toUpperCase());
 }
+function setCustomBackgroundCoverMode(silent) {
+  fx.backgroundColorMode = 'cover';
+  fx.backgroundColorCustom = false;
+  fx.backgroundColor = normalizeHexColor(fx.backgroundColor || fxDefaults.backgroundColor || '#000000', '#000000');
+  updateCustomBackgroundControls();
+  saveLyricLayout();
+  if (!silent) showToast('\u80cc\u666f\u989c\u8272: \u5c01\u9762\u6e10\u53d8');
+}
 function resetCustomBackgroundColor() {
-  setCustomBackgroundColor(fxDefaults.backgroundColor || '#000000', false, false);
+  setCustomBackgroundCoverMode(false);
 }
 function setCustomBackgroundOpacity(value, silent) {
   fx.backgroundOpacity = clampRange(Number(value), 0, 1);
+  fx.backgroundColorMode = 'custom';
   fx.backgroundColorCustom = true;
   updateCustomBackgroundControls();
   saveLyricLayout();
@@ -17503,6 +17628,7 @@ function openCoverColorPicker(target) {
   renderCoverPickerSwatches();
   if (hint) hint.textContent = '点击专辑封面任意位置取色，或使用下方推荐色。';
   pop.classList.add('show');
+  placeFxFloatingPanel(pop, document.getElementById('visual-tint-auto-btn') || document.getElementById('visual-tint-picker') || art, { gap: 12, pad: 14 });
 }
 function closeCoverColorPicker() {
   var pop = document.getElementById('cover-color-pop');
@@ -17874,8 +18000,104 @@ function ensureFxSliderResetButton(id, key) {
   });
   el.parentElement.appendChild(btn);
 }
+var fxPanelTab = 'presets';
+function setFxPanelTab(tab) {
+  var allowed = { presets:1, appearance:1, lyrics:1, motion:1, advanced:1 };
+  fxPanelTab = allowed[tab] ? tab : 'presets';
+  var panel = document.getElementById('fx-panel');
+  if (panel) panel.setAttribute('data-active-tab', fxPanelTab);
+  document.querySelectorAll('#fx-panel-tabs [data-fx-tab]').forEach(function(btn){
+    btn.classList.toggle('active', btn.getAttribute('data-fx-tab') === fxPanelTab);
+  });
+  document.querySelectorAll('#fx-panel .fx-tab-page').forEach(function(page){
+    page.classList.toggle('active', page.getAttribute('data-fx-page') === fxPanelTab);
+  });
+  repositionFxFloatingPanels();
+}
+function fxPanelInputId(node) {
+  var input = node && node.querySelector ? node.querySelector('input[id]') : null;
+  return input ? input.id : '';
+}
+function fxPanelTargetForNode(node, current) {
+  if (!node) return current || 'presets';
+  var id = node.id || '';
+  var inputId = fxPanelInputId(node);
+  if (id === 'preset-grid') return 'presets';
+  if (id === 'fx-lyric-fold') return 'lyrics';
+  if (id === 'fx-overlay-fold' || id === 'fx-stage-fold') return 'motion';
+  if (id === 'fx-advanced' || node.classList.contains('fx-actions')) return 'advanced';
+  if (node.classList.contains('lyric-color-row') || node.classList.contains('cover-color-pop') || node.classList.contains('color-lab-pop') || node.classList.contains('cover-color-loupe')) return 'appearance';
+  if (inputId === 'fx-bgopacity') return 'appearance';
+  if (/^fx-(intensity|depth|coverres|cineshake|lyricglow)$/.test(inputId)) return 'motion';
+  return current || 'presets';
+}
+function organizeFxPanel() {
+  var panel = document.getElementById('fx-panel');
+  if (!panel) return;
+  if (panel._fxPanelOrganized) {
+    setFxPanelTab(fxPanelTab);
+    return;
+  }
+  var head = panel.querySelector('.fx-head');
+  var tabMeta = [
+    ['presets', '\u9884\u8bbe'],
+    ['appearance', '\u5916\u89c2'],
+    ['lyrics', '\u6b4c\u8bcd'],
+    ['motion', '\u52a8\u6001'],
+    ['advanced', '\u9ad8\u7ea7']
+  ];
+  var tabs = document.createElement('div');
+  tabs.className = 'fx-panel-tabs';
+  tabs.id = 'fx-panel-tabs';
+  tabMeta.forEach(function(meta){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-fx-tab', meta[0]);
+    btn.textContent = meta[1];
+    tabs.appendChild(btn);
+  });
+  if (head && head.nextSibling) panel.insertBefore(tabs, head.nextSibling);
+  else panel.insertBefore(tabs, panel.firstChild);
+  var pages = {};
+  var insertAfter = tabs;
+  tabMeta.forEach(function(meta){
+    var page = document.createElement('div');
+    page.className = 'fx-tab-page';
+    page.setAttribute('data-fx-page', meta[0]);
+    insertAfter.parentNode.insertBefore(page, insertAfter.nextSibling);
+    insertAfter = page;
+    pages[meta[0]] = page;
+  });
+  var original = Array.prototype.slice.call(panel.children).filter(function(child){
+    return child !== head && child !== tabs && !child.classList.contains('fx-tab-page');
+  });
+  var current = 'presets';
+  original.forEach(function(node, idx){
+    var target;
+    if (node.classList.contains('fx-section-label')) {
+      target = fxPanelTargetForNode(original[idx + 1], current);
+      current = target;
+    } else {
+      target = fxPanelTargetForNode(node, current);
+      current = target;
+    }
+    (pages[target] || pages.presets).appendChild(node);
+  });
+  ['fx-lyric-fold','fx-overlay-fold','fx-stage-fold'].forEach(function(id){
+    var fold = document.getElementById(id);
+    if (fold) fold.classList.add('open');
+  });
+  tabs.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('[data-fx-tab]') : null;
+    if (!btn) return;
+    setFxPanelTab(btn.getAttribute('data-fx-tab'));
+  });
+  panel._fxPanelOrganized = true;
+  setFxPanelTab(fxPanelTab);
+}
 function bindFxPanel() {
   liftFxFloatingPopups();
+  organizeFxPanel();
   buildPresetGrid();
   buildLyricColorControls();
   var ids = [
@@ -17899,6 +18121,7 @@ function bindFxPanel() {
       if (pair[1] === 'lyricWeight') fx.lyricWeight = Math.round(clampRange(fx.lyricWeight, 500, 900) / 50) * 50;
       if (pair[1] === 'backgroundOpacity') {
         fx.backgroundOpacity = clampRange(fx.backgroundOpacity, 0, 1);
+        fx.backgroundColorMode = 'custom';
         fx.backgroundColorCustom = true;
         updateCustomBackgroundControls();
       }
