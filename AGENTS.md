@@ -53,6 +53,8 @@ npm run build:win
 
 前端主逻辑在 `public/index.html`。这个目录是正在运行的 `Mineradio.exe` 使用的 app 目录，所以改完后重启外层 `E:\桌面\播放器软件\Mineradio\Mineradio.exe` 就能及时检查效果。没有独立 npm test，改动后至少做：
 
+注意：运行版 `resources\app\node_modules` 可能只包含运行依赖。如果发布打包时缺少 `electron-builder`，先在 `E:\桌面\播放器软件\Mineradio\resources\app` 执行 `npm install`，再执行 `npm run build:win`。
+
 ```powershell
 git diff --check
 node --check server.js
