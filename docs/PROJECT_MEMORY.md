@@ -23,7 +23,7 @@
 
 ## Release Memory
 
-- `v1.0.4` 发布资产已在本地生成，准备上传 GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.4`
+- `v1.0.4` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.4`
 - `v1.0.4` Release 资产包括：
   - `latest.yml`
   - `Mineradio-1.0.4-Setup.exe`
