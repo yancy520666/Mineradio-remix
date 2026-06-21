@@ -1,6 +1,6 @@
 # Mineradio Next Chat Handoff
 
-更新时间：2026-06-21
+更新时间：2026-06-22
 
 ## 新对话先执行/先读
 
@@ -22,7 +22,7 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 ## 当前状态
 
 - 当前正式版本：`v1.0.9`
-- 当前发布提交：`ee924ef Fix Mineradio 1.0.9 installer default path`
+- 当前发布提交：`9d5f60c Polish Mineradio 1.0.9 installer UI`
 - 当前 tag：`v1.0.9`
 - GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.9`
 - 可运行程序：`E:\桌面\播放器软件\Mineradio\Mineradio.exe`
@@ -34,7 +34,9 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 - 已发布 `v1.0.9`。
 - 安装包文字对比度已修复：标准页面改为浅底深字，强调色使用 `#3257f7`。
 - 安装包现在允许用户自由选择安装目录，默认仍为 `D:\Mineradio`；如果用户选择盘符根目录，会自动补成 `Mineradio` 文件夹。
-- 2026-06-21 热修：旧 v1.0.9 安装包仍显示 C 盘 `AppData\Local\Programs\Mineradio`，已关闭 electron-builder 内置目录页，改用自定义目录页并在显示前强制优先 `D:\Mineradio`；Release 资产已覆盖上传，`v1.0.9` tag 已移动到 `ee924ef`。
+- 2026-06-21 热修：旧 v1.0.9 安装包仍显示 C 盘 `AppData\Local\Programs\Mineradio`，已关闭 electron-builder 内置目录页，改用自定义目录页并在显示前强制优先 `D:\Mineradio`。
+- 2026-06-22 热修：安装包 UI 改为中文极简黑白蓝风格，Release 安装包、blockmap 和 `latest.yml` 已覆盖上传，`v1.0.9` tag 已移动到 `9d5f60c`。
+- 用户要求保存当前安装包格式；以后安装包按 `docs/INSTALLER_STYLE.md` 打包，发布前必须本地验证默认路径、输入框和 `浏览...` 按钮。
 - 软件启动改为单实例：重复打开时会唤起当前正在运行的主窗口。
 - 启动时不再调用运行时桌面快捷方式创建逻辑，避免每次运行都重新新建/刷新桌面快捷方式。
 - QQ 音乐接口播放授权记录仍保存在 `docs/QQ_MUSIC_INTERFACE_NOTES.md` 和 `docs/PROJECT_MEMORY.md`；后续遇到 QQ 登录后头像/昵称异常、歌单能读但歌曲不能播、`104003` 等问题，先按该记录排查。
@@ -67,6 +69,7 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 - GitHub/gh 需要代理时使用：`http://127.0.0.1:10808`，不要使用旧端口 `26001`。
 - 不要用 `git reset --hard` 或 `git checkout --` 回滚用户改动。
 - 如果用户说“保留/记住/保存/这个很好/我喜欢”，同步更新 `docs/PROJECT_MEMORY.md`。
+- 安装包样式相关任务先读：`docs\INSTALLER_STYLE.md`。
 - 玻璃 SVG 质感相关任务先读：`docs\GLASS_SVG_TEXTURE.md`。
 
 ## 骷髅预设记忆
