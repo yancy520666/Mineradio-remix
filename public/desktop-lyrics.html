@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mineradio Desktop Lyrics</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Inter,"Microsoft YaHei",system-ui,sans-serif;user-select:none}
+    body{opacity:0;transition:opacity .24s ease;-webkit-app-region:no-drag}
+    body.show{opacity:1}
+    body.interactive{-webkit-app-region:drag;cursor:move}
+    canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;padding:0 42px;pointer-events:none}
+    .line{display:inline-block;max-width:100%;font-size:52px;font-weight:900;line-height:1.08;letter-spacing:0;color:#edf8ff;text-shadow:0 0 12px rgba(130,210,255,.52),0 0 34px rgba(255,226,146,.30),0 2px 12px rgba(0,0,0,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .line::after{content:"";display:block;height:3px;width:var(--progress-width,0%);margin:10px auto 0;border-radius:999px;background:linear-gradient(90deg,var(--hi,#fff0b8),var(--glow,#9cffdf));box-shadow:0 0 16px var(--glow,#9cffdf);opacity:.86}
+    .meta{margin-top:8px;font-size:15px;font-weight:700;color:rgba(238,247,255,.76);text-shadow:0 2px 10px rgba(0,0,0,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  </style>
+</head>
+<body>
+  <canvas id="fx"></canvas>
+  <div class="wrap">
+    <div id="line" class="line">Mineradio</div>
+    <div id="meta" class="meta"></div>
+  </div>
+  <script>
+    'use strict';
+    var canvas = document.getElementById('fx');
+    var ctx = canvas.getContext('2d');
+    var line = document.getElementById('line');
+    var meta = document.getElementById('meta');
+    var dpr = 1;
+    var W = 1, H = 1;
+    var particles = [];
+    var state = {
+      enabled:false,text:'Mineradio',progress:0,title:'',artist:'',playing:false,
+      size:1,opacity:.92,y:.76,clickThrough:true,lyricGlowParticles:true,
+      colors:{primary:'#edf8ff',secondary:'#9cffdf',highlight:'#fff0b8',glow:'#9cffdf'}
+    };
+    function rand(seed){ return Math.abs(Math.sin(seed * 9283.173) * 43758.5453) % 1; }
+    function ensureParticles(){
+      var count = 460;
+      while (particles.length < count) {
+        var i = particles.length + 1;
+        particles.push({ seed:i * 17.17, lane:rand(i), phase:rand(i * 3.1), depth:rand(i * 7.7), size:.7 + rand(i * 2.3) * 1.8 });
+      }
+    }
+    function resize(){
+      dpr = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1));
+      W = Math.max(1, Math.floor(innerWidth * dpr));
+      H = Math.max(1, Math.floor(innerHeight * dpr));
+      canvas.width = W; canvas.height = H;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    function applyState(next){
+      state = Object.assign({}, state, next || {});
+      state.colors = Object.assign({}, state.colors, next && next.colors || {});
+      document.body.classList.toggle('show', !!state.enabled);
+      document.body.classList.toggle('interactive', state.clickThrough === false);
+      document.body.style.opacity = state.enabled ? String(state.opacity == null ? .92 : state.opacity) : '0';
+      document.documentElement.style.setProperty('--progress-width', Math.round(Math.max(0, Math.min(1, state.progress || 0)) * 1000) / 10 + '%');
+      document.documentElement.style.setProperty('--hi', state.colors.highlight || '#fff0b8');
+      document.documentElement.style.setProperty('--glow', state.colors.glow || state.colors.secondary || '#9cffdf');
+      line.textContent = state.text || state.title || 'Mineradio';
+      line.style.fontSize = Math.round(52 * Math.max(.72, Math.min(1.55, state.size || 1))) + 'px';
+      line.style.color = state.colors.primary || '#edf8ff';
+      meta.textContent = state.artist ? ((state.title || '') + ' · ' + state.artist) : (state.title || '');
+    }
+    function draw(now){
+      ensureParticles();
+      now *= .001;
+      ctx.clearRect(0,0,innerWidth,innerHeight);
+      var rect = line.getBoundingClientRect();
+      var width = Math.max(240, Math.min(innerWidth - 60, rect.width + 130));
+      var height = Math.max(46, rect.height * 1.22);
+      var cx = innerWidth * .5;
+      var cy = innerHeight * .5 + Math.sin(now * .55) * 5 + Math.sin(now * 1.17 + 1.4) * 2.2;
+      var visible = state.enabled && state.lyricGlowParticles !== false;
+      if (visible) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (var i=0;i<particles.length;i++) {
+          var p = particles[i];
+          var lane = Math.floor(p.lane * 5);
+          var local = (p.lane * 5) % 1;
+          var speed = .018 + rand(p.seed) * .028 + lane * .002;
+          var flow = (p.phase + now * speed) % 1;
+          var edge = Math.sin(Math.PI * flow);
+          var x = cx + (flow - .5) * width * (1.02 + rand(p.seed * 4.1) * .18);
+          var curve = Math.sin(flow * Math.PI * 2 * (.9 + rand(p.seed * 1.3) * .5) + p.seed + now * .32);
+          var y = cy + (lane - 2) * height * .15 + curve * height * (.16 + rand(p.seed * 2.2) * .20) + (local - .5) * height * .18 + Math.sin(now * (.42 + rand(p.seed) * .32) + p.seed) * 7;
+          var tw = Math.pow(.5 + .5 * Math.sin(now * (.7 + rand(p.seed) * .4) + p.seed), 4);
+          var r = Math.max(.7, p.size * (.7 + edge * 1.4 + tw * .8));
+          var grad = ctx.createRadialGradient(x,y,0,x,y,r*4.4);
+          grad.addColorStop(0, state.colors.highlight || '#fff0b8');
+          grad.addColorStop(.34, state.colors.secondary || '#9cffdf');
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = (0.10 + edge * .32 + tw * .20) * (state.opacity || .92);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(x,y,r*4.4,0,Math.PI*2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    if (window.desktopOverlay && window.desktopOverlay.onLyricsState) {
+      window.desktopOverlay.onLyricsState(applyState);
+    }
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

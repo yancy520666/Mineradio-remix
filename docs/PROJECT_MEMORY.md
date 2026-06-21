@@ -9,7 +9,7 @@
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
-- 当前版本基线：`v1.0.5`
+- 当前版本基线：`v1.0.6`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
 
 ## Workspace Organization
@@ -23,6 +23,18 @@
 
 ## Release Memory
 
+- `v1.0.6` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.6`
+- `v1.0.6` Release 资产包括：
+  - `latest.yml`
+  - `Mineradio-1.0.6-Setup.exe`
+  - `Mineradio-1.0.6-Setup.exe.blockmap`
+  - `Mineradio-1.0.0-to-1.0.6.patch.json`
+  - `Mineradio-1.0.1-to-1.0.6.patch.json`
+  - `Mineradio-1.0.2-to-1.0.6.patch.json`
+  - `Mineradio-1.0.3-to-1.0.6.patch.json`
+  - `Mineradio-1.0.4-to-1.0.6.patch.json`
+  - `Mineradio-1.0.5-to-1.0.6.patch.json`
+- `v1.0.6` 将桌面歌词、桌面歌词穿透和壁纸模式入口标记为开发中并强制关闭；软件内更新日志文案改为“反正没什么人看，布想写日志了”。
 - `v1.0.5` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.5`
 - `v1.0.5` Release 资产包括：
   - `latest.yml`
@@ -87,6 +99,13 @@
 
 ## Memory Entries
 
+### 2026-06-21 - 软件内更新日志轻量文案
+
+- 用户认可/要求保留：以后软件内更新日志写成“反正没什么人看，布想写日志了”。
+- 涉及文件：`CHANGELOG.md`、GitHub Release body、软件内更新弹窗读取的 release notes。
+- 关键参数/实现：正式发布时优先使用这句短文案，不再为小版本写长篇更新说明。
+- 禁止回退或改坏的点：不要在用户未要求时恢复大段软件内更新日志。
+
 ### 2026-06-18 - 保存播放器 SVG 玻璃质感
 
 - 用户认可/要求保留：播放器控制台当前 SVG 玻璃质感，后续要作为其它面板/按钮的参考基线。
@@ -115,3 +134,17 @@
 - 涉及文件：`desktop/main.js`、`public/index.html`。
 - 关键参数/实现：Electron 保持后台节流能力并向前端回传 `isMinimized/isVisible/isFocused`；前端只在 `document.hidden`、窗口最小化或不可见时进入 `render-deep-sleep` 与低帧渲染。
 - 禁止回退或改坏的点：不要再因为窗口失焦、放在副屏或非焦点状态就降低帧率、降低 DPR 或弱化电影镜头；非焦点可见窗口应保持正常视觉运行。
+
+### 2026-06-21 - 止痛の骷髅点云审美边界
+
+- 用户认可/要求保留：骷髅预设点云要贴合模型表面、分布均匀规整，有清晰建模轮廓，不要回到散乱、不均匀、星尘式随机点云感。
+- 涉及文件：`public/index.html`、`public/assets/skull-decimation-points.bin`
+- 关键参数/实现：优先使用带下颌/下牙单独标记点的点云资产，让下颌张嘴由标记点旋转完成；粒子动效只做轻微呼吸、音律振幅和伦勃朗式明暗变化，不做大范围随机飘散。
+- 禁止回退或改坏的点：不要用假黑影或随机粒子堆去伪造嘴巴；不要牺牲点云规整性换取“热闹”的背景星河效果。
+
+### 2026-06-21 - 保留止痛の骷髅低角度仰视回正
+
+- 用户认可/要求保留：骷髅预设双击回正角度已确认“很好”，后续不要回退成正面平视或歪斜侧视。
+- 涉及文件：`public/index.html`
+- 关键参数/实现：`SKULL_MODEL_BASE_ROTATION_X = -0.26`、`SKULL_MODEL_SCALE = 2.34`、`SKULL_MODEL_BASE_POSITION.y = 0.22`；默认骷髅相机 `pos=(0,-2.52,4.98)`、`look=(0,-0.20,0.02)`，保持低机位仰视压迫感。
+- 禁止回退或改坏的点：不要把双击回正改回平视；不要让歌词从嘴部锁定跳到普通镜头歌词位置；3D 歌单架打开时应使用左侧大骷髅近景、右侧偏中歌单架构图。
