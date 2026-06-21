@@ -9,7 +9,7 @@
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
-- 当前版本基线：`v1.0.6`
+- 当前版本基线：`v1.0.7`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
 
 ## Workspace Organization
@@ -23,6 +23,19 @@
 
 ## Release Memory
 
+- `v1.0.7` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.7`
+- `v1.0.7` Release 资产包括：
+  - `latest.yml`
+  - `Mineradio-1.0.7-Setup.exe`
+  - `Mineradio-1.0.7-Setup.exe.blockmap`
+  - `Mineradio-1.0.0-to-1.0.7.patch.json`
+  - `Mineradio-1.0.1-to-1.0.7.patch.json`
+  - `Mineradio-1.0.2-to-1.0.7.patch.json`
+  - `Mineradio-1.0.3-to-1.0.7.patch.json`
+  - `Mineradio-1.0.4-to-1.0.7.patch.json`
+  - `Mineradio-1.0.5-to-1.0.7.patch.json`
+  - `Mineradio-1.0.6-to-1.0.7.patch.json`
+- `v1.0.7` 包含电影镜头快节奏节拍分析试调，以及骷髅预设改名为“安魂”、副标题“骷髅·YUI7W”、黑体卡片和更明显的自定义视觉色粒子染色。
 - `v1.0.6` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.6`
 - `v1.0.6` Release 资产包括：
   - `latest.yml`

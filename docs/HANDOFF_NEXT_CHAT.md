@@ -21,37 +21,38 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 
 ## 当前状态
 
-- 当前正式版本：`v1.0.6`
-- 当前提交：`44a0346 Prepare Mineradio 1.0.6 release`
-- 当前 tag：`v1.0.6`
-- GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.6`
+- 当前正式版本：`v1.0.7`
+- 当前发布提交：`b8a8b39 Prepare Mineradio 1.0.7 release`
+- 当前 tag：`v1.0.7`
+- GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.7`
 - 可运行程序：`E:\桌面\播放器软件\Mineradio\Mineradio.exe`
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
 
 ## 刚完成的事
 
-- 已发布 `v1.0.6`。
-- 桌面歌词、桌面歌词穿透、壁纸模式已经在视觉控制台标记为“开发中”，入口不可用。
-- 旧用户本地保存过开启状态时，启动/保存/推送桌面 overlay 都会强制保持关闭。
+- 已发布 `v1.0.7`。
+- 电影镜头快节奏节拍分析做过一轮试调；用户反馈“感觉还是不好”，后续如果再碰这块要谨慎，不能继续盲目加力。
+- 骷髅预设已改名为“安魂”，第二行是“骷髅·YUI7W”，卡片使用黑体；自定义视觉色会同步强化骷髅粒子颜色，蓝色不再被金色骨色明显中和。
 - 软件内更新日志和 GitHub Release notes 使用文案：`反正没什么人看，布想写日志了`。
-- 已上传完整安装包、`latest.yml`、blockmap，以及 `1.0.0` 到 `1.0.5` 升 `1.0.6` 的快速补丁。
+- 已上传完整安装包、`latest.yml`、blockmap，以及 `1.0.0` 到 `1.0.6` 升 `1.0.7` 的快速补丁。
 
 ## 发布资产
 
 - `latest.yml`
-- `Mineradio-1.0.6-Setup.exe`
-- `Mineradio-1.0.6-Setup.exe.blockmap`
-- `Mineradio-1.0.0-to-1.0.6.patch.json`
-- `Mineradio-1.0.1-to-1.0.6.patch.json`
-- `Mineradio-1.0.2-to-1.0.6.patch.json`
-- `Mineradio-1.0.3-to-1.0.6.patch.json`
-- `Mineradio-1.0.4-to-1.0.6.patch.json`
-- `Mineradio-1.0.5-to-1.0.6.patch.json`
+- `Mineradio-1.0.7-Setup.exe`
+- `Mineradio-1.0.7-Setup.exe.blockmap`
+- `Mineradio-1.0.0-to-1.0.7.patch.json`
+- `Mineradio-1.0.1-to-1.0.7.patch.json`
+- `Mineradio-1.0.2-to-1.0.7.patch.json`
+- `Mineradio-1.0.3-to-1.0.7.patch.json`
+- `Mineradio-1.0.4-to-1.0.7.patch.json`
+- `Mineradio-1.0.5-to-1.0.7.patch.json`
+- `Mineradio-1.0.6-to-1.0.7.patch.json`
 
 ## 当前工作树提醒
 
-- `main` 已推送到 `origin/main`，`v1.0.6` tag 已推送。
+- `main` 已推送到 `origin/main`，`v1.0.7` tag 已推送。
 - 当前只剩未跟踪临时验证目录：`.playwright-cli/`、`output/`。
 - 这些临时目录不在发布包里，不要误提交；也不要删除备份。
 
