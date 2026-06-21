@@ -1,17 +1,17 @@
 !ifndef MUI_BGCOLOR
-  !define MUI_BGCOLOR "F3F0EA"
+  !define MUI_BGCOLOR "FFFFFF"
 !endif
 !ifndef MUI_TEXTCOLOR
   !define MUI_TEXTCOLOR "111217"
 !endif
 !ifndef MUI_DIRECTORYPAGE_BGCOLOR
-  !define MUI_DIRECTORYPAGE_BGCOLOR "F3F0EA"
+  !define MUI_DIRECTORYPAGE_BGCOLOR "FFFFFF"
 !endif
 !ifndef MUI_DIRECTORYPAGE_TEXTCOLOR
   !define MUI_DIRECTORYPAGE_TEXTCOLOR "111217"
 !endif
 !ifndef MUI_INSTFILESPAGE_COLORS
-  !define MUI_INSTFILESPAGE_COLORS "3257F7 F3F0EA"
+  !define MUI_INSTFILESPAGE_COLORS "3257F7 FFFFFF"
 !endif
 !ifndef MUI_FINISHPAGE_LINK_COLOR
   !define MUI_FINISHPAGE_LINK_COLOR "3257F7"
@@ -62,7 +62,6 @@
 
 !macro customPageAfterChangeDir
   Page custom MineradioDirectoryShow MineradioDirectoryLeave
-  !define MUI_PAGE_CUSTOMFUNCTION_SHOW MineradioTintCommonControls
 !macroend
 
 !macro customFinishPage
@@ -91,7 +90,7 @@ Function MineradioGuiInit
 FunctionEnd
 
 Function MineradioTintCommonControls
-  SetCtlColors $HWNDPARENT "111217" "F3F0EA"
+  SetCtlColors $HWNDPARENT "111217" "FFFFFF"
 
   GetDlgItem $0 $HWNDPARENT 1
   ${If} $0 <> 0
@@ -108,15 +107,15 @@ Function MineradioTintCommonControls
 
   GetDlgItem $0 $HWNDPARENT 1028
   ${If} $0 <> 0
-    SetCtlColors $0 "4B5263" "F3F0EA"
+    SetCtlColors $0 "4B5263" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1256
   ${If} $0 <> 0
-    SetCtlColors $0 "4B5263" "F3F0EA"
+    SetCtlColors $0 "4B5263" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1034
   ${If} $0 <> 0
-    SetCtlColors $0 "" "F3F0EA"
+    SetCtlColors $0 "" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1035
   ${If} $0 <> 0
@@ -124,20 +123,20 @@ Function MineradioTintCommonControls
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1037
   ${If} $0 <> 0
-    SetCtlColors $0 "111217" "F3F0EA"
+    SetCtlColors $0 "111217" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1038
   ${If} $0 <> 0
-    SetCtlColors $0 "4B5263" "F3F0EA"
+    SetCtlColors $0 "4B5263" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1039
   ${If} $0 <> 0
-    SetCtlColors $0 "" "F3F0EA"
+    SetCtlColors $0 "" "FFFFFF"
   ${EndIf}
 
   FindWindow $0 "#32770" "" $HWNDPARENT
   ${If} $0 <> 0
-    SetCtlColors $0 "111217" "F3F0EA"
+    SetCtlColors $0 "111217" "FFFFFF"
 
     GetDlgItem $1 $0 1000
     ${If} $1 <> 0
@@ -153,7 +152,7 @@ Function MineradioTintCommonControls
     ${EndIf}
     GetDlgItem $1 $0 1006
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1016
     ${If} $1 <> 0
@@ -165,15 +164,15 @@ Function MineradioTintCommonControls
     ${EndIf}
     GetDlgItem $1 $0 1020
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1023
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1024
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1027
     ${If} $1 <> 0
@@ -181,19 +180,19 @@ Function MineradioTintCommonControls
     ${EndIf}
     GetDlgItem $1 $0 1201
     ${If} $1 <> 0
-      SetCtlColors $1 "111217" "F3F0EA"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1202
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1203
     ${If} $1 <> 0
-      SetCtlColors $1 "111217" "F3F0EA"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1204
     ${If} $1 <> 0
-      SetCtlColors $1 "4B5263" "F3F0EA"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
   ${EndIf}
 FunctionEnd
@@ -231,77 +230,49 @@ Function MineradioNormalizeInstallDir
 FunctionEnd
 
 Function MineradioWelcomeShow
+  Call MineradioUsePreferredInstallDir
+
   nsDialogs::Create 1018
   Pop $MineradioWelcomePage
   ${If} $MineradioWelcomePage == error
     Abort
   ${EndIf}
 
-  SetCtlColors $MineradioWelcomePage "F4F0E8" "0A0B0F"
-  CreateFont $MineradioHeroFont "Segoe UI Variable Display" 26 800
-  CreateFont $MineradioTitleFont "Microsoft YaHei UI" 12 700
+  SetCtlColors $MineradioWelcomePage "111217" "FFFFFF"
+  CreateFont $MineradioHeroFont "Microsoft YaHei UI" 24 700
+  CreateFont $MineradioTitleFont "Microsoft YaHei UI" 11 700
   CreateFont $MineradioBodyFont "Microsoft YaHei UI" 9 400
-  CreateFont $MineradioSmallFont "Segoe UI" 8 650
+  CreateFont $MineradioSmallFont "Microsoft YaHei UI" 8 400
 
-  ${NSD_CreateLabel} 0u 0u 300u 176u ""
-  Pop $0
-  SetCtlColors $0 "F4F0E8" "0A0B0F"
-
-  ${NSD_CreateLabel} 8u 8u 284u 160u ""
-  Pop $0
-  SetCtlColors $0 "F4F0E8" "111217"
-
-  ${NSD_CreateLabel} 18u 18u 84u 16u "MINERADIO"
+  ${NSD_CreateLabel} 22u 20u 82u 10u "MINERADIO"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "F4D28A" "111217"
+  SetCtlColors $0 "3257F7" "FFFFFF"
 
-  ${NSD_CreateLabel} 18u 43u 182u 34u "Mineradio"
+  ${NSD_CreateLabel} 22u 42u 226u 30u "Mineradio 安装"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioHeroFont 1
-  SetCtlColors $0 "FFFFFF" "111217"
+  SetCtlColors $0 "111217" "FFFFFF"
 
-  ${NSD_CreateLabel} 20u 84u 218u 28u "Install the visual music player with lyrics, local playback, and the 3D playlist stage."
+  ${NSD_CreateLabel} 22u 78u 36u 2u ""
+  Pop $0
+  SetCtlColors $0 "" "3257F7"
+
+  ${NSD_CreateLabel} 22u 96u 238u 24u "为这台电脑安装 Mineradio。默认安装到 D:\Mineradio，下一步可以自由选择其它位置。"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioBodyFont 1
-  SetCtlColors $0 "C9CCD4" "111217"
+  SetCtlColors $0 "4B5263" "FFFFFF"
 
-  ${NSD_CreateLabel} 20u 124u 238u 11u "Default install path: $INSTDIR"
+  ${NSD_CreateLabel} 22u 130u 238u 12u "默认位置：$INSTDIR"
   Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "F4D28A" "111217"
+  SendMessage $0 ${WM_SETFONT} $MineradioTitleFont 1
+  SetCtlColors $0 "3257F7" "FFFFFF"
 
-  ${NSD_CreateLabel} 20u 142u 250u 10u "You can change the folder on the next step."
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioBodyFont 1
-  SetCtlColors $0 "8F96A8" "111217"
-
-  ${NSD_CreateLabel} 216u 24u 48u 44u "MR"
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioHeroFont 1
-  SetCtlColors $0 "FF5367" "111217"
-
-  ${NSD_CreateLabel} 206u 86u 64u 10u "VISUAL"
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "EAF2FF" "111217"
-
-  ${NSD_CreateLabel} 206u 102u 64u 10u "LOCAL"
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "EAF2FF" "111217"
-
-  ${NSD_CreateLabel} 206u 118u 78u 10u "UPDATER"
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "EAF2FF" "111217"
-
-  Call MineradioTintCommonControls
   nsDialogs::Show
 FunctionEnd
 
 Function MineradioDirectoryBrowse
-  nsDialogs::SelectFolderDialog "Choose Mineradio install folder" "$INSTDIR"
+  nsDialogs::SelectFolderDialog "选择 Mineradio 安装文件夹" "$INSTDIR"
   Pop $0
   ${If} $0 != error
   ${AndIf} $0 != ""
@@ -322,50 +293,40 @@ Function MineradioDirectoryShow
     Abort
   ${EndIf}
 
-  Call MineradioTintCommonControls
-  SetCtlColors $MineradioDirectoryPage "F4F0E8" "0A0B0F"
-  CreateFont $MineradioTitleFont "Microsoft YaHei UI" 13 700
+  SetCtlColors $MineradioDirectoryPage "111217" "FFFFFF"
+  CreateFont $MineradioTitleFont "Microsoft YaHei UI" 15 700
   CreateFont $MineradioBodyFont "Microsoft YaHei UI" 9 400
-  CreateFont $MineradioSmallFont "Segoe UI" 8 650
+  CreateFont $MineradioSmallFont "Microsoft YaHei UI" 8 500
 
-  ${NSD_CreateLabel} 8u 8u 284u 160u ""
-  Pop $0
-  SetCtlColors $0 "F4F0E8" "111217"
-
-  ${NSD_CreateLabel} 20u 20u 220u 18u "Install Location"
+  ${NSD_CreateLabel} 22u 12u 238u 20u "选择安装位置"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioTitleFont 1
-  SetCtlColors $0 "FFFFFF" "111217"
+  SetCtlColors $0 "111217" "FFFFFF"
 
-  ${NSD_CreateLabel} 20u 44u 244u 26u "Choose where Mineradio will be installed. Setup will create the folder if it does not exist."
+  ${NSD_CreateLabel} 22u 40u 238u 24u "你可以使用默认路径，也可以选择其它磁盘或文件夹。安装器会自动创建缺失的目录。"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioBodyFont 1
-  SetCtlColors $0 "C9CCD4" "111217"
+  SetCtlColors $0 "4B5263" "FFFFFF"
 
-  ${NSD_CreateLabel} 20u 80u 246u 10u "Folder"
+  ${NSD_CreateLabel} 22u 76u 238u 10u "安装目录"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "F4D28A" "111217"
+  SetCtlColors $0 "3257F7" "FFFFFF"
 
-  ${NSD_CreateText} 20u 96u 204u 15u "$INSTDIR"
+  ${NSD_CreateText} 22u 94u 178u 15u "$INSTDIR"
   Pop $MineradioDirectoryInput
   SendMessage $MineradioDirectoryInput ${WM_SETFONT} $MineradioBodyFont 1
-  SetCtlColors $MineradioDirectoryInput "F4F0E8" "0A0B0F"
+  SetCtlColors $MineradioDirectoryInput "111217" "FFFFFF"
 
-  ${NSD_CreateBrowseButton} 232u 95u 50u 17u "Browse"
+  ${NSD_CreateBrowseButton} 210u 93u 50u 17u "浏览..."
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
   ${NSD_OnClick} $0 MineradioDirectoryBrowse
 
-  ${NSD_CreateLabel} 20u 128u 252u 12u "Default: D:\Mineradio when the D drive is available."
+  ${NSD_CreateLabel} 22u 122u 238u 12u "默认推荐：D:\Mineradio；选盘符会自动建文件夹。"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "8F96A8" "111217"
-
-  ${NSD_CreateLabel} 20u 145u 252u 12u "A desktop shortcut will be created after install."
-  Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "8F96A8" "111217"
+  SetCtlColors $0 "6B7280" "FFFFFF"
 
   nsDialogs::Show
 FunctionEnd
@@ -373,7 +334,7 @@ FunctionEnd
 Function MineradioDirectoryLeave
   ${NSD_GetText} $MineradioDirectoryInput $0
   ${If} $0 == ""
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Please choose an install folder."
+    MessageBox MB_ICONEXCLAMATION|MB_OK "请选择安装文件夹。"
     Abort
   ${EndIf}
   Push "$0"
