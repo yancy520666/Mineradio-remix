@@ -32,6 +32,7 @@
 !endif
 
 !include LogicLib.nsh
+!include FileFunc.nsh
 !include nsDialogs.nsh
 !include WinMessages.nsh
 
@@ -47,13 +48,7 @@
 
 !macro customInit
   !ifndef BUILD_UNINSTALLER
-    !insertmacro GetDParameter $R0
-    ${If} $R0 == ""
-    ${AndIf} $hasPerUserInstallation == "0"
-    ${AndIf} $hasPerMachineInstallation == "0"
-      IfFileExists "D:\*.*" 0 +2
-      StrCpy $INSTDIR "D:\Mineradio"
-    ${EndIf}
+    Call MineradioUsePreferredInstallDir
   !endif
 !macroend
 
@@ -203,6 +198,19 @@ Function MineradioTintCommonControls
   ${EndIf}
 FunctionEnd
 
+Function MineradioUsePreferredInstallDir
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/D=" $R1
+  ${IfNot} ${Errors}
+  ${AndIf} $R1 != ""
+    StrCpy $INSTDIR "$R1"
+  ${Else}
+    IfFileExists "D:\*.*" 0 +2
+    StrCpy $INSTDIR "D:\Mineradio"
+  ${EndIf}
+FunctionEnd
+
 Function MineradioNormalizeInstallDir
   Exch $0
   StrLen $1 "$0"
@@ -306,6 +314,8 @@ Function MineradioDirectoryBrowse
 FunctionEnd
 
 Function MineradioDirectoryShow
+  Call MineradioUsePreferredInstallDir
+
   nsDialogs::Create 1018
   Pop $MineradioDirectoryPage
   ${If} $MineradioDirectoryPage == error
