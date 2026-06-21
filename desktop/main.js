@@ -28,6 +28,7 @@ const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 const QQ_LOGIN_COOKIE_PRIORITY = [
   'uin',
@@ -126,6 +127,15 @@ function getWindowState(win) {
 
 function getSenderWindow(event) {
   return BrowserWindow.fromWebContents(event.sender);
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+  sendWindowState(mainWindow);
+  return true;
 }
 
 function getUpdateDownloadDir() {
@@ -1003,24 +1013,34 @@ async function createWindow() {
 app.setName(APP_NAME);
 if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
-app.whenReady().then(async () => {
-  ensureDesktopShortcut();
-  screen.on('display-metrics-changed', () => {
-    positionDesktopLyricsWindow();
-    positionWallpaperWindow();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!focusMainWindow()) {
+      app.whenReady().then(() => createWindow()).catch((e) => console.error('Second instance window restore failed:', e));
+    }
   });
-  await createWindow();
-});
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+  app.whenReady().then(async () => {
+    screen.on('display-metrics-changed', () => {
+      positionDesktopLyricsWindow();
+      positionWallpaperWindow();
+    });
+    await createWindow();
+  });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else focusMainWindow();
+  });
 
-app.on('before-quit', () => {
-  closeOverlayWindows();
-  if (localServer && localServer.close) localServer.close();
-});
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('before-quit', () => {
+    closeOverlayWindows();
+    if (localServer && localServer.close) localServer.close();
+  });
+}

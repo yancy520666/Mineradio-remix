@@ -1,20 +1,20 @@
 !ifndef MUI_BGCOLOR
-  !define MUI_BGCOLOR "0A0B0F"
+  !define MUI_BGCOLOR "F3F0EA"
 !endif
 !ifndef MUI_TEXTCOLOR
-  !define MUI_TEXTCOLOR "F4F0E8"
+  !define MUI_TEXTCOLOR "111217"
 !endif
 !ifndef MUI_DIRECTORYPAGE_BGCOLOR
-  !define MUI_DIRECTORYPAGE_BGCOLOR "0A0B0F"
+  !define MUI_DIRECTORYPAGE_BGCOLOR "F3F0EA"
 !endif
 !ifndef MUI_DIRECTORYPAGE_TEXTCOLOR
-  !define MUI_DIRECTORYPAGE_TEXTCOLOR "F4F0E8"
+  !define MUI_DIRECTORYPAGE_TEXTCOLOR "111217"
 !endif
 !ifndef MUI_INSTFILESPAGE_COLORS
-  !define MUI_INSTFILESPAGE_COLORS "F4D28A 111217"
+  !define MUI_INSTFILESPAGE_COLORS "3257F7 F3F0EA"
 !endif
 !ifndef MUI_FINISHPAGE_LINK_COLOR
-  !define MUI_FINISHPAGE_LINK_COLOR "F4D28A"
+  !define MUI_FINISHPAGE_LINK_COLOR "3257F7"
 !endif
 !ifndef MUI_HEADERIMAGE
   !define MUI_HEADERIMAGE
@@ -96,111 +96,130 @@ Function MineradioGuiInit
 FunctionEnd
 
 Function MineradioTintCommonControls
-  SetCtlColors $HWNDPARENT "F4F0E8" "0A0B0F"
+  SetCtlColors $HWNDPARENT "111217" "F3F0EA"
 
   GetDlgItem $0 $HWNDPARENT 1
   ${If} $0 <> 0
-    SetCtlColors $0 "F4F0E8" "17181F"
+    SetCtlColors $0 "111217" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 2
   ${If} $0 <> 0
-    SetCtlColors $0 "F4F0E8" "17181F"
+    SetCtlColors $0 "111217" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 3
   ${If} $0 <> 0
-    SetCtlColors $0 "F4F0E8" "17181F"
+    SetCtlColors $0 "111217" "FFFFFF"
   ${EndIf}
 
   GetDlgItem $0 $HWNDPARENT 1028
   ${If} $0 <> 0
-    SetCtlColors $0 "8F96A8" "0A0B0F"
+    SetCtlColors $0 "4B5263" "F3F0EA"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1256
   ${If} $0 <> 0
-    SetCtlColors $0 "8F96A8" "0A0B0F"
+    SetCtlColors $0 "4B5263" "F3F0EA"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1034
   ${If} $0 <> 0
-    SetCtlColors $0 "" "0A0B0F"
+    SetCtlColors $0 "" "F3F0EA"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1035
   ${If} $0 <> 0
-    SetCtlColors $0 "" "242632"
+    SetCtlColors $0 "" "FFFFFF"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1037
   ${If} $0 <> 0
-    SetCtlColors $0 "F4F0E8" "0A0B0F"
+    SetCtlColors $0 "111217" "F3F0EA"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1038
   ${If} $0 <> 0
-    SetCtlColors $0 "8F96A8" "0A0B0F"
+    SetCtlColors $0 "4B5263" "F3F0EA"
   ${EndIf}
   GetDlgItem $0 $HWNDPARENT 1039
   ${If} $0 <> 0
-    SetCtlColors $0 "" "0A0B0F"
+    SetCtlColors $0 "" "F3F0EA"
   ${EndIf}
 
   FindWindow $0 "#32770" "" $HWNDPARENT
   ${If} $0 <> 0
-    SetCtlColors $0 "F4F0E8" "0A0B0F"
+    SetCtlColors $0 "111217" "F3F0EA"
 
     GetDlgItem $1 $0 1000
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "111217"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1001
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "17181F"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1004
     ${If} $1 <> 0
-      SetCtlColors $1 "F4D28A" "17181F"
+      SetCtlColors $1 "3257F7" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1006
     ${If} $1 <> 0
-      SetCtlColors $1 "C9CCD4" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1016
     ${If} $1 <> 0
-      SetCtlColors $1 "C9CCD4" "111217"
+      SetCtlColors $1 "4B5263" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1019
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "111217"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1020
     ${If} $1 <> 0
-      SetCtlColors $1 "C9CCD4" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1023
     ${If} $1 <> 0
-      SetCtlColors $1 "8F96A8" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1024
     ${If} $1 <> 0
-      SetCtlColors $1 "8F96A8" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1027
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "17181F"
+      SetCtlColors $1 "111217" "FFFFFF"
     ${EndIf}
     GetDlgItem $1 $0 1201
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "0A0B0F"
+      SetCtlColors $1 "111217" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1202
     ${If} $1 <> 0
-      SetCtlColors $1 "C9CCD4" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1203
     ${If} $1 <> 0
-      SetCtlColors $1 "F4F0E8" "0A0B0F"
+      SetCtlColors $1 "111217" "F3F0EA"
     ${EndIf}
     GetDlgItem $1 $0 1204
     ${If} $1 <> 0
-      SetCtlColors $1 "C9CCD4" "0A0B0F"
+      SetCtlColors $1 "4B5263" "F3F0EA"
     ${EndIf}
   ${EndIf}
+FunctionEnd
+
+Function MineradioNormalizeInstallDir
+  Exch $0
+  StrLen $1 "$0"
+  ${If} $1 == 2
+    StrCpy $2 "$0" 1 1
+    ${If} $2 == ":"
+      StrCpy $0 "$0\Mineradio"
+    ${EndIf}
+  ${ElseIf} $1 == 3
+    StrCpy $2 "$0" 1 1
+    StrCpy $3 "$0" 1 2
+    ${If} $2 == ":"
+    ${AndIf} $3 == "\"
+      StrCpy $0 "$0Mineradio"
+    ${EndIf}
+  ${EndIf}
+  Exch $0
 FunctionEnd
 
 Function MineradioWelcomeShow
@@ -278,6 +297,9 @@ Function MineradioDirectoryBrowse
   Pop $0
   ${If} $0 != error
   ${AndIf} $0 != ""
+    Push "$0"
+    Call MineradioNormalizeInstallDir
+    Pop $0
     StrCpy $INSTDIR "$0"
     SendMessage $MineradioDirectoryInput ${WM_SETTEXT} 0 "STR:$INSTDIR"
   ${EndIf}
@@ -344,6 +366,10 @@ Function MineradioDirectoryLeave
     MessageBox MB_ICONEXCLAMATION|MB_OK "Please choose an install folder."
     Abort
   ${EndIf}
+  Push "$0"
+  Call MineradioNormalizeInstallDir
+  Pop $0
   StrCpy $INSTDIR "$0"
+  SendMessage $MineradioDirectoryInput ${WM_SETTEXT} 0 "STR:$INSTDIR"
 FunctionEnd
 !endif
