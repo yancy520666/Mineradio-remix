@@ -21,42 +21,42 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 
 ## 当前状态
 
-- 当前正式版本：`v1.0.8`
-- 当前发布提交：`effe77a Prepare Mineradio 1.0.8 release`
-- 当前 tag：`v1.0.8`
-- GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.8`
+- 当前正式版本：`v1.0.9`
+- 当前发布提交：`ff05c42 Prepare Mineradio 1.0.9 release`
+- 当前 tag：`v1.0.9`
+- GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.9`
 - 可运行程序：`E:\桌面\播放器软件\Mineradio\Mineradio.exe`
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
 
 ## 刚完成的事
 
-- 已发布 `v1.0.8`。
-- QQ 音乐接口播放授权记录已保存到 `docs/QQ_MUSIC_INTERFACE_NOTES.md` 和 `docs/PROJECT_MEMORY.md`；后续遇到 QQ 登录后头像/昵称异常、歌单能读但歌曲不能播、`104003` 等问题，先按该记录排查。
-- Home 左侧大卡片改为“🚧此处施工，敬请期待🚧”，Home 页支持手动展开播放器控制台。
-- 视觉预设显示顺序改为 emily、安魂、星河、唱片、星球、滚筒、虚空；安魂右上角十字架未选中和选中态都保持 `#3257f7` 蓝色。
-- 视觉控制台新增 4 槽位“用户存档”，可保存粒子、颜色、滑条、歌词外观习惯；命名改为卡片内输入，不再用 `prompt`。
-- 启动时会重新应用已保存的歌词预设/自定义颜色；手动播放/暂停增加音频淡入淡出。
-- 电影镜头已按用户要求还原到上一版手感，后续如果再碰这块要谨慎，不能继续盲目加力。
+- 已发布 `v1.0.9`。
+- 安装包文字对比度已修复：标准页面改为浅底深字，强调色使用 `#3257f7`。
+- 安装包现在允许用户自由选择安装目录，默认仍为 `D:\Mineradio`；如果用户选择盘符根目录，会自动补成 `Mineradio` 文件夹。
+- 软件启动改为单实例：重复打开时会唤起当前正在运行的主窗口。
+- 启动时不再调用运行时桌面快捷方式创建逻辑，避免每次运行都重新新建/刷新桌面快捷方式。
+- QQ 音乐接口播放授权记录仍保存在 `docs/QQ_MUSIC_INTERFACE_NOTES.md` 和 `docs/PROJECT_MEMORY.md`；后续遇到 QQ 登录后头像/昵称异常、歌单能读但歌曲不能播、`104003` 等问题，先按该记录排查。
 
 ## 发布资产
 
 - `latest.yml`
-- `Mineradio-1.0.8-Setup.exe`
-- `Mineradio-1.0.8-Setup.exe.blockmap`
-- `Mineradio-1.0.0-to-1.0.8.patch.json`
-- `Mineradio-1.0.1-to-1.0.8.patch.json`
-- `Mineradio-1.0.2-to-1.0.8.patch.json`
-- `Mineradio-1.0.3-to-1.0.8.patch.json`
-- `Mineradio-1.0.4-to-1.0.8.patch.json`
-- `Mineradio-1.0.5-to-1.0.8.patch.json`
-- `Mineradio-1.0.6-to-1.0.8.patch.json`
-- `Mineradio-1.0.7-to-1.0.8.patch.json`
+- `Mineradio-1.0.9-Setup.exe`
+- `Mineradio-1.0.9-Setup.exe.blockmap`
+- `Mineradio-1.0.0-to-1.0.9.patch.json`
+- `Mineradio-1.0.1-to-1.0.9.patch.json`
+- `Mineradio-1.0.2-to-1.0.9.patch.json`
+- `Mineradio-1.0.3-to-1.0.9.patch.json`
+- `Mineradio-1.0.4-to-1.0.9.patch.json`
+- `Mineradio-1.0.5-to-1.0.9.patch.json`
+- `Mineradio-1.0.6-to-1.0.9.patch.json`
+- `Mineradio-1.0.7-to-1.0.9.patch.json`
+- `Mineradio-1.0.8-to-1.0.9.patch.json`
 
 ## 当前工作树提醒
 
-- `main` 已推送到 `origin/main`，`v1.0.8` tag 已推送。
-- 当前代码修改已发布；发布记录文档提交在 `v1.0.8` tag 之后。
+- `main` 已推送到 `origin/main`，`v1.0.9` tag 已推送。
+- 当前代码修改已发布；发布记录文档提交在 `v1.0.9` tag 之后。
 - 未跟踪临时验证目录：`.playwright-cli/`、`output/`。
 - 这些临时目录不在发布包里，不要误提交；也不要删除备份。
 

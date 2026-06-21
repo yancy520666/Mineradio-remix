@@ -9,7 +9,7 @@
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
 - GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
-- 当前版本基线：`v1.0.8`
+- 当前版本基线：`v1.0.9`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
 
 ## Workspace Organization
@@ -23,6 +23,22 @@
 
 ## Release Memory
 
+- `v1.0.9` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.9`
+- `v1.0.9` Release 资产包括：
+  - `latest.yml`
+  - `Mineradio-1.0.9-Setup.exe`
+  - `Mineradio-1.0.9-Setup.exe.blockmap`
+  - `Mineradio-1.0.0-to-1.0.9.patch.json`
+  - `Mineradio-1.0.1-to-1.0.9.patch.json`
+  - `Mineradio-1.0.2-to-1.0.9.patch.json`
+  - `Mineradio-1.0.3-to-1.0.9.patch.json`
+  - `Mineradio-1.0.4-to-1.0.9.patch.json`
+  - `Mineradio-1.0.5-to-1.0.9.patch.json`
+  - `Mineradio-1.0.6-to-1.0.9.patch.json`
+  - `Mineradio-1.0.7-to-1.0.9.patch.json`
+  - `Mineradio-1.0.8-to-1.0.9.patch.json`
+- `v1.0.9` 修复安装包文字对比度，允许用户自由选择安装目录，选择盘符根目录时自动补成 `Mineradio` 文件夹；软件启动改为单实例，重复启动会唤起已运行窗口；移除每次启动都重新创建桌面快捷方式的行为。
+- 补充：快速补丁可修复运行时单实例和快捷方式问题；安装器 UI/安装目录选择体验需要使用完整 `Mineradio-1.0.9-Setup.exe`。
 - `v1.0.8` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.8`
 - `v1.0.8` Release 资产包括：
   - `latest.yml`
