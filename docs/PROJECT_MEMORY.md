@@ -11,7 +11,7 @@
 - 统一备份目录：`E:\桌面\播放器软件\工作区备份`
 - 当前版本基线：`v1.0.10`
 - 发布入口：GitHub Releases，更新检查依赖 `latest.yml` 和可选轻量补丁 JSON。
-- 更新包命名规则：从 `v1.0.10` 起，快速补丁文件名使用 `Mineradio-旧版本→新版本.patch.json` 这种右箭头格式。
+- 更新包命名规则：从 `v1.0.10` 起，快速补丁本地文件名和 GitHub Release label 使用 `Mineradio-旧版本→新版本.patch.json` 这种右箭头格式；GitHub 资产底层 `name` 可能会把 `→` 净化成点号，但更新解析仍可识别 from/to 版本。
 - 快速补丁范围规则：从 `v1.0.10` 起，每次发布只为低于新版的最近 4 个版本生成补丁；更早版本不再从 `1.0.0` 开始补丁，提示用户下载完整安装包更新。
 - 安装包样式：以后按 `docs/INSTALLER_STYLE.md` 的中文极简黑白蓝格式打包。
 
@@ -26,15 +26,16 @@
 
 ## Release Memory
 
-- `v1.0.10` 本地发布资产已生成，GitHub 上传暂被 `gh` 登录令牌失效阻塞；`gh auth status` 报 keyring token invalid，`gh auth refresh -h github.com -s repo` 已等待认证并超时。
-- `v1.0.10` 本地资产包括：
+- `v1.0.10` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.10`
+- `v1.0.10` Release 资产包括：
   - `latest.yml`
   - `Mineradio-1.0.10-Setup.exe`
   - `Mineradio-1.0.10-Setup.exe.blockmap`
-  - `Mineradio-1.0.6→1.0.10.patch.json`
-  - `Mineradio-1.0.7→1.0.10.patch.json`
-  - `Mineradio-1.0.8→1.0.10.patch.json`
-  - `Mineradio-1.0.9→1.0.10.patch.json`
+  - `Mineradio-1.0.6.1.0.10.patch.json`（Release label：`Mineradio-1.0.6→1.0.10.patch.json`）
+  - `Mineradio-1.0.7.1.0.10.patch.json`（Release label：`Mineradio-1.0.7→1.0.10.patch.json`）
+  - `Mineradio-1.0.8.1.0.10.patch.json`（Release label：`Mineradio-1.0.8→1.0.10.patch.json`）
+  - `Mineradio-1.0.9.1.0.10.patch.json`（Release label：`Mineradio-1.0.9→1.0.10.patch.json`）
+- `v1.0.10` 发布时 `gh` keyring token 失效，但普通 `git push` 仍可用；Release 通过 Git Credential Manager 取 GitHub token 后调用 GitHub API 创建并上传资产。
 - `v1.0.9` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.9`
 - `v1.0.9` Release 资产包括：
   - `latest.yml`
