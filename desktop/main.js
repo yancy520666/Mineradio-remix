@@ -2,13 +2,21 @@ const { app, BrowserWindow, ipcMain, shell, screen, session } = require('electro
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
 let mainWindow = null;
 let localServer = null;
 let mainServerPort = 0;
 let desktopLyricsWindow = null;
 let desktopLyricsState = {};
+let desktopLyricsUserBounds = null;
+let desktopLyricsProgrammaticMove = false;
+let desktopLyricsPointerCapture = false;
+let desktopLyricsMouseIgnored = null;
+let desktopLyricsMousePoller = null;
+let desktopLyricsMousePollerBuffer = '';
+let desktopLyricsHotBounds = null;
+let desktopLyricsLastMiddleAt = 0;
 let wallpaperWindow = null;
 let wallpaperState = {};
 let htmlFullscreenActive = false;
@@ -580,16 +588,182 @@ function clampNumber(value, min, max, fallback) {
   return Math.max(min, Math.min(max, n));
 }
 
-function positionDesktopLyricsWindow(payload = desktopLyricsState) {
-  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
-  const display = screen.getPrimaryDisplay();
+function desktopLyricsDefaultBounds(payload = desktopLyricsState) {
+  const display = desktopLyricsUserBounds
+    ? screen.getDisplayMatching(desktopLyricsUserBounds)
+    : screen.getPrimaryDisplay();
   const bounds = display.bounds;
   const yRatio = clampNumber(payload.y, 0.08, 0.92, 0.76);
-  const width = Math.round(Math.min(Math.max(720, bounds.width * 0.62), bounds.width - 80));
-  const height = Math.round(Math.min(230, Math.max(150, bounds.height * 0.18)));
-  const x = Math.round(bounds.x + (bounds.width - width) / 2);
-  const y = Math.round(bounds.y + bounds.height * yRatio - height / 2);
-  desktopLyricsWindow.setBounds({ x, y, width, height }, false);
+  const width = Math.round(Math.min(Math.max(880, bounds.width * 0.72), bounds.width - 96));
+  const height = Math.round(Math.min(Math.max(340, bounds.height * 0.38), 560, bounds.height - 96));
+  return {
+    x: Math.round(bounds.x + (bounds.width - width) / 2),
+    y: Math.round(bounds.y + bounds.height * yRatio - height / 2),
+    width,
+    height,
+  };
+}
+
+function constrainDesktopLyricsBounds(bounds) {
+  const display = screen.getDisplayMatching(bounds);
+  const area = display.bounds;
+  const next = {
+    ...bounds,
+    width: Math.round(Math.min(Math.max(320, bounds.width), area.width)),
+    height: Math.round(Math.min(Math.max(180, bounds.height), area.height)),
+  };
+  const maxX = area.x + Math.max(0, area.width - next.width);
+  const maxY = area.y + Math.max(0, area.height - next.height);
+  next.x = Math.round(clampNumber(next.x, area.x, maxX, area.x));
+  next.y = Math.round(clampNumber(next.y, area.y, maxY, area.y));
+  return next;
+}
+
+function setDesktopLyricsBounds(bounds) {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
+  const nextBounds = constrainDesktopLyricsBounds(bounds);
+  const currentBounds = desktopLyricsWindow.getBounds();
+  if (
+    currentBounds.x === nextBounds.x
+    && currentBounds.y === nextBounds.y
+    && currentBounds.width === nextBounds.width
+    && currentBounds.height === nextBounds.height
+  ) {
+    return;
+  }
+  desktopLyricsProgrammaticMove = true;
+  desktopLyricsWindow.setBounds(nextBounds, false);
+  setTimeout(() => {
+    desktopLyricsProgrammaticMove = false;
+  }, 120);
+}
+
+function rememberDesktopLyricsBounds() {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed() || desktopLyricsProgrammaticMove) return;
+  desktopLyricsUserBounds = desktopLyricsWindow.getBounds();
+}
+
+function applyDesktopLyricsMouseBehavior() {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
+  const locked = desktopLyricsState.clickThrough !== false;
+  const shouldIgnore = locked || !desktopLyricsPointerCapture;
+  if (desktopLyricsMouseIgnored === shouldIgnore) return;
+  desktopLyricsMouseIgnored = shouldIgnore;
+  desktopLyricsWindow.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+}
+
+function desktopLyricsHotBoundsOnScreen() {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return null;
+  const winBounds = desktopLyricsWindow.getBounds();
+  const rel = desktopLyricsHotBounds;
+  if (!rel) return winBounds;
+  return {
+    x: winBounds.x + rel.left,
+    y: winBounds.y + rel.top,
+    width: Math.max(1, rel.right - rel.left),
+    height: Math.max(1, rel.bottom - rel.top),
+  };
+}
+
+function pointInBounds(point, bounds) {
+  if (!point || !bounds) return false;
+  return point.x >= bounds.x
+    && point.x <= bounds.x + bounds.width
+    && point.y >= bounds.y
+    && point.y <= bounds.y + bounds.height;
+}
+
+function handleDesktopLyricsGlobalMiddleClick() {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
+  if (!desktopLyricsState.enabled) return;
+  const now = Date.now();
+  if (now - desktopLyricsLastMiddleAt < 260) return;
+  const point = screen.getCursorScreenPoint();
+  if (!pointInBounds(point, desktopLyricsHotBoundsOnScreen())) return;
+  desktopLyricsLastMiddleAt = now;
+  const nextLocked = desktopLyricsState.clickThrough === false;
+  desktopLyricsState = { ...desktopLyricsState, clickThrough: nextLocked };
+  desktopLyricsPointerCapture = !nextLocked;
+  applyDesktopLyricsMouseBehavior();
+  broadcastDesktopLyricsLockState();
+}
+
+function startDesktopLyricsMousePoller() {
+  if (process.platform !== 'win32' || desktopLyricsMousePoller) return;
+  const script = `
+$ErrorActionPreference = "SilentlyContinue"
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class MineradioMousePoll {
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+$prev = $false
+while ($true) {
+  $down = (([MineradioMousePoll]::GetAsyncKeyState(4) -band 0x8000) -ne 0)
+  if ($down -and -not $prev) {
+    [Console]::Out.WriteLine("MMB")
+    [Console]::Out.Flush()
+  }
+  $prev = $down
+  Start-Sleep -Milliseconds 24
+}
+`;
+  try {
+    desktopLyricsMousePoller = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    desktopLyricsMousePoller.stdout.on('data', (chunk) => {
+      desktopLyricsMousePollerBuffer += chunk.toString('utf8');
+      const lines = desktopLyricsMousePollerBuffer.split(/\r?\n/);
+      desktopLyricsMousePollerBuffer = lines.pop() || '';
+      lines.forEach((line) => {
+        if (line.trim() === 'MMB') handleDesktopLyricsGlobalMiddleClick();
+      });
+    });
+    desktopLyricsMousePoller.on('exit', () => {
+      desktopLyricsMousePoller = null;
+      desktopLyricsMousePollerBuffer = '';
+    });
+    desktopLyricsMousePoller.on('error', () => {
+      desktopLyricsMousePoller = null;
+      desktopLyricsMousePollerBuffer = '';
+    });
+  } catch (e) {
+    desktopLyricsMousePoller = null;
+    desktopLyricsMousePollerBuffer = '';
+  }
+}
+
+function stopDesktopLyricsMousePoller() {
+  if (!desktopLyricsMousePoller) return;
+  try {
+    desktopLyricsMousePoller.kill();
+  } catch (e) {}
+  desktopLyricsMousePoller = null;
+  desktopLyricsMousePollerBuffer = '';
+}
+
+function broadcastDesktopLyricsLockState() {
+  const locked = desktopLyricsState.clickThrough !== false;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('mineradio-desktop-lyrics-lock-state', { locked });
+  }
+  sendDesktopLyricsState();
+}
+
+function broadcastDesktopLyricsEnabledState(enabled) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('mineradio-desktop-lyrics-enabled-state', { enabled: !!enabled });
+  }
+}
+
+function positionDesktopLyricsWindow(payload = desktopLyricsState, options = {}) {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
+  const shouldUseManualBounds = desktopLyricsUserBounds && !options.force;
+  setDesktopLyricsBounds(shouldUseManualBounds ? desktopLyricsUserBounds : desktopLyricsDefaultBounds(payload));
   if (typeof desktopLyricsWindow.setOpacity === 'function') {
     desktopLyricsWindow.setOpacity(clampNumber(payload.opacity, 0.28, 1, 0.92));
   }
@@ -601,10 +775,22 @@ function sendDesktopLyricsState() {
 }
 
 function createDesktopLyricsWindow(payload = {}) {
+  const previousY = desktopLyricsState.y;
+  const previousOpacity = desktopLyricsState.opacity;
   desktopLyricsState = { ...desktopLyricsState, ...payload, enabled: true };
+  const hasY = Object.prototype.hasOwnProperty.call(payload || {}, 'y');
+  const nextY = clampNumber(desktopLyricsState.y, 0.08, 0.92, 0.76);
+  const yChanged = hasY && Number.isFinite(Number(previousY)) && Math.abs(nextY - clampNumber(previousY, 0.08, 0.92, 0.76)) > 0.001;
+  const opacityChanged = Object.prototype.hasOwnProperty.call(payload || {}, 'opacity')
+    && Math.abs(clampNumber(desktopLyricsState.opacity, 0.28, 1, 0.92) - clampNumber(previousOpacity, 0.28, 1, 0.92)) > 0.001;
+  if (yChanged) desktopLyricsUserBounds = null;
   if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
-    positionDesktopLyricsWindow(desktopLyricsState);
-    desktopLyricsWindow.setIgnoreMouseEvents(desktopLyricsState.clickThrough !== false, { forward: true });
+    if (yChanged) {
+      positionDesktopLyricsWindow(desktopLyricsState, { force: yChanged });
+    } else if (opacityChanged && typeof desktopLyricsWindow.setOpacity === 'function') {
+      desktopLyricsWindow.setOpacity(clampNumber(desktopLyricsState.opacity, 0.28, 1, 0.92));
+    }
+    applyDesktopLyricsMouseBehavior();
     sendDesktopLyricsState();
     return desktopLyricsWindow;
   }
@@ -636,8 +822,9 @@ function createDesktopLyricsWindow(payload = {}) {
   } catch (e) {
     console.warn('Desktop lyrics topmost setup skipped:', e.message);
   }
-  desktopLyricsWindow.setIgnoreMouseEvents(desktopLyricsState.clickThrough !== false, { forward: true });
-  positionDesktopLyricsWindow(desktopLyricsState);
+  startDesktopLyricsMousePoller();
+  applyDesktopLyricsMouseBehavior();
+  positionDesktopLyricsWindow(desktopLyricsState, { force: yChanged || !desktopLyricsUserBounds });
   desktopLyricsWindow.once('ready-to-show', () => {
     if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
     desktopLyricsWindow.showInactive();
@@ -646,18 +833,25 @@ function createDesktopLyricsWindow(payload = {}) {
   desktopLyricsWindow.webContents.once('did-finish-load', sendDesktopLyricsState);
   desktopLyricsWindow.on('closed', () => {
     desktopLyricsWindow = null;
+    desktopLyricsMouseIgnored = null;
   });
+  desktopLyricsWindow.on('moved', rememberDesktopLyricsBounds);
   desktopLyricsWindow.loadURL(overlayUrl('desktop-lyrics.html')).catch((e) => console.warn('Desktop lyrics load failed:', e.message));
   return desktopLyricsWindow;
 }
 
 function closeDesktopLyricsWindow() {
   desktopLyricsState = { ...desktopLyricsState, enabled: false };
+  desktopLyricsPointerCapture = false;
+  desktopLyricsMouseIgnored = null;
+  desktopLyricsHotBounds = null;
+  stopDesktopLyricsMousePoller();
   if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
     sendDesktopLyricsState();
     desktopLyricsWindow.close();
   }
   desktopLyricsWindow = null;
+  broadcastDesktopLyricsEnabledState(false);
 }
 
 function nativeWindowHandleDecimal(win) {
@@ -848,8 +1042,12 @@ ipcMain.handle('mineradio-restart-app', async () => {
 
 ipcMain.handle('mineradio-desktop-lyrics-set-enabled', async (_event, enabled, payload) => {
   try {
-    if (enabled) createDesktopLyricsWindow(payload || {});
-    else closeDesktopLyricsWindow();
+    if (enabled) {
+      createDesktopLyricsWindow(payload || {});
+      broadcastDesktopLyricsEnabledState(true);
+    } else {
+      closeDesktopLyricsWindow();
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message || 'DESKTOP_LYRICS_FAILED' };
@@ -858,16 +1056,14 @@ ipcMain.handle('mineradio-desktop-lyrics-set-enabled', async (_event, enabled, p
 
 ipcMain.handle('mineradio-desktop-lyrics-update', async (_event, payload) => {
   try {
-    desktopLyricsState = { ...desktopLyricsState, ...(payload || {}) };
-    if (desktopLyricsState.enabled) {
-      createDesktopLyricsWindow(desktopLyricsState);
-      if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
-        positionDesktopLyricsWindow(desktopLyricsState);
-        desktopLyricsWindow.setIgnoreMouseEvents(desktopLyricsState.clickThrough !== false, { forward: true });
-        sendDesktopLyricsState();
-      }
+    const nextState = { ...desktopLyricsState, ...(payload || {}) };
+    if (nextState.enabled) {
+      createDesktopLyricsWindow(payload || {});
     } else if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+      desktopLyricsState = nextState;
       sendDesktopLyricsState();
+    } else {
+      desktopLyricsState = nextState;
     }
     return { ok: true };
   } catch (e) {
@@ -877,6 +1073,59 @@ ipcMain.handle('mineradio-desktop-lyrics-update', async (_event, payload) => {
 
 ipcMain.handle('mineradio-desktop-lyrics-set-dragging', async () => {
   return { ok: true };
+});
+
+ipcMain.handle('mineradio-desktop-lyrics-set-pointer-capture', async (_event, active) => {
+  try {
+    desktopLyricsPointerCapture = !!active;
+    applyDesktopLyricsMouseBehavior();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'DESKTOP_LYRICS_POINTER_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-desktop-lyrics-set-hot-bounds', async (_event, bounds) => {
+  try {
+    const left = clampNumber(bounds && bounds.left, -2000, 4000, 0);
+    const top = clampNumber(bounds && bounds.top, -2000, 4000, 0);
+    const right = clampNumber(bounds && bounds.right, left + 1, 6000, left + 1);
+    const bottom = clampNumber(bounds && bounds.bottom, top + 1, 6000, top + 1);
+    desktopLyricsHotBounds = { left, top, right, bottom };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'DESKTOP_LYRICS_HOT_BOUNDS_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-desktop-lyrics-set-lock-state', async (_event, locked) => {
+  try {
+    desktopLyricsState = { ...desktopLyricsState, clickThrough: !!locked };
+    if (desktopLyricsState.clickThrough !== false) desktopLyricsPointerCapture = false;
+    applyDesktopLyricsMouseBehavior();
+    broadcastDesktopLyricsLockState();
+    return { ok: true, locked: desktopLyricsState.clickThrough !== false };
+  } catch (e) {
+    return { ok: false, error: e.message || 'DESKTOP_LYRICS_LOCK_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-desktop-lyrics-move-by', async (_event, dx, dy) => {
+  try {
+    if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return { ok: false, error: 'NO_DESKTOP_LYRICS_WINDOW' };
+    if (desktopLyricsState.clickThrough !== false) return { ok: false, error: 'DESKTOP_LYRICS_LOCKED' };
+    const bounds = desktopLyricsWindow.getBounds();
+    const next = {
+      ...bounds,
+      x: Math.round(bounds.x + clampNumber(dx, -160, 160, 0)),
+      y: Math.round(bounds.y + clampNumber(dy, -160, 160, 0)),
+    };
+    desktopLyricsWindow.setBounds(next, false);
+    desktopLyricsUserBounds = desktopLyricsWindow.getBounds();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'DESKTOP_LYRICS_MOVE_FAILED' };
+  }
 });
 
 ipcMain.handle('mineradio-wallpaper-set-enabled', async (_event, enabled, payload) => {

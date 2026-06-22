@@ -533,11 +533,12 @@ body.home-controls-locked #bottom-bar{opacity:0!important;pointer-events:none!im
 @keyframes progress-particle-fade{0%{opacity:.95;transform:translate3d(var(--px,0),var(--py,0),0) scale(1)}100%{opacity:0;transform:translate3d(calc(var(--px,0) + var(--dx,0)),calc(var(--py,0) + var(--dy,0)),0) scale(.15)}}
 #controls{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(380px,auto) minmax(400px,1.08fr);align-items:center;gap:18px}
 .control-cluster{display:flex;align-items:center;gap:13px;min-width:0;height:62px}
-.control-cluster.actions{grid-column:1;justify-content:flex-start}
+.control-cluster.actions{grid-column:1;justify-content:flex-start;overflow:visible}
 .control-cluster.transport{grid-column:2;justify-content:center}
 .control-cluster.modes{grid-column:3;justify-content:flex-end}
 .control-divider{display:none}
 .control-track{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.control-cluster.actions #quality-control{flex:0 0 auto;margin-left:-2px}
 .control-cover{width:52px;height:52px;border-radius:12px;background-size:cover;background-position:center;background-color:rgba(255,255,255,.070);border:0;box-shadow:0 10px 28px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.20),inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .18s ease,opacity .2s ease,box-shadow .2s ease;flex:0 0 auto}
 .control-cover.cover-empty{background-image:radial-gradient(circle at 35% 28%,rgba(255,255,255,.18),transparent 24%),linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 8px 22px rgba(0,0,0,.22)}
 .control-meta{min-width:0;max-width:360px;display:flex;flex-direction:column;gap:3px}
@@ -567,10 +568,16 @@ body.home-controls-locked #bottom-bar{opacity:0!important;pointer-events:none!im
 .volume-popover{position:absolute;left:50%;bottom:46px;transform:translateX(-50%) translateY(8px);width:154px;height:42px;padding:0 12px;border-radius:14px;border:1px solid rgba(255,255,255,.09);background:rgba(12,12,16,.78);backdrop-filter:blur(24px) saturate(1.12);-webkit-backdrop-filter:blur(24px) saturate(1.12);box-shadow:0 18px 48px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.07);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:1}
 .volume-control .ctrl-btn,.quality-control .ctrl-btn{position:relative;z-index:2}
 .volume-control.open .volume-popover,.volume-control:hover .volume-popover,.volume-control:focus-within .volume-popover,.quality-control.open .quality-popover,.quality-control:hover .quality-popover,.quality-control:focus-within .quality-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
-.quality-popover{position:absolute;left:50%;bottom:46px;transform:translateX(-50%) translateY(8px);width:172px;padding:8px;border-radius:14px;border:1px solid rgba(157,184,207,.24);background:rgba(10,11,14,.76);backdrop-filter:blur(24px) saturate(1.25);-webkit-backdrop-filter:blur(24px) saturate(1.25);box-shadow:0 18px 48px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr;gap:6px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:1}
-.quality-option{height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);color:rgba(255,255,255,.58);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.4px;cursor:pointer;transition:background .2s,border-color .2s,color .2s,transform .2s}
+#quality-btn.quality-pill{width:auto;min-width:56px;padding:0 11px;border-radius:13px;font-size:11px;font-weight:800;letter-spacing:.2px;color:rgba(237,245,255,.82);background:rgba(255,255,255,.038);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+#quality-btn-label{display:block;min-width:30px;text-align:center;white-space:nowrap}
+.quality-popover{position:absolute;left:50%;bottom:46px;transform:translateX(-50%) translateY(8px);width:228px;padding:8px;border-radius:14px;border:1px solid rgba(157,184,207,.24);background:rgba(10,11,14,.82);backdrop-filter:blur(24px) saturate(1.25);-webkit-backdrop-filter:blur(24px) saturate(1.25);box-shadow:0 18px 48px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);display:grid;grid-template-columns:1fr;gap:6px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:8}
+.quality-option{min-height:40px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);color:rgba(255,255,255,.70);font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.1px;cursor:pointer;transition:background .2s,border-color .2s,color .2s,transform .2s;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;text-align:left}
+.quality-option span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quality-option small{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.42);letter-spacing:0;white-space:nowrap}
 .quality-option:hover{transform:translateY(-1px);color:#fff;background:rgba(255,255,255,.09)}
 .quality-option.active{color:#eaf2ff;border-color:rgba(157,184,207,.46);background:rgba(157,184,207,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.quality-option.locked{opacity:.42;cursor:not-allowed;transform:none!important}
+.quality-option.locked small::after{content:' · 需网易云SVIP';color:rgba(244,210,138,.88)}
 #volume-slider{width:92px;accent-color:var(--fc-accent);cursor:pointer}
 #volume-value{width:34px;text-align:right;font-size:10px;color:rgba(255,255,255,.52);font-variant-numeric:tabular-nums}
 .mini-queue-popover{position:absolute;left:50%;bottom:calc(100% + 14px);width:min(420px,calc(100vw - 32px));max-height:min(420px,calc(100vh - 170px));padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.075);background:linear-gradient(145deg,rgba(18,18,23,.82),rgba(8,8,12,.88));backdrop-filter:blur(30px) saturate(1.08);-webkit-backdrop-filter:blur(30px) saturate(1.08);box-shadow:0 22px 70px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.065);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(12px) scale(.98);transition:opacity .22s,transform .22s;z-index:7;overflow:hidden}
@@ -630,7 +637,7 @@ body.diy-mode #controls{
 .control-cluster{min-width:0}
 .control-cluster.actions{
   justify-content:flex-start;
-  overflow:hidden;
+  overflow:visible;
 }
 .control-cluster.transport{
   justify-self:center;
@@ -2044,6 +2051,8 @@ html.control-glass-svg-ok .search-history-chip:hover{
       <div class="fx-slider"><label>水平位置</label><input id="fx-lyricx" type="range" min="-2.0" max="2.0" step="0.01"><output></output></div>
       <div class="fx-slider"><label>垂直位置</label><input id="fx-lyricy" type="range" min="-1.2" max="1.35" step="0.01"><output></output></div>
       <div class="fx-slider"><label>景深位置</label><input id="fx-lyricz" type="range" min="-1.6" max="1.6" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>上下角度</label><input id="fx-lyrictiltx" type="range" min="-42" max="42" step="1"><output></output></div>
+      <div class="fx-slider"><label>左右角度</label><input id="fx-lyrictilty" type="range" min="-42" max="42" step="1"><output></output></div>
     </div>
   </div>
 
@@ -2061,14 +2070,24 @@ html.control-glass-svg-ok .search-history-chip:hover{
         <div class="fx-toggle" id="t-lyricCameraLock" onclick="toggleFx('lyricCameraLock')"><span>歌词镜头绑定</span><span class="dot"></span></div>
         <div class="fx-toggle" id="t-bloom" onclick="toggleFx('bloom')"><span>粒子溢光</span><span class="dot"></span></div>
         <div class="fx-toggle" id="t-edge" onclick="toggleFx('edge')"><span>轮廓高亮</span><span class="dot"></span></div>
-        <div class="fx-toggle dev-locked" id="t-desktopLyrics" onclick="toggleFx('desktopLyrics')" title="开发中，暂不可用"><span>桌面歌词<em class="fx-dev-badge">开发中</em></span><span class="dot"></span></div>
-        <div class="fx-toggle dev-locked" id="t-desktopLyricsClickThrough" onclick="toggleFx('desktopLyricsClickThrough')" title="开发中，暂不可用"><span>桌面歌词穿透<em class="fx-dev-badge">开发中</em></span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyrics" onclick="toggleFx('desktopLyrics')" title="全屏幕置顶歌词"><span>桌面歌词</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsClickThrough" onclick="toggleFx('desktopLyricsClickThrough')" title="锁定后防误触；鼠标移到桌面歌词上按中键可锁定/解锁"><span>桌面歌词锁定</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsCinema" onclick="toggleFx('desktopLyricsCinema')" title="桌面歌词绑定鼓点电影震动，基础漂浮始终保留"><span>桌面歌词电影震动</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-desktopLyricsHighlight" onclick="toggleFx('desktopLyricsHighlight')" title="桌面歌词按播放进度高亮"><span>桌面歌词高亮跟随</span><span class="dot"></span></div>
         <div class="fx-toggle dev-locked" id="t-wallpaperMode" onclick="toggleFx('wallpaperMode')" title="开发中，暂不可用"><span>壁纸模式<em class="fx-dev-badge">开发中</em></span><span class="dot"></span></div>
       </div>
       <div class="fx-section-label">桌面 / 壁纸</div>
-      <div class="fx-slider dev-locked"><label>桌面歌词大小</label><input id="fx-desktoplyricssize" type="range" min="0.72" max="1.55" step="0.01" disabled><output></output></div>
-      <div class="fx-slider dev-locked"><label>桌面歌词透明</label><input id="fx-desktoplyricsopacity" type="range" min="0.28" max="1" step="0.01" disabled><output></output></div>
-      <div class="fx-slider dev-locked"><label>桌面歌词高度</label><input id="fx-desktoplyricsy" type="range" min="0.08" max="0.92" step="0.01" disabled><output></output></div>
+      <div class="fx-slider"><label>桌面歌词大小</label><input id="fx-desktoplyricssize" type="range" min="0.72" max="1.55" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>桌面歌词透明</label><input id="fx-desktoplyricsopacity" type="range" min="0.28" max="1" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>桌面歌词高度</label><input id="fx-desktoplyricsy" type="range" min="0.08" max="0.92" step="0.01"><output></output></div>
+      <div class="fx-section-label">桌面帧数</div>
+      <div class="fx-seg" id="desktop-lyrics-fps-seg">
+        <button data-desktop-lyrics-fps="24">24</button>
+        <button data-desktop-lyrics-fps="30">30</button>
+        <button data-desktop-lyrics-fps="60">60</button>
+        <button data-desktop-lyrics-fps="120">120</button>
+        <button data-desktop-lyrics-fps="0">无上限</button>
+      </div>
       <div class="fx-slider dev-locked"><label>壁纸透明度</label><input id="fx-wallpaperopacity" type="range" min="0.35" max="1" step="0.01" disabled><output></output></div>
     </div>
   </div>
@@ -2269,6 +2288,16 @@ html.control-glass-svg-ok .search-history-chip:hover{
           <div id="control-artist" class="control-artist" onclick="openTrackDetailModal('artist')" title="歌手详情"></div>
         </div>
       </div>
+      <div id="quality-control" class="quality-control">
+        <button id="quality-btn" class="ctrl-btn quality-pill" onclick="toggleQualityPanel(event)" title="音质"><span id="quality-btn-label">臻音</span></button>
+        <div class="quality-popover" onclick="event.stopPropagation()">
+          <button class="quality-option svip-only" data-quality="jymaster" data-svip="1" onclick="setPlaybackQuality('jymaster')"><span>超清母带</span><small>SVIP / 最高规格</small></button>
+          <button class="quality-option" data-quality="hires" onclick="setPlaybackQuality('hires')"><span>高清臻音</span><small>默认 / 细节优先</small></button>
+          <button class="quality-option" data-quality="lossless" onclick="setPlaybackQuality('lossless')"><span>无损 SQ</span><small>FLAC 优先</small></button>
+          <button class="quality-option" data-quality="exhigh" onclick="setPlaybackQuality('exhigh')"><span>极高 HQ</span><small>320kbps</small></button>
+          <button class="quality-option" data-quality="standard" onclick="setPlaybackQuality('standard')"><span>标准</span><small>128kbps</small></button>
+        </div>
+      </div>
       <button id="heart-btn" class="ctrl-btn" onclick="toggleLikeCurrent()" title="红心喜欢"><svg class="heart-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.45c-.32 0-.62-.12-.86-.34l-1.23-1.12C5.54 16.03 2.25 13.05 2.25 8.9 2.25 5.48 4.88 2.9 8.28 2.9c1.7 0 3.35.72 4.52 1.96C13.97 3.62 15.62 2.9 17.32 2.9c3.4 0 6.03 2.58 6.03 6 0 4.15-3.29 7.13-7.66 11.09l-1.23 1.12c-.24.22-.54.34-.86.34z"/></svg></button>
       <button id="collect-btn" class="ctrl-btn" onclick="openCollectModalForCurrent()" title="收藏到歌单"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
     </div>
@@ -2280,15 +2309,6 @@ html.control-glass-svg-ok .search-history-chip:hover{
     <button id="mini-queue-btn" class="ctrl-btn" onclick="toggleMiniQueue(event)" title="当前队列"><svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg></button>
     </div>
     <div class="control-cluster modes">
-    <div id="quality-control" class="quality-control">
-      <button id="quality-btn" class="ctrl-btn" onclick="toggleQualityPanel(event)" title="音质"><span id="quality-btn-label">HQ</span></button>
-      <div class="quality-popover" onclick="event.stopPropagation()">
-        <button class="quality-option" data-quality="highest" onclick="setPlaybackQuality('highest')">最高</button>
-        <button class="quality-option" data-quality="lossless" onclick="setPlaybackQuality('lossless')">无损</button>
-        <button class="quality-option" data-quality="exhigh" onclick="setPlaybackQuality('exhigh')">极高</button>
-        <button class="quality-option" data-quality="standard" onclick="setPlaybackQuality('standard')">标准</button>
-      </div>
-    </div>
     <button class="ctrl-btn lyrics-toggle-btn" onclick="toggleLyricsPanel()" title="歌词"><span class="lyrics-word-icon">词</span></button>
     <div id="volume-control" class="volume-control">
       <button id="volume-btn" class="ctrl-btn" onclick="toggleVolumePanel(event)" title="音量 / 静音"><svg id="volume-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9.5a4 4 0 0 1 0 5"/></svg></button>
@@ -2472,7 +2492,7 @@ html.control-glass-svg-ok .search-history-chip:hover{
         <div>
           <div class="update-kicker">MINERADIO</div>
           <div id="update-modal-title" class="update-title">New release</div>
-          <div id="update-modal-version" class="update-version">v0.9.11</div>
+          <div id="update-modal-version" class="update-version">v1.0.10</div>
         </div>
       </div>
       <div class="update-hero">
@@ -2542,7 +2562,7 @@ var lastStrongDrop = 0;           // 用于 burst 预设的强 drop 时刻
 var lyricsLines = [], lyricsVisible = false, lyricsHasNativeKaraoke = false, lyricsTimingSource = 'none';
 var playlist = [], playQueue = [], currentIdx = -1, playing = false, playToggleBusy = false;
 var searchMode = 'song', podcastResults = [], podcastPrograms = [], podcastCurrentRadio = null;
-var loginStatus = { loggedIn: false };
+var loginStatus = { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
 var qqLoginStatus = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0 };
 var qqLoginAutoRefreshTimer = null;
 var qqLoginWasLoggedIn = false;
@@ -2557,6 +2577,9 @@ var loginStatusChecked = false, loginStatusCheckFailed = false;
 var qrPollTimer = null, qrKey = null;
 var volumeTween = null, trackSwitchToken = 0;
 var audioFadeTimer = null, audioElementFadeFrame = 0, audioFadeSerial = 0;
+var AUDIO_FADE_IN_MS = 460;
+var AUDIO_FADE_OUT_MS = 420;
+var AUDIO_SILENCE_GAIN = 0.0001;
 var userPlaylists = [], qqPlaylists = [], myPodcastCollections = [], myPodcastItems = {}, playlistCoverCache = {};
 var CUSTOM_COVER_STORE_KEY = 'mineradio-custom-covers';
 var CUSTOM_LYRIC_STORE_KEY = 'mineradio-custom-lyrics-v1';
@@ -2659,7 +2682,7 @@ var updatePreviewState = {
   installerPath: '',
   installerOpened: false,
   currentVersion: '0.9.11',
-  version: '0.9.11',
+  version: '1.0.10',
   configured: false,
   preview: true,
   updateAvailable: false,
@@ -2983,6 +3006,8 @@ var fxDefaults = {
   lyricOffsetX: 0,
   lyricOffsetY: 0,
   lyricOffsetZ: 0,
+  lyricTiltX: 0,
+  lyricTiltY: 0,
   lyricColorMode: 'auto',
   lyricColor: '#a9b8c8',
   lyricHighlightMode: 'auto',
@@ -3011,6 +3036,9 @@ var fxDefaults = {
   desktopLyricsOpacity: 0.92,
   desktopLyricsY: 0.76,
   desktopLyricsClickThrough: true,
+  desktopLyricsCinema: true,
+  desktopLyricsHighlight: false,
+  desktopLyricsFps: 60,
   wallpaperMode: false,
   wallpaperOpacity: 1,
   floatLayer: false, cinema: true, edge: false, aiDepth: false, bloom: false, lyricGlow: true,
@@ -3023,8 +3051,6 @@ var fxDefaults = {
   cam: 'off',
 };
 var DEVELOPMENT_LOCKED_FX = {
-  desktopLyrics: true,
-  desktopLyricsClickThrough: true,
   wallpaperMode: true
 };
 function isDevelopmentLockedFx(key) {
@@ -3032,8 +3058,6 @@ function isDevelopmentLockedFx(key) {
 }
 function normalizeDevelopmentLockedFxState() {
   if (!fx) return;
-  fx.desktopLyrics = false;
-  fx.desktopLyricsClickThrough = true;
   fx.wallpaperMode = false;
 }
 function readSavedPlaybackVisualPreset() {
@@ -3339,6 +3363,7 @@ function updateDesktopRuntimeState(state) {
   desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen);
   updateRenderPowerClasses();
   applyRendererPowerMode();
+  if (fx && (fx.desktopLyrics || fx.wallpaperMode)) setTimeout(syncDesktopOverlayState, 0);
   if (wasDeep && !isDeepBackgroundMode()) recoverVisualsAfterBackground('desktop-runtime-state');
   if (desktopRuntimeState.fullscreen !== wasFullscreen) scheduleMainRendererViewportRefresh('desktop-runtime-state');
 }
@@ -4757,6 +4782,12 @@ function shouldDimWallpaperForShelf() {
 function shouldOffsetLyricsForShelfDetail() {
   if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
   return !!(shelfManager.hasOpenContent && shelfManager.hasOpenContent());
+}
+function shouldAvoidStageLyricsForShelf() {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
+  if (shelfPinnedOpen) return true;
+  if (shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return true;
+  return !!(shelfVisibility > 0.24 || (shelfHoverCue && shelfHoverCue.value > 0.28));
 }
 function activateFocusZone(type) {
   unlockCenteredView();
@@ -6859,7 +6890,43 @@ var lyricCameraDir = new THREE.Vector3();
 var lyricCameraRight = new THREE.Vector3();
 var lyricCameraUp = new THREE.Vector3();
 var lyricCameraTarget = new THREE.Vector3();
+var lyricLayoutBase = new THREE.Vector3();
+var lyricLayoutTarget = new THREE.Vector3();
+var lyricBaseEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+var lyricTiltEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+var lyricBaseQuat = new THREE.Quaternion();
+var lyricTiltQuat = new THREE.Quaternion();
+var lyricTargetQuat = new THREE.Quaternion();
 var LYRIC_CAMERA_LOCK_MAX_SCALE = 0.80;
+function setStageLyricViewBasisFromCameraOrQuaternion(fallbackQuat) {
+  if (camera) {
+    camera.getWorldDirection(lyricCameraDir);
+    lyricCameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    lyricCameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+  } else if (fallbackQuat) {
+    lyricCameraDir.set(0, 0, 1).applyQuaternion(fallbackQuat);
+    lyricCameraRight.set(1, 0, 0).applyQuaternion(fallbackQuat);
+    lyricCameraUp.set(0, 1, 0).applyQuaternion(fallbackQuat);
+  } else {
+    lyricCameraDir.set(0, 0, 1);
+    lyricCameraRight.set(1, 0, 0);
+    lyricCameraUp.set(0, 1, 0);
+  }
+  lyricCameraDir.normalize();
+  lyricCameraRight.normalize();
+  lyricCameraUp.normalize();
+}
+function applyStageLyricLayoutOffset(target, x, y, z) {
+  return target
+    .addScaledVector(lyricCameraRight, x || 0)
+    .addScaledVector(lyricCameraUp, y || 0)
+    .addScaledVector(lyricCameraDir, z || 0);
+}
+function stageLyricTargetQuaternion(baseQuat, tiltX, tiltY) {
+  lyricTiltEuler.set((tiltX || 0) * Math.PI / 180, (tiltY || 0) * Math.PI / 180, 0, 'YXZ');
+  lyricTiltQuat.setFromEuler(lyricTiltEuler);
+  return lyricTargetQuat.copy(baseQuat || lyricBaseQuat).multiply(lyricTiltQuat);
+}
 function getStageLyricLockBounds() {
   var maxW = 0, maxH = 0;
   function take(mesh) {
@@ -7114,6 +7181,7 @@ function readSavedLyricLayout() {
     var savedBgCustom = savedBgMode
       ? savedBgMode === 'custom'
       : (raw.backgroundColorCustom === true || (raw.backgroundColorCustom !== false && savedBgColor !== '#000000') || savedBgOpacity < 1);
+    var desktopLyricsSchemaReady = raw.desktopLyricsSchema === 'desktop-lyrics-v3';
     return {
       preset: savedPreset,
       intensity: clampRange(Number(raw.intensity) || fxDefaults.intensity, 0.2, 1.6),
@@ -7131,6 +7199,8 @@ function readSavedLyricLayout() {
       lyricOffsetX: clampRange(Number(raw.lyricOffsetX) || 0, -2.0, 2.0),
       lyricOffsetY: clampRange(Number(raw.lyricOffsetY) || 0, -1.2, 1.35),
       lyricOffsetZ: clampRange(Number(raw.lyricOffsetZ) || 0, -1.6, 1.6),
+      lyricTiltX: clampRange(Number(raw.lyricTiltX) || 0, -42, 42),
+      lyricTiltY: clampRange(Number(raw.lyricTiltY) || 0, -42, 42),
       lyricCameraLock: !!raw.lyricCameraLock,
       lyricColorMode: raw.lyricColorMode === 'custom' ? 'custom' : 'auto',
       lyricColor: normalizeHexColor(raw.lyricColor || '#a9b8c8'),
@@ -7161,11 +7231,14 @@ function readSavedLyricLayout() {
       backgroundColorCustom: savedBgCustom,
       backgroundImage: normalizeCustomBackgroundImage(raw.backgroundImage),
       backgroundMedia: normalizeCustomBackgroundMedia(raw.backgroundMedia || raw.backgroundImage),
-      desktopLyrics: false,
+      desktopLyrics: raw.desktopLyrics === true,
       desktopLyricsSize: clampRange(Number(raw.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
       desktopLyricsOpacity: clampRange(raw.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(raw.desktopLyricsOpacity), 0.28, 1),
       desktopLyricsY: clampRange(raw.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(raw.desktopLyricsY), 0.08, 0.92),
-      desktopLyricsClickThrough: true,
+      desktopLyricsClickThrough: desktopLyricsSchemaReady ? raw.desktopLyricsClickThrough === true : fxDefaults.desktopLyricsClickThrough,
+      desktopLyricsCinema: desktopLyricsSchemaReady ? raw.desktopLyricsCinema !== false : fxDefaults.desktopLyricsCinema,
+      desktopLyricsHighlight: desktopLyricsSchemaReady ? raw.desktopLyricsHighlight === true : fxDefaults.desktopLyricsHighlight,
+      desktopLyricsFps: desktopLyricsSchemaReady ? normalizeDesktopLyricsFps(raw.desktopLyricsFps) : fxDefaults.desktopLyricsFps,
       wallpaperMode: false,
       wallpaperOpacity: clampRange(raw.wallpaperOpacity == null ? fxDefaults.wallpaperOpacity : Number(raw.wallpaperOpacity), 0.35, 1),
       coverResolution: normalizeCoverResolution(raw.coverResolution),
@@ -7183,6 +7256,7 @@ function saveLyricLayout() {
       : clampRange(Number(fx.preset) || 0, 0, presetMeta.length - 1);
     localStorage.setItem(LYRIC_LAYOUT_STORE_KEY, JSON.stringify({
       visualPresetSchema: VISUAL_PRESET_SCHEMA,
+      desktopLyricsSchema: 'desktop-lyrics-v3',
       preset: presetForSave,
       intensity: clampRange(Number(fx.intensity) || fxDefaults.intensity, 0.2, 1.6),
       cinemaShake: clampRange(Number(fx.cinemaShake) || fxDefaults.cinemaShake, 0, 1.8),
@@ -7199,6 +7273,8 @@ function saveLyricLayout() {
       lyricOffsetX: clampRange(Number(fx.lyricOffsetX) || 0, -2.0, 2.0),
       lyricOffsetY: clampRange(Number(fx.lyricOffsetY) || 0, -1.2, 1.35),
       lyricOffsetZ: clampRange(Number(fx.lyricOffsetZ) || 0, -1.6, 1.6),
+      lyricTiltX: clampRange(Number(fx.lyricTiltX) || 0, -42, 42),
+      lyricTiltY: clampRange(Number(fx.lyricTiltY) || 0, -42, 42),
       lyricCameraLock: !!fx.lyricCameraLock,
       lyricColorMode: fx.lyricColorMode === 'custom' ? 'custom' : 'auto',
       lyricColor: normalizeHexColor(fx.lyricColor || '#a9b8c8'),
@@ -7229,11 +7305,14 @@ function saveLyricLayout() {
       backgroundColorCustom: fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom,
       backgroundImage: normalizeCustomBackgroundImage(fx.backgroundImage),
       backgroundMedia: normalizeCustomBackgroundMedia(fx.backgroundMedia || fx.backgroundImage),
-      desktopLyrics: false,
+      desktopLyrics: !!fx.desktopLyrics,
       desktopLyricsSize: clampRange(Number(fx.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
       desktopLyricsOpacity: clampRange(fx.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(fx.desktopLyricsOpacity), 0.28, 1),
       desktopLyricsY: clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92),
-      desktopLyricsClickThrough: true,
+      desktopLyricsClickThrough: fx.desktopLyricsClickThrough === true,
+      desktopLyricsCinema: fx.desktopLyricsCinema !== false,
+      desktopLyricsHighlight: fx.desktopLyricsHighlight === true,
+      desktopLyricsFps: normalizeDesktopLyricsFps(fx.desktopLyricsFps),
       wallpaperMode: false,
       wallpaperOpacity: clampRange(fx.wallpaperOpacity == null ? fxDefaults.wallpaperOpacity : Number(fx.wallpaperOpacity), 0.35, 1),
       coverResolution: normalizeCoverResolution(fx.coverResolution),
@@ -7249,6 +7328,14 @@ function normalizeHexColor(value, fallback) {
   }
   fallback = /^#[0-9a-f]{6}$/i.test(String(fallback || '')) ? String(fallback).toLowerCase() : '#a9b8c8';
   return /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : fallback;
+}
+function normalizeDesktopLyricsFps(value) {
+  var n = Number(value);
+  if (!isFinite(n) || n <= 0) return 0;
+  if (n <= 26) return 24;
+  if (n <= 45) return 30;
+  if (n <= 90) return 60;
+  return 120;
 }
 function rgbToHexColor(r, g, b) {
   function part(v) {
@@ -8395,6 +8482,11 @@ function updateStageLyrics3D(dt) {
   var layoutX = clampRange(Number(fx.lyricOffsetX) || 0, -2.0, 2.0);
   var layoutY = clampRange(Number(fx.lyricOffsetY) || 0, -1.2, 1.35);
   var layoutZ = clampRange(Number(fx.lyricOffsetZ) || 0, -1.6, 1.6);
+  var layoutTiltX = clampRange(Number(fx.lyricTiltX) || 0, -42, 42);
+  var layoutTiltY = clampRange(Number(fx.lyricTiltY) || 0, -42, 42);
+  var skullMouthLyrics = !!(camera && fx && fx.preset === SKULL_PRESET_INDEX && skullParticleGroup && skullParticleGroup.visible);
+  var skullShelfDetailOpen = !!(fx && fx.preset === SKULL_PRESET_INDEX && shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent());
+  var shelfLyricAvoid = shouldAvoidStageLyricsForShelf();
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
   if (wallpaperLyricLock) {
@@ -8402,24 +8494,30 @@ function updateStageLyrics3D(dt) {
     layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -1.34 : 0), -2.0, 2.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -1.2, 1.35);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 1.02 : 1.15), -1.6, 1.6);
-  } else if (shouldOffsetLyricsForShelfDetail()) {
+  } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
+    layoutScale *= 0.72;
+    layoutX = clampRange(layoutX - 1.36, -2.0, 2.0);
+    layoutY = clampRange(layoutY + 0.06, -1.2, 1.35);
+    layoutZ = clampRange(layoutZ + 0.72, -1.6, 1.6);
+  } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
     layoutScale *= 0.70;
     layoutX = clampRange(layoutX - 1.58, -2.0, 2.0);
     layoutY = clampRange(layoutY + 0.08, -1.2, 1.35);
     layoutZ = clampRange(layoutZ + 0.84, -1.6, 1.6);
   }
-  var skullShelfDetailOpen = !!(fx && fx.preset === SKULL_PRESET_INDEX && shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent());
-  var skullMouthLyrics = !!(camera && fx && fx.preset === SKULL_PRESET_INDEX && skullParticleGroup && skullParticleGroup.visible);
   if (skullMouthLyrics) {
-    layoutScale *= skullShelfDetailOpen ? 0.52 : 0.66;
-    layoutX = 0;
-    layoutY = 0;
-    layoutZ = 0;
+    layoutScale *= skullShelfDetailOpen ? 0.52 : (shelfLyricAvoid ? 0.58 : 0.66);
+    if (shelfLyricAvoid && !skullShelfDetailOpen) {
+      layoutX = clampRange(layoutX - 0.36, -2.0, 2.0);
+      layoutY = clampRange(layoutY + 0.02, -1.2, 1.35);
+      layoutZ = clampRange(layoutZ + 0.18, -1.6, 1.6);
+    }
   }
-  var lockDistance = (wallpaperShelfLyrics ? 5.58 : 4.85) + layoutZ;
+  var lockBaseDistance = wallpaperShelfLyrics ? 5.58 : 4.85;
+  var lockDistance = lockBaseDistance + layoutZ;
   var cameraLockedLyrics = (fx.lyricCameraLock || wallpaperLyricLock) && camera;
   var skullLyricEdgeGuard = !!(fx && fx.preset === SKULL_PRESET_INDEX && (orbit.centerLocked || orbit.recentering));
-  var lockFit = (cameraLockedLyrics || skullLyricEdgeGuard || skullMouthLyrics) ? lyricCameraLockFit(layoutScale, layoutX, layoutY, skullMouthLyrics ? 4.4 : lockDistance) : 1;
+  var lockFit = (cameraLockedLyrics || skullLyricEdgeGuard || skullMouthLyrics) ? lyricCameraLockFit(layoutScale, layoutX, layoutY, skullMouthLyrics ? Math.max(2.2, 4.4 + layoutZ) : lockDistance) : 1;
   if (skullMouthLyrics) lockFit = Math.min(lockFit, 1.12);
   if (!isFinite(stageLyrics.lockFitScale)) stageLyrics.lockFitScale = 1;
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
@@ -8432,45 +8530,50 @@ function updateStageLyrics3D(dt) {
     skullLyricMouthForward.set(0, 0, 1).applyQuaternion(skullLyricMouthQuat);
     skullLyricMouthTarget.addScaledVector(skullLyricMouthForward, 0.020);
     skullLyricReadableQuat.copy(skullLyricMouthQuat);
+    setStageLyricViewBasisFromCameraOrQuaternion(skullLyricMouthQuat);
+    lyricLayoutTarget.copy(skullLyricMouthTarget);
+    applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
+    stageLyricTargetQuaternion(skullLyricReadableQuat, layoutTiltX, layoutTiltY);
     stageLyrics.group.userData = stageLyrics.group.userData || {};
     if (!stageLyrics.group.userData.skullMouthLocked) {
-      stageLyrics.group.position.copy(skullLyricMouthTarget);
-      stageLyrics.group.quaternion.copy(skullLyricReadableQuat);
+      stageLyrics.group.position.copy(lyricLayoutTarget);
+      stageLyrics.group.quaternion.copy(lyricTargetQuat);
       stageLyrics.group.userData.skullMouthLocked = true;
     } else {
-      stageLyrics.group.position.lerp(skullLyricMouthTarget, 0.26);
-      stageLyrics.group.quaternion.slerp(skullLyricReadableQuat, 0.30);
+      stageLyrics.group.position.lerp(lyricLayoutTarget, 0.26);
+      stageLyrics.group.quaternion.slerp(lyricTargetQuat, 0.30);
     }
   } else if (cameraLockedLyrics) {
     if (stageLyrics.group.userData) stageLyrics.group.userData.skullMouthLocked = false;
-    camera.getWorldDirection(lyricCameraDir);
-    lyricCameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    lyricCameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
-    lyricCameraTarget.copy(camera.position)
-      .addScaledVector(lyricCameraDir, lockDistance)
-      .addScaledVector(lyricCameraRight, layoutX)
-      .addScaledVector(lyricCameraUp, layoutY);
+    setStageLyricViewBasisFromCameraOrQuaternion(camera.quaternion);
+    lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
+    lyricCameraTarget.copy(lyricLayoutBase);
+    applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
+    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
-      stageLyrics.group.quaternion.copy(camera.quaternion);
+      stageLyrics.group.quaternion.copy(lyricTargetQuat);
       stageLyrics.snapCameraLockFrames -= 1;
     } else {
       var lockPosEase = wallpaperLyricLock ? (wallpaperShelfLyrics ? 0.42 : 0.34) : 0.24;
       var lockQuatEase = wallpaperLyricLock ? (wallpaperShelfLyrics ? 0.44 : 0.36) : 0.22;
       stageLyrics.group.position.lerp(lyricCameraTarget, lockPosEase);
-      stageLyrics.group.quaternion.slerp(camera.quaternion, lockQuatEase);
+      stageLyrics.group.quaternion.slerp(lyricTargetQuat, lockQuatEase);
     }
   } else {
     if (stageLyrics.group.userData) stageLyrics.group.userData.skullMouthLocked = false;
     stageLyrics.snapCameraLockFrames = 0;
-    var lyricTargetX = Math.sin(coverRotY) * 0.10 + layoutX;
-    var lyricTargetY = Math.sin(t * 0.38) * 0.030 + layoutY;
-    stageLyrics.group.position.x += (lyricTargetX - stageLyrics.group.position.x) * 0.12;
-    stageLyrics.group.position.y += (lyricTargetY - stageLyrics.group.position.y) * 0.12;
-    stageLyrics.group.position.z += (layoutZ - stageLyrics.group.position.z) * 0.16;
-    stageLyrics.group.rotation.y += (coverRotY - stageLyrics.group.rotation.y) * 0.16;
-    stageLyrics.group.rotation.x += (coverRotX - stageLyrics.group.rotation.x) * 0.16;
-    stageLyrics.group.rotation.z *= 0.88;
+    setStageLyricViewBasisFromCameraOrQuaternion(particles ? particles.quaternion : null);
+    lyricLayoutBase.set(Math.sin(coverRotY) * 0.10, Math.sin(t * 0.38) * 0.030, 0);
+    lyricLayoutTarget.copy(lyricLayoutBase);
+    applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
+    stageLyrics.group.position.x += (lyricLayoutTarget.x - stageLyrics.group.position.x) * 0.12;
+    stageLyrics.group.position.y += (lyricLayoutTarget.y - stageLyrics.group.position.y) * 0.12;
+    stageLyrics.group.position.z += (lyricLayoutTarget.z - stageLyrics.group.position.z) * 0.16;
+    lyricBaseEuler.set(coverRotX, coverRotY, 0, 'YXZ');
+    lyricBaseQuat.setFromEuler(lyricBaseEuler);
+    stageLyricTargetQuaternion(lyricBaseQuat, layoutTiltX, layoutTiltY);
+    stageLyrics.group.quaternion.slerp(lyricTargetQuat, 0.16);
   }
   function tickMesh(mesh, isCurrent) {
     if (!mesh) return false;
@@ -9637,7 +9740,8 @@ async function fetchBeatPrefetchAudioUrl(song) {
   if (!song) return null;
   var isQQ = songProviderKey(song) === 'qq';
   var requestedQuality = normalizePlaybackQuality(playbackQuality);
-  if (isQQ && qqPlaybackQualityCeiling && (requestedQuality === 'highest' || requestedQuality === 'lossless')) requestedQuality = qqPlaybackQualityCeiling;
+  if (!isQQ && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
+  if (isQQ && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) requestedQuality = qqPlaybackQualityCeiling;
   var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
   var data = isQQ
     ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
@@ -11265,6 +11369,7 @@ function smoothPodcastDjMapHandoff(songKey, map, token) {
     currentDjBeatMap = map;
     applyPodcastDjProfileFromMap(map);
     syncPodcastDjMapCursor(audio ? audio.currentTime : 0, true);
+    notifyDesktopLyricsBeatMapReady();
     hideBeatChip();
     showToast('DJ 离线锁拍完成: ' + (map.visualBeatCount || 0) + ' 个主拍');
   };
@@ -11280,6 +11385,7 @@ function smoothPodcastDjIntroHandoff(songKey, map, token) {
     currentDjBeatMap = map;
     applyPodcastDjProfileFromMap(map);
     syncPodcastDjMapCursor(audio ? audio.currentTime : 0, true);
+    notifyDesktopLyricsBeatMapReady();
     showBeatChip('DJ 开头已锁拍，全曲继续分析…');
   };
   scheduleVisualApply(apply, 0, 240);
@@ -11488,6 +11594,7 @@ function applyLocalBeatMap(song, mode, map, fromCache) {
     syncBeatMapPlaybackCursor(audio ? audio.currentTime : 0, true);
   }
   hideBeatChip();
+  notifyDesktopLyricsBeatMapReady();
   if (fromCache) showToast((mode === 'dj' ? 'DJ' : 'MR') + ' 本地节奏缓存已载入');
   return true;
 }
@@ -11660,6 +11767,7 @@ function smoothBeatMapHandoff(songId, map, token, song) {
     var t = audio ? audio.currentTime : 0;
     syncBeatMapPlaybackCursor(t, true);
     hideBeatChip();
+    notifyDesktopLyricsBeatMapReady();
     showToast('节奏分析完成: ' + (map.visualBeatCount || (map.cameraBeats && map.cameraBeats.length) || 0) + ' 个视觉主拍');
     writeBeatDiskCache(songId, map, song, 'mr');
     scheduleQueueBeatPrefetch(currentIdx, 1000);
@@ -11674,6 +11782,7 @@ function applyBeatMapCacheForCurrent(songId, map, token, message) {
   applyCinemaProfileFromBeatMap(map);
   syncBeatMapPlaybackCursor(audio ? audio.currentTime : 0, true);
   hideBeatChip();
+  notifyDesktopLyricsBeatMapReady();
   if (message) console.log(message, songId, map.visualBeatCount || 0);
   scheduleQueueBeatPrefetch(currentIdx, 1000);
   return true;
@@ -14155,30 +14264,60 @@ async function apiJson(url, opts) {
 function escHtml(s){ var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function normalizePlaybackQuality(value) {
   value = String(value || '').toLowerCase();
-  if (value === 'lossless' || value === 'hires' || value === 'flac') return 'lossless';
-  if (value === 'exhigh' || value === 'high' || value === '320k') return 'exhigh';
-  if (value === 'standard' || value === 'normal') return 'standard';
-  return 'highest';
+  if (value === 'jymaster' || value === 'master' || value === 'svip') return 'jymaster';
+  if (value === 'hires' || value === 'hi-res' || value === 'highres' || value === 'highest') return 'hires';
+  if (value === 'lossless' || value === 'flac' || value === 'sq') return 'lossless';
+  if (value === 'exhigh' || value === 'high' || value === '320k' || value === 'hq') return 'exhigh';
+  if (value === 'standard' || value === 'normal' || value === 'std') return 'standard';
+  return 'hires';
 }
 function playbackQualityLabel(value) {
   value = normalizePlaybackQuality(value);
+  if (value === 'jymaster') return '超清母带';
+  if (value === 'hires') return '高清臻音';
   if (value === 'lossless') return '无损';
   if (value === 'exhigh') return '极高';
   if (value === 'standard') return '标准';
-  return '最高';
+  return '高清臻音';
 }
 function playbackQualityShortLabel(value) {
   value = normalizePlaybackQuality(value);
+  if (value === 'jymaster') return '母带';
+  if (value === 'hires') return '臻音';
   if (value === 'lossless') return 'SQ';
-  if (value === 'exhigh') return '320';
+  if (value === 'exhigh') return 'HQ';
   if (value === 'standard') return 'STD';
-  return 'HQ';
+  return '臻音';
+}
+function playbackQualityRank(value) {
+  value = normalizePlaybackQuality(value);
+  if (value === 'jymaster') return 5;
+  if (value === 'hires') return 4;
+  if (value === 'lossless') return 3;
+  if (value === 'exhigh') return 2;
+  if (value === 'standard') return 1;
+  return 4;
+}
+function playbackQualityWasDowngraded(requested, resolved) {
+  return playbackQualityRank(resolved) < playbackQualityRank(requested);
+}
+function playbackBitrateLabel(br) {
+  br = Number(br) || 0;
+  if (!br) return '';
+  if (br >= 1000000) return (br / 1000000).toFixed(br >= 2000000 ? 1 : 2).replace(/\.0+$/, '') + ' Mbps';
+  return Math.round(br / 1000) + ' kbps';
+}
+function playbackResolvedQualityText(data) {
+  data = data || {};
+  var label = playbackQualityLabel(data.level || data.quality || playbackQuality);
+  var br = playbackBitrateLabel(data.br);
+  return br ? (label + ' · ' + br) : label;
 }
 function readPlaybackQualityPreference() {
   try {
-    return normalizePlaybackQuality(localStorage.getItem(PLAYBACK_QUALITY_STORE_KEY) || 'highest');
+    return normalizePlaybackQuality(localStorage.getItem(PLAYBACK_QUALITY_STORE_KEY) || 'hires');
   } catch (e) {
-    return 'highest';
+    return 'hires';
   }
 }
 function savePlaybackQualityPreference() {
@@ -14187,19 +14326,59 @@ function savePlaybackQualityPreference() {
 function updatePlaybackQualityUi() {
   var label = document.getElementById('quality-btn-label');
   var btn = document.getElementById('quality-btn');
-  if (label) label.textContent = playbackQualityShortLabel(playbackQuality);
-  if (btn) btn.title = '音质: ' + playbackQualityLabel(playbackQuality);
+  var canUseSvip = hasProviderSvip('netease', loginStatus);
+  var displayQuality = playbackQuality === 'jymaster' && !canUseSvip ? 'hires' : playbackQuality;
+  if (label) label.textContent = playbackQualityShortLabel(displayQuality);
+  if (btn) btn.title = playbackQuality === 'jymaster' && !canUseSvip
+    ? '音质: ' + playbackQualityLabel(displayQuality) + ' · 超清母带需网易云 SVIP'
+    : '音质: ' + playbackQualityLabel(displayQuality);
   document.querySelectorAll('.quality-option').forEach(function(option){
-    option.classList.toggle('active', normalizePlaybackQuality(option.dataset.quality) === playbackQuality);
+    var q = normalizePlaybackQuality(option.dataset.quality);
+    var locked = option.dataset.svip === '1' && !canUseSvip;
+    option.classList.toggle('active', q === displayQuality);
+    option.classList.toggle('locked', locked);
+    option.disabled = locked;
+    option.title = locked ? '需要网易云 SVIP 账号' : playbackQualityLabel(q);
   });
 }
 function setPlaybackQuality(value) {
-  playbackQuality = normalizePlaybackQuality(value);
+  var next = normalizePlaybackQuality(value);
+  if (next === 'jymaster' && !hasProviderSvip('netease', loginStatus)) {
+    showToast(hasPlatformLogin('netease') ? '超清母带需要网易云 SVIP' : '登录网易云 SVIP 后可用超清母带');
+    if (!hasPlatformLogin('netease')) openProviderLogin('netease');
+    return;
+  }
+  playbackQuality = next;
   savePlaybackQualityPreference();
   updatePlaybackQualityUi();
   var wrap = document.getElementById('quality-control');
   if (wrap) wrap.classList.remove('open');
-  showToast('音质偏好: ' + playbackQualityLabel(playbackQuality));
+  applyPlaybackQualityToCurrentTrack(next);
+}
+function canReloadCurrentTrackForQuality() {
+  if (currentIdx < 0 || currentIdx >= playQueue.length) return false;
+  if (!audio || !audio.src || audio.paused || audio.ended) return false;
+  var song = playQueue[currentIdx];
+  if (!song || song.type === 'local' || song.source === 'local') return false;
+  return songProviderKey(song) === 'netease' || songProviderKey(song) === 'qq';
+}
+function applyPlaybackQualityToCurrentTrack(nextQuality) {
+  var label = playbackQualityLabel(nextQuality || playbackQuality);
+  if (!canReloadCurrentTrackForQuality()) {
+    showToast('音质偏好: ' + label + ' · 下次播放生效');
+    return;
+  }
+  var resumeAt = audio && isFinite(audio.currentTime) ? audio.currentTime : 0;
+  showToast('正在切换音质: ' + label);
+  Promise.resolve(playQueueAt(currentIdx, {
+    qualityOverride: nextQuality || playbackQuality,
+    qualitySwitch: true,
+    resumeAt: resumeAt,
+    preserveHomeState: true,
+  })).catch(function(e){
+    console.warn('[QualitySwitch]', e);
+    showToast('音质切换失败，已保留偏好');
+  }).finally(forcePlaybackControlsInteractive);
 }
 function toggleQualityPanel(e) {
   if (e) e.stopPropagation();
@@ -16678,8 +16857,34 @@ function currentAudioOutputGain() {
   if (audio && isFinite(audio.volume)) return clampRange(Number(audio.volume), 0, 1);
   return clampRange(targetVolume, 0, 1);
 }
-function setAudioOutputGainImmediate(value) {
+function audioSilentFloor() {
+  return targetVolume > 0.001 ? AUDIO_SILENCE_GAIN : 0;
+}
+function normalizeAudioFadeTarget(value) {
   value = clampRange(Number(value) || 0, 0, 1);
+  return value <= 0.001 ? audioSilentFloor() : value;
+}
+function holdAudioOutputGain(now) {
+  var current = currentAudioOutputGain();
+  if (!gainNode || !audioCtx || !gainNode.gain) return current;
+  var param = gainNode.gain;
+  try {
+    if (typeof param.cancelAndHoldAtTime === 'function') {
+      param.cancelAndHoldAtTime(now);
+      return currentAudioOutputGain();
+    }
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(current, now);
+  } catch (e) {
+    try {
+      param.cancelScheduledValues(now);
+      param.setValueAtTime(current, now);
+    } catch (_) {}
+  }
+  return current;
+}
+function setAudioOutputGainImmediate(value) {
+  value = normalizeAudioFadeTarget(value);
   clearAudioFadeTimers();
   if (gainNode && audioCtx) {
     var now = audioCtx.currentTime || 0;
@@ -16690,15 +16895,17 @@ function setAudioOutputGainImmediate(value) {
   }
 }
 function rampAudioOutputGain(value, durationMs) {
-  value = clampRange(Number(value) || 0, 0, 1);
+  value = normalizeAudioFadeTarget(value);
   durationMs = Math.max(0, Number(durationMs) || 0);
   clearAudioFadeTimers();
   var serial = audioFadeSerial;
   if (gainNode && audioCtx) {
     var now = audioCtx.currentTime || 0;
-    var start = currentAudioOutputGain();
-    gainNode.gain.cancelScheduledValues(now);
-    gainNode.gain.setValueAtTime(start, now);
+    holdAudioOutputGain(now);
+    if (durationMs <= 0) {
+      gainNode.gain.setValueAtTime(value, now);
+      return;
+    }
     gainNode.gain.linearRampToValueAtTime(value, now + durationMs / 1000);
     return;
   }
@@ -16725,7 +16932,7 @@ function startPlaybackFadeIn() {
     setAudioOutputGainImmediate(0);
     return;
   }
-  rampAudioOutputGain(targetVolume, 420);
+  rampAudioOutputGain(targetVolume, AUDIO_FADE_IN_MS);
 }
 function restorePlaybackGain() {
   audioFadeSerial++;
@@ -16734,7 +16941,7 @@ function restorePlaybackGain() {
 function fadeOutAndPauseAudio() {
   if (!audio || audio.paused) return Promise.resolve(false);
   var serial = ++audioFadeSerial;
-  rampAudioOutputGain(0, 340);
+  rampAudioOutputGain(0, AUDIO_FADE_OUT_MS);
   return new Promise(function(resolve) {
     audioFadeTimer = setTimeout(function(){
       audioFadeTimer = null;
@@ -16743,9 +16950,9 @@ function fadeOutAndPauseAudio() {
         return;
       }
       try { audio.pause(); } catch (pauseErr) { console.warn('[TogglePlayPause]', pauseErr); }
-      restorePlaybackGain();
+      setAudioOutputGainImmediate(0);
       resolve(true);
-    }, 360);
+    }, AUDIO_FADE_OUT_MS + 80);
   });
 }
 
@@ -16787,6 +16994,11 @@ function setVolume(value, silent) {
   applyVolumeToAudio();
   updateVolumeUi();
   if (!silent) showToast('音量 ' + Math.round(next * 100) + '%');
+}
+function adjustVolumeByKeyboard(delta) {
+  var step = Number(delta) || 0;
+  if (!step) return;
+  setVolume(clampRange(targetVolume + step, 0, 1), false);
 }
 
 function toggleVolumePanel(e) {
@@ -16960,7 +17172,7 @@ function qqPlaybackRetryQualities(requestedQuality, resolvedLevel) {
   requestedQuality = normalizePlaybackQuality(requestedQuality || playbackQuality);
   resolvedLevel = String(resolvedLevel || '').toLowerCase();
   var pool = [];
-  if (requestedQuality === 'highest' || requestedQuality === 'lossless' || resolvedLevel === 'hires' || resolvedLevel === 'lossless') {
+  if (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless' || resolvedLevel === 'hires' || resolvedLevel === 'lossless') {
     pool = ['exhigh', 'standard'];
   } else if (requestedQuality === 'exhigh' || resolvedLevel === 'exhigh') {
     pool = ['standard'];
@@ -16977,7 +17189,8 @@ async function retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data
   var candidates = qqPlaybackRetryQualities(requestedQuality, data && data.level).filter(function(q){ return tried.indexOf(q) < 0; });
   if (!candidates.length || token !== trackSwitchToken) return false;
   var nextQuality = candidates[0];
-  if (normalizePlaybackQuality(data && data.level) === 'lossless') qqPlaybackQualityCeiling = nextQuality;
+  var resolvedQuality = normalizePlaybackQuality(data && data.level);
+  if (resolvedQuality === 'hires' || resolvedQuality === 'lossless') qqPlaybackQualityCeiling = nextQuality;
   showSourceFallbackNotice('QQ 音质自动兼容', '当前音质启动失败，正在切到 ' + playbackQualityLabel(nextQuality) + '。');
   await playQueueAt(idx, Object.assign({}, opts, {
     qualityOverride: nextQuality,
@@ -17164,6 +17377,27 @@ function playbackFailureToastText(err) {
   if (isPlaybackRecursionError(err)) return '播放准备异常，已保持播放器可操作';
   return '播放失败: ' + (err && err.message ? err.message : err);
 }
+function scheduleAudioResumePosition(media, seconds, token) {
+  seconds = Math.max(0, Number(seconds) || 0);
+  if (!media || seconds < 0.35) return;
+  var applied = false;
+  function applyResume() {
+    if (applied || token !== trackSwitchToken || !media) return;
+    var duration = Number(media.duration) || 0;
+    var target = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.45)) : seconds;
+    try {
+      media.currentTime = target;
+      applied = true;
+      if (typeof syncBeatMapPlaybackCursor === 'function') syncBeatMapPlaybackCursor(target, true);
+      if (typeof syncPodcastDjMapCursor === 'function') syncPodcastDjMapCursor(target, true);
+      updatePlaybackProgressUi();
+    } catch (e) {}
+  }
+  media.addEventListener('loadedmetadata', applyResume, { once: true });
+  media.addEventListener('canplay', applyResume, { once: true });
+  setTimeout(applyResume, 520);
+  applyResume();
+}
 
 async function playQueueAt(idx, opts) {
   opts = opts || {};
@@ -17241,7 +17475,8 @@ async function playQueueAt(idx, opts) {
     markPlayPhase('source-url');
     var isQQPlayback = songProviderKey(song) === 'qq';
     var requestedQuality = normalizePlaybackQuality(opts.qualityOverride || playbackQuality);
-    if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'highest' || requestedQuality === 'lossless')) {
+    if (!isQQPlayback && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
+    if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) {
       requestedQuality = qqPlaybackQualityCeiling;
     }
     var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
@@ -17255,9 +17490,16 @@ async function playQueueAt(idx, opts) {
       handlePlaybackUnavailable(song, data);
       return;
     }
+    var resolvedQualityText = playbackResolvedQualityText(data);
+    if (!isQQPlayback && playbackQualityWasDowngraded(requestedQuality, data.level)) {
+      showSourceFallbackNotice('网易云音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality) + '，实际播放 ' + resolvedQualityText + '。');
+    } else if (opts.qualitySwitch) {
+      showSourceFallbackNotice('音质已切换', '实际播放: ' + resolvedQualityText + '。');
+    }
     if (data.trial) {
       var txt;
-      if (data.loggedIn && data.vipType >= 10) txt = '此歌曲需要更高级会员或专辑购买';
+      if (data.loggedIn && data.vipLevel === 'svip') txt = '此歌曲需要单曲、专辑购买或更高权限';
+      else if (data.loggedIn && data.vipLevel === 'vip') txt = '此歌曲需要 SVIP 或购买 · 当前仅播放试听片段';
       else if (data.loggedIn) txt = '此歌曲需 VIP · 当前仅播放试听片段';
       else txt = '当前未登录 · 仅播放试听片段';
       document.getElementById('trial-text').textContent = txt;
@@ -17286,6 +17528,7 @@ async function playQueueAt(idx, opts) {
       if (playMode === 'single') setTimeout(function(){ playQueueAt(currentIdx, { autoRepeat: true }); }, 0);
       else setTimeout(nextTrack, 0);
     };
+    scheduleAudioResumePosition(audio, opts.resumeAt, token);
     audio.load();
     markPlayPhase('visual-prep');
     try {
@@ -17311,6 +17554,7 @@ async function playQueueAt(idx, opts) {
         applyPodcastDjProfileFromMap(currentDjBeatMap);
         syncPodcastDjMapCursor(audio ? audio.currentTime : 0, true);
         hideBeatChip();
+        notifyDesktopLyricsBeatMapReady();
         console.log('podcast DJ beatmap 缓存命中:', currentDjBeatMap.cameraBeats.length, '个主拍');
       } else {
         showBeatChip('DJ 离线锁拍准备中…');
@@ -17324,6 +17568,7 @@ async function playQueueAt(idx, opts) {
       currentBeatMap = beatMapCache[bmKey];
       applyCinemaProfileFromBeatMap(currentBeatMap);
       syncBeatMapPlaybackCursor(audio ? audio.currentTime : 0);
+      notifyDesktopLyricsBeatMapReady();
       console.log('beatmap 缓存命中:', currentBeatMap.kicks.length, '个鼓点');
       scheduleQueueBeatPrefetch(idx, 2600);
     } else {
@@ -17332,6 +17577,7 @@ async function playQueueAt(idx, opts) {
         currentBeatMap = diskBeatMap;
         applyCinemaProfileFromBeatMap(currentBeatMap);
         syncBeatMapPlaybackCursor(audio ? audio.currentTime : 0);
+        notifyDesktopLyricsBeatMapReady();
         console.log('beatmap D盘缓存命中:', currentBeatMap.kicks.length, '个鼓点');
         scheduleQueueBeatPrefetch(idx, 2600);
       } else {
@@ -18928,6 +19174,8 @@ function normalizeFxArchiveSnapshot(raw) {
     lyricOffsetX: archiveNumber(raw, 'lyricOffsetX', fxDefaults.lyricOffsetX, -2.0, 2.0),
     lyricOffsetY: archiveNumber(raw, 'lyricOffsetY', fxDefaults.lyricOffsetY, -1.2, 1.35),
     lyricOffsetZ: archiveNumber(raw, 'lyricOffsetZ', fxDefaults.lyricOffsetZ, -1.6, 1.6),
+    lyricTiltX: archiveNumber(raw, 'lyricTiltX', fxDefaults.lyricTiltX, -42, 42),
+    lyricTiltY: archiveNumber(raw, 'lyricTiltY', fxDefaults.lyricTiltY, -42, 42),
     lyricCameraLock: !!raw.lyricCameraLock,
     lyricColorMode: raw.lyricColorMode === 'custom' ? 'custom' : 'auto',
     lyricColor: normalizeHexColor(raw.lyricColor || fxDefaults.lyricColor),
@@ -18958,6 +19206,14 @@ function normalizeFxArchiveSnapshot(raw) {
     lyricGlow: raw.lyricGlow !== false,
     lyricGlowBeat: raw.lyricGlowBeat !== false,
     lyricGlowParticles: !!raw.lyricGlowParticles,
+    desktopLyrics: !!raw.desktopLyrics,
+    desktopLyricsSize: archiveNumber(raw, 'desktopLyricsSize', fxDefaults.desktopLyricsSize, 0.72, 1.55),
+    desktopLyricsOpacity: archiveNumber(raw, 'desktopLyricsOpacity', fxDefaults.desktopLyricsOpacity, 0.28, 1),
+    desktopLyricsY: archiveNumber(raw, 'desktopLyricsY', fxDefaults.desktopLyricsY, 0.08, 0.92),
+    desktopLyricsClickThrough: raw.desktopLyricsClickThrough === true,
+    desktopLyricsCinema: raw.desktopLyricsCinema !== false,
+    desktopLyricsHighlight: raw.desktopLyricsHighlight === true,
+    desktopLyricsFps: normalizeDesktopLyricsFps(Object.prototype.hasOwnProperty.call(raw, 'desktopLyricsFps') ? raw.desktopLyricsFps : fxDefaults.desktopLyricsFps),
     particleLyrics: raw.particleLyrics !== false,
     backCover: !!raw.backCover,
     shelf: archiveMode(raw, 'shelf', /^(off|side|stage)$/, fxDefaults.shelf),
@@ -19596,6 +19852,7 @@ function setLyricFont(key) {
   updateLyricFontControls();
   refreshCurrentLyricStyle();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   showToast('歌词字体已切换');
 }
 function setLyricGlowLinked(linked, openPicker) {
@@ -19627,6 +19884,7 @@ function setLyricGlowCustom(color, silent) {
   setStageLyricPalette(fx.lyricColorMode === 'custom' ? lyricPaletteFromHex(fx.lyricColor) : (stageLyrics.coverPalette || stageLyrics.palette));
   updateLyricGlowControls();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   if (!silent) showToast('溢光颜色: ' + fx.lyricGlowColor.toUpperCase());
 }
 function setLyricColorAuto() {
@@ -19636,6 +19894,7 @@ function setLyricColorAuto() {
   updateLyricHighlightControls();
   updateLyricGlowControls();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   showToast('歌词颜色: 封面取色');
 }
 function setLyricColorCustom(color, silent) {
@@ -19646,6 +19905,7 @@ function setLyricColorCustom(color, silent) {
   updateLyricHighlightControls();
   updateLyricGlowControls();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   if (!silent) showToast('歌词颜色: ' + fx.lyricColor.toUpperCase());
 }
 function setLyricColorPreset(i) {
@@ -19659,6 +19919,7 @@ function setLyricHighlightAuto() {
   updateLyricHighlightControls();
   updateLyricGlowControls();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   showToast('高亮颜色: 跟随歌词');
 }
 function setLyricHighlightCustom(color, silent) {
@@ -19668,6 +19929,7 @@ function setLyricHighlightCustom(color, silent) {
   updateLyricHighlightControls();
   updateLyricGlowControls();
   saveLyricLayout();
+  pushDesktopLyricsState(true);
   if (!silent) showToast('高亮颜色: ' + fx.lyricHighlightColor.toUpperCase());
 }
 
@@ -19830,32 +20092,47 @@ function setRange(id, value) {
   var out = el.parentElement.querySelector('output');
   if (out) out.textContent = id === 'fx-coverres'
     ? coverParticleCountLabel(value)
-    : (id === 'fx-lyricweight' || id === 'fx-glassaberration' ? String(Math.round(Number(value) || 0)) : Number(value).toFixed(id === 'fx-lyricspacing' ? 3 : 2));
+    : (id === 'fx-lyricweight' || id === 'fx-glassaberration' || id === 'fx-lyrictiltx' || id === 'fx-lyrictilty' ? String(Math.round(Number(value) || 0)) : Number(value).toFixed(id === 'fx-lyricspacing' ? 3 : 2));
 }
 function updateDevelopmentFxControls() {
   [
-    't-desktopLyrics',
-    't-desktopLyricsClickThrough',
-    't-wallpaperMode'
-  ].forEach(function(id){
-    var el = document.getElementById(id);
+    ['desktopLyrics', 't-desktopLyrics', '全屏幕置顶歌词'],
+    ['desktopLyricsClickThrough', 't-desktopLyricsClickThrough', '锁定后防误触；鼠标移到桌面歌词上按中键可锁定/解锁'],
+    ['desktopLyricsCinema', 't-desktopLyricsCinema', '桌面歌词绑定鼓点电影震动，基础漂浮始终保留'],
+    ['desktopLyricsHighlight', 't-desktopLyricsHighlight', '桌面歌词按播放进度高亮'],
+    ['wallpaperMode', 't-wallpaperMode', '开发中，暂不可用']
+  ].forEach(function(item){
+    var locked = isDevelopmentLockedFx(item[0]);
+    var el = document.getElementById(item[1]);
     if (!el) return;
-    el.classList.add('dev-locked');
-    el.classList.remove('on');
-    el.setAttribute('aria-disabled', 'true');
-    el.title = '开发中，暂不可用';
+    el.classList.toggle('dev-locked', locked);
+    if (locked) {
+      el.classList.remove('on');
+      el.setAttribute('aria-disabled', 'true');
+      el.title = '开发中，暂不可用';
+    } else {
+      el.removeAttribute('aria-disabled');
+      el.title = item[2];
+    }
   });
   [
-    'fx-desktoplyricssize',
-    'fx-desktoplyricsopacity',
-    'fx-desktoplyricsy',
-    'fx-wallpaperopacity'
-  ].forEach(function(id){
-    var input = document.getElementById(id);
+    ['desktopLyrics', 'fx-desktoplyricssize'],
+    ['desktopLyrics', 'fx-desktoplyricsopacity'],
+    ['desktopLyrics', 'fx-desktoplyricsy'],
+    ['wallpaperMode', 'fx-wallpaperopacity']
+  ].forEach(function(item){
+    var locked = isDevelopmentLockedFx(item[0]);
+    var input = document.getElementById(item[1]);
     if (!input) return;
-    input.disabled = true;
+    input.disabled = locked;
     var row = input.closest && input.closest('.fx-slider');
-    if (row) row.classList.add('dev-locked');
+    if (row) row.classList.toggle('dev-locked', locked);
+  });
+}
+function updateDesktopLyricsFpsControls() {
+  var fps = normalizeDesktopLyricsFps(fx.desktopLyricsFps);
+  document.querySelectorAll('#desktop-lyrics-fps-seg [data-desktop-lyrics-fps]').forEach(function(btn){
+    btn.classList.toggle('active', normalizeDesktopLyricsFps(btn.getAttribute('data-desktop-lyrics-fps')) === fps);
   });
 }
 function updateFxInputs() {
@@ -19878,6 +20155,8 @@ function updateFxInputs() {
   setRange('fx-lyricx', fx.lyricOffsetX);
   setRange('fx-lyricy', fx.lyricOffsetY);
   setRange('fx-lyricz', fx.lyricOffsetZ);
+  setRange('fx-lyrictiltx', fx.lyricTiltX);
+  setRange('fx-lyrictilty', fx.lyricTiltY);
   setRange('fx-point', fx.point);
   setRange('fx-speed', fx.speed);
   setRange('fx-twist', fx.twist);
@@ -19905,6 +20184,11 @@ function updateFxInputs() {
   if (desktopLyricsToggle) desktopLyricsToggle.classList.toggle('on', fx.desktopLyrics);
   var desktopLyricsClickToggle = document.getElementById('t-desktopLyricsClickThrough');
   if (desktopLyricsClickToggle) desktopLyricsClickToggle.classList.toggle('on', fx.desktopLyricsClickThrough !== false);
+  var desktopLyricsCinemaToggle = document.getElementById('t-desktopLyricsCinema');
+  if (desktopLyricsCinemaToggle) desktopLyricsCinemaToggle.classList.toggle('on', fx.desktopLyricsCinema !== false);
+  var desktopLyricsHighlightToggle = document.getElementById('t-desktopLyricsHighlight');
+  if (desktopLyricsHighlightToggle) desktopLyricsHighlightToggle.classList.toggle('on', fx.desktopLyricsHighlight === true);
+  updateDesktopLyricsFpsControls();
   var wallpaperModeToggle = document.getElementById('t-wallpaperMode');
   if (wallpaperModeToggle) wallpaperModeToggle.classList.toggle('on', fx.wallpaperMode);
   updateDevelopmentFxControls();
@@ -20065,7 +20349,7 @@ function bindFxPanel() {
     ['fx-intensity','intensity'],['fx-depth','depth'],['fx-coverres','coverResolution'],['fx-cineshake','cinemaShake'],['fx-lyricglow','lyricGlowStrength'],['fx-bgopacity','backgroundOpacity'],['fx-glassaberration','controlGlassChromaticOffset'],
     ['fx-desktoplyricssize','desktopLyricsSize'],['fx-desktoplyricsopacity','desktopLyricsOpacity'],['fx-desktoplyricsy','desktopLyricsY'],['fx-wallpaperopacity','wallpaperOpacity'],
     ['fx-lyricspacing','lyricLetterSpacing'],['fx-lyriclineheight','lyricLineHeight'],['fx-lyricweight','lyricWeight'],
-    ['fx-lyricscale','lyricScale'],['fx-lyricx','lyricOffsetX'],['fx-lyricy','lyricOffsetY'],['fx-lyricz','lyricOffsetZ'],
+    ['fx-lyricscale','lyricScale'],['fx-lyricx','lyricOffsetX'],['fx-lyricy','lyricOffsetY'],['fx-lyricz','lyricOffsetZ'],['fx-lyrictiltx','lyricTiltX'],['fx-lyrictilty','lyricTiltY'],
     ['fx-point','point'],['fx-speed','speed'],['fx-twist','twist'],
     ['fx-color','color'],['fx-bloom','bloomStrength'],['fx-scatter','scatter'],['fx-bgfade','bgFade'],
   ];
@@ -20095,11 +20379,13 @@ function bindFxPanel() {
       if (pair[1] === 'desktopLyricsOpacity') fx.desktopLyricsOpacity = clampRange(fx.desktopLyricsOpacity, 0.28, 1);
       if (pair[1] === 'desktopLyricsY') fx.desktopLyricsY = clampRange(fx.desktopLyricsY, 0.08, 0.92);
       if (pair[1] === 'wallpaperOpacity') fx.wallpaperOpacity = clampRange(fx.wallpaperOpacity, 0.35, 1);
+      if (pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY') fx[pair[1]] = Math.round(clampRange(fx[pair[1]], -42, 42));
       if (out) out.textContent = pair[1] === 'coverResolution'
         ? coverParticleCountLabel(fx.coverResolution)
-        : (pair[1] === 'lyricWeight' || pair[1] === 'controlGlassChromaticOffset' ? String(Math.round(fx[pair[1]])) : Number(el.value).toFixed(pair[1] === 'lyricLetterSpacing' ? 3 : 2));
+        : (pair[1] === 'lyricWeight' || pair[1] === 'controlGlassChromaticOffset' || pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY' ? String(Math.round(fx[pair[1]])) : Number(el.value).toFixed(pair[1] === 'lyricLetterSpacing' ? 3 : 2));
       syncFxUniforms();
       if (pair[1] === 'lyricLetterSpacing' || pair[1] === 'lyricLineHeight' || pair[1] === 'lyricWeight') refreshCurrentLyricStyle();
+      if (pair[1] === 'lyricLetterSpacing' || pair[1] === 'lyricLineHeight' || pair[1] === 'lyricWeight' || pair[1] === 'lyricScale' || pair[1] === 'lyricGlowStrength') pushDesktopLyricsState(true);
       if (/^(desktopLyricsSize|desktopLyricsOpacity|desktopLyricsY)$/.test(pair[1])) pushDesktopLyricsState(true);
       if (pair[1] === 'wallpaperOpacity') pushWallpaperState(true);
       saveLyricLayout();
@@ -20227,6 +20513,15 @@ function bindFxPanel() {
   document.querySelectorAll('#cam-seg button').forEach(function(b){
     b.addEventListener('click', function(){ setCamMode(b.dataset.cam); });
   });
+  document.querySelectorAll('#desktop-lyrics-fps-seg [data-desktop-lyrics-fps]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      fx.desktopLyricsFps = normalizeDesktopLyricsFps(btn.getAttribute('data-desktop-lyrics-fps'));
+      updateDesktopLyricsFpsControls();
+      saveLyricLayout();
+      pushDesktopLyricsState(true);
+      showToast(fx.desktopLyricsFps ? ('桌面歌词帧数 ' + fx.desktopLyricsFps) : '桌面歌词帧数无上限');
+    });
+  });
   updateFxInputs();
 }
 function toggleFx(key) {
@@ -20244,16 +20539,19 @@ function toggleFx(key) {
   var toggle = document.getElementById(toggleId);
   if (toggle) toggle.classList.toggle('on', fx[key]);
   syncFxUniforms();
-  if (key === 'lyricCameraLock' || key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles' || key === 'bloom' || key === 'edge' || key === 'cinema' || key === 'desktopLyrics' || key === 'desktopLyricsClickThrough' || key === 'wallpaperMode') saveLyricLayout();
+  if (key === 'lyricCameraLock' || key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles' || key === 'bloom' || key === 'edge' || key === 'cinema' || key === 'desktopLyrics' || key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight' || key === 'wallpaperMode') saveLyricLayout();
   if (key === 'floatLayer') { if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer(); }
   if (key === 'desktopLyrics') applyDesktopLyricsState(true);
-  if (key === 'desktopLyricsClickThrough') pushDesktopLyricsState(true);
+  if (key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight') pushDesktopLyricsState(true);
+  if (key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles') pushDesktopLyricsState(true);
   if (key === 'wallpaperMode') applyWallpaperModeState(true);
   if (key === 'lyricGlow') showToast(fx.lyricGlow ? '歌词溢光已开启' : '歌词溢光已关闭');
   if (key === 'lyricGlowBeat') showToast(fx.lyricGlowBeat ? '歌词溢光跟随鼓点' : '歌词溢光已脱离鼓点');
   if (key === 'lyricGlowParticles') showToast(fx.lyricGlowParticles ? '歌词光粒已开启' : '歌词光粒已关闭');
   if (key === 'desktopLyrics') showToast(fx.desktopLyrics ? '桌面歌词已开启' : '桌面歌词已关闭');
-  if (key === 'desktopLyricsClickThrough') showToast(fx.desktopLyricsClickThrough !== false ? '桌面歌词已开启鼠标穿透' : '桌面歌词可拖动/点击');
+  if (key === 'desktopLyricsClickThrough') showToast(fx.desktopLyricsClickThrough !== false ? '桌面歌词已锁定' : '桌面歌词可移动');
+  if (key === 'desktopLyricsCinema') showToast(fx.desktopLyricsCinema !== false ? '桌面歌词电影震动已开启' : '桌面歌词电影震动已关闭，基础漂浮保留');
+  if (key === 'desktopLyricsHighlight') showToast(fx.desktopLyricsHighlight === true ? '桌面歌词高亮跟随已开启' : '桌面歌词高亮跟随已关闭');
   if (key === 'wallpaperMode') showToast(fx.wallpaperMode ? '壁纸模式已开启' : '壁纸模式已关闭');
   if (key === 'lyricCameraLock') showToast(fx.lyricCameraLock ? '歌词已绑定镜头' : '歌词已恢复自由漂浮');
   if (key === 'bloom') showToast(fx.bloom ? '溢光已开启' : '溢光已关闭');
@@ -21021,15 +21319,30 @@ function providerVipType(provider, status) {
   status = status || platformStatus(provider) || {};
   return Number(status.vipType || status.vip_type || status.vip || status.isVip || status.is_vip || 0) || 0;
 }
-function hasProviderVip(provider, status) {
+function providerVipLevel(provider, status) {
+  status = status || platformStatus(provider) || {};
+  var raw = String(status.vipLevel || status.vip_level || '').toLowerCase();
+  if (raw === 'svip' || raw === 'vip' || raw === 'none') return raw;
   var vip = providerVipType(provider, status);
-  return provider === 'qq' ? vip > 0 : vip >= 10;
+  if (provider === 'netease') {
+    if (status.isSvip || status.is_svip || vip >= 10) return 'svip';
+    if (status.isVip || status.is_vip || vip > 0) return 'vip';
+    return 'none';
+  }
+  return vip > 0 ? 'vip' : 'none';
+}
+function hasProviderVip(provider, status) {
+  return providerVipLevel(provider, status) !== 'none';
+}
+function hasProviderSvip(provider, status) {
+  return provider === 'netease' && providerVipLevel(provider, status) === 'svip';
 }
 function providerVipBadge(provider, status, idAttr) {
   if (!hasProviderVip(provider, status)) return '';
   var id = idAttr ? ' id="' + idAttr + '"' : '';
   var cls = 'top-account-vip' + (provider === 'qq' ? ' qq' : '');
-  var label = provider === 'qq' ? 'QQ VIP' : 'VIP';
+  var level = providerVipLevel(provider, status);
+  var label = provider === 'qq' ? 'QQ VIP' : (level === 'svip' ? 'SVIP' : 'VIP');
   return '<span' + id + ' class="' + cls + '">' + label + '</span>';
 }
 function hasPlatformLogin(provider) {
@@ -21179,6 +21492,7 @@ function renderUserBtn() {
     btn.title = '登录账号';
     btn.innerHTML = '<span class="login-word">登录</span>';
   }
+  updatePlaybackQualityUi();
 }
 async function showLoginModal(opts) {
   opts = opts || {};
@@ -21481,7 +21795,8 @@ function updateUserModalUi() {
   if (name) name.textContent = (st && st.nickname) || meta.label;
   if (vipEl) {
     if (activeAccountProvider === 'netease') {
-      var vipLabel = hasProviderVip('netease', st) ? '黑胶 VIP 会员' : '普通用户';
+      var neVipLevel = providerVipLevel('netease', st);
+      var vipLabel = neVipLevel === 'svip' ? '网易云 SVIP' : (neVipLevel === 'vip' ? '网易云 VIP' : '普通用户');
       vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  ·  ' + vipLabel;
       vipEl.style.color = hasProviderVip('netease', st) ? 'rgba(244,210,138,0.86)' : 'rgba(255,255,255,0.5)';
     } else {
@@ -22928,6 +23243,8 @@ document.addEventListener('keydown', function(e){
     e.preventDefault(); togglePlay();
   }
   else if (e.code === 'Home') { e.preventDefault(); goHome(); }
+  else if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByKeyboard(0.05); }
+  else if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByKeyboard(-0.05); }
   else if (e.code === 'ArrowRight') nextTrack();
   else if (e.code === 'ArrowLeft')  prevTrack();
   else if (e.code === 'Escape')     {
@@ -23816,6 +24133,7 @@ var desktopOverlayPushState = {
   lyricsAt: 0,
   wallpaperAt: 0,
   lastLyricsKey: '',
+  lastLyricsBeatKey: '',
   lastWallpaperKey: ''
 };
 function getDesktopWindowApi() {
@@ -23830,33 +24148,129 @@ function currentDesktopSongMeta() {
     cover: (typeof songCoverSrc === 'function' && song) ? (songCoverSrc(song, 360) || song.cover || '') : (song.cover || '')
   };
 }
-function currentDesktopLyricText() {
-  var text = stageLyrics && stageLyrics.currentText ? stageLyrics.currentText : '';
-  if (!text && playing) text = currentLyricFallbackText();
-  if (!text) text = currentDesktopSongMeta().title || 'Mineradio';
+function normalizeDesktopLyricText(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
 }
-function currentDesktopLyricProgress() {
-  if (stageLyrics && stageLyrics.current && stageLyrics.current.userData) {
-    return clampRange(Number(stageLyrics.current.userData.lastLyricProgress) || 0, 0, 1);
+function currentDesktopLyricSnapshot() {
+  var t = audio && isFinite(audio.currentTime) ? Number(audio.currentTime) : 0;
+  var lines = Array.isArray(lyricsLines) ? lyricsLines : [];
+  if (playing && audio && lines.length) {
+    var idx = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].t <= t + 0.05) idx = i;
+      else break;
+    }
+    if (idx >= 0) {
+      var curLine = lines[idx] || { t:t, text:'' };
+      var nextLine = lines[idx + 1];
+      var nextT = nextLine && nextLine.t > curLine.t ? nextLine.t : Math.min((audio && audio.duration) || t + 4, curLine.t + (curLine.duration || 4.8));
+      var span = Math.max(0.75, nextT - curLine.t);
+      return {
+        text: normalizeDesktopLyricText(curLine.text || currentLyricFallbackText()),
+        progress: getLyricLineProgress(curLine, nextLine, t),
+        progressSpan: span
+      };
+    }
+    var introText = normalizeDesktopLyricText(currentLyricFallbackText());
+    if (introText) {
+      var firstLine = lines[0];
+      var introEnd = firstLine && firstLine.t > 0 ? firstLine.t : Math.min((audio && audio.duration) || 4.8, 4.8);
+      return {
+        text: introText,
+        progress: getLyricLineProgress({ t:0, text:introText, duration:Math.max(0.8, introEnd), charCount:Math.max(1, introText.length), fallback:true }, null, t),
+        progressSpan: Math.max(0.8, introEnd)
+      };
+    }
   }
-  return 0;
+  if (stageLyrics && stageLyrics.currentText) {
+    return {
+      text: normalizeDesktopLyricText(stageLyrics.currentText),
+      progress: stageLyrics.current && stageLyrics.current.userData ? clampRange(Number(stageLyrics.current.userData.lastLyricProgress) || 0, 0, 1) : 0,
+      progressSpan: 4.8
+    };
+  }
+  return { text: normalizeDesktopLyricText(currentDesktopSongMeta().title || 'Mineradio'), progress: 0, progressSpan: 4.8 };
+}
+function desktopOverlayColorValue(value, fallback) {
+  var raw = String(value || '').trim();
+  fallback = String(fallback || '#d6f8ff').trim();
+  if (/^#[0-9a-f]{3}$/i.test(raw) || /^#[0-9a-f]{6}$/i.test(raw)) return normalizeHexColor(raw, fallback);
+  if (/^rgba?\(/i.test(raw) || /^hsla?\(/i.test(raw)) return raw;
+  return normalizeHexColor(raw, fallback);
 }
 function desktopOverlayColors() {
   var pal = stageLyrics && stageLyrics.palette || {};
   return {
-    primary: normalizeHexColor(fx.lyricColorMode === 'custom' ? fx.lyricColor : (pal.primary || '#d6f8ff')),
-    secondary: normalizeHexColor(pal.secondary || fx.visualTintColor || '#9cffdf'),
-    highlight: normalizeHexColor(fx.lyricHighlightMode === 'custom' ? fx.lyricHighlightColor : (pal.highlight || '#fff0b8')),
-    glow: normalizeHexColor(fx.lyricGlowLinked === false ? fx.lyricGlowColor : (pal.secondary || '#9cffdf'))
+    primary: desktopOverlayColorValue(pal.primary || fx.lyricColor || '#d6f8ff', '#d6f8ff'),
+    secondary: desktopOverlayColorValue(pal.secondary || fx.visualTintColor || '#9cffdf', '#9cffdf'),
+    highlight: desktopOverlayColorValue(pal.highlight || fx.lyricHighlightColor || '#fff0b8', '#fff0b8'),
+    glow: desktopOverlayColorValue(pal.glowColor || pal.secondary || pal.primary || fx.lyricGlowColor || '#9cffdf', '#9cffdf')
   };
 }
-function desktopLyricsPayload() {
-  var meta = currentDesktopSongMeta();
+function desktopLyricsMotionPayload() {
   return {
+    lyricGlow: !!fx.lyricGlow,
+    lyricGlowBeat: !!fx.lyricGlowBeat,
+    lyricGlowStrength: fx.lyricGlow ? clampRange(Number(fx.lyricGlowStrength) || 0, 0, 0.85) : 0,
+    highBloom: stageLyrics && isFinite(stageLyrics.highBloom) ? clampRange(stageLyrics.highBloom, 0, 1.45) : 0,
+    beatGlow: stageLyrics && isFinite(stageLyrics.beatGlow) ? clampRange(stageLyrics.beatGlow, 0, 1.7) : 0,
+    beatPulse: isFinite(beatPulse) ? clampRange(beatPulse, 0, 1.4) : 0,
+    bass: isFinite(bass) ? clampRange(bass, 0, 1.2) : 0
+  };
+}
+function desktopLyricsPlaybackPayload() {
+  var time = audio && isFinite(audio.currentTime) ? Number(audio.currentTime) : 0;
+  var duration = audio && isFinite(audio.duration) ? Number(audio.duration) : 0;
+  var rate = audio && isFinite(audio.playbackRate) && audio.playbackRate > 0 ? Number(audio.playbackRate) : 1;
+  return {
+    time: Math.max(0, time),
+    duration: Math.max(0, duration),
+    rate: clampRange(rate, 0.25, 4)
+  };
+}
+function desktopLyricsActiveBeatMap() {
+  var useDj = !!(djMode && djMode.active && currentDjBeatMap);
+  return {
+    source: useDj ? 'dj' : 'mr',
+    map: useDj ? currentDjBeatMap : currentBeatMap
+  };
+}
+function desktopLyricsBeatMapPayload(force) {
+  var selected = desktopLyricsActiveBeatMap();
+  var map = selected && selected.map;
+  var source = selected && selected.source || 'mr';
+  var cameraCount = map ? ((map.cameraBeats && map.cameraBeats.length) || (map.beats && map.beats.length) || (map.kicks && map.kicks.length) || 0) : 0;
+  var pulseCount = map ? ((map.pulseBeats && map.pulseBeats.length) || (map.kicks && map.kicks.length) || 0) : 0;
+  var duration = map && isFinite(map.duration) ? Number(map.duration) : 0;
+  var partialUntil = map && isFinite(map.partialUntilSec) ? Number(map.partialUntilSec) : 0;
+  var key = map
+    ? [source, map.analyzedAt || 0, cameraCount, pulseCount, Math.round(duration * 10), Math.round(partialUntil * 10), map.tempoSource || 'local'].join('|')
+    : 'none';
+  var shouldSendMap = !!force || key !== desktopOverlayPushState.lastLyricsBeatKey;
+  desktopOverlayPushState.lastLyricsBeatKey = key;
+  var payload = { beatMapKey: key };
+  if (shouldSendMap) payload.beatMap = map ? packLocalBeatMap(map) : null;
+  return payload;
+}
+function notifyDesktopLyricsBeatMapReady() {
+  try {
+    if (fx && fx.desktopLyrics) pushDesktopLyricsState(true);
+  } catch (e) {}
+}
+function desktopLyricsPushInterval() {
+  var fps = normalizeDesktopLyricsFps(fx && fx.desktopLyricsFps);
+  if (!fps) return 16;
+  return Math.max(16, Math.min(42, 1000 / fps));
+}
+function desktopLyricsPayload(forceBeatMap) {
+  var meta = currentDesktopSongMeta();
+  var lyric = currentDesktopLyricSnapshot();
+  var beatPayload = desktopLyricsBeatMapPayload(!!forceBeatMap);
+  var payload = {
     enabled: !!fx.desktopLyrics && !isDevelopmentLockedFx('desktopLyrics'),
-    text: currentDesktopLyricText(),
-    progress: currentDesktopLyricProgress(),
+    text: lyric.text,
+    progress: lyric.progress,
+    progressSpan: lyric.progressSpan,
     title: meta.title,
     artist: meta.artist,
     playing: !!playing,
@@ -23865,8 +24279,22 @@ function desktopLyricsPayload() {
     y: clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92),
     clickThrough: isDevelopmentLockedFx('desktopLyricsClickThrough') ? true : fx.desktopLyricsClickThrough !== false,
     lyricGlowParticles: !!fx.lyricGlowParticles,
+    cinema: fx.desktopLyricsCinema !== false,
+    highlightFollow: fx.desktopLyricsHighlight === true,
+    frameRate: normalizeDesktopLyricsFps(fx.desktopLyricsFps),
+    fontFamily: lyricFontStackForKey(fx.lyricFont),
+    fontWeight: lyricFontWeightValue(),
+    letterSpacing: clampRange(Number(fx.lyricLetterSpacing) || 0, -0.04, 0.18),
+    lineHeight: lyricLineHeightFactor(),
+    lyricScale: clampRange(Number(fx.lyricScale) || 1, 0.35, 1.65),
+    feather: lyricsHasNativeKaraoke ? 0.030 : 0.055,
+    motion: desktopLyricsMotionPayload(),
+    playback: desktopLyricsPlaybackPayload(),
+    beatMapKey: beatPayload.beatMapKey,
     colors: desktopOverlayColors()
   };
+  if (Object.prototype.hasOwnProperty.call(beatPayload, 'beatMap')) payload.beatMap = beatPayload.beatMap;
+  return payload;
 }
 function wallpaperPayload() {
   var meta = currentDesktopSongMeta();
@@ -23885,9 +24313,11 @@ function pushDesktopLyricsState(force) {
   var api = getDesktopWindowApi();
   if (!api || typeof api.updateDesktopLyrics !== 'function') return;
   var now = performance.now();
-  if (!force && now - desktopOverlayPushState.lyricsAt < 140) return;
-  var payload = desktopLyricsPayload();
-  var key = payload.enabled + '|' + payload.text + '|' + Math.round(payload.progress * 100) + '|' + payload.playing + '|' + payload.size + '|' + payload.opacity + '|' + payload.y + '|' + payload.clickThrough;
+  if (!force && now - desktopOverlayPushState.lyricsAt < desktopLyricsPushInterval()) return;
+  var payload = desktopLyricsPayload(!!force);
+  var colors = payload.colors || {};
+  var motion = payload.motion || {};
+  var key = payload.enabled + '|' + payload.text + '|' + Math.round(payload.progress * 1000) + '|' + Math.round((payload.progressSpan || 0) * 100) + '|' + payload.playing + '|' + payload.size + '|' + payload.opacity + '|' + payload.y + '|' + payload.clickThrough + '|' + payload.cinema + '|' + payload.highlightFollow + '|' + payload.frameRate + '|' + payload.fontFamily + '|' + payload.fontWeight + '|' + payload.letterSpacing + '|' + payload.lineHeight + '|' + payload.lyricScale + '|' + payload.feather + '|' + payload.beatMapKey + '|' + colors.primary + '|' + colors.secondary + '|' + colors.highlight + '|' + colors.glow + '|' + motion.lyricGlow + '|' + motion.lyricGlowBeat + '|' + Math.round((motion.lyricGlowStrength || 0) * 100) + '|' + Math.round((motion.highBloom || 0) * 100) + '|' + Math.round((motion.beatGlow || 0) * 100) + '|' + Math.round((motion.beatPulse || 0) * 100) + '|' + Math.round((motion.bass || 0) * 100);
   if (!force && key === desktopOverlayPushState.lastLyricsKey && now - desktopOverlayPushState.lyricsAt < 900) return;
   desktopOverlayPushState.lyricsAt = now;
   desktopOverlayPushState.lastLyricsKey = key;
@@ -23897,7 +24327,7 @@ function applyDesktopLyricsState(force) {
   var api = getDesktopWindowApi();
   if (!api) return;
   normalizeDevelopmentLockedFxState();
-  var payload = desktopLyricsPayload();
+  var payload = desktopLyricsPayload(true);
   if (typeof api.setDesktopLyricsEnabled === 'function') {
     api.setDesktopLyricsEnabled(!!payload.enabled, payload).catch(function(e){ console.warn('desktop lyrics state failed:', e); });
   }
@@ -23929,6 +24359,9 @@ function syncDesktopOverlayState() {
   if (fx.desktopLyrics) pushDesktopLyricsState(false);
   if (fx.wallpaperMode) pushWallpaperState(false);
 }
+setInterval(function(){
+  if (fx && (fx.desktopLyrics || fx.wallpaperMode)) syncDesktopOverlayState();
+}, 320);
 
 // 全屏
 var desktopFullscreenActive = false;
@@ -24009,6 +24442,28 @@ function toggleFullscreen() {
       if (action === 'close') api.close();
     });
   });
+
+  if (typeof api.onDesktopLyricsLockState === 'function') {
+    api.onDesktopLyricsLockState(function(payload){
+      var locked = !payload || payload.locked !== false;
+      if (fx.desktopLyricsClickThrough === locked) return;
+      fx.desktopLyricsClickThrough = locked;
+      updateFxInputs();
+      saveLyricLayout();
+      pushDesktopLyricsState(true);
+      showToast(locked ? '桌面歌词已锁定' : '桌面歌词可移动');
+    });
+  }
+  if (typeof api.onDesktopLyricsEnabledState === 'function') {
+    api.onDesktopLyricsEnabledState(function(payload){
+      var enabled = !!(payload && payload.enabled);
+      if (fx.desktopLyrics === enabled) return;
+      fx.desktopLyrics = enabled;
+      updateFxInputs();
+      saveLyricLayout();
+      showToast(enabled ? '桌面歌词已开启' : '桌面歌词已关闭');
+    });
+  }
 
   api.onStateChange(applyState);
   if (typeof api.getState === 'function') {

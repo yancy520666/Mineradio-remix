@@ -16,6 +16,18 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   restartApp: () => ipcRenderer.invoke('mineradio-restart-app'),
   setDesktopLyricsEnabled: (enabled, payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-set-enabled', !!enabled, payload || {}),
   updateDesktopLyrics: (payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-update', payload || {}),
+  onDesktopLyricsLockState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-desktop-lyrics-lock-state', listener);
+    return () => ipcRenderer.removeListener('mineradio-desktop-lyrics-lock-state', listener);
+  },
+  onDesktopLyricsEnabledState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-desktop-lyrics-enabled-state', listener);
+    return () => ipcRenderer.removeListener('mineradio-desktop-lyrics-enabled-state', listener);
+  },
   setWallpaperMode: (enabled, payload) => ipcRenderer.invoke('mineradio-wallpaper-set-enabled', !!enabled, payload || {}),
   updateWallpaperMode: (payload) => ipcRenderer.invoke('mineradio-wallpaper-update', payload || {}),
   onStateChange: (callback) => {

@@ -1,6 +1,6 @@
 # Mineradio Next Chat Handoff
 
-更新时间：2026-06-22
+更新时间：2026-06-23
 
 ## 新对话先执行/先读
 
@@ -21,9 +21,10 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 
 ## 当前状态
 
-- 当前正式版本：`v1.0.9`
-- 当前发布提交：`9d5f60c Polish Mineradio 1.0.9 installer UI`
-- 当前 tag：`v1.0.9`
+- 当前本地版本：`v1.0.10`
+- 当前远端正式版本：`v1.0.9`
+- 当前远端发布提交：`9d5f60c Polish Mineradio 1.0.9 installer UI`
+- 当前远端 tag：`v1.0.9`
 - GitHub Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.9`
 - 可运行程序：`E:\桌面\播放器软件\Mineradio\Mineradio.exe`
 - 真实代码/Git 仓库：`E:\桌面\播放器软件\Mineradio\resources\app`
@@ -31,6 +32,9 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 
 ## 刚完成的事
 
+- 已本地准备 `v1.0.10` 发布资产，GitHub 上传暂被 `gh` 登录令牌失效阻塞；`gh auth status` 报 keyring token invalid，`gh auth refresh -h github.com -s repo` 已等待认证并超时。
+- `v1.0.10` 包含桌面歌词视觉/交互重做、安魂歌词位置原点修复、歌词前后景深和上下/左右角度调节、歌词绑定避让 3D 歌单架、方向键上下调节音量。
+- 从 `v1.0.10` 起，快速补丁文件名使用 `Mineradio-旧版本→新版本.patch.json`；每次只为低于新版的最近 4 个版本生成补丁，更早版本走完整安装包。
 - 已发布 `v1.0.9`。
 - 安装包文字对比度已修复：标准页面改为浅底深字，强调色使用 `#3257f7`。
 - 安装包现在允许用户自由选择安装目录，默认仍为 `D:\Mineradio`；如果用户选择盘符根目录，会自动补成 `Mineradio` 文件夹。
@@ -44,22 +48,17 @@ Get-Content docs\HANDOFF_NEXT_CHAT.md
 ## 发布资产
 
 - `latest.yml`
-- `Mineradio-1.0.9-Setup.exe`
-- `Mineradio-1.0.9-Setup.exe.blockmap`
-- `Mineradio-1.0.0-to-1.0.9.patch.json`
-- `Mineradio-1.0.1-to-1.0.9.patch.json`
-- `Mineradio-1.0.2-to-1.0.9.patch.json`
-- `Mineradio-1.0.3-to-1.0.9.patch.json`
-- `Mineradio-1.0.4-to-1.0.9.patch.json`
-- `Mineradio-1.0.5-to-1.0.9.patch.json`
-- `Mineradio-1.0.6-to-1.0.9.patch.json`
-- `Mineradio-1.0.7-to-1.0.9.patch.json`
-- `Mineradio-1.0.8-to-1.0.9.patch.json`
+- `Mineradio-1.0.10-Setup.exe`
+- `Mineradio-1.0.10-Setup.exe.blockmap`
+- `Mineradio-1.0.6→1.0.10.patch.json`
+- `Mineradio-1.0.7→1.0.10.patch.json`
+- `Mineradio-1.0.8→1.0.10.patch.json`
+- `Mineradio-1.0.9→1.0.10.patch.json`
 
 ## 当前工作树提醒
 
-- `main` 已推送到 `origin/main`，`v1.0.9` tag 已推送。
-- 当前代码修改已发布；发布记录文档提交在 `v1.0.9` tag 之后。
+- `main` 远端仍停在 `v1.0.9` 后的文档提交；`v1.0.10` 本地构建完成，但尚未上传 GitHub。
+- 上传前先恢复 GitHub CLI 登录：`gh auth refresh -h github.com -s repo` 或重新 `gh auth login`。
 - 未跟踪临时验证目录：`.playwright-cli/`、`output/`。
 - 这些临时目录不在发布包里，不要误提交；也不要删除备份。
 

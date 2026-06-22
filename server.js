@@ -439,7 +439,7 @@ function normalizeManifestUpdateInfo(data) {
   const assetUrls = [downloadUrl].concat(Array.isArray(asset.downloadUrls) ? asset.downloadUrls : []);
   const patchUrls = patch ? [patch.downloadUrl].concat(Array.isArray(patch.downloadUrls) ? patch.downloadUrls : []) : [];
   const patchInfo = patch && patch.downloadUrl ? {
-    name: patch.name || updateAssetNameFromUrl(patch.downloadUrl) || `Mineradio-${APP_VERSION}-to-${latestVersion}.patch.json`,
+    name: patch.name || updateAssetNameFromUrl(patch.downloadUrl) || `Mineradio-${APP_VERSION}→${latestVersion}.patch.json`,
     size: Number(patch.size || 0) || 0,
     contentType: patch.contentType || patch.content_type || 'application/json',
     downloadUrl: patch.downloadUrl,
@@ -1459,15 +1459,11 @@ function classifyQQPlaybackRestriction(info, session) {
   return playbackRestriction('qq', 'url_unavailable', 'QQ 音乐没有返回播放地址，可能受版权、会员或官方客户端限制', 'switch_source', { code, rawMessage: rawMsg });
 }
 const NETEASE_QUALITY_CANDIDATES = [
-  { level: 'jymaster',  br: 1999000, label: '超清母带' },
-  { level: 'dolby',     br: 1999000, label: '杜比全景声' },
-  { level: 'sky',       br: 1999000, label: '沉浸环绕声' },
-  { level: 'jyeffect',  br: 1999000, label: '高清环绕声' },
-  { level: 'hires',     br: 1999000, label: 'Hi-Res' },
-  { level: 'lossless',  br: 1411000, label: '无损' },
-  { level: 'exhigh',    br: 999000,  label: '极高' },
-  { level: 'higher',    br: 320000,  label: '较高' },
-  { level: 'standard',  br: 128000,  label: '标准' },
+  { level: 'jymaster', br: 1999000, label: '超清母带', svip: true },
+  { level: 'hires',    br: 1999000, label: '高清臻音' },
+  { level: 'lossless', br: 1411000, label: '无损' },
+  { level: 'exhigh',   br: 999000,  label: '极高' },
+  { level: 'standard', br: 128000,  label: '标准' },
 ];
 const QQ_QUALITY_CANDIDATE_TEMPLATES = [
   { prefix: 'RS01', ext: '.flac', level: 'hires', label: 'Hi-Res FLAC' },
@@ -1478,22 +1474,21 @@ const QQ_QUALITY_CANDIDATE_TEMPLATES = [
 ];
 function normalizeQualityPreference(value) {
   const raw = String(value || '').toLowerCase().trim();
-  if (['lossless', 'hires', 'flac', 'sq'].includes(raw)) return 'lossless';
-  if (['exhigh', 'high', '320', '320k'].includes(raw)) return 'exhigh';
-  if (['standard', 'normal', '128', '128k'].includes(raw)) return 'standard';
-  return 'highest';
+  if (['jymaster', 'master', 'studio', 'svip'].includes(raw)) return 'jymaster';
+  if (['hires', 'hi-res', 'highres', 'zhenyin', 'spatial'].includes(raw)) return 'hires';
+  if (['lossless', 'flac', 'sq'].includes(raw)) return 'lossless';
+  if (['exhigh', 'high', '320', '320k', 'hq'].includes(raw)) return 'exhigh';
+  if (['standard', 'normal', '128', '128k', 'std'].includes(raw)) return 'standard';
+  return 'hires';
 }
 function qualityCandidatesFrom(target, candidates) {
   target = normalizeQualityPreference(target);
-  if (target === 'highest') return candidates.slice();
   let start = candidates.findIndex(item => item.level === target);
-  if (target === 'lossless') {
-    const lossless = candidates.findIndex(item => item.level === 'lossless');
-    const hires = candidates.findIndex(item => item.level === 'hires');
-    start = lossless >= 0 ? lossless : hires;
-  }
   if (start < 0) start = 0;
   return candidates.slice(start);
+}
+function hasNeteaseSvip(loginInfo) {
+  return !!(loginInfo && loginInfo.loggedIn && (loginInfo.vipLevel === 'svip' || loginInfo.isSvip || Number(loginInfo.vipType || 0) >= 10));
 }
 function mapArtists(raw) {
   return (raw || [])
@@ -2974,7 +2969,9 @@ async function fetchMyPodcastItems(key, info, limit, offset) {
 async function handleSongUrl(id, loginInfo, qualityPreference) {
   console.log('[SongUrl] id:', id, 'logged-in:', !!userCookie);
   const requestedQuality = normalizeQualityPreference(qualityPreference);
-  const qualities = qualityCandidatesFrom(requestedQuality, NETEASE_QUALITY_CANDIDATES);
+  const svipReady = hasNeteaseSvip(loginInfo);
+  const qualities = qualityCandidatesFrom(requestedQuality, NETEASE_QUALITY_CANDIDATES)
+    .filter(q => !q.svip || svipReady);
 
   let trialFallback = null; // 兜底: 即使是试听也要能播
   let lastData = null;
@@ -3045,18 +3042,92 @@ function readCookieFromResponse(resp) {
   }
   return '';
 }
-function normalizeLoginInfo(profile, account) {
+function firstPositiveNumberFrom(objects, keys) {
+  for (const obj of objects) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const key of keys) {
+      const value = Number(obj[key]);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+  }
+  return 0;
+}
+function collectStringValues(value, out, depth) {
+  if (depth > 4 || value == null) return out;
+  if (typeof value === 'string') {
+    if (value) out.push(value);
+    return out;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(item => collectStringValues(item, out, depth + 1));
+    return out;
+  }
+  if (typeof value === 'object') {
+    Object.keys(value).forEach(key => collectStringValues(value[key], out, depth + 1));
+  }
+  return out;
+}
+function collectVipStringValues(value, out, depth) {
+  if (depth > 4 || value == null) return out;
+  if (Array.isArray(value)) {
+    value.forEach(item => collectVipStringValues(item, out, depth + 1));
+    return out;
+  }
+  if (typeof value !== 'object') return out;
+  Object.keys(value).forEach(key => {
+    const child = value[key];
+    if (/vip|svip|member|associator|privilege|right|level|package|label|title|type/i.test(key)) {
+      collectStringValues(child, out, depth + 1);
+    } else if (child && typeof child === 'object') {
+      collectVipStringValues(child, out, depth + 1);
+    }
+  });
+  return out;
+}
+function normalizeNeteaseVip(profile, account, extra) {
+  profile = profile || {};
+  account = account || {};
+  extra = extra || {};
+  const vipInfo = profile.vipInfo || profile.vipinfo || account.vipInfo || account.vipinfo || extra.vipInfo || extra.vipinfo || {};
+  const objects = [account, profile, vipInfo, extra];
+  const vipType = firstPositiveNumberFrom(objects, [
+    'vipType', 'vip_type', 'viptype', 'musicVipType', 'music_vip_type',
+    'musicVipLevel', 'music_vip_level', 'redVipLevel', 'red_vip_level',
+    'blackVipLevel', 'black_vip_level', 'luxuryVipLevel', 'luxury_vip_level',
+    'svipType', 'svip_type',
+  ]);
+  const text = collectVipStringValues({ account, profile, vipInfo, extra }, [], 0).join(' ').toLowerCase();
+  const svipFlag = objects.some(obj => obj && (
+    obj.isSvip === true || obj.is_svip === true || obj.svip === true ||
+    Number(obj.isSvip || obj.is_svip || obj.svip || obj.svipType || obj.svip_type || 0) > 0
+  )) || /svip|supervip|super_vip|blackvip|black_vip|黑胶svip|超级会员/.test(text);
+  const vipFlag = objects.some(obj => obj && (
+    obj.isVip === true || obj.is_vip === true || obj.vip === true ||
+    Number(obj.isVip || obj.is_vip || obj.vip || obj.vipFlag || obj.vipflag || 0) > 0
+  )) || /vip|黑胶|会员/.test(text);
+  const isSvip = svipFlag || vipType >= 10;
+  const isVip = isSvip || vipFlag || vipType > 0;
+  const vipLevel = isSvip ? 'svip' : (isVip ? 'vip' : 'none');
+  return {
+    vipType,
+    vipLevel,
+    isVip,
+    isSvip,
+    vipLabel: vipLevel === 'svip' ? 'SVIP' : (vipLevel === 'vip' ? 'VIP' : '无VIP'),
+  };
+}
+function normalizeLoginInfo(profile, account, extra) {
   profile = profile || {};
   account = account || {};
   const userId = profile.userId || profile.user_id || profile.id || account.userId || account.id || '';
   if (!(userId || userId === 0)) return { loggedIn: false };
-  const vipType = (account && account.vipType) || profile.vipType || 0;
+  const vip = normalizeNeteaseVip(profile, account, extra);
   return {
     loggedIn: true,
     userId,
     nickname: profile.nickname || profile.userName || '网易云用户',
     avatar: profile.avatarUrl || profile.avatar || '',
-    vipType,
+    ...vip,
   };
 }
 function isNeteaseAuthInvalidPayload(payload) {
@@ -3066,14 +3137,14 @@ function isNeteaseAuthInvalidPayload(payload) {
   return /未登录|需要登录|请先登录|login/i.test(msg) && code >= 300;
 }
 async function getLoginInfo() {
-  if (!userCookie) return { loggedIn: false };
+  if (!userCookie) return { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
 
   // login_status 对二维码 cookie 的资料刷新通常更及时；失败时再降级到 user_account。
   try {
     const st = await login_status({ cookie: userCookie, timestamp: Date.now() });
     const body = st.body || {};
     const data = body.data || body;
-    const info = normalizeLoginInfo(data.profile || body.profile, data.account || body.account);
+    const info = normalizeLoginInfo(data.profile || body.profile, data.account || body.account, data);
     if (info.loggedIn) return info;
   } catch (e) {
     console.warn('[Login] login_status failed:', e.message);
@@ -3082,13 +3153,13 @@ async function getLoginInfo() {
   try {
     const acc = await user_account({ cookie: userCookie, timestamp: Date.now() });
     const body = acc.body || {};
-    const info = normalizeLoginInfo(body.profile, body.account);
+    const info = normalizeLoginInfo(body.profile, body.account, body);
     if (info.loggedIn) return info;
     if (isNeteaseAuthInvalidPayload(acc)) saveCookie('');
-    return { loggedIn: false, hasCookie: !!userCookie };
+    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   } catch (e) {
     console.warn('[Login] account check failed:', e.message);
-    return { loggedIn: false, hasCookie: !!userCookie };
+    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   }
 }
 
@@ -3529,7 +3600,15 @@ const server = http.createServer(async (req, res) => {
       const quality = url.searchParams.get('quality') || '';
       const loginInfo = await getLoginInfo();
       const info = await handleSongUrl(sid, loginInfo, quality);
-      sendJSON(res, { ...info, loggedIn: loginInfo.loggedIn, vipType: loginInfo.vipType || 0 });
+      sendJSON(res, {
+        ...info,
+        loggedIn: loginInfo.loggedIn,
+        vipType: loginInfo.vipType || 0,
+        vipLevel: loginInfo.vipLevel || 'none',
+        isVip: !!loginInfo.isVip,
+        isSvip: !!loginInfo.isSvip,
+        vipLabel: loginInfo.vipLabel || '无VIP',
+      });
     } catch (err) { console.error('[SongUrl]', err); sendJSON(res, { error: err.message }, 500); }
     return;
   }
@@ -3553,6 +3632,10 @@ const server = http.createServer(async (req, res) => {
           nickname: '网易云用户',
           avatar: '',
           vipType: 0,
+          vipLevel: 'none',
+          isVip: false,
+          isSvip: false,
+          vipLabel: '无VIP',
         };
       }
       sendJSON(res, { ...info, saved: true, hasCookie: !!userCookie });
@@ -3638,7 +3721,7 @@ const server = http.createServer(async (req, res) => {
         let info = await getLoginInfo();
         if (!info.loggedIn) {
           const profile = body.profile || (body.data && body.data.profile) || {};
-          info = normalizeLoginInfo(profile, body.account || (body.data && body.data.account));
+          info = normalizeLoginInfo(profile, body.account || (body.data && body.data.account), body.data || body);
         }
         if (!info.loggedIn && cookie) {
           info = {
@@ -3647,6 +3730,10 @@ const server = http.createServer(async (req, res) => {
             nickname: (body.nickname || (body.profile && body.profile.nickname) || '网易云用户'),
             avatar: body.avatarUrl || (body.profile && body.profile.avatarUrl) || '',
             vipType: 0,
+            vipLevel: 'none',
+            isVip: false,
+            isSvip: false,
+            vipLabel: '无VIP',
           };
         }
         sendJSON(res, { code, message: msg, ...info, hasCookie: !!cookie });
