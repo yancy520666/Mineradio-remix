@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog } = require('electron');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
@@ -21,6 +21,8 @@ let wallpaperWindow = null;
 let wallpaperState = {};
 let htmlFullscreenActive = false;
 let windowFullscreenActive = false;
+let mainWindowStateTimer = null;
+const registeredGlobalHotkeys = new Map();
 
 const WINDOWED_ASPECT = 16 / 9;
 const WINDOWED_SCALE = 3 / 4;
@@ -35,7 +37,23 @@ const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
 const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
 
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+const CHROMIUM_PERFORMANCE_SWITCHES = [
+  ['autoplay-policy', 'no-user-gesture-required'],
+  ['ignore-gpu-blocklist'],
+  ['enable-gpu-rasterization'],
+  ['enable-oop-rasterization'],
+  ['enable-zero-copy'],
+  ['enable-accelerated-2d-canvas'],
+  ['disable-background-timer-throttling'],
+  ['disable-renderer-backgrounding'],
+  ['disable-backgrounding-occluded-windows'],
+  ['force_high_performance_gpu'],
+  ['use-angle', 'd3d11'],
+];
+for (const [name, value] of CHROMIUM_PERFORMANCE_SWITCHES) {
+  if (value == null) app.commandLine.appendSwitch(name);
+  else app.commandLine.appendSwitch(name, value);
+}
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 const QQ_LOGIN_COOKIE_PRIORITY = [
@@ -110,6 +128,105 @@ function sendWindowState(win) {
   win.webContents.send('desktop-window-state', getWindowState(win));
 }
 
+function sendGlobalHotkeyAction(action) {
+  if (!mainWindow || mainWindow.isDestroyed() || !action) return;
+  mainWindow.webContents.send('mineradio-global-hotkey', { action });
+}
+
+function unregisterMineradioGlobalHotkeys() {
+  for (const accelerator of registeredGlobalHotkeys.keys()) {
+    try { globalShortcut.unregister(accelerator); } catch (e) {}
+  }
+  registeredGlobalHotkeys.clear();
+}
+
+function configureMineradioGlobalHotkeys(bindings = []) {
+  unregisterMineradioGlobalHotkeys();
+  const results = [];
+  const seen = new Set();
+  for (const item of Array.isArray(bindings) ? bindings : []) {
+    const action = item && String(item.action || '').trim();
+    const accelerator = item && String(item.accelerator || '').trim();
+    if (!action || !accelerator || seen.has(accelerator)) continue;
+    seen.add(accelerator);
+    let registered = false;
+    try {
+      registered = globalShortcut.register(accelerator, () => sendGlobalHotkeyAction(action));
+    } catch (error) {
+      registered = false;
+    }
+    if (registered) {
+      registeredGlobalHotkeys.set(accelerator, action);
+      results.push({ action, accelerator, ok: true });
+    } else {
+      results.push({
+        action,
+        accelerator,
+        ok: false,
+        conflict: {
+          sourceName: '系统 / 其他软件',
+          sourceIcon: 'warning',
+          reason: '该组合键已被占用或被系统保留',
+        },
+      });
+    }
+  }
+  return { ok: true, results };
+}
+
+function scheduleWindowStateSend(win, delay = 80) {
+  if (!win || win.isDestroyed()) return;
+  if (mainWindowStateTimer) clearTimeout(mainWindowStateTimer);
+  mainWindowStateTimer = setTimeout(() => {
+    mainWindowStateTimer = null;
+    sendWindowState(win);
+  }, delay);
+}
+
+function rectsOverlapOnY(a, b) {
+  if (!a || !b) return false;
+  const aTop = Number(a.y) || 0;
+  const bTop = Number(b.y) || 0;
+  const aBottom = aTop + (Number(a.height) || 0);
+  const bBottom = bTop + (Number(b.height) || 0);
+  return aBottom > bTop && bBottom > aTop;
+}
+
+function getDisplayState(win) {
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  const display = win && !win.isDestroyed()
+    ? screen.getDisplayMatching(win.getBounds())
+    : primary;
+  const bounds = display && display.bounds ? display.bounds : primary.bounds;
+  const displayId = display && display.id;
+  const primaryId = primary && primary.id;
+  const edgeTolerance = 2;
+  const hasDisplayOnLeft = displays.some((candidate) => {
+    if (!candidate || candidate.id === displayId || !candidate.bounds) return false;
+    return rectsOverlapOnY(bounds, candidate.bounds)
+      && Math.abs((candidate.bounds.x + candidate.bounds.width) - bounds.x) <= edgeTolerance;
+  });
+  const hasDisplayOnRight = displays.some((candidate) => {
+    if (!candidate || candidate.id === displayId || !candidate.bounds) return false;
+    return rectsOverlapOnY(bounds, candidate.bounds)
+      && Math.abs((bounds.x + bounds.width) - candidate.bounds.x) <= edgeTolerance;
+  });
+  return {
+    displayId,
+    primaryDisplayId: primaryId,
+    isPrimaryDisplay: !!(display && primary && display.id === primary.id),
+    hasDisplayOnLeft,
+    hasDisplayOnRight,
+    displayBounds: bounds ? {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    } : null,
+  };
+}
+
 function getWindowState(win) {
   if (!win || win.isDestroyed()) return {
     isMaximized: false,
@@ -120,6 +237,10 @@ function getWindowState(win) {
     isMinimized: false,
     isVisible: false,
     isFocused: false,
+    isPrimaryDisplay: true,
+    hasDisplayOnLeft: false,
+    hasDisplayOnRight: false,
+    displayBounds: null,
   };
   return {
     isMaximized: win.isMaximized(),
@@ -130,6 +251,7 @@ function getWindowState(win) {
     isMinimized: win.isMinimized(),
     isVisible: win.isVisible(),
     isFocused: win.isFocused(),
+    ...getDisplayState(win),
   };
 }
 
@@ -999,6 +1121,45 @@ ipcMain.handle('desktop-window-close', (event) => {
   getSenderWindow(event)?.close();
 });
 
+ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
+  return configureMineradioGlobalHotkeys(bindings);
+});
+
+ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
+  try {
+    const owner = getSenderWindow(event);
+    const defaultName = String(payload.defaultName || 'mineradio-export.json').replace(/[\\/:*?"<>|]+/g, '-');
+    const result = await dialog.showSaveDialog(owner, {
+      title: '导出 Mineradio 存档',
+      defaultPath: defaultName.toLowerCase().endsWith('.json') ? defaultName : `${defaultName}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    const text = typeof payload.text === 'string' ? payload.text : JSON.stringify(payload.data || {}, null, 2);
+    fs.writeFileSync(result.filePath, text, 'utf8');
+    return { ok: true, filePath: result.filePath };
+  } catch (e) {
+    return { ok: false, error: e.message || 'EXPORT_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-import-json-file', async (event) => {
+  try {
+    const owner = getSenderWindow(event);
+    const result = await dialog.showOpenDialog(owner, {
+      title: '导入 Mineradio 存档',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePaths || !result.filePaths[0]) return { ok: false, canceled: true };
+    const filePath = result.filePaths[0];
+    const text = fs.readFileSync(filePath, 'utf8');
+    return { ok: true, filePath, text };
+  } catch (e) {
+    return { ok: false, error: e.message || 'IMPORT_FAILED' };
+  }
+});
+
 ipcMain.handle('netease-music-open-login', async (event) => {
   return openNeteaseMusicLoginWindow(getSenderWindow(event));
 });
@@ -1202,7 +1363,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      backgroundThrottling: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -1235,7 +1396,13 @@ async function createWindow() {
   mainWindow.on('hide', () => sendWindowState(mainWindow));
   mainWindow.on('focus', () => sendWindowState(mainWindow));
   mainWindow.on('blur', () => sendWindowState(mainWindow));
+  mainWindow.on('move', () => scheduleWindowStateSend(mainWindow));
+  mainWindow.on('resize', () => scheduleWindowStateSend(mainWindow));
   mainWindow.on('closed', () => {
+    if (mainWindowStateTimer) {
+      clearTimeout(mainWindowStateTimer);
+      mainWindowStateTimer = null;
+    }
     closeOverlayWindows();
     mainWindow = null;
   });
@@ -1275,7 +1442,10 @@ if (!gotSingleInstanceLock) {
     screen.on('display-metrics-changed', () => {
       positionDesktopLyricsWindow();
       positionWallpaperWindow();
+      scheduleWindowStateSend(mainWindow);
     });
+    screen.on('display-added', () => scheduleWindowStateSend(mainWindow));
+    screen.on('display-removed', () => scheduleWindowStateSend(mainWindow));
     await createWindow();
   });
 
@@ -1289,6 +1459,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on('before-quit', () => {
+    unregisterMineradioGlobalHotkeys();
     closeOverlayWindows();
     if (localServer && localServer.close) localServer.close();
   });

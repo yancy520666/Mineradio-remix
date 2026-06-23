@@ -990,6 +990,13 @@
       ctx.restore();
     }
     function draw(nowMs){
+      if (state.enabled) {
+        var interval = frameIntervalMs();
+        if (interval > 0 && lastDrawAt && nowMs - lastDrawAt < Math.max(4, interval - 1.25)) {
+          scheduleNextDraw();
+          return;
+        }
+      }
       var dt = lastDrawAt ? Math.min(.12, Math.max(.001, (nowMs - lastDrawAt) / 1000)) : 1 / 60;
       lastDrawAt = nowMs;
       var now = nowMs * .001;
@@ -1008,12 +1015,7 @@
         setTimeout(function(){ requestAnimationFrame(draw); }, 250);
         return;
       }
-      var interval = frameIntervalMs();
-      if (interval > 0) {
-        setTimeout(function(){ requestAnimationFrame(draw); }, interval);
-      } else {
-        requestAnimationFrame(draw);
-      }
+      requestAnimationFrame(draw);
     }
     function normalizeFrameRate(value) {
       var n = Number(value);

@@ -39,6 +39,9 @@ public/index.*.html
 !public/index.html
 
 # Screenshots and transient verification artifacts
+.playwright-cli/
+output/
+tmp/
 *.png.tmp
 verification/
 screenshots/

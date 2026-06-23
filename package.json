@@ -1,7 +1,7 @@
 {
   "name": "mineradio",
   "productName": "Mineradio",
-  "version": "1.0.10",
+  "version": "1.1.0",
   "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
   "author": "Mineradio",
   "main": "desktop/main.js",
@@ -89,8 +89,8 @@
     "NeteaseCloudMusicApi": "^4.32.0"
   },
   "devDependencies": {
-    "electron": "^42.3.1",
-    "electron-builder": "^26.8.1",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
     "rcedit": "^5.0.2"
   }
 }

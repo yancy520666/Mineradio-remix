@@ -789,6 +789,7 @@ function publicUpdateJob(job) {
     mode: job.mode || 'installer',
     message: job.message || '',
     restartRequired: !!job.restartRequired,
+    cached: !!job.cached,
     fileName: job.fileName || '',
     filePath: job.status === 'ready' ? job.filePath : '',
     version: job.version || '',
@@ -904,6 +905,62 @@ function verifyUpdateBuffer(buffer, job) {
 }
 function verifyUpdateFile(filePath, job) {
   verifyUpdateBuffer(fs.readFileSync(filePath), job);
+}
+function moveInvalidUpdateFile(filePath, reason) {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return;
+    const dir = path.dirname(filePath);
+    const ext = path.extname(filePath);
+    const base = path.basename(filePath, ext);
+    const invalidPath = path.join(dir, `${base}.invalid-${Date.now()}${ext || '.bin'}`);
+    fs.renameSync(filePath, invalidPath);
+    console.warn('[UpdateDownload] cached installer moved aside:', reason || 'invalid', invalidPath);
+  } catch (e) {
+    console.warn('[UpdateDownload] failed to move invalid cached installer:', e.message);
+  }
+}
+function reuseVerifiedInstallerJob(opts) {
+  if (!opts || !opts.filePath || !fs.existsSync(opts.filePath)) return null;
+  if (!opts.expectedSize && !opts.sha256 && !opts.sha512) return null;
+  const now = Date.now();
+  const stat = fs.statSync(opts.filePath);
+  const job = {
+    id: 'cached-' + now.toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    status: 'ready',
+    progress: 100,
+    received: stat.size || 0,
+    total: opts.expectedSize || stat.size || 0,
+    speedBps: 0,
+    etaSeconds: 0,
+    sourceLabel: '本地缓存',
+    attempt: 0,
+    attempts: opts.attempts || 0,
+    mode: 'installer',
+    message: '安装包已下载，可直接打开安装',
+    fileName: opts.fileName || path.basename(opts.filePath),
+    filePath: opts.filePath,
+    version: opts.version || '',
+    downloadUrl: opts.downloadUrl || '',
+    downloadCandidates: opts.downloadCandidates || [],
+    expectedSize: opts.expectedSize || 0,
+    sha256: opts.sha256 || '',
+    sha512: opts.sha512 || '',
+    releaseUrl: opts.releaseUrl || '',
+    failedAttempts: [],
+    cached: true,
+    createdAt: now,
+    updatedAt: now,
+    error: '',
+  };
+  try {
+    verifyUpdateFile(opts.filePath, job);
+    updateDownloadJobs.set(job.id, job);
+    trimUpdateJobs();
+    return job;
+  } catch (err) {
+    moveInvalidUpdateFile(opts.filePath, (err && err.message) || 'cache verification failed');
+    return null;
+  }
 }
 function setUpdateJobError(job, err, fallbackMessage) {
   const info = classifyUpdateError(err);
@@ -1025,22 +1082,39 @@ function startUpdateDownloadJob(info) {
   const fileName = safeUpdateFileName(asset.name || '', version);
   const filePath = path.join(UPDATE_DOWNLOAD_DIR, fileName);
   const downloadCandidates = uniqueDownloadCandidates([downloadUrl].concat(Array.isArray(asset.downloadUrls) ? asset.downloadUrls : []));
+  const expectedSize = asset.size || 0;
+  const sha256 = normalizeDigest(asset.sha256 || '', 'sha256').toLowerCase();
+  const sha512 = normalizeDigest(asset.sha512 || '', 'sha512');
+  const cached = reuseVerifiedInstallerJob({
+    fileName,
+    filePath,
+    version,
+    downloadUrl,
+    downloadCandidates,
+    expectedSize,
+    sha256,
+    sha512,
+    releaseUrl: release.htmlUrl || '',
+    attempts: downloadCandidates.length,
+  });
+  if (cached) return publicUpdateJob(cached);
+
   const now = Date.now();
   const job = {
     id: now.toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     status: 'queued',
     progress: 0,
     received: 0,
-    total: asset.size || 0,
+    total: expectedSize,
     mode: 'installer',
     fileName,
     filePath,
     version,
     downloadUrl,
     downloadCandidates,
-    expectedSize: asset.size || 0,
-    sha256: normalizeDigest(asset.sha256 || '', 'sha256').toLowerCase(),
-    sha512: normalizeDigest(asset.sha512 || '', 'sha512'),
+    expectedSize,
+    sha256,
+    sha512,
     releaseUrl: release.htmlUrl || '',
     sourceLabel: '',
     attempt: 0,

@@ -14,6 +14,15 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),
   openUpdateInstaller: (filePath) => ipcRenderer.invoke('mineradio-open-update-installer', filePath),
   restartApp: () => ipcRenderer.invoke('mineradio-restart-app'),
+  configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('mineradio-hotkeys-configure-global', bindings || []),
+  exportJsonFile: (payload) => ipcRenderer.invoke('mineradio-export-json-file', payload || {}),
+  importJsonFile: () => ipcRenderer.invoke('mineradio-import-json-file'),
+  onGlobalHotkey: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-global-hotkey', listener);
+    return () => ipcRenderer.removeListener('mineradio-global-hotkey', listener);
+  },
   setDesktopLyricsEnabled: (enabled, payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-set-enabled', !!enabled, payload || {}),
   updateDesktopLyrics: (payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-update', payload || {}),
   onDesktopLyricsLockState: (callback) => {
