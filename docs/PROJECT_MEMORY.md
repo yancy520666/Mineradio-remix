@@ -27,6 +27,15 @@
 
 ## Release Memory
 
+- `v1.1.0` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.0`
+- 仓库已设为公开：`https://github.com/XxHuberrr/Mineradio`
+- `v1.1.0` Release 资产包括：
+  - `Mineradio-1.1.0-Setup.exe`
+  - `Mineradio-1.1.0-Setup.exe.blockmap`
+  - `Mineradio-1.1.0-SHA256SUMS.txt`
+- `v1.1.0` 安装包 SHA256：`bd53aae4e551f5b0b5a398a51e6ec1de5a9a57cb42e5eecedb0a1647fdcee6e6`
+- `v1.1.0` 未上传 `latest.yml`，Release 创建时使用 `--latest=false`；GitHub `/releases/latest` 仍返回 `v1.0.10`，避免 `v1.0.10` 客户端软件内更新到 1.1.0。
+- 已批量给旧 Release（`v1.0.10` 到 `v0.9.9`）正文顶部追加旧安装包隔离警示；不要删除旧资产，只标记不可信和建议隔离。
 - `v1.0.10` 已发布到 GitHub：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.0.10`
 - `v1.0.10` Release 资产包括：
   - `latest.yml`

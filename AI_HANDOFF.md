@@ -5,7 +5,10 @@
 ## 当前权威入口（2026-06-24）
 
 - 当前真实代码/Git 仓库仍是 `E:\桌面\播放器软件\Mineradio\resources\app`。
-- 当前版本是 `v1.1.0` 纯净安装发布线；本轮已从当前可信源码重新生成 `dist/Mineradio-1.1.0-Setup.exe`。
+- 当前版本是 `v1.1.0` 纯净安装发布线；本轮已从当前可信源码重新生成并发布 `dist/Mineradio-1.1.0-Setup.exe`。
+- GitHub 仓库已公开：`https://github.com/XxHuberrr/Mineradio`
+- `v1.1.0` Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.0`
+- GitHub `/releases/latest` 仍返回 `v1.0.10`，这是刻意设置，避免旧版软件内更新到 1.1.0。
 - `v1.0.10` 及更早旧安装包不再信任，需要在 GitHub Release/README/SECURITY 中标记隔离。
 - `v1.1.0` 不提供从 `v1.0.10` 的软件内本地更新，不上传 `latest.yml`，不生成 `v1.0.10 -> v1.1.0` 快速补丁。
 - 新对话优先读 `AGENTS.md`、`docs/PROJECT_MEMORY.md`、`docs/HANDOFF_NEXT_CHAT.md`；涉及安全重建或发布时再读 `docs/SECURITY_REBUILD_2026-06-24.md`。本文件下面包含较早历史记录，不能覆盖上述文件的当前结论。
@@ -78,6 +81,7 @@
 - 更新 `CHANGELOG.md`、`README.md`、`SECURITY.md`、`RELEASE.md`、`docs/SECURITY_REBUILD_2026-06-24.md` 和 `docs/RELEASE_NOTES_v1.1.0.md`，恢复详细日志并写明 `v1.0.10` 旧安装包隔离、`v1.1.0` 纯净安装、不走软件内更新。
 - 已执行 `npm run build:win`，第一次被旧代理 `127.0.0.1:26001` 拦截，切到 `127.0.0.1:10808` 后打包成功。产物：`dist/Mineradio-1.1.0-Setup.exe`、`.blockmap`、`Mineradio-1.1.0-SHA256SUMS.txt`。
 - 已运行 `git diff --check`、`node --check server.js`、前端 5 个内联脚本解析、默认 JSON 解析、Git 跟踪高风险残留检查；Defender 对新安装包和 `win-unpacked` 扫描后 `Get-MpThreatDetection` 查询为空。
+- 已发布 GitHub Release `v1.1.0`，上传安装包、blockmap、SHA256SUMS；未上传 `latest.yml`。已批量给旧 Release（`v1.0.10` 到 `v0.9.9`）追加旧安装包隔离警示。
 - 检查并更新新对话交接：`docs/HANDOFF_NEXT_CHAT.md` 已改为当前 `v1.1.0` 源码安全重建状态。
 - 本轮交接检查开始时工作树为干净：`main...origin/main`；随后仅修改 `AI_HANDOFF.md`、`docs/HANDOFF_NEXT_CHAT.md`、`docs/PROJECT_MEMORY.md`，并新增 `docs/3D_PLAYLIST_SHELF_MEMORY.md`。
 - 已补全 3D 歌单架专项记忆：控制台模式、常驻/静态镜头、详情页层级、歌词避让、右键歌单架抑制底部控制台、不要推倒重做手感等边界写入 `docs/3D_PLAYLIST_SHELF_MEMORY.md`。

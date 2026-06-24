@@ -29,6 +29,9 @@ Get-Content RELEASE.md
 - 当前发布策略：纯净安装版，从当前可信源码重新构建；`v1.0.10` 及更早旧安装包需要隔离，不再建议安装或传播。
 - 本次发布不做 `v1.0.10 -> v1.1.0` 软件内本地更新，不上传 `latest.yml`，不生成快速补丁。
 - 安装包样式继续沿用 `docs/INSTALLER_STYLE.md` 的中文极简黑白蓝格式。
+- GitHub 仓库已公开：`https://github.com/XxHuberrr/Mineradio`
+- `v1.1.0` Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.0`
+- GitHub `/releases/latest` 仍返回 `v1.0.10`，这是刻意设置，避免旧版软件内更新到 1.1.0。
 
 ## 本轮重点
 
@@ -38,6 +41,8 @@ Get-Content RELEASE.md
 - 已恢复详细日志和发布说明：`CHANGELOG.md`、`README.md`、`SECURITY.md`、`RELEASE.md`、`docs/SECURITY_REBUILD_2026-06-24.md`、`docs/RELEASE_NOTES_v1.1.0.md`。
 - 已生成安装包：`dist/Mineradio-1.1.0-Setup.exe`。
 - 已生成校验文件：`dist/Mineradio-1.1.0-SHA256SUMS.txt`。
+- 已发布资产：安装包、blockmap、SHA256SUMS；未上传 `latest.yml`。
+- 已批量给旧 Release（`v1.0.10` 到 `v0.9.9`）正文顶部追加旧安装包隔离警示。
 
 ## 已知验证
 
@@ -50,6 +55,7 @@ Get-Content RELEASE.md
 - `npm run build:win`：第一次被旧代理 `127.0.0.1:26001` 拦截；切到 `127.0.0.1:10808` 后构建成功。
 - Defender 状态：实时防护开启，签名版本 `1.453.247.0`。
 - Defender 已扫描新安装包和 `dist\win-unpacked`；`Get-MpThreatDetection` 查询为空。
+- 安装包 SHA256：`bd53aae4e551f5b0b5a398a51e6ec1de5a9a57cb42e5eecedb0a1647fdcee6e6`。
 
 ## 发布注意
 
