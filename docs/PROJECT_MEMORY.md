@@ -5,6 +5,7 @@
 - User requirement: all users must receive the installer/uninstaller safety fix with zero risk to unrelated files.
 - Files: `build/installer.nsh`, `docs/INSTALLER_STYLE.md`, `CHANGELOG.md`.
 - Implementation: the full setup reads existing HKCU/HKLM Mineradio install locations and may adopt them in place only when the registered path is already a dedicated `...\Mineradio` directory and contains Mineradio files or `.mineradio-install-root`; it removes only the legacy `Uninstall Mineradio.exe` single file before writing the new safe uninstaller.
+- Same-version v1.1.1 rebuild rule: an existing dedicated `...\Mineradio` folder that already contains Mineradio files may be overwritten even if it lacks `.mineradio-install-root`; mixed folders such as `D:\百度盘\翻身(1)` must not be adopted in place.
 - Do not regress: never run the old uninstaller, never adopt mixed parent folders or drive roots, never use quick patch JSON as the only fix path for installer/uninstaller bugs, and never restore recursive install-root deletion.
 
 这个文件用于解决新开 Codex 对话时“失忆”的问题。每次用户明确说“保留”“喜欢”“这个很好”“记住”“保存一下”等表达时，要把关键结论追加到这里。
