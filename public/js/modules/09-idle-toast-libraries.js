@@ -577,11 +577,18 @@ function visualGuideWasSeen() {
 function markVisualGuideSeen() {
   try { localStorage.setItem(VISUAL_GUIDE_SEEN_STORE_KEY, '1'); } catch (e) { }
 }
+var startupVisualGuideScheduled = false;
 function maybeRunStartupVisualGuide(source) {
-  if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing) return false;
-  if (source !== 'manual' && !hasAnyPlatformLogin()) return false;
+  if (visualGuideWasSeen() || visualGuideActive || startupVisualGuideScheduled || immersiveMode || playing) return false;
+  if (typeof originalProfileImportPending !== 'undefined' && originalProfileImportPending) return false;
+  startupVisualGuideScheduled = true;
   setTimeout(function () {
-    if (!visualGuideWasSeen() || source === 'manual') startVisualGuide({ source: source || 'startup' });
+    startupVisualGuideScheduled = false;
+    if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing || originalProfileImportPending) return;
+    var loginModal = document.getElementById('login-modal');
+    var profileModal = document.getElementById('original-profile-modal');
+    if ((loginModal && loginModal.classList.contains('show')) || (profileModal && profileModal.classList.contains('show'))) return;
+    startVisualGuide({ source: source || 'startup' });
   }, source === 'splash' ? 3600 : 1400);
   return true;
 }
@@ -754,6 +761,7 @@ function nextVisualGuideStep() {
   showVisualGuideStep(visualGuideStep + 1);
 }
 function closeVisualGuide(markSeen) {
+  var wasAutomatic = visualGuideState && visualGuideState.manual !== true;
   var guide = document.getElementById('visual-guide');
   visualGuideActive = false;
   if (markSeen) markVisualGuideSeen();
@@ -772,6 +780,7 @@ function closeVisualGuide(markSeen) {
   if (fxPanel && !visualGuideState.fxWasPeek) setPeek(fxPanel, false, 'fx');
   if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
   if (bottom && !visualGuideState.bottomWasVisible && !playing) bottom.classList.remove('visible', 'soft-hidden');
+  if (wasAutomatic && markSeen && typeof maybeRunStartupLoginGuide === 'function') maybeRunStartupLoginGuide('visual-guide');
 }
 function handleVisualGuideSurfaceClick(e) {
   if (!visualGuideActive) return;
