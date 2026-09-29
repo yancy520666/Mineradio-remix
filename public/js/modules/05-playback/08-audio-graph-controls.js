@@ -74,24 +74,24 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
   var previousSourceMedia = audioSourceMedia;
   var sourceUsesCapture = !!(source && source.__mineradioUsesCapture);
   var mediaElementChanged = !!(source && previousSourceMedia && previousSourceMedia !== audio);
-  // Chromium can permanently freeze the media clock when an element that was
-  // once bound to MediaElementSource is later kept on captureStream across a
-  // src change. Replace it before the caller assigns the next track so the new
-  // Audio can establish one clean lifetime MediaElementSource binding.
-  if (sourceUsesCapture && previousSourceMedia === audio) {
-    replaceAudioElementForGraphRecovery(reason || 'capture-track-switch', { preservePlayback: false });
-    return;
-  }
-  disconnectAudioGraphNodes(!sourceUsesCapture && !mediaElementChanged);
-  if (
-    preparedGraph
+  var canAdoptPrepared = !!(
+    reason === 'album-gapless-handoff'
+    && preparedGraph
     && preparedGraph.context
     && preparedGraph.context.state !== 'closed'
     && preparedGraph.source
     && preparedGraph.analyser
     && preparedGraph.beatAnalyser
     && preparedGraph.gainNode
-  ) {
+  );
+  // A prepared deck can be adopted only for its handoff. On the next normal
+  // switch a lifetime-bound media element needs a fresh Audio before src changes.
+  if (!canAdoptPrepared && previousSourceMedia === audio && (sourceUsesCapture || audio.__mineradioMediaSourceBound)) {
+    replaceAudioElementForGraphRecovery(reason || (sourceUsesCapture ? 'capture-track-switch' : 'bound-track-switch'), { preservePlayback: false });
+    return;
+  }
+  disconnectAudioGraphNodes(!sourceUsesCapture && !mediaElementChanged);
+  if (canAdoptPrepared) {
     audioCtx = preparedGraph.context;
     source = preparedGraph.source;
     analyser = preparedGraph.analyser;
@@ -102,6 +102,9 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     audio.__mineradioMediaSourceBound = true;
     preparedGraph.adopted = true;
     audioReady = true;
+    // The active graph now belongs to the player. Keeping this marker would
+    // let a later track switch re-adopt these disconnected nodes.
+    try { delete audio.__mineradioPreparedAudioGraph; } catch (e) { audio.__mineradioPreparedAudioGraph = null; }
   }
 }
 function initAudio() {

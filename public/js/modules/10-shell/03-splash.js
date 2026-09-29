@@ -574,6 +574,7 @@ function armSplashSoundFallback() {
 function finishSplashReveal(forceLoad, opts) {
   opts = opts || {};
   markAppPerf('home-revealed');
+  if (typeof setUpdatePreviewVisible === 'function') setUpdatePreviewVisible(updatePreviewState.visible);
   if (typeof resumeSavedGestureControl === 'function') {
     setTimeout(function () { resumeSavedGestureControl(opts.reason || 'splash-reveal'); }, opts.fastSkip ? 120 : 260);
   }

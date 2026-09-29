@@ -25,13 +25,16 @@ async function main() {
   await win.loadFile(path.join(appRoot, 'public', 'index.html'));
   await new Promise(resolve => setTimeout(resolve, 2500));
   const result = await win.webContents.executeJavaScript(`(async () => {
-    const result = { wake: null, audio: null };
+    const result = { wake: null, audio: null, lyrics: null };
     const originalBridge = window.desktopWindow;
     const originalRuntime = { ...desktopRuntimeState };
     const originalAudio = audio;
     const originalQueue = playQueue;
     const originalIndex = currentIdx;
     const originalContext = audioCtx;
+    const originalLyricsLines = lyricsLines;
+    const originalPlaying = playing;
+    const originalParticleLyrics = fx.particleLyrics;
     try {
       desktopRuntimeState.desktop = true;
       desktopRuntimeState.minimized = true;
@@ -81,7 +84,21 @@ async function main() {
         currentTime: media.currentTime,
       };
       media.pause();
+      playing = false;
+      fx.particleLyrics = true;
+      lyricsLines = [{ t: 0, text: '后台恢复歌词测试', duration: 3, charCount: 8 }];
+      clearStageLyrics();
+      const lyricRestored = restoreStageLyricsAfterBackground('electron-smoke');
+      result.lyrics = {
+        restored: lyricRestored,
+        attached: !!(stageLyrics.current && stageLyrics.current.parent === stageLyrics.group),
+        text: stageLyrics.currentText,
+      };
     } finally {
+      clearStageLyrics();
+      lyricsLines = originalLyricsLines;
+      playing = originalPlaying;
+      fx.particleLyrics = originalParticleLyrics;
       window.desktopWindow = originalBridge;
       Object.assign(desktopRuntimeState, originalRuntime);
       updateRenderPowerClasses();
@@ -97,7 +114,9 @@ async function main() {
   })()`);
   const ok = result.wake && result.wake.slept && result.wake.awake && result.wake.canvasWidth > 4
     && result.audio && result.audio.suspended && result.audio.resumed
-    && result.audio.contextState === 'running' && !result.audio.paused && result.audio.currentTime > 0;
+    && result.audio.contextState === 'running' && !result.audio.paused && result.audio.currentTime > 0
+    && result.lyrics && result.lyrics.restored && result.lyrics.attached
+    && result.lyrics.text === '后台恢复歌词测试';
   console.log('MINERADIO_BACKGROUND_SMOKE:' + JSON.stringify({ ok, result }));
   app.exit(ok ? 0 : 1);
 }
