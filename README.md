@@ -1,10 +1,6 @@
 # Mineradio Remix
 
-基于 [XxHuberrr/Mineradio-paused](https://github.com/XxHuberrr/Mineradio-paused) 继续开发的独立改造版。这是 [yancy520666/Mineradio-remix](https://github.com/yancy520666/Mineradio-remix) 的源码仓库；原项目的历史停更公告和 2.2.0 下载链接不代表本改造版的发布状态。
-
-**当前状态：开发中，尚未发布 Remix 安装包。** 源码仍以原版 Mineradio 名称运行，后续改造会在本仓库继续进行。
-
-更新提醒已指向本仓库的 [Releases](https://github.com/yancy520666/Mineradio-remix/releases)：启动约 9 秒后检查最新正式版，版本号高于当前版本时显示窗口右上角的更新按钮；点击后在浏览器打开发布页或公告指定的下载页。首个 Remix 安装包发布前不会出现新版本提醒，也不会从原作者仓库获取更新。发布前需先修改 `package.json` 的版本号，再用对应的 `v版本号` 标签发布安装包；源码变动或单独推送主分支不会触发提醒。
+基于 [XxHuberrr/Mineradio-paused](https://github.com/XxHuberrr/Mineradio-paused) 继续开发的独立改造版。这是 [yancy520666/Mineradio-remix](https://github.com/yancy520666/Mineradio-remix) 的源码仓库；原项目目前已长期停更，本项目基于原作 2.2.0 版本改造。
 
 ## 已完成的改造
 
