@@ -316,11 +316,8 @@
           <path d="M9.5 20v-5h5v5" />
         </svg>
       </button>
-      <button id="user-btn" class="icon-btn logged-out login-eye-avatar" onclick="onUserBtnClick()" title="登录账号">
-        <span class="login-easter-eyes compact" aria-hidden="true">
-          <i class="login-easter-eye login-easter-eye-big"></i>
-          <i class="login-easter-eye login-easter-eye-small"></i>
-        </span>
+      <button id="user-btn" class="icon-btn logged-out" onclick="onUserBtnClick()" title="登录账号">
+        <span class="login-word">登录</span>
       </button>
     </div>
 
@@ -1486,34 +1483,9 @@
         <div class="login-panel-head">
           <div><b>登录接入</b><small>拖接口端口到 MR</small></div>
           <button id="login-reset-all-btn" class="login-reset-all-btn" type="button"
-            onclick="logoutAllAccountsAndResetEasterEgg()" title="清除所有平台登录并重新锁定彩蛋">退出登录</button>
+            onclick="logoutAllAccounts()" title="退出所有平台账号">退出登录</button>
           <button class="login-panel-close" type="button" onclick="closeLoginModal()">×</button>
         </div>
-        <section id="login-easter-egg-gate" class="login-easter-egg-gate" aria-hidden="true">
-          <button id="login-easter-eye-trigger" class="login-easter-eye-trigger" type="button"
-            onclick="handleLoginEasterEggTap()" aria-label="轻触大小眼">
-            <span class="login-easter-eyes" aria-hidden="true">
-              <i class="login-easter-eye login-easter-eye-big"></i>
-              <i class="login-easter-eye login-easter-eye-small"></i>
-            </span>
-          </button>
-          <div id="login-easter-hint" class="login-easter-hint" aria-live="polite"></div>
-          <div id="login-easter-egg-wish" class="login-easter-egg-wish">
-            <h1>心愿是</h1>
-            <div class="login-easter-input-shell">
-              <div id="login-easter-egg-cells" class="login-easter-cells" aria-hidden="true">
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-              </div>
-              <input id="login-easter-egg-input" class="login-easter-input" type="text"
-                inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-                aria-label="输入四个字的愿望">
-            </div>
-            <div id="login-easter-status" class="login-easter-status" aria-live="polite"></div>
-          </div>
-        </section>
         <div id="login-node-graph" class="login-node-graph" data-provider="netease">
           <svg id="login-workflow-svg" class="workflow-link-layer login-link-layer" aria-hidden="true"></svg>
           <div class="login-platform-tabs login-node-providers" id="login-platform-tabs">
@@ -1568,30 +1540,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div id="login-easter-unlock-cinematic" class="login-easter-unlock-cinematic" role="button" tabindex="-1"
-      aria-hidden="true" aria-label="世界和平，点击继续" onclick="dismissLoginEasterEggCinematic()">
-      <div id="login-easter-unlock-phrase" class="login-easter-unlock-phrase" aria-hidden="true">
-        <span style="--float-duration:3.8s;--float-delay:-.7s;--float-distance:9px">世</span>
-        <span style="--float-duration:4.4s;--float-delay:-2.1s;--float-distance:13px">界</span>
-        <span style="--float-duration:3.5s;--float-delay:-1.4s;--float-distance:8px">和</span>
-        <span style="--float-duration:4.1s;--float-delay:-2.8s;--float-distance:12px">平</span>
-      </div>
-    </div>
-
-    <div id="login-easter-achievement" class="login-easter-achievement" role="status" aria-live="polite"
-      aria-label="已达成成就：世界和平！">
-      <span class="login-easter-achievement-icon" aria-hidden="true">
-        <span class="login-easter-achievement-pixel-eyes">
-          <i class="login-easter-achievement-pixel-eye pixel-eye-big"></i>
-          <i class="login-easter-achievement-pixel-eye pixel-eye-small"></i>
-        </span>
-      </span>
-      <span class="login-easter-achievement-copy">
-        <small>已达成成就</small>
-        <b>世界和平！</b>
-      </span>
     </div>
 
     <!-- 音频路由牵线面板 -->
