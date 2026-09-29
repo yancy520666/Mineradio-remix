@@ -5663,6 +5663,13 @@ async function createWindowOnce() {
     },
   });
   mainWindow = win;
+  // Keep an isolated source build distinguishable from an installed release.
+  if (APP_NAME !== 'Mineradio') {
+    win.webContents.on('page-title-updated', (event) => {
+      event.preventDefault();
+      win.setTitle(APP_NAME);
+    });
+  }
   win.__mineradioRendererRecoveryFailed = false;
   win.__mineradioUnresponsive = false;
   hookExplorerRestartForFullDesktop(win);
