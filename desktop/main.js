@@ -2103,6 +2103,7 @@ function focusMainWindow() {
   resetMainWindowZoom();
   mainWindow.focus();
   sendWindowState(mainWindow);
+  refreshMainWindowAfterForeground(mainWindow, 'focus-main-window');
   return true;
 }
 
@@ -5289,6 +5290,43 @@ function showMainWindowSafely(win, reason) {
   return true;
 }
 
+function refreshMainWindowAfterForeground(win, reason) {
+  if (!win || win.isDestroyed() || win !== mainWindow || win.isMinimized() || !win.isVisible()) return;
+  const repaint = () => {
+    if (win.isDestroyed() || win.isMinimized() || !win.isVisible()) return;
+    sendWindowState(win);
+    try { win.webContents.invalidate(); } catch (_) { }
+  };
+  repaint();
+  if (win.__mineradioForegroundRefreshTimer) clearTimeout(win.__mineradioForegroundRefreshTimer);
+  win.__mineradioForegroundRefreshTimer = setTimeout(() => {
+    win.__mineradioForegroundRefreshTimer = null;
+    repaint();
+    if (!startupCompleted || appQuitting || win.isDestroyed()) return;
+    const crashed = win.webContents && !win.webContents.isDestroyed() && win.webContents.isCrashed();
+    if (!crashed && win.__mineradioRendererRecoveryFailed !== true) {
+      if (win.__mineradioUnresponsive === true && !win.__mineradioUnresponsiveRecoveryTimer) {
+        win.__mineradioUnresponsiveRecoveryTimer = setTimeout(() => {
+          win.__mineradioUnresponsiveRecoveryTimer = null;
+          if (!win.isDestroyed() && win.__mineradioUnresponsive === true
+            && win.isVisible() && !win.isMinimized() && win.isFocused()) {
+            const now = Date.now();
+            mainWindowRendererRecoveryAttempts = mainWindowRendererRecoveryAttempts.filter(at => now - at < RENDERER_RECOVERY_WINDOW_MS);
+            if (mainWindowRendererRecoveryAttempts.length < RENDERER_RECOVERY_MAX_ATTEMPTS) {
+              recoverMainWindowAfterRendererGone(win, { reason: 'foreground-unresponsive' });
+            }
+          }
+        }, 8000);
+      }
+      return;
+    }
+    const now = Date.now();
+    mainWindowRendererRecoveryAttempts = mainWindowRendererRecoveryAttempts.filter(at => now - at < RENDERER_RECOVERY_WINDOW_MS);
+    if (mainWindowRendererRecoveryAttempts.length >= RENDERER_RECOVERY_MAX_ATTEMPTS) return;
+    recoverMainWindowAfterRendererGone(win, { reason: `foreground-${reason || 'wake'}` });
+  }, 260);
+}
+
 function markMainWindowExpectedVisible(win, expected, reason) {
   if (!win || win.isDestroyed()) return;
   win.__mineradioExpectedVisible = expected === true;
@@ -5497,6 +5535,10 @@ function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = 
     win.__mineradioIntentionalHide = keepIntentionallyHidden;
     if (!keepIntentionallyHidden) showMainWindowSafely(win, `renderer-recovered-${attempt}`);
     else sendWindowState(win);
+    win.__mineradioRendererRecoveryFailed = false;
+    win.__mineradioUnresponsive = false;
+    if (win.__mineradioUnresponsiveRecoveryTimer) clearTimeout(win.__mineradioUnresponsiveRecoveryTimer);
+    win.__mineradioUnresponsiveRecoveryTimer = null;
     writeStartupState('renderer-recovered', {
       rendererRecoveredAt: Date.now(),
       rendererRecoveryAttempt: attempt,
@@ -5504,6 +5546,7 @@ function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = 
     });
     return true;
   })().catch((error) => {
+    win.__mineradioRendererRecoveryFailed = true;
     const log = writeStartupErrorLog('Runtime renderer recovery', 'MR-RUNTIME-RENDERER-LOAD', error);
     console.error('[WindowRecovery] renderer reload failed:', error && error.message || error);
     if (!appQuitting && !win.isDestroyed()) {
@@ -5620,6 +5663,8 @@ async function createWindowOnce() {
     },
   });
   mainWindow = win;
+  win.__mineradioRendererRecoveryFailed = false;
+  win.__mineradioUnresponsive = false;
   hookExplorerRestartForFullDesktop(win);
   hookMainWindowMinimizeIntent(win);
   writeStartupState('window-created', { windowCreatedAt: Date.now() });
@@ -5659,6 +5704,7 @@ async function createWindowOnce() {
     console.warn('[StartupWindow] did-fail-load:', errorCode, errorDescription, validatedURL || '');
   });
   win.webContents.on('render-process-gone', (_event, details) => {
+    win.__mineradioRendererRecoveryFailed = String(details && details.reason || '') !== 'clean-exit';
     const cleanupPromise = Promise.allSettled([
       stopWallpaperEngineRuntimeForRenderer(`render-process-gone:${details && details.reason || 'unknown'}`),
       closeWallpaperWindow(`main-renderer-gone:${details && details.reason || 'unknown'}`),
@@ -5675,7 +5721,14 @@ async function createWindowOnce() {
     }
   });
   win.on('unresponsive', () => {
+    win.__mineradioUnresponsive = true;
     console.warn('[StartupWindow] main window became unresponsive', { startupCompleted });
+    refreshMainWindowAfterForeground(win, 'unresponsive');
+  });
+  win.on('responsive', () => {
+    win.__mineradioUnresponsive = false;
+    if (win.__mineradioUnresponsiveRecoveryTimer) clearTimeout(win.__mineradioUnresponsiveRecoveryTimer);
+    win.__mineradioUnresponsiveRecoveryTimer = null;
   });
 
   win.webContents.on('before-input-event', (event, input) => {
@@ -5726,6 +5779,7 @@ async function createWindowOnce() {
     markMainWindowExpectedVisible(win, true, 'restore');
     sendWindowState(win);
     if (fullDesktopModeHostVisibilityTransitionDepth <= 0) resumeWallpaperEngineForVisibleHost(win, 'restore');
+    refreshMainWindowAfterForeground(win, 'restore');
   });
   win.on('show', () => {
     win.__mineradioIntentionalHide = false;
@@ -5733,6 +5787,7 @@ async function createWindowOnce() {
     if (fullDesktopModeHostVisibilityTransitionDepth > 0) return;
     sendWindowState(win);
     resumeWallpaperEngineForVisibleHost(win, 'show');
+    refreshMainWindowAfterForeground(win, 'show');
   });
   win.on('hide', () => {
     if (fullDesktopModeHostVisibilityTransitionDepth > 0) return;
@@ -5743,7 +5798,7 @@ async function createWindowOnce() {
     }
     scheduleAppMemoryTrim('hide', 2200);
   });
-  win.on('focus', () => sendWindowState(win));
+  win.on('focus', () => refreshMainWindowAfterForeground(win, 'focus'));
   win.on('blur', () => sendWindowState(win));
   win.on('move', () => {
     updateMainWindowMinimumSize(win);
@@ -5814,6 +5869,10 @@ async function createWindowOnce() {
     clearMainWindowFullscreenVisibilityGuard();
     mainWindowRendererRecoveryPromise = null;
     mainWindowRendererRecoveryAttempts = [];
+    if (win.__mineradioForegroundRefreshTimer) clearTimeout(win.__mineradioForegroundRefreshTimer);
+    win.__mineradioForegroundRefreshTimer = null;
+    if (win.__mineradioUnresponsiveRecoveryTimer) clearTimeout(win.__mineradioUnresponsiveRecoveryTimer);
+    win.__mineradioUnresponsiveRecoveryTimer = null;
     win.__mineradioDesktopModeCloseArmed = false;
     if (win.__mineradioStartupShowTimer) {
       clearTimeout(win.__mineradioStartupShowTimer);
@@ -5956,8 +6015,14 @@ if (!gotSingleInstanceLock) {
     screen.on('display-metrics-changed', handleDisplayLayoutChanged);
     screen.on('display-added', handleDisplayLayoutChanged);
     screen.on('display-removed', handleDisplayLayoutChanged);
-    powerMonitor.on('resume', () => restoreUnexpectedMainWindowVisibility(mainWindow, 'system-resume'));
-    powerMonitor.on('unlock-screen', () => restoreUnexpectedMainWindowVisibility(mainWindow, 'screen-unlock'));
+    powerMonitor.on('resume', () => {
+      restoreUnexpectedMainWindowVisibility(mainWindow, 'system-resume');
+      refreshMainWindowAfterForeground(mainWindow, 'system-resume');
+    });
+    powerMonitor.on('unlock-screen', () => {
+      restoreUnexpectedMainWindowVisibility(mainWindow, 'screen-unlock');
+      refreshMainWindowAfterForeground(mainWindow, 'screen-unlock');
+    });
     await createWindow();
   }).catch((e) => reportWindowCreationFailure('Main', e));
 
