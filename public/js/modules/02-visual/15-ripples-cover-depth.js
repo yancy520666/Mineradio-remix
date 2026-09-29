@@ -378,6 +378,9 @@ var loadingShownAt = 0;
 var loadingHideTimer = null;
 var coverDepthTween = null;
 var neutralCoverEdgeCanvasCache = null;
+var coverDisplayTrackToken = -1;
+var coverTextureTrackToken = -1;
+var coverBackgroundRetryAt = 0;
 function visualEase(t) {
   t = Math.max(0, Math.min(1, t));
   return t * t * (3 - 2 * t);
@@ -458,6 +461,7 @@ function forceLoadingSettled(reason) {
 function recoverVisualsAfterBackground(reason) {
   applyRendererPowerMode();
   if (typeof restoreStageLyricsAfterBackground === 'function') restoreStageLyricsAfterBackground(reason || 'background-restore');
+  if (typeof refreshCurrentCoverAfterBackground === 'function') refreshCurrentCoverAfterBackground();
   if (typeof ensureAudiblePlaybackGain === 'function') ensureAudiblePlaybackGain(reason || 'background-restore');
   if (typeof scheduleMainRendererViewportRefresh === 'function') scheduleMainRendererViewportRefresh(reason || 'restore');
   if (audio && audio.src && !audio.paused && ((uniforms.uLoading.value || 0) > 0.015 || loadingTween || loadingHideTimer)) {
@@ -517,7 +521,32 @@ function setCoverDepthState(depthTo, aiTo, durationMs) {
 
 function coverApplyStillCurrent(opts) {
   opts = opts || {};
-  return !opts.trackToken || opts.trackToken === trackSwitchToken;
+  return opts.trackToken == null || opts.trackToken === trackSwitchToken;
+}
+
+function previewCurrentTrackCover(src, opts) {
+  opts = opts || {};
+  if (!coverApplyStillCurrent(opts)) return;
+  if (opts.trackToken != null) coverDisplayTrackToken = opts.trackToken;
+  var thumb = document.getElementById('thumb-cover');
+  if (thumb) {
+    if (src) thumb.src = src;
+    else thumb.removeAttribute('src');
+  }
+  setControlCoverSrc(src);
+}
+
+function refreshCurrentCoverAfterBackground() {
+  if (!audio || !audio.src || currentIdx < 0 || !playQueue[currentIdx]) return;
+  var token = trackSwitchToken;
+  if (coverTextureTrackToken === token && coverDisplayTrackToken === token) return;
+  if (Date.now() - coverBackgroundRetryAt < 1600) return;
+  coverBackgroundRetryAt = Date.now();
+  var song = playQueue[currentIdx];
+  var options = { trackToken: token, deferHeavy: true, seamlessTrackSwitch: true, delay: 120, timeout: 900 };
+  var custom = getCustomCoverForSong(song);
+  if (custom) applyCoverDataUrl(custom, options);
+  else loadCoverFromUrl(song.cover ? coverUrlWithSize(song.cover, 400) : '', options);
 }
 
 function setControlCoverSrc(src) {
@@ -561,6 +590,7 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   opts = opts || {};
   if (!cv || !coverApplyStillCurrent(opts)) return;
   var token = ++coverProcessToken;
+  if (opts.trackToken != null) coverTextureTrackToken = opts.trackToken;
   if (opts.coverSource && opts.coverSourceKind) {
     currentCoverSource = { kind: opts.coverSourceKind, src: opts.coverSource };
   }

@@ -581,6 +581,7 @@ function finishSplashReveal(forceLoad, opts) {
   // Never make the renderer's visibility depend on the next animation frame.
   // The desktop HWND may already be in its native handoff at this point.
   releaseStartupFastSkipPreload();
+  if (typeof maybeOfferOriginalProfileImport === 'function') maybeOfferOriginalProfileImport();
   requestAnimationFrame(function () {
     var homeShown = updateEmptyHomeVisibility({ forceLoad: forceLoad !== false });
     if (!homeShown && shouldForceEmptyHomeAfterSplash()) {
