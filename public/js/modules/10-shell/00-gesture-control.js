@@ -149,7 +149,7 @@ function gesturePlayerActionsAllowed() {
   if (!gestureHostVisible()) return false;
   if (document.body && document.body.classList.contains('desktop-software-locked')) return false;
   if (typeof progressDragState !== 'undefined' && progressDragState && progressDragState.active) return false;
-  if (document.querySelector('.modal-mask.show,.modal.show,.login-easter-overlay.show,.login-easter-overlay.active')) return false;
+  if (document.querySelector('.modal-mask.show,.modal.show')) return false;
   var active = document.activeElement;
   if (active && (/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) || active.isContentEditable)) return false;
   return true;

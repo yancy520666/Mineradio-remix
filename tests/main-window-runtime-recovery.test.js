@@ -7,7 +7,6 @@ const path = require('path');
 const appRoot = path.resolve(__dirname, '..');
 const mainText = fs.readFileSync(path.join(appRoot, 'desktop', 'main.js'), 'utf8');
 const runtimeText = fs.readFileSync(path.join(appRoot, 'desktop', 'wallpaper-engine-runtime.js'), 'utf8');
-const htmlText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
 const desktopShellText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '04-desktop-overlay-fullscreen.js'), 'utf8');
 
 function sourceBlock(text, startNeedle, endNeedle) {
@@ -16,19 +15,6 @@ function sourceBlock(text, startNeedle, endNeedle) {
   const end = text.indexOf(endNeedle, start + startNeedle.length);
   assert(end > start, `missing source block terminator: ${endNeedle}`);
   return text.slice(start, end);
-}
-
-function testLoginWishTitle() {
-  assert.match(
-    htmlText,
-    /<h1>\s*心愿是\s*<\/h1>/,
-    'login easter-egg panel title must stay as 心愿是'
-  );
-  assert.doesNotMatch(
-    htmlText,
-    /<h1>\s*我希望\s*<\/h1>/,
-    'old title 我希望 must not return'
-  );
 }
 
 function testWallpaperEngineElevationBroker() {
@@ -132,7 +118,6 @@ function testWindowVisibilityAndSystemWakeGuards() {
   assert.match(mainText, /powerMonitor\.on\('unlock-screen',[\s\S]{0,160}restoreUnexpectedMainWindowVisibility\(mainWindow, 'screen-unlock'\)/, 'screen unlock must check main window visibility');
 }
 
-testLoginWishTitle();
 testWallpaperEngineElevationBroker();
 testRendererGoneDelayedRecovery();
 testWindowVisibilityAndSystemWakeGuards();
