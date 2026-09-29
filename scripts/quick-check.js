@@ -299,20 +299,17 @@ function runQQVipEntitlementRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
-function runLoginEasterEggGateRegressionCheck() {
-  logStep('Login easter egg one-time gate and IME focus regression');
-  const testFiles = [
-    path.join(appRoot, 'tests', 'login-easter-egg-gate.test.js'),
-    path.join(appRoot, 'tests', 'login-easter-egg-ime-focus.test.js'),
-  ];
-  const result = spawnSync(process.execPath, ['--test'].concat(testFiles), {
+function runDirectLoginEntryRegressionCheck() {
+  logStep('Direct account binding entry regression');
+  const testFile = path.join(appRoot, 'tests', 'login-entry-direct.test.js');
+  const result = spawnSync(process.execPath, [testFile], {
     cwd: appRoot,
     encoding: 'utf8',
   });
   if (result.status !== 0) {
     process.stdout.write(result.stdout || '');
     process.stderr.write(result.stderr || '');
-    fail(`login easter egg gate/IME regression failed: ${testFiles.map(rel).join(', ')}`);
+    fail(`direct account binding entry regression failed: ${rel(testFile)}`);
   }
   process.stdout.write(result.stdout || '');
 }
@@ -5658,7 +5655,7 @@ async function main() {
   runCuratedVisualPresetsRegressionCheck();
   runVisualClarityAndPortraitFullscreenRegressionCheck();
   runQQVipEntitlementRegressionCheck();
-  runLoginEasterEggGateRegressionCheck();
+  runDirectLoginEntryRegressionCheck();
   runQishuiProviderDistributionRegressionCheck();
   runProviderRemovalDiyCinemaRegressionCheck();
   runVisualPerformanceControlsRegressionCheck();

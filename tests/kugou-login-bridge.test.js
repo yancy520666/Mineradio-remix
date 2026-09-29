@@ -114,10 +114,9 @@ test('Kugou cancelled re-login never returns the discarded session', async () =>
   assert.equal(harness.state.intervals.size, 0);
 });
 
-test('Kugou renderer re-login options reach the main handler and retain the login gate', async () => {
+test('Kugou renderer re-login options reach the main handler without an unlock step', async () => {
   let desktopApi;
   let handler;
-  let unlocked = true;
   const owner = {};
   const calls = [];
   const handlerSource = main.slice(
@@ -126,8 +125,6 @@ test('Kugou renderer re-login options reach the main handler and retain the logi
   );
   vm.runInNewContext(handlerSource, {
     ipcMain: { handle: (_channel, callback) => { handler = callback; } },
-    loginEasterEggGate: { isUnlocked: () => unlocked },
-    loginEasterEggLockedResult: () => ({ ok: false, error: 'LOCKED' }),
     getSenderWindow: () => owner,
     openKugouMusicLoginWindow: async (receivedOwner, options) => {
       assert.equal(receivedOwner, owner);
@@ -149,8 +146,7 @@ test('Kugou renderer re-login options reach the main handler and retain the logi
   assert.equal(calls[0].forceReauth, true);
   await desktopApi.openKugouMusicLogin();
   assert.equal(calls[1].forceReauth, undefined);
-  unlocked = false;
   const result = await desktopApi.openKugouMusicLogin({ forceReauth: true });
-  assert.equal(result.error, 'LOCKED');
-  assert.equal(calls.length, 2);
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 3);
 });
