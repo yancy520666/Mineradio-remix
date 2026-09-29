@@ -423,6 +423,9 @@ async function resumePausedAudioFast(opts) {
   var src = media.currentSrc || media.src || '';
   var token = trackSwitchToken;
   try {
+    await ensurePlaybackAudioGraph('manual-resume-before-play');
+    if (!isSameAudioPlaybackTarget(media, src) || token !== trackSwitchToken) return null;
+    if (audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
     restorePlaybackGain();
     await awaitMediaPlayWithTimeout(media, media.play(), token);
     if (!isSameAudioPlaybackTarget(media, src) || token !== trackSwitchToken) return false;
@@ -484,10 +487,27 @@ async function attemptAudioPlay(opts) {
     if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
     var fastResume = await resumePausedAudioFast(opts);
     if (fastResume === true) return true;
+    // A closed AudioContext can replace the Audio element while preparing the
+    // fast path. Continue this manual request on the replacement, provided the
+    // queue and track-switch token still belong to the same song.
+    if (audio !== expectedMedia && opts.manual && !opts.trackSwitch && expectedToken === trackSwitchToken
+      && playbackMediaMatchesCurrentQueueItem(audio)) expectedMedia = audio;
     if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
-    if (!audioGraphHealthy()) initAudio();
+    if (opts.manual && !opts.trackSwitch) {
+      await ensurePlaybackAudioGraph('manual-before-play');
+      if (audio !== expectedMedia && expectedToken === trackSwitchToken
+        && playbackMediaMatchesCurrentQueueItem(audio)) expectedMedia = audio;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
+    } else if (!audioGraphHealthy()) initAudio();
     if (opts.fade !== false) preparePlaybackFadeIn();
-    if (opts.manual || opts.trackSwitch) {
+    if (opts.manual && !opts.trackSwitch) {
+      await applyAudioOutputDevice(expectedMedia);
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      var manualPlay = expectedMedia.play();
+      await ensurePlaybackAudioGraph('manual-after-play-request');
+      await awaitMediaPlayWithTimeout(expectedMedia, manualPlay, expectedToken);
+    } else if (opts.trackSwitch) {
       var directPlay = expectedMedia.play();
       await applyAudioOutputDevice(expectedMedia);
       if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) {
