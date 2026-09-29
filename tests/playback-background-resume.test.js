@@ -96,10 +96,21 @@ async function testClosedContextReplacementKeepsManualRequest() {
   assert.deepEqual(calls.slice(0, 3), ['graph', 'output', 'play']);
 }
 
+async function testResolvedPlayWithoutPlaybackDoesNotClaimSuccess() {
+  const { context, calls, media } = makeContext();
+  media.play = () => { calls.push('play-still-paused'); return Promise.resolve(); };
+  let claimedPlaying = false;
+  context.setPlayIcon = (playing) => { if (playing) claimedPlaying = true; };
+  assert.equal(await context.resumePausedAudioFast({ manual: true }), null);
+  assert.equal(media.paused, true);
+  assert.equal(claimedPlaying, false);
+}
+
 Promise.resolve()
   .then(testFastResumeWakesGraphBeforePlayback)
   .then(testManualFallbackWakesGraphBeforePlayback)
   .then(testSuspendedContextNeverClaimsFastResume)
   .then(testClosedContextReplacementKeepsManualRequest)
+  .then(testResolvedPlayWithoutPlaybackDoesNotClaimSuccess)
   .then(() => console.log('OK playback-background-resume'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
