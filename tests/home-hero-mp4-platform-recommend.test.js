@@ -95,7 +95,7 @@ test('home hero video is low-impact and releases its object URL off home', () =>
 
 test('platform recommendation entry uses real feeds and does not synthesize radio searches', () => {
   assert.match(indexHtml, /id="home-platform-recommend-mask"/);
-  for (const source of ['netease', 'qishui', 'qq', 'kugou', 'spotify']) {
+  for (const source of ['netease', 'qishui', 'qq', 'kugou']) {
     assert.match(indexHtml, new RegExp(`data-home-recommend-source="${source}"`));
   }
   const openRadio = namedFunctionSource(dashboardScript, 'openHomeDashboardRadio');
@@ -110,7 +110,7 @@ test('platform recommendation entry uses real feeds and does not synthesize radi
   const feedConfig = namedFunctionSource(dashboardScript, 'homePlatformRecommendationFeedConfig');
   assert.match(feedConfig, /\/api\/qishui\/feed/);
   assert.match(feedConfig, /\/api\/kugou\/recommendations/);
-  assert.match(feedConfig, /\/api\/spotify\/recommendations/);
+  assert.doesNotMatch(feedConfig, /\/api\/spotify\/recommendations/);
   assert.doesNotMatch(feedConfig, /\/api\/qq\/|search/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /apiJson\s*\(\s*config\.endpoint/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.fallback/);
