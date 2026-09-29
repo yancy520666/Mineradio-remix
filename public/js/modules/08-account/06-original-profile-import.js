@@ -7,7 +7,12 @@ function closeOriginalProfileImport() {
   if (modal) modal.classList.remove('show');
   originalProfileImportPending = false;
   try { localStorage.setItem(ORIGINAL_PROFILE_IMPORT_DECISION_KEY, 'skip'); } catch (_) { }
-  if (typeof maybeRunStartupLoginGuide === 'function') maybeRunStartupLoginGuide('profile-import');
+  resumeFirstRunGuidesAfterProfileImport();
+}
+
+function resumeFirstRunGuidesAfterProfileImport() {
+  var visualScheduled = typeof maybeRunStartupVisualGuide === 'function' && maybeRunStartupVisualGuide('profile-import');
+  if (!visualScheduled && typeof maybeRunStartupLoginGuide === 'function') maybeRunStartupLoginGuide('profile-import');
 }
 
 function mergeOriginalVisualSettings(original) {
@@ -90,7 +95,7 @@ async function confirmOriginalProfileImport() {
 function maybeOfferOriginalProfileImport() {
   if (!originalProfileImportPending) return;
   openOriginalProfileImport(false).then(function (opened) {
-    if (!opened && typeof maybeRunStartupLoginGuide === 'function') maybeRunStartupLoginGuide('profile-import');
+    if (!opened) resumeFirstRunGuidesAfterProfileImport();
   });
 }
 
