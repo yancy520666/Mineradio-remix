@@ -1,7 +1,7 @@
 {
-  "name": "mineradio",
-  "productName": "Mineradio",
-  "version": "2.2.0",
+  "name": "mineradio-remix",
+  "productName": "Mineradio Remix",
+  "version": "2.2.1",
   "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
   "author": "Mineradio",
   "license": "GPL-3.0-only",
@@ -14,8 +14,8 @@
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
   },
   "build": {
-    "appId": "com.mineradio.desktop",
-    "productName": "Mineradio",
+    "appId": "com.mineradio.remix",
+    "productName": "Mineradio Remix",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -47,7 +47,7 @@
     ],
     "asar": false,
     "win": {
-      "executableName": "Mineradio",
+      "executableName": "MineradioRemix",
       "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "target": [
@@ -65,14 +65,14 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Mineradio",
+      "shortcutName": "Mineradio Remix",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerHeader": "build/installerHeader.bmp",
-      "include": "build/installer.nsh",
-      "artifactName": "Mineradio-${version}-Setup.${ext}"
+      "include": "build/installer-remix.nsh",
+      "artifactName": "Mineradio-Remix-${version}-Setup.${ext}"
     },
     "publish": [
       {
@@ -97,6 +97,7 @@
     }
   },
   "dependencies": {
+    "electron-updater": "6.8.10",
     "gsap": "^3.15.0",
     "mpg123-decoder": "^1.0.3",
     "music-metadata": "11.14.0",
