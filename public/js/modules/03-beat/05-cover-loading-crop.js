@@ -15,6 +15,8 @@ function loadCoverFromUrl(directUrl, opts) {
   var preserveOnSwitch = !!(opts.trackSwitch || opts.seamlessCover || opts.seamlessTrackSwitch);
   if (!directUrl || typeof directUrl !== 'string' || (!/^https?:\/\//i.test(directUrl) && !/^mineradio-local:\/\/cover\//i.test(directUrl))) {
     if (!coverApplyStillCurrent(opts)) return;
+    previewCurrentTrackCover('', opts);
+    if (opts.trackToken != null) coverTextureTrackToken = opts.trackToken;
     if (preserveOnSwitch && uniforms.uHasCover.value > 0.5) {
       document.getElementById('thumb-cover').removeAttribute('src');
       setControlCoverSrc('');
@@ -39,6 +41,8 @@ function loadCoverFromUrl(directUrl, opts) {
     setControlCoverSrc('');
     return;
   }
+  previewCurrentTrackCover(proxiedUrl, opts);
+  setAlbumBackground(proxiedUrl);
   var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
   img.onload = function () {
     if (!coverApplyStillCurrent(opts)) return;
@@ -148,6 +152,8 @@ function coverCanvasToDataUrl(cv) {
 function applyCoverDataUrl(dataUrl, opts) {
   opts = opts || {};
   if (!dataUrl) return;
+  previewCurrentTrackCover(dataUrl, opts);
+  setAlbumBackground(dataUrl);
   var img = new Image();
   img.decoding = 'async';
   img.onload = function () {

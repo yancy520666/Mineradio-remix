@@ -308,11 +308,20 @@ function playlistPanelDetailHtml(pl, provider, detailWindow) {
 function renderPlaylistPanelDetailState() {
   renderUserPlaylistsList();
 }
-function scrollPlaylistPanelToTop() {
+function scrollPlaylistPanelDetailToTop(button) {
   var panel = document.getElementById('playlist-panel');
-  if (!panel) return;
-  try { panel.scrollTo({ top: 0, behavior: 'smooth' }); }
-  catch (e) { panel.scrollTop = 0; }
+  var detail = button && button.closest ? button.closest('[data-pl-detail]') : null;
+  if (!panel || !detail || detail.getAttribute('data-pl-detail') !== playlistPanelDetailState.key) return;
+  var inner = detail.querySelector('[data-pl-detail-scroll]');
+  if (inner) inner.scrollTop = 0;
+  playlistPanelDetailState.scrollTop = 0;
+  var anchor = detail.previousElementSibling || detail;
+  var toolbar = panel.querySelector('.queue-toolbar');
+  var safeOffset = toolbar ? Math.max(126, toolbar.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 12) : 126;
+  var top = Math.max(0, panel.scrollTop + anchor.getBoundingClientRect().top - panel.getBoundingClientRect().top - safeOffset);
+  // Smooth scrolling continually remounts virtual rows and can stop short.
+  panel.scrollTop = top;
+  schedulePlaylistPanelVirtualRender();
 }
 function scrollPlaylistPanelDetailIntoView(key) {
   var panel = document.getElementById('playlist-panel');
@@ -736,7 +745,7 @@ document.getElementById('pl-list').addEventListener('click', function (e) {
   if (detailTop) {
     e.preventDefault();
     e.stopPropagation();
-    scrollPlaylistPanelToTop();
+    scrollPlaylistPanelDetailToTop(detailTop);
     return;
   }
   var playDetail = e.target && e.target.closest ? e.target.closest('[data-pl-detail-play]') : null;

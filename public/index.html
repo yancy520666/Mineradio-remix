@@ -1538,6 +1538,18 @@
               onclick="toggleQQCookiePanel()">手动导入</button>
             <button id="refresh-qr-btn" class="modal-btn primary" onclick="startSelectedLoginConnection()">开始登录</button>
           </div>
+          <button class="original-profile-link" type="button" onclick="openOriginalProfileImport(true)">导入本机原版配置与账号</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="original-profile-modal" class="modal-mask" role="dialog" aria-modal="true" aria-labelledby="original-profile-title">
+      <div class="modal original-profile-modal">
+        <h2 id="original-profile-title">从原版导入</h2>
+        <p id="original-profile-description">找到本机原版 Mineradio 的配置。导入只补齐 Remix 的默认设置和缺失账号，原版数据不会改动。</p>
+        <div class="btn-row">
+          <button class="modal-btn" type="button" onclick="closeOriginalProfileImport()">暂不导入</button>
+          <button id="original-profile-confirm" class="modal-btn primary" type="button" onclick="confirmOriginalProfileImport()">导入并重启</button>
         </div>
       </div>
     </div>
@@ -1769,7 +1781,7 @@
             <div>
               <div class="update-kicker">MINERADIO</div>
               <div id="update-modal-title" class="update-title">New release</div>
-              <div id="update-modal-version" class="update-version">v2.2.0</div>
+              <div id="update-modal-version" class="update-version">v2.2.1</div>
             </div>
           </div>
           <div class="update-hero">

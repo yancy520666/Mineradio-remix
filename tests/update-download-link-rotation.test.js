@@ -45,6 +45,7 @@ function rendererHarness() {
     URL,
     updatePreviewState: { currentVersion: '2.1.0', selectedDownloadPageIndex: 0 },
     document: {
+      body: { classList: { contains: () => false } },
       getElementById: id => nodes[id] || null,
       querySelector: () => null,
       querySelectorAll: () => [],

@@ -89,6 +89,7 @@ updateCustomCoverButton();
 updateCustomLyricControls();
 updateLikeButtons();
 initUpdatePreview();
+initOriginalProfileImport();
 window.addEventListener('beforeunload', function () {
   saveLastPlaybackSnapshot(true, 'beforeunload');
 });

@@ -17,6 +17,7 @@ var stageLyricTrackSwitchBootstrapUntil = 0;
 var stageLyricResidentBuild = { job: null, timer: 0, raf: 0, token: 0 };
 var stageLyricResidentDemand = { timer: 0, mesh: null, targetIndex: -1, options: null };
 var stageLyricTrackGeneration = 0;
+var stageLyricStyleRefreshTimer = 0;
 
 function stageLyricColorSignature(value) {
   if (!value) return '';
@@ -1994,23 +1995,41 @@ function showStageLine(text, redrawOnly, options) {
   return true;
 }
 
-function refreshCurrentLyricStyle() {
+function applyCurrentLyricStyleRefresh() {
   cancelStageLyricResidentBuild();
   clearStageLyricSingleLinePrewarmCache();
   disposeStageLyricPrewarmMesh();
-  if (!stageLyrics || !stageLyrics.currentText || !stageLyrics.current) return;
-  var progress = stageLyrics.current.userData ? (stageLyrics.current.userData.lastLyricProgress || 0) : 0;
+  if (!stageLyrics || !stageLyrics.currentText || !audio || !lyricsLines.length) return;
+  var media = audio;
+  var token = trackSwitchToken;
+  var playbackTime = stageLyricPlaybackSeconds();
+  var lyricTime = typeof getAdjustedLyricPlaybackTime === 'function' ? getAdjustedLyricPlaybackTime(playbackTime) : playbackTime;
+  var index = findStageLyricIndexAtTime(lyricTime);
+  var progress = index >= 0
+    ? getLyricLineProgress(lyricsLines[index], lyricsLines[index + 1], lyricTime)
+    : 0;
   stageLyrics.transitionLineStep = 0;
-  var redrawPayload = stageLyrics.currentPayload || stageLyrics.currentText;
-  if (stageLyrics.currentIdx >= 0 && stageLyricMultiLineWarmupLoad()) {
-    redrawPayload = buildStageLyricDisplayPayload(stageLyrics.currentIdx, { lightweightTrack: true }) || redrawPayload;
-  }
-  showStageLine(redrawPayload, true);
-  updateLyricMeshProgress(stageLyrics.current, progress);
+  var redrawPayload = index >= 0
+    ? buildStageLyricDisplayPayload(index, { lightweightTrack: true })
+    : currentLyricFallbackText();
+  if (!redrawPayload || media !== audio || token !== trackSwitchToken) return;
+  if (!showStageLine(redrawPayload, true) || media !== audio || token !== trackSwitchToken) return;
+  stageLyrics.currentIdx = index < 0 ? -2 : index;
+  if (stageLyrics.current) updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+  if (index >= 0) scheduleStageLyricFullTrackWarmup('style-refresh', 180);
+}
+function refreshCurrentLyricStyle() {
+  if (stageLyricStyleRefreshTimer) clearTimeout(stageLyricStyleRefreshTimer);
+  stageLyricStyleRefreshTimer = setTimeout(function () {
+    stageLyricStyleRefreshTimer = 0;
+    applyCurrentLyricStyleRefresh();
+  }, 80);
 }
 
 function clearStageLyrics() {
+  if (stageLyricStyleRefreshTimer) clearTimeout(stageLyricStyleRefreshTimer);
+  stageLyricStyleRefreshTimer = 0;
   if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('clear-stage-lyrics');
   cancelStageLyricResidentBuild();
   clearStageLyricFullTrackWarmup();
@@ -3202,7 +3221,7 @@ function tickLyricsParticles() {
       requestStageLyricDemandPrewarm(displayPayload);
       var lightweightFallback = buildStageLyricDisplayPayload(newIdx, { lightweightTrack: true });
       if (lightweightFallback) {
-        displayed = showStageLine(lightweightFallback, false, { noSyncBuild: true });
+        displayed = showStageLine(lightweightFallback, false);
         if (displayed) {
           displayPayload = lightweightFallback;
           if (typeof scheduleStageLyricFullTrackWarmup === 'function') scheduleStageLyricFullTrackWarmup('lightweight-upgrade', 96);
