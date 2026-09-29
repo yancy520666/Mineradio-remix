@@ -2,6 +2,8 @@
 
 基于 [XxHuberrr/Mineradio-paused](https://github.com/XxHuberrr/Mineradio-paused) 继续开发的独立改造版。这是 [yancy520666/Mineradio-remix](https://github.com/yancy520666/Mineradio-remix) 的源码仓库；原项目目前已长期停更，本项目基于原作 2.2.0 版本改造。
 
+Remix 由 [yancy520666](https://github.com/yancy520666) 维护，[Codex](https://github.com/codex) 协助代码审查与改进；原版作者及源码来源见下方“来源、隐私与授权”。
+
 ## 已完成的改造
 
 - 改善长时间最小化、切换窗口或系统唤醒后的画面恢复。
@@ -38,7 +40,7 @@ node scripts/quick-check.js
 npm run build:win
 ```
 
-直接运行 `npm start` 会使用原版名称和数据目录；与已安装版本并行测试时请使用上面的专用脚本。本仓库尚未提供经过发布验证的 Remix 安装包。
+直接运行 `npm start` 会使用原版名称和数据目录；与已安装版本并行测试时请使用上面的专用脚本。仓库已生成 v2.2.2 Windows 安装包草稿，公开发布前仍需完成安装验收。
 
 ## 来源、隐私与授权
 
