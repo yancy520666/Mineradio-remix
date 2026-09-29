@@ -137,8 +137,8 @@ const qishuiAudioDecryptCache = new Map();
 const QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES = 96 * 1024 * 1024;
 let qishuiAudioDecryptCacheBytes = 0;
 const UPDATE_FALLBACK_NOTES = [
-  '本次下载入口已更换，请使用公告中的新网盘链接，并更新旧收藏。',
-  '修复音乐接口的登录、账号识别与播放稳定性问题。',
+  '请在 Mineradio Remix 发布页查看更新内容。',
+  '从发布页下载对应版本安装包。',
 ];
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -762,6 +762,9 @@ function writeBeatMapCache(body) {
 function localUpdateFallback(reason, opts) {
   opts = opts || {};
   const configured = !!(opts.configured != null ? opts.configured : false);
+  const noRelease = configured && /GitHub Releases 404/.test(String(reason || ''));
+  const summary = noRelease ? 'Remix 尚未发布安装包。'
+    : reason ? '暂时无法检查更新。' : '当前版本已是最新。';
   return {
     configured,
     preview: UPDATE_CONFIG.preview,
@@ -780,8 +783,8 @@ function localUpdateFallback(reason, opts) {
       asset: null,
       patch: null,
       patchAvailable: false,
-      summary: '当前版本，更新检测已就绪。',
-      notes: UPDATE_FALLBACK_NOTES,
+      summary,
+      notes: noRelease ? ['发布首个 GitHub Release 后，这里会自动检查新版本。'] : [],
     },
     reason: reason || '',
   };
@@ -938,6 +941,7 @@ async function fetchLatestUpdateInfo() {
       },
     });
     if (!resp.ok) {
+      if (resp.status === 404) return localUpdateFallback('GitHub Releases 404', { configured: true });
       try { return await fetchLatestYmlUpdateInfo('GitHub Releases ' + resp.status); }
       catch (_) { return localUpdateFallback('GitHub Releases ' + resp.status, { configured: true }); }
     }
