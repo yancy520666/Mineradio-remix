@@ -9276,6 +9276,21 @@ body.login-guide-active #login-guide-canvas {
   flex-wrap: wrap
 }
 
+.original-profile-link {
+  align-self: center;
+  margin: 0 auto 12px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: #9db8e8;
+  cursor: pointer;
+  font-size: 12px;
+}
+.original-profile-link:hover { color: #fff; text-decoration: underline; }
+.original-profile-modal { max-width: 430px; padding: 28px; text-align: center; }
+.original-profile-modal h2 { margin: 0 0 14px; }
+.original-profile-modal p { color: #b8c2d0; line-height: 1.7; }
+
 .modal-btn {
   padding: 8px 20px;
   font-size: 12.5px;
