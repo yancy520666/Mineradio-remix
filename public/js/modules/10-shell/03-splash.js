@@ -574,12 +574,14 @@ function armSplashSoundFallback() {
 function finishSplashReveal(forceLoad, opts) {
   opts = opts || {};
   markAppPerf('home-revealed');
+  if (typeof setUpdatePreviewVisible === 'function') setUpdatePreviewVisible(updatePreviewState.visible);
   if (typeof resumeSavedGestureControl === 'function') {
     setTimeout(function () { resumeSavedGestureControl(opts.reason || 'splash-reveal'); }, opts.fastSkip ? 120 : 260);
   }
   // Never make the renderer's visibility depend on the next animation frame.
   // The desktop HWND may already be in its native handoff at this point.
   releaseStartupFastSkipPreload();
+  if (typeof maybeOfferOriginalProfileImport === 'function') maybeOfferOriginalProfileImport();
   requestAnimationFrame(function () {
     var homeShown = updateEmptyHomeVisibility({ forceLoad: forceLoad !== false });
     if (!homeShown && shouldForceEmptyHomeAfterSplash()) {

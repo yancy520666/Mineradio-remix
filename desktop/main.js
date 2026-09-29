@@ -17,6 +17,8 @@ const {
 const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
+const { createRemixUpdater } = require('./remix-updater');
+const { createOriginalProfileImporter } = require('./original-profile-import');
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
 const { clearSpotifyToken } = require('../spotify-api');
@@ -98,6 +100,15 @@ const APP_METADATA = APP_PACKAGE_INFO.mineradio || {};
 const APP_NAME = process.env.MINERADIO_RUNTIME_NAME || APP_METADATA.runtimeName || APP_PACKAGE_INFO.productName || 'Mineradio';
 const APP_USER_MODEL_ID = process.env.MINERADIO_APP_USER_MODEL_ID || APP_METADATA.appUserModelId || (APP_PACKAGE_INFO.build && APP_PACKAGE_INFO.build.appId) || 'com.mineradio.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
+const remixUpdater = createRemixUpdater({
+  app,
+  enabled: process.platform === 'win32' && app.isPackaged && APP_NAME === 'Mineradio Remix',
+  onState: (state) => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('mineradio-remix-update-state', state);
+    }
+  },
+});
 const CURRENT_FX_AUTOSAVE_FILE = 'current-fx-autosave.json';
 const CURRENT_FX_AUTOSAVE_MAX_BYTES = 12 * 1024 * 1024;
 const STARTUP_ERROR_LOG_FILE = 'startup-error.log';
@@ -142,6 +153,11 @@ const STARTUP_QA_USER_DATA_PATH = (() => {
 const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_NAME);
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
+const originalProfileImporter = createOriginalProfileImporter({
+  originalPath: path.join(app.getPath('appData'), 'Mineradio'),
+  remixPath: STABLE_USER_DATA_PATH,
+  validateSource: appOwnedMigrationFileValid,
+});
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
 const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS.nativePath;
 fs.mkdirSync(NATIVE_HELPER_TEMP_PATH, { recursive: true });
@@ -4833,6 +4849,40 @@ ipcMain.handle('mineradio-open-update-page', async (event, value) => {
   }
 });
 
+ipcMain.handle('mineradio-remix-update-check', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { supported: false, status: 'error', error: 'UNTRUSTED_SENDER' };
+  return remixUpdater.check();
+});
+ipcMain.handle('mineradio-remix-update-download', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { supported: false, status: 'error', error: 'UNTRUSTED_SENDER' };
+  return remixUpdater.download();
+});
+ipcMain.handle('mineradio-remix-update-install', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  appQuitting = true;
+  try {
+    const result = remixUpdater.install();
+    if (!result.ok) appQuitting = false;
+    return result;
+  } catch (error) {
+    appQuitting = false;
+    return { ok: false, error: String(error && error.message || error || 'UPDATE_INSTALL_FAILED') };
+  }
+});
+
+ipcMain.handle('mineradio-original-profile-inspect', async (event) => {
+  if (!isTrustedMainWindowIpc(event) || !app.isPackaged || APP_NAME !== 'Mineradio Remix') {
+    return { supported: false, available: false, credentials: 0, settings: 0 };
+  }
+  return { supported: true, ...originalProfileImporter.inspect() };
+});
+ipcMain.handle('mineradio-original-profile-import', async (event, visualKeys) => {
+  if (!isTrustedMainWindowIpc(event) || !app.isPackaged || APP_NAME !== 'Mineradio Remix') {
+    return { ok: false, error: 'UNAVAILABLE' };
+  }
+  return originalProfileImporter.importFiles(visualKeys);
+});
+
 ipcMain.handle('mineradio-restart-app', async () => {
   try {
     app.relaunch();
@@ -5224,6 +5274,9 @@ function showMainWindowSafely(win, reason) {
   // in the tray. Runtime recovery must never turn that reload into a surprise
   // foreground window.
   if (startupCompleted && win.__mineradioIntentionalHide === true) return false;
+  // A completed app may reload or recover while another program owns focus.
+  // Startup callbacks must not restore a minimized/hidden window in that case.
+  if (startupCompleted && (win.isMinimized() || !win.isVisible()) && !win.isFocused()) return false;
   markMainWindowExpectedVisible(win, true, reason || 'show-safe');
   if (win.__mineradioStartupShowTimer) {
     clearTimeout(win.__mineradioStartupShowTimer);
@@ -5298,6 +5351,7 @@ function clearMainWindowFullscreenVisibilityGuard() {
 
 function shouldRestoreUnexpectedMainWindowVisibility(win) {
   if (!win || win.isDestroyed() || appQuitting || !startupCompleted) return false;
+  if (!win.isFocused()) return false;
   if (win.__mineradioIntentionalHide === true || win.__mineradioExpectedVisible === false) return false;
   if (fullDesktopModeHostVisibilityTransitionDepth > 0 || fullDesktopModeRuntime.getStatus('main-window-visibility-guard').enabled === true) return false;
   if (win.isMinimized() || win.isVisible()) return false;
@@ -5306,6 +5360,7 @@ function shouldRestoreUnexpectedMainWindowVisibility(win) {
 
 function shouldRestoreUnexpectedMainWindowMinimize(win) {
   if (!win || win.isDestroyed() || appQuitting || !startupCompleted) return false;
+  if (!win.isFocused()) return false;
   if (win.__mineradioIntentionalHide === true || win.__mineradioExpectedVisible === false) return false;
   if (win.__mineradioIntentionalMinimize === true) return false;
   if (fullDesktopModeHostVisibilityTransitionDepth > 0 || fullDesktopModeRuntime.getStatus('main-window-minimize-guard').enabled === true) return false;
@@ -5314,6 +5369,7 @@ function shouldRestoreUnexpectedMainWindowMinimize(win) {
 
 function shouldRestoreUnexpectedFullscreenVisibility(win) {
   if (!win || win.isDestroyed() || appQuitting || win.__mineradioIntentionalHide === true) return false;
+  if (!win.isFocused()) return false;
   if (fullDesktopModeHostVisibilityTransitionDepth > 0 || fullDesktopModeRuntime.getStatus('fullscreen-visibility-guard').enabled === true) return false;
   if (!win.isFullScreen() || win.isMinimized() || win.isVisible()) return false;
   return true;
@@ -5469,6 +5525,7 @@ function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = 
   }
   const keepFullscreen = win.isFullScreen() || windowFullscreenActive;
   const keepIntentionallyHidden = win.__mineradioIntentionalHide === true;
+  const keepBackground = !win.isFocused() || win.isMinimized() || !win.isVisible();
   mainWindowRendererRecoveryPromise = (async () => {
     // Do not navigate synchronously from render-process-gone. Chromium may
     // still be finalizing the dead renderer during the event callback.
@@ -5484,7 +5541,7 @@ function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = 
       win.setFullScreen(true);
     }
     win.__mineradioIntentionalHide = keepIntentionallyHidden;
-    if (!keepIntentionallyHidden) showMainWindowSafely(win, `renderer-recovered-${attempt}`);
+    if (!keepIntentionallyHidden && !keepBackground) showMainWindowSafely(win, `renderer-recovered-${attempt}`);
     else sendWindowState(win);
     win.__mineradioRendererRecoveryFailed = false;
     win.__mineradioUnresponsive = false;
@@ -5501,7 +5558,7 @@ function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = 
     const log = writeStartupErrorLog('Runtime renderer recovery', 'MR-RUNTIME-RENDERER-LOAD', error);
     console.error('[WindowRecovery] renderer reload failed:', error && error.message || error);
     if (!appQuitting && !win.isDestroyed()) {
-      if (!keepIntentionallyHidden) {
+      if (!keepIntentionallyHidden && !keepBackground) {
         try { win.show(); } catch (_) { }
       }
       if (attempt >= RENDERER_RECOVERY_MAX_ATTEMPTS) {

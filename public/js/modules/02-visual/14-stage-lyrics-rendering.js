@@ -10,12 +10,14 @@ var stageLyricPlaybackWarmupLastIndex = -1;
 var stageLyricResumeWarmupLastAt = 0;
 var stageLyricResumeWarmupLastIndex = -1;
 var stageLyricResumeUpgradeDeferUntil = 0;
+var stageLyricBackgroundRestoreLastAt = 0;
 var stageLyricLightweightUpgradeLastAt = 0;
 var stageLyricTextLoadCache = { key: '', info: null };
 var stageLyricTrackSwitchBootstrapUntil = 0;
 var stageLyricResidentBuild = { job: null, timer: 0, raf: 0, token: 0 };
 var stageLyricResidentDemand = { timer: 0, mesh: null, targetIndex: -1, options: null };
 var stageLyricTrackGeneration = 0;
+var stageLyricStyleRefreshTimer = 0;
 
 function stageLyricColorSignature(value) {
   if (!value) return '';
@@ -1993,23 +1995,41 @@ function showStageLine(text, redrawOnly, options) {
   return true;
 }
 
-function refreshCurrentLyricStyle() {
+function applyCurrentLyricStyleRefresh() {
   cancelStageLyricResidentBuild();
   clearStageLyricSingleLinePrewarmCache();
   disposeStageLyricPrewarmMesh();
-  if (!stageLyrics || !stageLyrics.currentText || !stageLyrics.current) return;
-  var progress = stageLyrics.current.userData ? (stageLyrics.current.userData.lastLyricProgress || 0) : 0;
+  if (!stageLyrics || !stageLyrics.currentText || !audio || !lyricsLines.length) return;
+  var media = audio;
+  var token = trackSwitchToken;
+  var playbackTime = stageLyricPlaybackSeconds();
+  var lyricTime = typeof getAdjustedLyricPlaybackTime === 'function' ? getAdjustedLyricPlaybackTime(playbackTime) : playbackTime;
+  var index = findStageLyricIndexAtTime(lyricTime);
+  var progress = index >= 0
+    ? getLyricLineProgress(lyricsLines[index], lyricsLines[index + 1], lyricTime)
+    : 0;
   stageLyrics.transitionLineStep = 0;
-  var redrawPayload = stageLyrics.currentPayload || stageLyrics.currentText;
-  if (stageLyrics.currentIdx >= 0 && stageLyricMultiLineWarmupLoad()) {
-    redrawPayload = buildStageLyricDisplayPayload(stageLyrics.currentIdx, { lightweightTrack: true }) || redrawPayload;
-  }
-  showStageLine(redrawPayload, true);
-  updateLyricMeshProgress(stageLyrics.current, progress);
+  var redrawPayload = index >= 0
+    ? buildStageLyricDisplayPayload(index, { lightweightTrack: true })
+    : currentLyricFallbackText();
+  if (!redrawPayload || media !== audio || token !== trackSwitchToken) return;
+  if (!showStageLine(redrawPayload, true) || media !== audio || token !== trackSwitchToken) return;
+  stageLyrics.currentIdx = index < 0 ? -2 : index;
+  if (stageLyrics.current) updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+  if (index >= 0) scheduleStageLyricFullTrackWarmup('style-refresh', 180);
+}
+function refreshCurrentLyricStyle() {
+  if (stageLyricStyleRefreshTimer) clearTimeout(stageLyricStyleRefreshTimer);
+  stageLyricStyleRefreshTimer = setTimeout(function () {
+    stageLyricStyleRefreshTimer = 0;
+    applyCurrentLyricStyleRefresh();
+  }, 80);
 }
 
 function clearStageLyrics() {
+  if (stageLyricStyleRefreshTimer) clearTimeout(stageLyricStyleRefreshTimer);
+  stageLyricStyleRefreshTimer = 0;
   if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('clear-stage-lyrics');
   cancelStageLyricResidentBuild();
   clearStageLyricFullTrackWarmup();
@@ -3080,6 +3100,43 @@ function markStageLyricsPlaybackResume(reason) {
   resetStageLyricResumeFrameGates();
 }
 
+function restorePausedStageLyrics(reason, forceRebuild) {
+  if (!fx.particleLyrics || fx.lyricPauseHold === false || !audio || !audio.src || !audio.paused || audio.ended || !lyricsLines.length) return false;
+  var media = audio;
+  var token = trackSwitchToken;
+  var time = stageLyricPlaybackSeconds();
+  var lyricTime = typeof getAdjustedLyricPlaybackTime === 'function' ? getAdjustedLyricPlaybackTime(time) : time;
+  var index = findStageLyricIndexAtTime(lyricTime);
+  var displayIndex = index < 0 ? -2 : index;
+  var currentAttached = !!(stageLyrics.current && stageLyrics.group && stageLyrics.current.parent === stageLyrics.group);
+  if (!forceRebuild && currentAttached && stageLyrics.currentIdx === displayIndex) return true;
+  var payload = index < 0
+    ? currentLyricFallbackText()
+    : buildStageLyricDisplayPayload(index, { lightweightTrack: true });
+  if (!payload || media !== audio || token !== trackSwitchToken) return false;
+  stageLyrics.transitionLineStep = 0;
+  if (!showStageLine(payload, true) || media !== audio || token !== trackSwitchToken) return false;
+  stageLyrics.currentIdx = displayIndex;
+  if (index >= 0) {
+    var line = lyricsLines[index];
+    updateLyricMeshProgress(stageLyrics.current, getLyricLineProgress(line, lyricsLines[index + 1], lyricTime),
+      { nativeKaraoke: lyricLineHasNativeKaraoke(line) });
+    if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+    if (typeof scheduleStageLyricFullTrackWarmup === 'function') scheduleStageLyricFullTrackWarmup(reason || 'background-restore', 96);
+  }
+  resetStageLyricResumeFrameGates();
+  return true;
+}
+
+function restoreStageLyricsAfterBackground(reason) {
+  if (!fx.particleLyrics || fx.lyricPauseHold === false || !audio || !audio.paused || !lyricsLines.length) return false;
+  var now = stageLyricNowMs();
+  if (stageLyrics.current && now - stageLyricBackgroundRestoreLastAt < 1000) return true;
+  var restored = restorePausedStageLyrics(reason || 'background-restore', true);
+  if (restored) stageLyricBackgroundRestoreLastAt = now;
+  return restored;
+}
+
 function tickLyricsParticles() {
   if (!fx.particleLyrics) {
     if (stageLyrics.current || stageLyrics.currentText || (stageLyrics.outgoing && stageLyrics.outgoing.length)) clearStageLyrics();
@@ -3094,6 +3151,9 @@ function tickLyricsParticles() {
   }
   if (!playing && !previewingSeek) {
     if (pausedWithTrack) {
+      if (!stageLyrics.current || !stageLyrics.group || stageLyrics.current.parent !== stageLyrics.group) {
+        restorePausedStageLyrics('paused-lyrics-missing', false);
+      }
       if (stageLyrics.current && stageLyrics.current.userData) {
         stageLyrics.current.userData.state = 'in';
         stageLyrics.current.userData.age = Math.max(Number(stageLyrics.current.userData.age) || 0, 0.18);
@@ -3161,7 +3221,7 @@ function tickLyricsParticles() {
       requestStageLyricDemandPrewarm(displayPayload);
       var lightweightFallback = buildStageLyricDisplayPayload(newIdx, { lightweightTrack: true });
       if (lightweightFallback) {
-        displayed = showStageLine(lightweightFallback, false, { noSyncBuild: true });
+        displayed = showStageLine(lightweightFallback, false);
         if (displayed) {
           displayPayload = lightweightFallback;
           if (typeof scheduleStageLyricFullTrackWarmup === 'function') scheduleStageLyricFullTrackWarmup('lightweight-upgrade', 96);

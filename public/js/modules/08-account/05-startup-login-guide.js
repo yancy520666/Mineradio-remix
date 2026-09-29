@@ -106,6 +106,7 @@ function runLoginGuideParticles(done) {
   loginGuideRaf = requestAnimationFrame(draw);
 }
 function maybeRunStartupLoginGuide(source) {
+  if (typeof originalProfileImportPending !== 'undefined' && originalProfileImportPending) return;
   if (startupLoginGuideShown || loginGuideAnimating) return;
   if (visualGuideActive) return;
   if (document.body.classList.contains('splash-active')) return;
@@ -116,7 +117,7 @@ function maybeRunStartupLoginGuide(source) {
   if ((loginModal && loginModal.classList.contains('show')) || (userModal && userModal.classList.contains('show'))) return;
   startupLoginGuideShown = true;
   setTimeout(function () {
-    if (loginStatus.loggedIn || playing || immersiveMode || document.body.classList.contains('splash-active')) return;
+    if (loginStatus.loggedIn || playing || immersiveMode || document.body.classList.contains('splash-active') || originalProfileImportPending) return;
     runLoginGuideParticles(function () { showLoginModal({ guided: true, source: source || 'startup' }); });
   }, source === 'splash' ? 6200 : 2600);
 }

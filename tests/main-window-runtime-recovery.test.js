@@ -59,8 +59,8 @@ function testRendererGoneDelayedRecovery() {
   assert.match(recoveryBlock, /const keepIntentionallyHidden = win\.__mineradioIntentionalHide === true/, 'recovery must snapshot tray hide state');
   assert.match(
     recoveryBlock,
-    /win\.__mineradioIntentionalHide = keepIntentionallyHidden;\s*if \(!keepIntentionallyHidden\) showMainWindowSafely\(win, `renderer-recovered-\$\{attempt\}`\);\s*else sendWindowState\(win\)/,
-    'renderer recovery must not foreground the tray-hidden window'
+    /win\.__mineradioIntentionalHide = keepIntentionallyHidden;\s*if \(!keepIntentionallyHidden && !keepBackground\) showMainWindowSafely\(win, `renderer-recovered-\$\{attempt\}`\);\s*else sendWindowState\(win\)/,
+    'renderer recovery must not foreground a tray-hidden or background window'
   );
 
   const goneBlock = sourceBlock(
@@ -82,6 +82,8 @@ function testWindowVisibilityAndSystemWakeGuards() {
   );
   assert.match(visibilityBlock, /startupCompleted/, 'runtime visibility guard must wait for startup completion');
   assert.match(visibilityBlock, /win\.__mineradioIntentionalHide === true/, 'tray intentional hide must be skipped');
+  assert.equal((visibilityBlock.match(/if \(!win\.isFocused\(\)\) return false;/g) || []).length, 3,
+    'all automatic visibility guards must leave background windows alone');
   assert.match(visibilityBlock, /win\.__mineradioExpectedVisible === false/, 'explicitly hidden windows must not be restored');
   assert.match(visibilityBlock, /fullDesktopModeHostVisibilityTransitionDepth > 0/, 'desktop embedding transitions must be skipped');
   assert.match(visibilityBlock, /fullDesktopModeRuntime\.getStatus\('main-window-visibility-guard'\)\.enabled === true/, 'desktop mode must not be pulled back above Explorer');
@@ -113,6 +115,8 @@ function testWindowVisibilityAndSystemWakeGuards() {
   assert.match(mainText, /win\.on\('closed'[\s\S]{0,160}clearMainWindowVisibilityGuard\(\)/, 'main guard must stop on window close');
   assert.match(mainText, /win\.on\('enter-full-screen'[\s\S]{0,220}startMainWindowFullscreenVisibilityGuard\(win\)/, 'enter fullscreen must start fullscreen guard');
   assert.match(mainText, /win\.on\('leave-full-screen'[\s\S]{0,180}clearMainWindowFullscreenVisibilityGuard\(\)/, 'leave fullscreen must stop fullscreen guard');
+  assert.match(mainText, /startupCompleted && \(win\.isMinimized\(\) \|\| !win\.isVisible\(\)\) && !win\.isFocused\(\)/,
+    'renderer load callbacks must not reopen minimized background windows');
   assert.match(mainText, /const\s+\{[^}]*\bpowerMonitor\b[^}]*\}\s*=\s*require\('electron'\)/, 'main process must import powerMonitor');
   assert.match(mainText, /powerMonitor\.on\('resume',[\s\S]{0,140}restoreUnexpectedMainWindowVisibility\(mainWindow, 'system-resume'\)/, 'system resume must check main window visibility');
   assert.match(mainText, /powerMonitor\.on\('unlock-screen',[\s\S]{0,160}restoreUnexpectedMainWindowVisibility\(mainWindow, 'screen-unlock'\)/, 'screen unlock must check main window visibility');

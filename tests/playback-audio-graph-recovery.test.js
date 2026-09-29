@@ -301,6 +301,40 @@ function testCaptureTrackSwitchCreatesFreshAudioLifetime() {
   assert.equal(freshAudio.__mineradioQueueItemKey, 'queue-alpha');
 }
 
+function testCuefieldGraphIsConsumedOnceBeforeThirdTrack() {
+  const { context, audio, calls } = makeHarness({ allowReplacement: true });
+  assert.equal(context.initAudio(), true);
+  const preparedAudio = {
+    ...audio,
+    src: 'https://local.invalid/audio?id=queue-beta',
+    currentSrc: 'https://local.invalid/audio?id=queue-beta',
+    __mineradioQueueItemKey: 'queue-beta',
+  };
+  const graph = {
+    context: context.audioCtx,
+    source: makeNode(context.audioCtx, 'prepared-source'),
+    analyser: makeNode(context.audioCtx, 'prepared-analyser'),
+    beatAnalyser: makeNode(context.audioCtx, 'prepared-beat-analyser'),
+    gainNode: makeNode(context.audioCtx, 'prepared-gain'),
+    adopted: true,
+  };
+  preparedAudio.__mineradioPreparedAudioGraph = graph;
+  context.audio = preparedAudio;
+
+  context.resetPlaybackAudioGraphForSourceSwitch('album-gapless-handoff');
+  assert.strictEqual(context.audio, preparedAudio, 'handoff replaced the already-playing incoming deck');
+  assert.strictEqual(context.source, graph.source, 'handoff did not adopt the prepared graph');
+  assert.equal(graph.source.disconnectCount, 0, 'incoming deck was disconnected during handoff');
+  assert.equal(preparedAudio.__mineradioPreparedAudioGraph, undefined, 'handoff left a stale prepared graph marker');
+
+  context.resetPlaybackAudioGraphForSourceSwitch('track-switch');
+  assert.notStrictEqual(context.audio, preparedAudio, 'third track reused a lifetime-bound handoff deck');
+  assert.equal(calls.replace, 1, 'third track did not get a fresh Audio lifetime');
+  assert.equal(graph.source.disconnectCount, 1, 'old graph was not disconnected on the third track');
+  assert.equal(context.initAudio(), true, 'third track could not create a new connected audio graph');
+  assert.notStrictEqual(context.source, graph.source, 'third track re-adopted disconnected Cuefield nodes');
+}
+
 function testFrozenClockDoesNotTriggerCaptureRebuild() {
   const { context, calls, runNextTimer } = makeHarness();
   assert.equal(context.initAudio(), true);
@@ -391,6 +425,7 @@ function testForcedCaptureWaitsForMediaReadyState() {
 }
 
 testCaptureTrackSwitchCreatesFreshAudioLifetime();
+testCuefieldGraphIsConsumedOnceBeforeThirdTrack();
 testFrozenClockDoesNotTriggerCaptureRebuild();
 testTwoAdvancingSilentSamplesTriggerCaptureRebuild();
 testTransientCaptureSourceFailureRetainsForcedCaptureRetry();
