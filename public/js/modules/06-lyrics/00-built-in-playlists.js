@@ -90,10 +90,34 @@ async function createBuiltInPlaylist(name, initialTrack) {
   return result.playlist;
 }
 
+var builtInPlaylistPromptResolve = null;
+function closeBuiltInPlaylistPrompt(accepted) {
+  var modal = document.getElementById('built-in-playlist-prompt');
+  var input = document.getElementById('built-in-playlist-prompt-input');
+  var resolve = builtInPlaylistPromptResolve;
+  builtInPlaylistPromptResolve = null;
+  if (modal) modal.classList.remove('show');
+  if (resolve) resolve(accepted && input ? input.value : null);
+}
+
+function askBuiltInPlaylistName(title, initialName) {
+  var modal = document.getElementById('built-in-playlist-prompt');
+  var input = document.getElementById('built-in-playlist-prompt-input');
+  var heading = document.getElementById('built-in-playlist-prompt-title');
+  if (!modal || !input || !heading || builtInPlaylistPromptResolve) return Promise.resolve(null);
+  heading.textContent = title;
+  input.value = initialName;
+  modal.classList.add('show');
+  input.focus();
+  input.select();
+  return new Promise(function (resolve) { builtInPlaylistPromptResolve = resolve; });
+}
+
 function promptCreateBuiltInPlaylist() {
-  var name = window.prompt('新建 Mineradio 内置歌单', '我的歌单');
-  if (name == null) return;
-  createBuiltInPlaylist(name).catch(function (error) {
+  askBuiltInPlaylistName('新建 Mineradio 内置歌单', '我的歌单').then(function (name) {
+    if (name == null) return;
+    return createBuiltInPlaylist(name);
+  }).catch(function (error) {
     console.warn('[BuiltInPlaylistCreate]', error);
     if (typeof showToast === 'function') showToast('创建内置歌单失败');
   });
@@ -131,7 +155,7 @@ async function removeTrackFromBuiltInPlaylist(id, index) {
 }
 
 async function renameBuiltInPlaylist(id, currentName) {
-  var name = window.prompt('重命名内置歌单', String(currentName || ''));
+  var name = await askBuiltInPlaylistName('重命名内置歌单', String(currentName || ''));
   if (name == null || !String(name).trim()) return false;
   var result = await window.desktopWindow.renameBuiltInPlaylist(String(id || ''), String(name).trim());
   if (!result || result.ok !== true) {
