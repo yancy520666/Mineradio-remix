@@ -55,11 +55,16 @@ function currentUpdatePageUrl(preferredIndex) {
 function initUpdatePreview() {
   renderUpdatePreviewPanel();
   setUpdatePreviewVisible(false);
+  if (window.desktopWindow && typeof window.desktopWindow.onRemixUpdateState === 'function') {
+    window.desktopWindow.onRemixUpdateState(applyRemixUpdateState);
+  }
   checkLatestUpdate();
 }
 
 function setUpdatePreviewVisible(visible) {
   updatePreviewState.visible = !!visible;
+  // Keep the result ready while the splash covers the title bar.
+  if (document.body.classList.contains('splash-active')) return;
   var entry = document.getElementById('update-entry');
   if (!entry) return;
   entry.classList.toggle('available', updatePreviewState.visible);
@@ -79,6 +84,13 @@ function setUpdatePreviewVisible(visible) {
 
 async function checkLatestUpdate() {
   try {
+    if (window.desktopWindow && typeof window.desktopWindow.checkRemixUpdate === 'function') {
+      var installed = await window.desktopWindow.checkRemixUpdate();
+      if (installed && installed.supported) {
+        applyRemixUpdateState(installed);
+        return;
+      }
+    }
     var data = await apiJson('/api/update/latest?t=' + Date.now());
     applyLatestUpdateInfo(data);
   } catch (e) {
@@ -91,8 +103,32 @@ async function checkLatestUpdate() {
   }
 }
 
+function applyRemixUpdateState(state) {
+  if (!state || !state.supported) return;
+  updatePreviewState.autoMode = true;
+  updatePreviewState.status = state.status || 'idle';
+  updatePreviewState.currentVersion = state.currentVersion || updatePreviewState.currentVersion;
+  updatePreviewState.version = state.version || updatePreviewState.currentVersion;
+  updatePreviewState.progress = Math.max(0, Math.min(100, Number(state.percent) || 0));
+  updatePreviewState.errorReason = state.error || '';
+  updatePreviewState.updateAvailable = ['available', 'downloading', 'downloaded'].indexOf(state.status) >= 0
+    || (state.status === 'error' && !!state.version);
+  updatePreviewState.releaseUrl = state.version
+    ? 'https://github.com/yancy520666/Mineradio-remix/releases/tag/v' + encodeURIComponent(state.version)
+    : '';
+  updatePreviewState.hero = state.status === 'downloaded' ? '新版已下载，随时可以重启安装。'
+    : state.status === 'downloading' ? '正在下载并校验 Remix 安装包。'
+    : state.status === 'error' ? '更新失败，可重试或稍后再试。'
+    : updatePreviewState.updateAvailable ? '发现 Mineradio Remix 新版本。' : '当前版本已是最新。';
+  updatePreviewState.notes = updatePreviewState.updateAvailable
+    ? ['下载完成后由你决定何时重启安装', '现有 Remix 设置和登录信息会保留'] : [];
+  renderUpdatePreviewPanel();
+  setUpdatePreviewVisible(updatePreviewState.updateAvailable);
+}
+
 function applyLatestUpdateInfo(data) {
   data = data || {};
+  updatePreviewState.autoMode = false;
   var release = data.release || {};
   updatePreviewState.currentVersion = data.currentVersion || updatePreviewState.currentVersion;
   updatePreviewState.version = data.latestVersion || release.version || updatePreviewState.currentVersion;
@@ -178,7 +214,7 @@ function renderUpdatePreviewPanel() {
     }).join('');
   }
   renderUpdateDownloadSources();
-  updateUpdatePreviewProgress(0);
+  updateUpdatePreviewProgress();
   syncUpdatePreviewStateClass();
 }
 
@@ -187,7 +223,7 @@ function renderUpdateDownloadSources() {
   if (!container) return;
   var pages = currentUpdateDownloadPages();
   container.innerHTML = '';
-  container.hidden = !updatePreviewState.updateAvailable || pages.length < 2;
+  container.hidden = updatePreviewState.autoMode || !updatePreviewState.updateAvailable || pages.length < 2;
   if (container.hidden) return;
   pages.forEach(function (page, index) {
     var button = document.createElement('button');
@@ -222,7 +258,12 @@ function syncUpdatePreviewStateClass() {
   }
   var label = document.getElementById('update-btn-label');
   if (label) {
-    if (isOpening) label.textContent = '正在打开下载页';
+    if (updatePreviewState.autoMode) {
+      if (updatePreviewState.status === 'downloading') label.textContent = '下载中 ' + Math.round(updatePreviewState.progress) + '%';
+      else if (updatePreviewState.status === 'downloaded') label.textContent = '立即重启安装';
+      else if (updatePreviewState.status === 'error') label.textContent = '重试更新';
+      else label.textContent = '确认下载更新';
+    } else if (isOpening) label.textContent = '正在打开下载页';
     else if (isOpened) label.textContent = '下载页已打开';
     else if (isError) label.textContent = '重试打开';
     else if (!updatePreviewState.updateAvailable) label.textContent = '当前已是最新';
@@ -232,7 +273,9 @@ function syncUpdatePreviewStateClass() {
   }
   var btn = document.getElementById('update-primary-btn');
   if (btn) {
-    btn.disabled = isOpening || !updatePreviewState.updateAvailable || !updateUrl;
+    btn.disabled = updatePreviewState.autoMode
+      ? !updatePreviewState.updateAvailable || updatePreviewState.status === 'downloading'
+      : isOpening || !updatePreviewState.updateAvailable || !updateUrl;
   }
   var sourceButtons = document.querySelectorAll('#update-download-sources .update-download-source');
   Array.prototype.forEach.call(sourceButtons, function (sourceButton) {
@@ -242,7 +285,10 @@ function syncUpdatePreviewStateClass() {
   });
   var foot = document.getElementById('update-footnote');
   if (foot) {
-    if (isOpening) foot.textContent = '正在调用系统浏览器。';
+    if (updatePreviewState.autoMode) foot.textContent = updatePreviewState.status === 'error'
+      ? '更新失败：' + (updatePreviewState.errorReason || '请稍后重试')
+      : '安装包来自 Mineradio Remix 的 GitHub Release；下载校验完成后再由你决定何时重启。';
+    else if (isOpening) foot.textContent = '正在调用系统浏览器。';
     else if (isError) foot.textContent = '无法打开下载页：' + (updatePreviewState.errorReason || '请稍后重试');
     else if (!updatePreviewState.updateAvailable) foot.textContent = '当前版本已是最新。';
     else if (downloadPages.length || updatePreviewState.externalUrl) foot.textContent = '请使用本次公告中的最新网盘链接，旧收藏链接可能不是最新版。软件不会在本地下载或应用补丁。';
@@ -250,12 +296,12 @@ function syncUpdatePreviewStateClass() {
   }
 }
 
-function updateUpdatePreviewProgress() {
-  updatePreviewState.progress = 0;
+function updateUpdatePreviewProgress(value) {
+  if (Number.isFinite(value)) updatePreviewState.progress = Math.max(0, Math.min(100, value));
   var fill = document.getElementById('update-btn-fill');
-  if (fill) fill.style.width = '0%';
+  if (fill) fill.style.width = updatePreviewState.progress + '%';
   var ring = document.getElementById('update-progress-ring');
-  if (ring) ring.style.strokeDashoffset = '55.29';
+  if (ring) ring.style.strokeDashoffset = String(55.29 * (1 - updatePreviewState.progress / 100));
 }
 
 function openUpdatePanel() {
@@ -320,6 +366,23 @@ function openUpdateDownloadSource(index) {
 }
 
 async function startUpdatePreviewDownload(preferredIndex) {
+  if (updatePreviewState.autoMode) {
+    if (!window.desktopWindow) return;
+    try {
+      if (updatePreviewState.status === 'downloaded') {
+        var installed = await window.desktopWindow.installRemixUpdate();
+        if (!installed || installed.ok !== true) throw new Error(installed && installed.error || 'UPDATE_INSTALL_FAILED');
+      } else {
+        applyRemixUpdateState({ supported: true, status: 'downloading', version: updatePreviewState.version,
+          currentVersion: updatePreviewState.currentVersion, percent: 0 });
+        applyRemixUpdateState(await window.desktopWindow.downloadRemixUpdate());
+      }
+    } catch (error) {
+      applyRemixUpdateState({ supported: true, status: 'error', version: updatePreviewState.version,
+        currentVersion: updatePreviewState.currentVersion, error: error && error.message || 'UPDATE_FAILED' });
+    }
+    return;
+  }
   if (updatePreviewState.status === 'opening') return;
   if (!updatePreviewState.updateAvailable) {
     showToast('当前版本已是最新');

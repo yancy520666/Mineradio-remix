@@ -63,6 +63,7 @@ var updatePreviewState = {
   configured: false,
   preview: false,
   updateAvailable: false,
+  autoMode: false,
   releaseUrl: '',
   externalUrl: '',
   downloadPageUrl: '',
