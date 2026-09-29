@@ -1704,6 +1704,17 @@
     </div>
 
     <!-- 收藏到歌单模态 -->
+    <div id="built-in-playlist-prompt" class="modal-mask" role="dialog" aria-modal="true" aria-labelledby="built-in-playlist-prompt-title" onclick="if(event.target===this)closeBuiltInPlaylistPrompt(false)">
+      <div class="modal built-in-playlist-prompt-modal">
+        <h2 id="built-in-playlist-prompt-title">内置歌单</h2>
+        <input id="built-in-playlist-prompt-input" type="text" maxlength="40" autocomplete="off" aria-label="歌单名称" onkeydown="if(event.key==='Enter')closeBuiltInPlaylistPrompt(true);else if(event.key==='Escape')closeBuiltInPlaylistPrompt(false)">
+        <div class="btn-row">
+          <button class="modal-btn" type="button" onclick="closeBuiltInPlaylistPrompt(false)">取消</button>
+          <button class="modal-btn primary" type="button" onclick="closeBuiltInPlaylistPrompt(true)">确定</button>
+        </div>
+      </div>
+    </div>
+
     <div id="collect-modal" class="modal-mask">
       <div class="modal collect-modal">
         <h2>收藏到歌单</h2>
@@ -1781,7 +1792,7 @@
             <div>
               <div class="update-kicker">MINERADIO</div>
               <div id="update-modal-title" class="update-title">New release</div>
-              <div id="update-modal-version" class="update-version">v2.2.1</div>
+              <div id="update-modal-version" class="update-version">v2.2.2</div>
             </div>
           </div>
           <div class="update-hero">

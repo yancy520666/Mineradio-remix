@@ -432,7 +432,7 @@ function normalizeFxArchiveSnapshot(raw) {
     memorySystemIntervalMin: archiveNumber(raw, 'memorySystemIntervalMin', fxDefaults.memorySystemIntervalMin, 5, 180),
     memorySystemThresholdPercent: archiveNumber(raw, 'memorySystemThresholdPercent', fxDefaults.memorySystemThresholdPercent, 50, 98),
     memorySystemMask: archiveNumber(raw, 'memorySystemMask', fxDefaults.memorySystemMask, 1, 29),
-    memorySafetyRevision: fxDefaults.memorySafetyRevision,
+    memorySafetyRevision: Number(raw.memorySafetyRevision) || 0,
     liveBackgroundKeep: normalizePerformanceBackgroundMode(raw.performanceBackground, raw.liveBackgroundKeep === true) === 'keep',
     sonicGroundAmplitude: archiveNumber(raw, 'sonicGroundAmplitude', fxDefaults.sonicGroundAmplitude, 0, 100),
     sonicGroundMotionSpeed: archiveNumber(raw, 'sonicGroundMotionSpeed', fxDefaults.sonicGroundMotionSpeed, 0, 100),
@@ -1077,8 +1077,11 @@ async function copyUserFxArchiveShareCode(index) {
     if (copied) {
       showToast(code.length > 12000 ? '完整短码已复制，配置较长' : '用户存档短码已复制');
     } else {
-      window.prompt('复制这段 MR2 短代码', code);
-      showToast('已打开完整短码');
+      userFxArchiveShareDraft = code;
+      var input = userFxArchiveShareInput();
+      if (input) input.value = code;
+      focusUserFxArchiveShareInput(true);
+      showToast('复制失败，已选中完整短码；按 Ctrl+C 复制');
     }
   } catch (e) {
     showToast('短码生成失败');
