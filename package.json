@@ -77,16 +77,16 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "XxHuberrr",
-        "repo": "Mineradio"
+        "owner": "yancy520666",
+        "repo": "Mineradio-remix"
       }
     ]
   },
   "mineradio": {
     "update": {
       "provider": "github",
-      "owner": "XxHuberrr",
-      "repo": "Mineradio",
+      "owner": "yancy520666",
+      "repo": "Mineradio-remix",
       "preview": false,
       "preferMirrors": true,
       "mirrors": [
