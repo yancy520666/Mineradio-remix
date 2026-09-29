@@ -120,18 +120,6 @@ const { planCuefieldTransitionFromCache } = require('./cuefield/mineradio-bridge
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const LOGIN_EASTER_EGG_GATE_FILE = String(process.env.MINERADIO_LOGIN_EASTER_EGG_GATE_FILE || '');
-const LOGIN_EASTER_EGG_GATE_VERSION = String(process.env.MINERADIO_LOGIN_EASTER_EGG_GATE_VERSION || 'world-peace-v1');
-const LOGIN_EASTER_EGG_PROTECTED_ROUTES = new Set([
-  '/api/login/cookie',
-  '/api/login/qr/key',
-  '/api/login/qr/create',
-  '/api/login/qr/check',
-  '/api/qq/login/cookie',
-  '/api/kugou/login/cookie',
-  '/api/qishui/login/qrcode',
-  '/api/qishui/login/check',
-]);
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const DEFAULT_COOKIE_FILE = path.join(__dirname, '.cookie');
 const DEFAULT_QQ_COOKIE_FILE = path.join(__dirname, '.qq-cookie');
@@ -4619,19 +4607,6 @@ async function handlePlatformListenReport(body) {
 // ====================================================================
 //  HTTP Server
 // ====================================================================
-function loginEasterEggGateUnlocked() {
-  if (!LOGIN_EASTER_EGG_GATE_FILE) return true;
-  try {
-    const state = JSON.parse(fs.readFileSync(LOGIN_EASTER_EGG_GATE_FILE, 'utf8')) || {};
-    return state.gateVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      state.cookieResetVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      state.resetComplete === true &&
-      state.unlocked === true;
-  } catch (_) {
-    return false;
-  }
-}
-
 const server = http.createServer(async (req, res) => {
   refreshConfiguredCookieStores(false);
   const url = new URL(req.url, 'http://localhost:' + PORT);
@@ -4639,16 +4614,6 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/spotify' || pn.indexOf('/api/spotify/') === 0) {
     sendJSON(res, { ok: false, error: 'PROVIDER_REMOVED', message: '该平台接口已从 Mineradio 移除。' }, 404);
-    return;
-  }
-
-  if (LOGIN_EASTER_EGG_PROTECTED_ROUTES.has(pn) && !loginEasterEggGateUnlocked()) {
-    sendJSON(res, {
-      ok: false,
-      unlocked: false,
-      error: 'LOGIN_EASTER_EGG_LOCKED',
-      message: '请先完成登录彩蛋解锁。',
-    }, 423);
     return;
   }
 

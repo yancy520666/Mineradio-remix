@@ -169,7 +169,7 @@ function resetAllProviderRendererLoginState() {
   }
 }
 
-async function logoutAllAccountsAndResetEasterEgg() {
+async function logoutAllAccounts() {
   if (logoutAllAccountsResetBusy) return;
   if (Date.now() > logoutAllAccountsResetConfirmUntil) {
     armLogoutAllAccountsResetConfirmation();
@@ -189,12 +189,11 @@ async function logoutAllAccountsAndResetEasterEgg() {
       apiJson('/api/kugou/logout'),
       apiJson('/api/qishui/logout')
     ]);
-    var result = await requestLoginEasterEggReplayReset();
-    if (!result || !result.ok || result.unlocked || result.resetComplete === false) {
-      throw new Error(result && (result.error || result.message) || 'LOGIN_EASTER_EGG_REPLAY_RESET_FAILED');
+    if (window.desktopWindow && typeof window.desktopWindow.clearAllLoginState === 'function') {
+      var result = await window.desktopWindow.clearAllLoginState();
+      if (!result || !result.ok) throw new Error(result && result.error || 'LOGIN_STATE_CLEAR_FAILED');
     }
     resetAllProviderRendererLoginState();
-    resetLoginEasterEggUiForReplay();
     closeCollectModal();
     closeUserModal();
     closeLoginModal();
@@ -207,9 +206,9 @@ async function logoutAllAccountsAndResetEasterEgg() {
     if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(true);
     if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility({ forceLoad: false });
     if (typeof renderHomeDashboard === 'function') renderHomeDashboard();
-    showToast('已退出全部账号，登录彩蛋已重新开启');
+    showToast('已退出全部账号');
   } catch (error) {
-    console.warn('Logout all accounts and reset easter egg failed:', error);
+    console.warn('Logout all accounts failed:', error);
     showToast('清理未完成，请重启后重试');
   } finally {
     logoutAllAccountsResetBusy = false;

@@ -17,11 +17,6 @@ const {
 const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
-const {
-  LoginEasterEggGate,
-  LOGIN_EASTER_EGG_GATE_VERSION,
-  LOGIN_EASTER_EGG_STATE_FILE,
-} = require('./login-easter-egg-gate');
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
 const { clearSpotifyToken } = require('../spotify-api');
@@ -148,14 +143,6 @@ const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
-const loginEasterEggGate = new LoginEasterEggGate({
-  userDataPath: STABLE_USER_DATA_PATH,
-  credentialRoots: () => [
-    chromiumSessionDataPath(cacheSettings || INITIAL_CACHE_SETTINGS),
-    (() => { try { return app.getPath('sessionData'); } catch (_) { return ''; } })(),
-    path.join(__dirname, '..'),
-  ],
-});
 const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS.nativePath;
 fs.mkdirSync(NATIVE_HELPER_TEMP_PATH, { recursive: true });
 process.env.MINERADIO_NATIVE_TEMP_DIR = NATIVE_HELPER_TEMP_PATH;
@@ -3296,30 +3283,9 @@ async function clearSpotifyMusicLoginSession() {
   return { ok: true, provider: 'spotify' };
 }
 
-function loginEasterEggLockedResult() {
-  return {
-    ok: false,
-    unlocked: false,
-    error: 'LOGIN_EASTER_EGG_LOCKED',
-    message: '请先完成登录彩蛋解锁。',
-  };
-}
-
-async function initializeLoginEasterEggGate() {
-  const status = await loginEasterEggGate.initialize(() => clearAllProviderLoginState('startup-gate'));
-  if (status.resetPerformed) {
-    console.log('[LoginEasterEgg] first-run login credentials reset', {
-      gateVersion: LOGIN_EASTER_EGG_GATE_VERSION,
-      ok: status.resetComplete,
-      error: status.error || '',
-    });
-  }
-  return status;
-}
-
-async function clearAllProviderLoginState(reason) {
+async function clearAllProviderLoginState() {
   if (localServer && typeof localServer.clearAllLoginCredentials === 'function') {
-    const result = localServer.clearAllLoginCredentials(reason || 'login-reset');
+    const result = localServer.clearAllLoginCredentials('logout-all');
     if (!result || result.ok !== true) {
       throw new Error(result && result.error || 'LOCAL_SERVER_LOGIN_STATE_CLEAR_FAILED');
     }
@@ -4819,24 +4785,14 @@ ipcMain.handle('mineradio-current-fx-autosave-save', async (_event, payload = {}
   return writeCurrentFxAutosaveFile(payload || {});
 });
 
-ipcMain.handle('mineradio-login-easter-egg-status', async (event) => {
-  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER', unlocked: false };
-  return loginEasterEggGate.publicStatus();
-});
-
-ipcMain.handle('mineradio-login-easter-egg-unlock', async (event, value) => {
-  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER', unlocked: false };
-  return loginEasterEggGate.unlock(value);
-});
-
-ipcMain.handle('mineradio-login-easter-egg-reset', async (event) => {
-  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER', unlocked: false };
-  return loginEasterEggGate.resetForReplay(() => clearAllProviderLoginState('renderer-replay-reset'));
-});
-
 ipcMain.handle('netease-music-open-login', async (event) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openNeteaseMusicLoginWindow(getSenderWindow(event));
+});
+
+ipcMain.handle('mineradio-clear-all-login', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  try { return await clearAllProviderLoginState(); }
+  catch (error) { return { ok: false, error: String(error && error.message || error) }; }
 });
 
 ipcMain.handle('netease-music-clear-login', async () => {
@@ -4844,7 +4800,6 @@ ipcMain.handle('netease-music-clear-login', async () => {
 });
 
 ipcMain.handle('qq-music-open-login', async (event, options) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openQQMusicLoginWindow(getSenderWindow(event), options || {});
 });
 
@@ -4853,7 +4808,6 @@ ipcMain.handle('qq-music-clear-login', async () => {
 });
 
 ipcMain.handle('kugou-music-open-login', async (event, options) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openKugouMusicLoginWindow(getSenderWindow(event), options || {});
 });
 
@@ -5027,8 +4981,6 @@ function configureLocalServerEnvironment(port) {
   process.env.QISHUI_TOKEN_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-token');
   process.env.QISHUI_QR_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-qr-login.json');
   process.env.MINERADIO_LISTEN_SYNC_FILE = path.join(STABLE_USER_DATA_PATH, 'listen-sync-journal.json');
-  process.env.MINERADIO_LOGIN_EASTER_EGG_GATE_FILE = path.join(STABLE_USER_DATA_PATH, LOGIN_EASTER_EGG_STATE_FILE);
-  process.env.MINERADIO_LOGIN_EASTER_EGG_GATE_VERSION = LOGIN_EASTER_EGG_GATE_VERSION;
   if (!process.env.QISHUI_OAUTH_CONFIG_FILE) {
     process.env.QISHUI_OAUTH_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-oauth.json');
   }
@@ -5245,7 +5197,6 @@ async function ensureLocalServerStarted() {
     configureLocalAppPermissions();
     configureLocalServerEnvironment(port);
     migrateLegacyAuthStorage();
-    await initializeLoginEasterEggGate();
 
     const serverModulePath = path.join(__dirname, '..', 'server.js');
     try { delete require.cache[require.resolve(serverModulePath)]; } catch (_) {}
