@@ -174,6 +174,7 @@ var mainFrameGates = {
 window.__mineradioMainFrameGates = mainFrameGates;
 var mainLoopBackgroundTimer = 0;
 var mainLoopAnimationRequested = false;
+var mainLoopAnimationFrameId = 0;
 function mainLoopDeepBackgroundSleeping() {
   return typeof isDeepBackgroundMode === 'function'
     && isDeepBackgroundMode()
@@ -188,7 +189,7 @@ function mainLoopBackgroundDelayMs() {
 function requestMainLoopAnimationFrame() {
   if (mainLoopAnimationRequested) return;
   mainLoopAnimationRequested = true;
-  requestAnimationFrame(animate);
+  mainLoopAnimationFrameId = requestAnimationFrame(animate);
 }
 function scheduleNextMainLoopFrame() {
   var delay = mainLoopBackgroundDelayMs();
@@ -206,6 +207,13 @@ function wakeMainLoopFromBackground() {
   if (mainLoopBackgroundTimer) {
     clearTimeout(mainLoopBackgroundTimer);
     mainLoopBackgroundTimer = 0;
+  }
+  // A frame requested while minimized may remain pending after Chromium shows
+  // the window again. Replace it so the visible scene and lyrics get a frame.
+  if (mainLoopAnimationRequested && mainLoopAnimationFrameId) {
+    cancelAnimationFrame(mainLoopAnimationFrameId);
+    mainLoopAnimationRequested = false;
+    mainLoopAnimationFrameId = 0;
   }
   requestMainLoopAnimationFrame();
 }
@@ -295,6 +303,7 @@ function targetMainDesktopOverlayFps(now) {
 }
 function animate() {
   mainLoopAnimationRequested = false;
+  mainLoopAnimationFrameId = 0;
   scheduleNextMainLoopFrame();
   var perfProbe = window.__mineradioPerf;
   var framePerfStart = performance.now();

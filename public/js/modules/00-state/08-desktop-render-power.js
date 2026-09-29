@@ -20,6 +20,7 @@ var desktopRuntimeState = {
   embedded: false,
   interactive: false
 };
+var desktopRuntimeStateRevision = 0;
 var renderPowerState = { mode: '', width: 0, height: 0, pixelRatio: 0 };
 var backgroundCacheTrimTimer = 0;
 var backgroundAppMemoryTrimTimer = 0;
@@ -423,6 +424,7 @@ function applyRendererPowerMode() {
 }
 function updateDesktopRuntimeState(state) {
   state = state || {};
+  desktopRuntimeStateRevision++;
   var wasFullscreen = desktopRuntimeState.fullscreen;
   var wasDeep = isDeepBackgroundMode();
   desktopRuntimeState.desktop = !!window.desktopWindow;
@@ -442,6 +444,20 @@ function updateDesktopRuntimeState(state) {
   if (wasDeep && !isDeepBackgroundMode()) recoverVisualsAfterBackground('desktop-runtime-state');
   if (desktopRuntimeState.fullscreen !== wasFullscreen) scheduleMainRendererViewportRefresh('desktop-runtime-state');
 }
+function refreshDesktopRuntimeStateAfterWake(reason) {
+  if (!window.desktopWindow || typeof window.desktopWindow.getState !== 'function') return;
+  var revision = desktopRuntimeStateRevision;
+  return window.desktopWindow.getState().then(function (state) {
+    // A newer push from the main process takes precedence over this reply.
+    if (revision !== desktopRuntimeStateRevision) return;
+    updateDesktopRuntimeState(state);
+    if (!isDeepBackgroundMode() && typeof wakeMainLoopFromBackground === 'function') {
+      wakeMainLoopFromBackground();
+    }
+  }).catch(function (error) {
+    console.warn('[RenderPower] window state refresh failed:', reason || 'wake', error);
+  });
+}
 function installRenderPowerHooks() {
   updateRenderPowerClasses();
   if (window.desktopWindow && typeof window.desktopWindow.getGpuDiagnostics === 'function') {
@@ -453,6 +469,7 @@ function installRenderPowerHooks() {
     });
   }
   document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) refreshDesktopRuntimeStateAfterWake('visibilitychange');
     updateRenderPowerClasses();
     applyRendererPowerMode();
     if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('visibilitychange');
@@ -460,6 +477,7 @@ function installRenderPowerHooks() {
   });
   window.addEventListener('focus', function () {
     desktopRuntimeState.focused = true;
+    refreshDesktopRuntimeStateAfterWake('focus');
     updateRenderPowerClasses();
     applyRendererPowerMode();
     if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('focus');

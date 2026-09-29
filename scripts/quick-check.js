@@ -90,6 +90,22 @@ function runPlaybackAudioGraphRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
+function runBackgroundResumeRegressionChecks() {
+  logStep('Background window and playback resume regression');
+  for (const name of ['background-window-state-recovery.test.js', 'playback-background-resume.test.js']) {
+    const file = path.join(appRoot, 'tests', name);
+    const result = spawnSync(process.execPath, [file], {
+      cwd: appRoot,
+      encoding: 'utf8'
+    });
+    process.stdout.write(result.stdout || '');
+    if (result.status !== 0) {
+      process.stderr.write(result.stderr || '');
+      fail(`background resume regression failed: ${rel(file)}`);
+    }
+  }
+}
+
 function runPlaybackSourceFallbackTransactionCheck() {
   logStep('Playback source fallback finite transaction regression');
   const testFile = path.join(appRoot, 'tests', 'playback-source-fallback-transaction.test.js');
@@ -1499,11 +1515,12 @@ function checkLyricScrollPerformanceGuard() {
     !/function canResumePausedAudioFast/.test(controlsText) ||
     !/function resumePausedAudioFast/.test(controlsText) ||
     !/function schedulePausedAudioResumeMaintenance/.test(controlsText) ||
-    !/var fastResume = await resumePausedAudioFast\(opts\);[\s\S]{0,80}if \(fastResume === true\) return true;[\s\S]{0,140}if \(!audioGraphHealthy\(\)\) initAudio\(\);/.test(controlsText) ||
-    !/restorePlaybackGain\(\);[\s\S]{0,120}await awaitMediaPlayWithTimeout\(media, media\.play\(\), token\);/.test(controlsText) ||
+    !/var fastResume = await resumePausedAudioFast\(opts\);[\s\S]{0,80}if \(fastResume === true\) return true;/.test(controlsText) ||
+    !/await ensurePlaybackAudioGraph\('manual-resume-before-play'\);[\s\S]{0,220}await awaitMediaPlayWithTimeout\(media, media\.play\(\), token\);/.test(controlsText) ||
+    !/await ensurePlaybackAudioGraph\('manual-before-play'\);[\s\S]{0,650}var manualPlay = expectedMedia\.play\(\);/.test(controlsText) ||
     !/setTimeout\(async function \(\) \{[\s\S]{0,240}ensurePlaybackAudioGraph\(\(reason \|\| 'manual-resume-fast'\) \+ '-deferred-graph'\)/.test(controlsText)
   ) {
-    fail('space/button pause resume must use a fast paused-audio path and defer graph maintenance off the input frame');
+    fail('space/button pause resume must wake the audio graph before play and defer later maintenance');
   }
   console.log('[OK] Lyric scrolling keeps one persistent whole-song text runway, bounded effect layers, realtime continuous drag, and warm lyric activation.');
 }
@@ -5627,6 +5644,7 @@ async function main() {
   console.log(`App root: ${appRoot}`);
   runNodeSyntaxCheck(jsCheckFiles());
   runPlaybackAudioGraphRegressionCheck();
+  runBackgroundResumeRegressionChecks();
   runPlaybackSourceFallbackTransactionCheck();
   runPlaybackSingleRepeatLoopRegressionCheck();
   runLocalMusicLibraryRegressionCheck();
