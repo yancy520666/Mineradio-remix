@@ -457,6 +457,7 @@ function forceLoadingSettled(reason) {
 }
 function recoverVisualsAfterBackground(reason) {
   applyRendererPowerMode();
+  if (typeof restoreStageLyricsAfterBackground === 'function') restoreStageLyricsAfterBackground(reason || 'background-restore');
   if (typeof ensureAudiblePlaybackGain === 'function') ensureAudiblePlaybackGain(reason || 'background-restore');
   if (typeof scheduleMainRendererViewportRefresh === 'function') scheduleMainRendererViewportRefresh(reason || 'restore');
   if (audio && audio.src && !audio.paused && ((uniforms.uLoading.value || 0) > 0.015 || loadingTween || loadingHideTimer)) {

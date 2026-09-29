@@ -60,6 +60,8 @@ function initUpdatePreview() {
 
 function setUpdatePreviewVisible(visible) {
   updatePreviewState.visible = !!visible;
+  // Keep the result ready while the splash covers the title bar.
+  if (document.body.classList.contains('splash-active')) return;
   var entry = document.getElementById('update-entry');
   if (!entry) return;
   entry.classList.toggle('available', updatePreviewState.visible);
