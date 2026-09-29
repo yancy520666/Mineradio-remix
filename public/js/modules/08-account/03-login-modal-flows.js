@@ -585,6 +585,7 @@ function closeLoginModal() {
   stopQrPoll();
   setLoginAuthDrawerOpen(false);
   closeGsapModal(document.getElementById('login-modal'));
+  if (typeof maybeRunStartupVisualGuide === 'function') maybeRunStartupVisualGuide('login-close');
 }
 function setLoginProvider(provider, silent) {
   loginProvider = normalizeLoginProviderKey(provider);
