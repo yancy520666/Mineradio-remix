@@ -34,6 +34,8 @@ Mineradio 是 Windows 桌面音乐播放器，包含在线与本地音乐、歌�
 
 需要 Node.js 和 Windows 环境。首次在仓库根目录运行 `npm ci`，之后双击 [start-remix-dev.bat](./start-remix-dev.bat) 启动隔离的源码测试版。窗口标题为 **Mineradio Remix Dev**，用户数据单独保存在 `%APPDATA%\Mineradio Remix Dev`。
 
+登录面板底部的“导入本机原版配置与账号”也支持 Dev 版。点击后先确认，再导入并重启；仅补齐缺失账号和默认视觉设置，已有 Remix 配置及原版文件保持原样。
+
 也可以从命令行安装依赖并启动原版名称的源码窗口：
 
 ```powershell

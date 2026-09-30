@@ -159,6 +159,8 @@ const originalProfileImporter = createOriginalProfileImporter({
   remixPath: STABLE_USER_DATA_PATH,
   validateSource: appOwnedMigrationFileValid,
 });
+const ORIGINAL_PROFILE_IMPORT_SUPPORTED = path.resolve(STABLE_USER_DATA_PATH).toLowerCase()
+  !== path.resolve(app.getPath('appData'), 'Mineradio').toLowerCase();
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
 const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS.nativePath;
 fs.mkdirSync(NATIVE_HELPER_TEMP_PATH, { recursive: true });
@@ -4885,13 +4887,13 @@ ipcMain.handle('mineradio-remix-update-install', async (event) => {
 });
 
 ipcMain.handle('mineradio-original-profile-inspect', async (event) => {
-  if (!isTrustedMainWindowIpc(event) || !app.isPackaged || APP_NAME !== 'Mineradio Remix') {
+  if (!isTrustedMainWindowIpc(event) || !ORIGINAL_PROFILE_IMPORT_SUPPORTED) {
     return { supported: false, available: false, credentials: 0, settings: 0 };
   }
   return { supported: true, ...originalProfileImporter.inspect() };
 });
 ipcMain.handle('mineradio-original-profile-import', async (event, visualKeys) => {
-  if (!isTrustedMainWindowIpc(event) || !app.isPackaged || APP_NAME !== 'Mineradio Remix') {
+  if (!isTrustedMainWindowIpc(event) || !ORIGINAL_PROFILE_IMPORT_SUPPORTED) {
     return { ok: false, error: 'UNAVAILABLE' };
   }
   return originalProfileImporter.importFiles(visualKeys);
