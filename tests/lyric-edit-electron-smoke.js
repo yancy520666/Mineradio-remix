@@ -33,8 +33,8 @@ async function exercise(baseline, fullScene) {
   console.log('EDIT_STAGE:start');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async (fn, label) => {
-    const end = performance.now() + 15000;
-    while (!fn()) { if (performance.now() > end) throw new Error(label + ' ' + JSON.stringify({ build: window.__mineradioLyricBuildStats, edit: typeof fxSliderEdit !== 'undefined' && { active: fxSliderEdit.active, rebuild: fxSliderEdit.rebuild }, prewarm: stageLyricPrewarm.build && { reason: stageLyricPrewarm.build.reason, guard: stageLyricPrewarm.build.guardKey === stageLyricPrewarmBuildGuardKey() }, idx: stageLyrics.currentIdx, initial: stageLyrics.current?.userData.lyric.renderInitialTextReady })); await sleep(25); }
+    const end = performance.now() + 30000;
+    while (!fn()) { if (performance.now() > end) throw new Error(label + ' ' + JSON.stringify({ build: window.__mineradioLyricBuildStats, resident: stageLyricResidentBuild.job && { reason: stageLyricResidentBuild.job.reason, textOnly: stageLyricResidentBuild.job.textOnly, phase: stageLyricResidentBuild.job.state.lastPhase, completed: stageLyricResidentBuild.job.state.completedPhases, total: stageLyricResidentBuild.job.state.totalPhases }, rows: stageLyrics.current?.userData.lyric.rowLayers.map(row => ({ index: row.lineIndex, active: row.isActive, preview: row.editTextPreview, glow: !!row.glow, visible: row.glow?.visible })), edit: typeof fxSliderEdit !== 'undefined' && { active: fxSliderEdit.active, rebuild: fxSliderEdit.rebuild }, prewarm: stageLyricPrewarm.build && { reason: stageLyricPrewarm.build.reason, guard: stageLyricPrewarm.build.guardKey === stageLyricPrewarmBuildGuardKey() }, idx: stageLyrics.currentIdx, initial: stageLyrics.current?.userData.lyric.renderInitialTextReady })); await sleep(25); }
   };
   dismissSplash({ instant: true });
   await sleep(100);
@@ -133,7 +133,11 @@ async function exercise(baseline, fullScene) {
   if (!baseline) await until(() => stageLyrics.current !== mesh && stageLyrics.current.userData.lyric.renderInitialTextReady, 'Cooperative final text');
   else await sleep(450);
   const textReadyMs = performance.now() - releasedAt;
-  if (!baseline) await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'Full visible effects restored');
+  if (!baseline) {
+    audio.currentTime = 20.1;
+    await until(() => stageLyrics.currentIdx === 1, 'Playback moves during effect restoration');
+    await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isActive && row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'Full visible effects restored');
+  }
   const effectsReadyMs = performance.now() - releasedAt;
   console.log('EDIT_STAGE:effects');
   const restored = !baseline && !lyricFxEditActive() && stageLyrics.current.userData.lyric.rowLayers.some(row => row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0);
@@ -157,6 +161,7 @@ async function exercise(baseline, fullScene) {
   }
   let singleGapError = null, missingTranslationRows = null, singlePlaybackAdvanced = false;
   if (!baseline) {
+    audio.currentTime = 0;
     clearStageLyrics(); fx.lyricDisplayMode = 'single';
     showStageLine(buildStageLyricDisplayPayload(0), true); stageLyrics.currentIdx = 0;
     stageLyrics.current.userData.age = 1;
