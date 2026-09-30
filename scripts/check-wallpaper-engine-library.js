@@ -24,7 +24,7 @@ function writeProject(root, name, manifest, files) {
 async function main() {
   // Hosted Windows runners may expose TMP using an 8.3 alias. The library
   // resolves real paths, so build fixtures using the same canonical root.
-  const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-')));
+  const temp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-')));
   const libraryRoot = path.join(temp, 'library');
   const userData = path.join(temp, 'user-data');
   fs.mkdirSync(libraryRoot, { recursive: true });
@@ -194,7 +194,7 @@ async function main() {
   } finally {
     instance.dispose();
     const resolved = path.resolve(temp);
-    if (resolved.startsWith(path.resolve(os.tmpdir()) + path.sep)) fs.rmSync(resolved, { recursive: true, force: true });
+    if (resolved.startsWith(fs.realpathSync.native(os.tmpdir()) + path.sep)) fs.rmSync(resolved, { recursive: true, force: true });
   }
 }
 
