@@ -22,7 +22,9 @@ function writeProject(root, name, manifest, files) {
 }
 
 async function main() {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-'));
+  // Hosted Windows runners may expose TMP using an 8.3 alias. The library
+  // resolves real paths, so build fixtures using the same canonical root.
+  const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-')));
   const libraryRoot = path.join(temp, 'library');
   const userData = path.join(temp, 'user-data');
   fs.mkdirSync(libraryRoot, { recursive: true });
