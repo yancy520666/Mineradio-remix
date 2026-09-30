@@ -36,7 +36,11 @@ async function main() {
   try {
     let ready = false;
     while (Date.now() < deadline) {
-      ready = await evaluate('typeof renderer !== "undefined" && !!renderer && typeof ACCOUNT_PROVIDER_KEYS !== "undefined" && Array.isArray(ACCOUNT_PROVIDER_KEYS) && typeof saveLyricLayout === "function"');
+      // The legacy installer forced D3D11, which can fail on hosted runners.
+      // Use its real settings bridge to seed upgrade data; require live WebGL
+      // when validating every launch of the new installer.
+      const graphics = mode === 'write' ? 'true' : 'typeof renderer !== "undefined" && !!renderer && !renderer.getContext().isContextLost()';
+      ready = await evaluate(graphics + ' && typeof fx !== "undefined" && typeof ACCOUNT_PROVIDER_KEYS !== "undefined" && Array.isArray(ACCOUNT_PROVIDER_KEYS) && typeof saveLyricLayout === "function"');
       if (ready) break;
       await sleep(200);
     }
