@@ -382,6 +382,8 @@ function clearAllRuntimeLoginCredentials(reason) {
 // ---------- 工具 ----------
 function serveStatic(res, filePath) {
   const ext = path.extname(filePath);
+  // Only the bundled visual bridge is embedded by our own player.
+  const embeddedVisual = path.resolve(filePath) === path.join(__dirname, 'public', 'vendor', 'sonic-workshop', 'mineradio-bridge.html');
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not Found'); return; }
     res.writeHead(200, {
@@ -389,8 +391,8 @@ function serveStatic(res, filePath) {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
-      'Content-Security-Policy': "frame-ancestors 'none'",
-      'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': embeddedVisual ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
+      'X-Frame-Options': embeddedVisual ? 'SAMEORIGIN' : 'DENY',
       'Referrer-Policy': 'no-referrer',
       'X-Content-Type-Options': 'nosniff',
     });
@@ -6592,7 +6594,9 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const resp = await fetchPublicResource(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
-      const ct = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      const upstreamType = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      // NetEase's image CDN also labels valid JPEGs with this legacy alias.
+      const ct = upstreamType === 'image/jpg' ? 'image/jpeg' : upstreamType;
       if (!SAFE_COVER_CONTENT_TYPES.has(ct)) {
         if (resp.body) await resp.body.cancel();
         res.writeHead(415, { 'X-Content-Type-Options': 'nosniff' });
