@@ -2017,11 +2017,11 @@ function showStageLine(text, redrawOnly, options) {
   }
   stageLyrics.group.add(mesh);
   stageLyrics.current = mesh;
+  initializeStageLyricPersistentTrack(mesh, payload);
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && fxSliderEdit.trackToken !== trackSwitchToken) {
     fxSliderEdit.trackToken = trackSwitchToken;
     fxSliderEdit.rebuild = true;
   }
-  initializeStageLyricPersistentTrack(mesh, payload);
   return true;
 }
 
