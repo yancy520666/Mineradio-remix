@@ -63,6 +63,7 @@ test('actual server rejects cross-site calls and every private media entry', asy
   const boot = `const http = require('http'), security = require('./server-security');
     const upstream = http.createServer((req, res) => {
       if (req.url === '/svg') { res.writeHead(200, {'content-type':'image/svg+xml'}); res.end('<svg/>'); return; }
+      if (req.url === '/jpg') { res.writeHead(200, {'content-type':'image/jpg; charset=binary'}); res.end(Buffer.from([255,216,255,217])); return; }
       res.writeHead(200, {'content-type':'image/png'}); res.write('fixture'); setTimeout(() => res.destroy(), 30);
     });
     upstream.listen(0, '127.0.0.1', () => {
@@ -84,6 +85,12 @@ test('actual server rejects cross-site calls and every private media entry', asy
   }
   assert(ready, 'isolated server started');
   const legitimate = await fetch(base + '/api/app/version'); assert.equal(legitimate.headers.get('access-control-allow-origin'), null);
+  const bridge = await fetch(base + '/vendor/sonic-workshop/mineradio-bridge.html');
+  assert.equal(bridge.headers.get('content-security-policy'), "frame-ancestors 'self'");
+  assert.equal(bridge.headers.get('x-frame-options'), 'SAMEORIGIN');
+  const player = await fetch(base + '/index.html');
+  assert.equal(player.headers.get('content-security-policy'), "frame-ancestors 'none'");
+  assert.equal(player.headers.get('x-frame-options'), 'DENY');
   for (const headers of [{ Origin: 'https://evil.test' }, { Host: 'evil.test' }, { 'Sec-Fetch-Site': 'cross-site' }]) {
     const status = await new Promise((resolve, reject) => {
       http.get(base + '/api/app/version', { headers }, response => { response.resume(); resolve(response.statusCode); }).on('error', reject);
@@ -97,6 +104,9 @@ test('actual server rejects cross-site calls and every private media entry', asy
   const decrypt = await fetch(base + '/api/audio?url=' + encodeURIComponent('http://127.0.0.1:1/private#auth=fixture')); assert(!decrypt.ok);
   const podcast = await fetch(base + '/api/podcast/dj-beatmap?intro=1&url=' + encodeURIComponent('http://127.0.0.1:1/private')); assert(!podcast.ok);
   const svg = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/svg')); assert.equal(svg.status, 415);
+  const jpg = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/jpg'));
+  assert.equal(jpg.status, 200); assert.equal(jpg.headers.get('content-type'), 'image/jpeg');
+  assert.deepEqual(Buffer.from(await jpg.arrayBuffer()), Buffer.from([255,216,255,217]));
   await assert.rejects(async () => {
     const interrupted = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/broken'));
     await interrupted.arrayBuffer();

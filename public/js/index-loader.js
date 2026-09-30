@@ -96,6 +96,7 @@
     'js/modules/07-fx/09-console-workspace.js',
     'js/modules/08-account/00-update-preview.js',
     'js/modules/08-account/01-login-modal-utils.js',
+    'js/modules/08-account/01a-avatar-recovery.js',
     'js/modules/08-account/02-login-status.js',
     'js/modules/08-account/03-login-modal-flows.js',
     'js/modules/08-account/04-user-modal-logout.js',

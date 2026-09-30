@@ -19,7 +19,7 @@ function updateUserModalUi() {
     chip.className = 'account-provider-chip ' + activeAccountProvider;
     chip.innerHTML = '<span class="account-source-dot ' + meta.dot + '"></span><span>' + meta.label + '</span>';
   }
-  if (avatar) avatar.src = providerAvatarSrc(activeAccountProvider, st);
+  if (avatar) setProviderAvatar(avatar, activeAccountProvider, st);
   if (name) name.textContent = (st && st.nickname) || meta.label;
   if (vipEl) {
     if (activeAccountProvider === 'netease') {
