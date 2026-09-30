@@ -963,6 +963,11 @@ function mergeStageLyricResidentBundle(mesh, bundle) {
   return added;
 }
 
+function stageLyricResidentJobIsCurrent(job, data) {
+  return !!(data && (data.trackPersistent || (job.singleEffects && job.trackToken === trackSwitchToken)) &&
+    stageLyrics.current === job.mesh && data.trackKey === job.trackKey);
+}
+
 function finishStageLyricResidentBuild(job) {
   if (!job || stageLyricResidentBuild.job !== job) return;
   stageLyricResidentBuild.job = null;
@@ -970,11 +975,17 @@ function finishStageLyricResidentBuild(job) {
   stageLyricResidentBuild.raf = 0;
   var bundle = finishLyricRowLayerGroupBuild(job.state);
   var data = job.mesh && job.mesh.userData && job.mesh.userData.lyric;
-  if (!bundle || !data || !data.trackPersistent || stageLyrics.current !== job.mesh || data.trackKey !== job.trackKey) {
+  if (!bundle || !stageLyricResidentJobIsCurrent(job, data)) {
     if (bundle && bundle.group) disposeLyricMesh(bundle.group);
     return;
   }
   var added = mergeStageLyricResidentBundle(job.mesh, bundle);
+  if (job.singleEffects) {
+    data.fxEditTextOnly = false;
+    data.rowLayers.forEach(function (row) { row.editTextPreview = false; });
+    scheduleLyricQualityBuild(0);
+    return;
+  }
   var demandIndex = data.trackPendingPayload && data.trackPendingPayload.trackIndex != null
     ? Number(data.trackPendingPayload.trackIndex)
     : Number(data.trackTargetLineIndex);
@@ -1016,7 +1027,7 @@ function runStageLyricResidentBuild(job) {
   stageLyricResidentBuild.raf = 0;
   if (!job || stageLyricResidentBuild.job !== job || job.token !== stageLyricResidentBuild.token) return;
   var data = job.mesh && job.mesh.userData && job.mesh.userData.lyric;
-  if (!data || !data.trackPersistent || stageLyrics.current !== job.mesh || data.trackKey !== job.trackKey) {
+  if (!stageLyricResidentJobIsCurrent(job, data)) {
     cancelStageLyricResidentBuild();
     return;
   }
@@ -1059,11 +1070,15 @@ function scheduleStageLyricResidentBuildWork(job, delay) {
 function startStageLyricResidentBuild(mesh, targetIndex, start, end, options) {
   options = options || {};
   var data = mesh && mesh.userData && mesh.userData.lyric;
-  if (!data || !data.trackPersistent) return false;
+  var singleEffects = !!(data && data.displayMode === 'single' && options.effectsOnly);
+  if (!data || (!data.trackPersistent && !singleEffects)) return false;
   cancelStageLyricResidentBuild();
-  var payload = buildStageLyricResidentPayload(targetIndex, start, end, { textOnly: options.textOnly === true });
+  var payload = singleEffects
+    ? Object.assign({}, mesh.userData.payload, { trackTextOnly: false })
+    : buildStageLyricResidentPayload(targetIndex, start, end, { textOnly: options.textOnly === true });
   if (!payload) return false;
-  var maskLayout = data.persistentMaskLayout || { fontSize: 128, lineHeight: 138 };
+  var sourceMask = singleEffects && data.rowLayers.length ? data.rowLayers[0].lineMask : null;
+  var maskLayout = data.persistentMaskLayout || { fontSize: sourceMask && sourceMask.logicalFontSize || 128, lineHeight: sourceMask && sourceMask.logicalLineHeight || 138 };
   var state = beginLyricRowLayerGroupBuild(payload, maskLayout, Number(data.worldW) || 6.10, Number(data.worldH) || 1.2, stageLyrics.palette, lyricMotionProfile());
   // Resident chunks are extensions of one continuous track.  Reuse the
   // original track spacing instead of recalculating it from a compact raster.
@@ -1078,6 +1093,8 @@ function startStageLyricResidentBuild(mesh, targetIndex, start, end, options) {
     reason: options.reason || '',
     textOnly: options.textOnly === true,
     effectsOnly: options.effectsOnly === true,
+    singleEffects: singleEffects,
+    trackToken: trackSwitchToken,
     interactive: options.interactive === true,
     state: state,
     token: stageLyricResidentBuild.token,
@@ -1647,6 +1664,12 @@ function finishStageLyricCooperativePrewarm(job) {
       stageLyrics.currentIdx = index;
       updateLyricMeshProgress(stageLyrics.current, getLyricLineProgress(lyricsLines[index], lyricsLines[index + 1], time));
       stageLyrics.current.userData.age = 0.48;
+      if (job.payload.mode === 'single') {
+        var data = stageLyrics.current.userData.lyric;
+        data.fxEditTextOnly = true;
+        data.rowLayers.forEach(function (row) { row.editTextPreview = true; });
+        startStageLyricResidentBuild(stageLyrics.current, index, index, index, { effectsOnly: true, reason: 'fx-edit-single-effects' });
+      }
       scheduleStageLyricFullTrackWarmup('style-refresh', 180);
     }
     updateStageLyricBuildStats(job, false, stageLyricNowMs() - startedAt);

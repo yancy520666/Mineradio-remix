@@ -3,6 +3,8 @@ function lyricFxEditActive() {
   return typeof isLyricFxEditPreviewActive === 'function' && isLyricFxEditPreviewActive();
 }
 function suspendLyricFxEditWork() {
+  var currentData = stageLyrics.current && stageLyrics.current.userData.lyric;
+  if (currentData && currentData.fxEditTextOnly) fxSliderEdit.rebuild = true;
   if (stageLyricPrewarm.build && stageLyricPrewarm.build.reason === 'fx-edit-commit') fxSliderEdit.rebuild = true;
   if (lyricRealtimeRefreshTimer) clearTimeout(lyricRealtimeRefreshTimer);
   lyricRealtimeRefreshTimer = null;
@@ -31,12 +33,12 @@ function finishLyricFxEditWork(rebuild) {
       var index = findStageLyricIndexAtTime(time);
       if (index >= 0) {
         var payload = buildStageLyricDisplayPayload(index, { lightweightTrack: true });
+        payload.trackTextOnly = true;
         if (payload.mode !== 'single') {
           payload.trackEntries = payload.entries;
           var indexes = payload.entries.filter(function (entry) { return !entry.translationLine; }).map(function (entry) { return entry.lineIndex; });
           payload.trackStart = Math.min.apply(Math, indexes);
           payload.trackEnd = Math.max.apply(Math, indexes);
-          payload.trackTextOnly = true;
         }
         startStageLyricCooperativePrewarm(payload, stageLyricPreparedKey(payload), stageLyricPrewarm.token, true, 'fx-edit-commit');
       }
