@@ -41,13 +41,19 @@ function mergeOriginalVisualSettings(original) {
 
 async function openOriginalProfileImport(manual) {
   var bridge = window.desktopWindow;
-  if (!bridge || typeof bridge.inspectOriginalProfile !== 'function') return false;
+  if (!bridge || typeof bridge.inspectOriginalProfile !== 'function') {
+    if (manual && typeof showToast === 'function') showToast('请在桌面播放器中导入本机配置');
+    return false;
+  }
   var description = document.getElementById('original-profile-description');
   try {
     var info = await bridge.inspectOriginalProfile();
     if (info && info.supported === false) {
       var link = document.querySelector('.original-profile-link');
       if (link) link.hidden = true;
+      if (manual && typeof showToast === 'function') showToast('当前播放器已使用原版配置目录，无需导入');
+      originalProfileImportPending = false;
+      return false;
     }
     if (!info || !info.available) {
       if (manual && description) {
@@ -64,8 +70,9 @@ async function openOriginalProfileImport(manual) {
     if (description) description.textContent = '找到 ' + info.settings + ' 项配置文件和 ' + info.credentials + ' 项账号文件。只补齐 Remix 的默认设置与缺失账号；原版文件保持原样。';
     document.getElementById('original-profile-modal').classList.add('show');
     return true;
-  } catch (_) {
+  } catch (error) {
     originalProfileImportPending = false;
+    if (manual && typeof showToast === 'function') showToast('读取原版配置失败，请重试');
     return false;
   }
 }
