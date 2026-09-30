@@ -95,6 +95,8 @@ async function exercise(fixtureBase64) {
     ['fx-bgzoom', 'backgroundMediaZoom', 1.73], ['fx-glassaberration', 'controlGlassChromaticOffset', 91]
   ];
   let inputCount = 0;
+  const heldSlider = document.getElementById(controls[0][0]);
+  heldSlider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 29, pointerType: 'mouse' }));
   for (let frame = 0; frame < 8; frame++) {
     for (let burst = 0; burst < 4; burst++) {
       for (const [id, , value] of controls) {
@@ -111,6 +113,7 @@ async function exercise(fixtureBase64) {
   const liveLineStep = mesh.userData.lyric.lineWorldStep;
   const expectedLineStep = lyricTrackLineStepWorld();
   const sameVideoSource = video.getAttribute('src') === initialSource;
+  heldSlider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 29, pointerType: 'mouse' }));
   controls.forEach(([id]) => document.getElementById(id).dispatchEvent(new Event('change', { bubbles: true })));
   await sleep(450);
   const saved = readCurrentFxAutosaveRaw();
