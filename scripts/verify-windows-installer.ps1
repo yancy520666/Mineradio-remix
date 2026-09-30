@@ -11,7 +11,7 @@ $registryRoots = @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall', 
 function Find-Install {
   @(foreach ($root in $registryRoots) {
     if (Test-Path -LiteralPath $root) {
-      Get-ChildItem -LiteralPath $root | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath } | Where-Object { $_.DisplayName -eq 'Mineradio Remix' }
+      Get-ChildItem -LiteralPath $root | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath } | Where-Object { $_.DisplayName -match '^Mineradio Remix(?: \d+\.\d+\.\d+)?$' }
     }
   })
 }
@@ -29,7 +29,10 @@ function Run-Installer([string]$file) {
 function Installed-Root {
   $entries = @(Find-Install)
   if ($entries.Count -ne 1) { throw 'Expected exactly one Windows uninstall entry.' }
-  $resolved = (Resolve-Path -LiteralPath $entries[0].InstallLocation).Path.TrimEnd('\')
+  # NSIS stores InstallLocation in its application key, not the uninstall key.
+  # Read the quoted uninstaller path as data; never execute a registry command.
+  if ($entries[0].UninstallString -notmatch '^"([^"]+)"(?:\s|$)') { throw 'Unexpected uninstall command format.' }
+  $resolved = (Resolve-Path -LiteralPath (Split-Path -Parent $Matches[1])).Path.TrimEnd('\')
   if ((Split-Path -Leaf $resolved) -ine 'Mineradio Remix' -or $resolved.Length -lt 12) { throw 'Unexpected installation directory.' }
   $marker = Join-Path $resolved '.mineradio-remix-install-root'
   if (-not (Test-Path -LiteralPath $marker) -or (Get-Content -LiteralPath $marker -Raw) -notmatch 'appId=com.mineradio.remix') { throw 'Installation ownership marker is missing.' }
