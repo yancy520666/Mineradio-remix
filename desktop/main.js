@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { createCookieStore, isProtectedCredentialFile } = require('../cookie-storage');
 const { execFile, spawn } = require('child_process');
 const systemMemory = require('./system-memory');
 const {
@@ -4552,6 +4553,11 @@ ipcMain.handle('mineradio-local-library-list', async (event) => {
   }
 });
 
+ipcMain.handle('mineradio-local-library-resolve', (event, id) => {
+  if (!isTrustedMainWindowIpc(event)) return null;
+  return localMusicLibrary.resolveTrack(id);
+});
+
 ipcMain.handle('mineradio-built-in-playlists-list', async (event) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, playlists: [], error: 'UNTRUSTED_SENDER' };
   return builtInPlaylistLibrary.listSync();
@@ -4559,7 +4565,13 @@ ipcMain.handle('mineradio-built-in-playlists-list', async (event) => {
 
 ipcMain.handle('mineradio-built-in-playlist-page', async (event, id, options = {}) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, playlist: null, tracks: [], error: 'UNTRUSTED_SENDER' };
-  return builtInPlaylistLibrary.page(id, options);
+  const result = builtInPlaylistLibrary.page(id, options);
+  result.tracks = (result.tracks || []).map(track => {
+    if (!track.localFileId) return track;
+    const current = localMusicLibrary.resolveTrack(track.localFileId);
+    return current ? { ...track, ...current } : { ...track, localMissing: true, localUrl: '' };
+  });
+  return result;
 });
 
 function builtInPlaylistMutationError(error) {
@@ -4736,7 +4748,8 @@ function loginCookieExportMeta(provider) {
   return entries[key] || null;
 }
 
-ipcMain.handle('mineradio-export-login-cookie', async (_event, provider) => {
+ipcMain.handle('mineradio-export-login-cookie', async (event, provider) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'COOKIE_UNTRUSTED_SENDER' };
   try {
     const meta = loginCookieExportMeta(provider);
     if (!meta) return { ok: false, error: 'UNKNOWN_PROVIDER', message: '未知平台，无法导出登录 cookie' };
@@ -4744,7 +4757,8 @@ ipcMain.handle('mineradio-export-login-cookie', async (_event, provider) => {
       try { return fs.existsSync(file) && fs.statSync(file).isFile() && fs.readFileSync(file, 'utf8').trim(); } catch (_) { return false; }
     });
     if (!source) return { ok: false, error: 'COOKIE_NOT_FOUND', message: `${meta.label} 当前没有可导出的登录 cookie` };
-    const text = fs.readFileSync(source, 'utf8');
+    const text = createCookieStore(source).read();
+    if (!text) return { ok: false, error: 'COOKIE_UNAVAILABLE' };
     const safeName = String(`${meta.label}_登录cookie.txt`).replace(/[\\/:*?"<>|]+/g, '-');
     const filePath = path.join(app.getPath('desktop'), safeName);
     fs.writeFileSync(filePath, text, 'utf8');
@@ -5061,7 +5075,8 @@ function appOwnedMigrationFileValid(name, file) {
     if (!file || !fs.existsSync(file)) return false;
     const stat = fs.statSync(file);
     if (!stat.isFile() || stat.size <= 0 || stat.size > 16 * 1024 * 1024) return false;
-    const text = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').trim();
+    const protectedFile = isProtectedCredentialFile(name);
+    const text = (protectedFile ? createCookieStore(file, { migrate: false }).read() : fs.readFileSync(file, 'utf8')).replace(/^\uFEFF/, '').trim();
     if (!text) return false;
     if (name === '.cookie') return neteaseCookieHasLogin(text);
     if (name === '.qq-cookie') return qqCookieHasLogin(text);
@@ -5103,15 +5118,43 @@ function migrateMisplacedAppOwnedFiles() {
       const mtimeMs = fs.statSync(candidate).mtimeMs;
       if (!best || mtimeMs > best.mtimeMs) best = { file: candidate, mtimeMs };
     });
-    if (!best || path.resolve(best.file) === path.resolve(target)) return;
+    if (!best) return;
     try {
-      fs.copyFileSync(best.file, target);
+      if (isProtectedCredentialFile(name)) {
+        const value = createCookieStore(best.file, { migrate: false }).read();
+        if (!value) return;
+        const store = createCookieStore(target);
+        store.write(value);
+        if (store.read() !== value) throw new Error('CREDENTIAL_MIGRATION_VERIFY_FAILED');
+        // These are obsolete copies in this application's own cache directories.
+        // Remove only after verifying the stable store, so logout cannot revive
+        // an old session on the next launch. Separate original profiles stay intact.
+        for (const sourceDir of sources) {
+          const source = path.join(sourceDir, name);
+          if (path.resolve(source) !== path.resolve(target)) {
+            try { fs.unlinkSync(source); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+          }
+        }
+      } else if (path.resolve(best.file) !== path.resolve(target)) {
+        fs.copyFileSync(best.file, target);
+      } else return;
       fs.utimesSync(target, new Date(), new Date(best.mtimeMs));
       console.log('[UserDataMigration] restored', name);
     } catch (error) {
       console.warn('[UserDataMigration] skipped', name, error.message);
     }
   });
+}
+
+function migrateLegacyCredentialFile(source, target) {
+  if (!source || !target || !fs.existsSync(source) || path.resolve(source) === path.resolve(target)) return;
+  const existing = fs.existsSync(target);
+  const value = createCookieStore(existing ? target : source, { migrate: false }).read();
+  if (!value) throw new Error('CREDENTIAL_MIGRATION_UNAVAILABLE');
+  const store = createCookieStore(target);
+  store.write(value);
+  if (store.read() !== value) throw new Error('CREDENTIAL_MIGRATION_VERIFY_FAILED');
+  fs.unlinkSync(source);
 }
 
 function removeDeprecatedKugouVipEvidenceFiles() {
@@ -5141,10 +5184,7 @@ function migrateLegacyAuthStorage() {
   try {
     const legacyNeteaseCookie = path.join(__dirname, '..', '.cookie');
     if (fs.existsSync(legacyNeteaseCookie)) {
-      if (!fs.existsSync(process.env.COOKIE_FILE)) {
-        fs.copyFileSync(legacyNeteaseCookie, process.env.COOKIE_FILE);
-      }
-      fs.unlinkSync(legacyNeteaseCookie);
+      migrateLegacyCredentialFile(legacyNeteaseCookie, process.env.COOKIE_FILE);
     }
   } catch (e) {
     console.warn('Netease cookie migration skipped:', e.message);
@@ -5152,10 +5192,7 @@ function migrateLegacyAuthStorage() {
   try {
     const legacyQQCookie = path.join(__dirname, '..', '.qq-cookie');
     if (fs.existsSync(legacyQQCookie)) {
-      if (!fs.existsSync(process.env.QQ_COOKIE_FILE)) {
-        fs.copyFileSync(legacyQQCookie, process.env.QQ_COOKIE_FILE);
-      }
-      fs.unlinkSync(legacyQQCookie);
+      migrateLegacyCredentialFile(legacyQQCookie, process.env.QQ_COOKIE_FILE);
     }
   } catch (e) {
     console.warn('QQ cookie migration skipped:', e.message);
@@ -5163,10 +5200,7 @@ function migrateLegacyAuthStorage() {
   try {
     const legacyKugouCookie = path.join(__dirname, '..', '.kugou-cookie');
     if (fs.existsSync(legacyKugouCookie)) {
-      if (!fs.existsSync(process.env.KUGOU_COOKIE_FILE)) {
-        fs.copyFileSync(legacyKugouCookie, process.env.KUGOU_COOKIE_FILE);
-      }
-      fs.unlinkSync(legacyKugouCookie);
+      migrateLegacyCredentialFile(legacyKugouCookie, process.env.KUGOU_COOKIE_FILE);
     }
   } catch (e) {
     console.warn('Kugou cookie migration skipped:', e.message);
@@ -5174,10 +5208,7 @@ function migrateLegacyAuthStorage() {
   try {
     const legacyQishuiCookie = path.join(__dirname, '..', '.qishui-cookie');
     if (fs.existsSync(legacyQishuiCookie)) {
-      if (!fs.existsSync(process.env.QISHUI_COOKIE_FILE)) {
-        fs.copyFileSync(legacyQishuiCookie, process.env.QISHUI_COOKIE_FILE);
-      }
-      fs.unlinkSync(legacyQishuiCookie);
+      migrateLegacyCredentialFile(legacyQishuiCookie, process.env.QISHUI_COOKIE_FILE);
     }
   } catch (e) {
     console.warn('Qishui cookie migration skipped:', e.message);
@@ -5185,10 +5216,7 @@ function migrateLegacyAuthStorage() {
   try {
     const legacyQishuiToken = path.join(__dirname, '..', '.qishui-token');
     if (fs.existsSync(legacyQishuiToken)) {
-      if (!fs.existsSync(process.env.QISHUI_TOKEN_FILE)) {
-        fs.copyFileSync(legacyQishuiToken, process.env.QISHUI_TOKEN_FILE);
-      }
-      fs.unlinkSync(legacyQishuiToken);
+      migrateLegacyCredentialFile(legacyQishuiToken, process.env.QISHUI_TOKEN_FILE);
     }
   } catch (e) {
     console.warn('Qishui token migration skipped:', e.message);
@@ -5689,13 +5717,16 @@ async function createWindowOnce() {
   }, STARTUP_SHOW_WATCHDOG_MS);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (/^https?:\/\//i.test(String(url || ''))) shell.openExternal(url).catch(() => {});
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (event, url) => {
     if (isTrustedMainDocumentUrl(url)) return;
     event.preventDefault();
     if (/^https?:\/\//i.test(String(url || ''))) shell.openExternal(url).catch(() => {});
+  });
+  win.webContents.on('will-redirect', (event, url) => {
+    if (!isTrustedMainDocumentUrl(url)) event.preventDefault();
   });
   win.webContents.on('did-start-navigation', (_event, url, isInPlace, isMainFrame) => {
     if (!isMainFrame || isInPlace || !isTrustedMainDocumentUrl(url)) return;

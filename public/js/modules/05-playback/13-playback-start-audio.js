@@ -894,12 +894,45 @@ function applyLocalTrackLyricOnDemand(song, token) {
   }).catch(function () { });
 }
 
+function skipUnavailableLocalQueueSong(song, idx, token, reason, opts) {
+  if (token !== trackSwitchToken) return false;
+  var skipped = (Number(opts.localMissingChecked) || 0) + 1;
+  var noticeKey = opts.localSkipNoticeKey || 'local-skip-' + token;
+  var limit = Math.min(playQueue.length, 12);
+  var exhausted = skipped >= limit;
+  showSourceFallbackNotice(exhausted ? '本地播放已停止' : '已跳过本地歌曲' + (skipped > 1 ? '（连续 ' + skipped + ' 首）' : ''),
+    '《' + (song && (song.name || song.title) || '本地音乐') + '》：' + reason + (exhausted ? '。请连接磁盘、重新导入文件或选择其他歌曲。' : '，正在播放下一首。'), { coalesceKey: noticeKey });
+  if (exhausted) return settleSourceFallbackTerminal(idx, token, '', { silent: true });
+  return playQueueAt((idx + 1) % playQueue.length, Object.assign({}, opts, { localMissingChecked: skipped, localSkipNoticeKey: noticeKey, skipShuffleOrder: true, manual: false, resumeAt: 0 }));
+}
+
+function handleLocalPlaybackReadFailure(media) {
+  var song = playQueue[currentIdx];
+  if (!media || media !== audio || !media.error || !song || song.type !== 'local') return false;
+  if (media.__mineradioLocalPlaybackStarted !== trackSwitchToken) return false;
+  media.__mineradioLocalPlaybackStarted = 0;
+  var reason = Number(media.error.code) === 2 ? '播放过程中无法继续读取文件，磁盘可能已断开' : '播放过程中遇到音频解码错误';
+  Promise.resolve(skipUnavailableLocalQueueSong(song, currentIdx, trackSwitchToken, reason, media.__mineradioLocalSkipOptions || {})).catch(function (error) {
+    console.warn('[LocalPlaybackRecovery]', error && error.message);
+    showSourceFallbackNotice('本地播放失败', reason + '。请连接磁盘或选择其他歌曲。');
+  });
+  return true;
+}
+
 async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resumeAt) {
   opts = opts || {};
-  if (!song || !song.localUrl) {
-    showToast('本地文件已失效，请重新导入后继续');
-    forcePlaybackControlsInteractive();
-    return false;
+  if (!song) return false;
+  if (song.localFileId && window.desktopWindow && typeof window.desktopWindow.resolveLocalMusicTrack === 'function') {
+    var resolved = await window.desktopWindow.resolveLocalMusicTrack(song.localFileId);
+    if (token !== trackSwitchToken) return false;
+    if (!resolved || resolved.localMissing) {
+      song.localMissing = true;
+      return skipUnavailableLocalQueueSong(song, idx, token, '文件暂时离线或已移动', opts);
+    }
+    Object.assign(song, resolved);
+  }
+  if (!song.localUrl) {
+    return skipUnavailableLocalQueueSong(song, idx, token, '本地播放地址已失效', opts);
   }
   currentLocalSong = song;
   playQueue[idx] = song;
@@ -917,10 +950,14 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
   syncActiveAudioRepeatMode(audio);
   bindPlaybackProgressEvents(audio);
   applyVolumeToAudio();
-  await applyAudioOutputDevice(audio);
+  var localMedia = audio;
+  await applyAudioOutputDevice(localMedia);
+  if (token !== trackSwitchToken || audio !== localMedia) return false;
   audio.src = song.localUrl;
   audio.__mineradioQueueItemKey = queueItemKey(song);
   audio.__mineradioTrackSwitchToken = token;
+  audio.__mineradioLocalPlaybackStarted = 0;
+  audio.__mineradioLocalSkipOptions = opts;
   updatePlaybackProgressUi();
   lyricSunEnergy = 0; lyricSunTarget = 0; lyricSunHold = 0; lyricSunAvg = 0; lyricSunPeak = 0.55;
   audio.onended = function () {
@@ -957,8 +994,13 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
   djBeatMapToken++;
   resetDjBeatMapState();
   setDjModeActive(false);
-  var playbackStarted = await playAudio({ manual: !!opts.manual, silent: !!opts.startupAutoplay || !opts.manual, startupAutoplay: !!opts.startupAutoplay, trackSwitch: true, resumeRecovery: !!opts.resumeRecovery });
+  var playbackStarted = await playAudio({ manual: !!opts.manual, silent: !!opts.startupAutoplay || !opts.manual, startupAutoplay: !!opts.startupAutoplay, trackSwitch: true, resumeRecovery: !!opts.resumeRecovery, expectedMedia: localMedia, expectedToken: token });
+  if (token !== trackSwitchToken || audio !== localMedia) return false;
   if (!playbackStarted) {
+    if (token !== trackSwitchToken) return false;
+    if (audio && audio.error && Number(audio.error.code) >= 2) {
+      return skipUnavailableLocalQueueSong(song, idx, token, Number(audio.error.code) === 2 ? '文件读取失败' : '音频损坏或格式不受支持', opts);
+    }
     forcePlaybackControlsInteractive();
     if (opts.startupAutoplay) {
       return false;
@@ -970,6 +1012,7 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
     return false;
   }
   forcePlaybackControlsInteractive();
+  audio.__mineradioLocalPlaybackStarted = token;
   beginListenSession(song, null);
   applyLocalTrackLyricOnDemand(song, token);
   safeRenderQueuePanel('play-local-queue', { scrollCurrent: miniQueueOpen });

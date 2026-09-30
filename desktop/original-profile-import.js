@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createCookieStore, isProtectedCredentialFile } = require('../cookie-storage');
 
 const CREDENTIAL_FILES = [
   '.cookie', '.qq-cookie', '.kugou-cookie', '.qishui-cookie', '.qishui-token',
@@ -47,8 +48,17 @@ function createOriginalProfileImporter({ originalPath, remixPath, validateSource
       if (!source) continue;
       const destination = path.join(remixPath, name);
       try {
-        if (name.endsWith('.json')) JSON.parse(fs.readFileSync(source, 'utf8'));
-        fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+        const protectedFile = isProtectedCredentialFile(name);
+        if (protectedFile) {
+          if (fs.existsSync(destination)) continue;
+          const text = createCookieStore(source, { migrate: false }).read();
+          if (!text) continue;
+          if (name.endsWith('.json')) JSON.parse(text);
+          createCookieStore(destination).write(text);
+        } else {
+          if (name.endsWith('.json')) JSON.parse(fs.readFileSync(source, 'utf8'));
+          fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+        }
         if (CREDENTIAL_FILES.includes(name)) importedCredentials++;
         else importedSettings++;
       } catch (error) {

@@ -138,7 +138,7 @@ test('FLAC tags, embedded cover and same-name LRC survive a full library reload'
   assert.deepEqual(Buffer.from(await coverResponse.arrayBuffer()), ONE_PIXEL_PNG);
 
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'profile', 'local-music-library.json'), 'utf8'));
-  assert.equal(manifest.version, 1);
+  assert.equal(manifest.version, 2);
   assert.match(manifest.mediaToken, /^[a-f0-9]{48}$/);
   assert.equal(manifest.records[0].id, localFileId(audioPath));
   assert.equal(manifest.records[0].audioPath, audioPath);

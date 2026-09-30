@@ -83,6 +83,7 @@ async function restorePersistedLocalLibrary() {
   var result;
   try { result = await window.desktopWindow.listLocalMusicLibrary(); } catch (e) { return false; }
   if (!result || result.ok !== true || !Array.isArray(result.tracks)) return false;
+  if (result.missing > 0 && typeof showToast === 'function') showToast('本地曲库有 ' + result.missing + ' 首文件暂时离线，已保留记录');
   var tracks = result.tracks.map(function (song) {
     var copy = hydrateCustomCover(Object.assign({}, song));
     copy.localMissing = false;

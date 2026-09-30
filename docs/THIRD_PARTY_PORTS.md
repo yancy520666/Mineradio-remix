@@ -1,5 +1,16 @@
 # Third-party ports
 
+## Upstream reliability and security fixes
+
+- Source: `XxHuberrr/Mineradio-paused`, GPL-3.0-only.
+- [PR #487](https://github.com/XxHuberrr/Mineradio-paused/pull/487), author `sa2360`, revision `3894a4b4cd9528e617d2fe4239dbdbc77badc1ec`: sequential PCM-band reduction and its cancellation/failure regression fixture.
+- [PR #304](https://github.com/XxHuberrr/Mineradio-paused/pull/304), author `ThySummer14`, revision `3fb00bd056581b1421f8cf8e1e26fa8e21f38680`: Cookie storage implementation and local API/proxy boundary design. Remix additionally pins validated DNS results to outbound sockets, covers Qishui/podcast media paths, and preserves credential import/export/logout behavior. The patch-updater subsystem was not ported.
+- [Issue #479](https://github.com/XxHuberrr/Mineradio-paused/issues/479): non-destructive offline filtering and the need to refresh local references in built-in playlists. Remix adds streamed full-content fingerprints, stable relinking and bounded playback skip notices.
+- [PR #486](https://github.com/XxHuberrr/Mineradio-paused/pull/486), [PR #210](https://github.com/XxHuberrr/Mineradio-paused/pull/210), and [iWYes/Mineradio-SMTC](https://github.com/iWYes/Mineradio-SMTC) were inspected as media-control references. Remix implements event-based MediaSession integration with the existing audio owner and playback/seek controls; the polling preload and global-key capture code were not copied.
+
+Port/adaptation date: 2026-09-30. Preserve the upstream copyright notices and
+corresponding source under this repository's GPL-3.0-only license.
+
 ## Cuefield AutoMix transition planner/runtime
 
 - Upstream: `SLYysl/cuefield-mineradio`

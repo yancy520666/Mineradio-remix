@@ -19,7 +19,8 @@ function loadFunctions(context, relativePath, names) {
       if (source[end] === '}' && --depth === 0) break;
     }
     assert(end < source.length, `${name} is incomplete`);
-    vm.runInContext(source.slice(start, end + 1), context, { filename: relativePath });
+    const declarationStart = source.slice(Math.max(0, start - 6), start) === 'async ' ? start - 6 : start;
+    vm.runInContext(source.slice(declarationStart, end + 1), context, { filename: relativePath });
   }
 }
 

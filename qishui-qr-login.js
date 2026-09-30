@@ -7,6 +7,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { createCookieStore } = require('./cookie-storage');
 const qishuiAuthV6 = require('./qishui-auth-v6');
 
 const DEFAULT_CONFIG_FILE = path.join(__dirname, '.qishui-qr-login.json');
@@ -25,7 +26,7 @@ function defaultConfig() {
 function readConfig(file) {
   try {
     if (!file || !fs.existsSync(file)) return defaultConfig();
-    const parsed = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+    const parsed = JSON.parse(createCookieStore(file).read().replace(/^\uFEFF/, ''));
     return { ...defaultConfig(), ...(parsed && typeof parsed === 'object' ? parsed : {}) };
   } catch (error) {
     console.warn('[QishuiQrLogin] ignored invalid config:', error && error.message || error);
@@ -35,8 +36,7 @@ function readConfig(file) {
 
 function writeConfig(file, value) {
   if (!file) return;
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(value, null, 2), 'utf8');
+  createCookieStore(file).write(JSON.stringify(value, null, 2));
 }
 
 function hasLoginCookie(cookie) {
@@ -63,8 +63,9 @@ function createQishuiQrLoginBridge(options) {
 
   function updateConfig(partial) {
     partial = partial && typeof partial === 'object' ? partial : {};
-    config = { ...config, ...partial };
-    writeConfig(configFile, config);
+    const nextConfig = { ...config, ...partial };
+    writeConfig(configFile, nextConfig);
+    config = nextConfig;
     return getConfig();
   }
 
