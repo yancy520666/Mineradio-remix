@@ -160,7 +160,7 @@ async function exercise(baseline, fullScene) {
     }
     fx.lyricFont = previousFont;
   }
-  let singleGapError = null, missingTranslationRows = null, singlePlaybackAdvanced = false;
+  let singleGapError = null, missingTranslationRows = null, singlePlaybackAdvanced = false, singleTextBeforeEffects = false;
   if (!baseline) {
     audio.currentTime = 0;
     clearStageLyrics(); fx.lyricDisplayMode = 'single';
@@ -178,7 +178,11 @@ async function exercise(baseline, fullScene) {
     audio.currentTime = 20.1;
     await until(() => stageLyrics.currentIdx === 1 && stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.mesh.visible && row.mat.uniforms.uEditPreview?.value === 1), 'Single line advances during drag');
     console.log('EDIT_STAGE:single-advanced');
+    const singleDragMesh = stageLyrics.current;
     pointer(gapEl, 'pointerup');
+    await until(() => stageLyrics.current !== singleDragMesh && stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.mesh.visible), 'Single final text before decorations');
+    singleTextBeforeEffects = stageLyrics.current.userData.lyric.fxEditTextOnly === true;
+    console.log('EDIT_STAGE:single-text-restored');
     await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'Single line effects after drag');
     console.log('EDIT_STAGE:single-restored');
     singlePlaybackAdvanced = true;
@@ -224,7 +228,7 @@ async function exercise(baseline, fullScene) {
     preservedTier, savedWeight: saved.lyricWeight, savedSpacing: saved.lyricLetterSpacing, ended, staleTrackVisible,
     renderP95Ms: p95(durations), rafP95Ms: p95(intervals), drawCallsP95: p95(drawCalls), longTasks: longTasks.length,
     longestTaskMs: Math.max(0, ...longTasks), frames: durations.length, textReadyMs, effectsReadyMs, spacingCases,
-    uploadBudgetMax, singleGapError, missingTranslationRows, singlePlaybackAdvanced, newTrackRestored, finalValues, fullScene };
+    uploadBudgetMax, singleGapError, missingTranslationRows, singlePlaybackAdvanced, singleTextBeforeEffects, newTrackRestored, finalValues, fullScene };
 }
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -245,6 +249,7 @@ async function main() {
     assert.equal(result.staleTrackVisible, false, 'clearing a track cannot resurrect a cancelled style job');
     assert.equal(result.uploadBudgetMax, 1); assert(result.singleGapError < 0.004); assert.equal(result.missingTranslationRows, 0);
     assert.equal(result.singlePlaybackAdvanced, true);
+    assert.equal(result.singleTextBeforeEffects, true);
     assert.equal(result.newTrackRestored, true);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/index.html`);
     console.log('EDIT_STAGE:reload');

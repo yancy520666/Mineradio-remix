@@ -56,4 +56,15 @@ assert.equal(timers.size, 0, 'keyboard hold cannot expire between repeated keys'
 events.get('blur')();
 assert.equal(calls.finish, 2);
 assert.equal(g.isLyricFxEditPreviewActive(), false);
+const mesh = {};
+const resident = vm.createContext({ stageLyrics: { current: mesh }, trackSwitchToken: 8 });
+loadFunctions(resident, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricResidentJobIsCurrent']);
+const job = { mesh, trackKey: '', singleEffects: true, trackToken: 8 };
+const singleData = { trackKey: '', trackPersistent: false };
+assert(resident.stageLyricResidentJobIsCurrent(job, singleData), 'single effects can extend the existing text mesh');
+resident.trackSwitchToken++;
+assert(!resident.stageLyricResidentJobIsCurrent(job, singleData), 'track change invalidates single effects');
+resident.trackSwitchToken = 8;
+resident.stageLyrics.current = {};
+assert(!resident.stageLyricResidentJobIsCurrent(job, singleData), 'new displayed text invalidates old effects');
 console.log('[OK] Gesture lifetime and compact translation spacing.');
