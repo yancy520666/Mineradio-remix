@@ -39,7 +39,8 @@ async function exercise(baseline, fullScene) {
   dismissSplash({ instant: true });
   await sleep(100);
   // Real decoded audio keeps the production playback/render loop awake.
-  const bytes = new Uint8Array(44 + 8000 * 40 * 2);
+  // Slow software renderers must not finish the fixture audio between cases.
+  const bytes = new Uint8Array(44 + 8000 * 300 * 2);
   const v = new DataView(bytes.buffer);
   const str = (at, s) => [...s].forEach((c, i) => bytes[at + i] = c.charCodeAt(0));
   str(0, 'RIFF'); v.setUint32(4, bytes.length - 8, true); str(8, 'WAVE'); str(12, 'fmt ');
@@ -179,11 +180,13 @@ async function exercise(baseline, fullScene) {
     console.log('EDIT_STAGE:single-advanced');
     pointer(gapEl, 'pointerup');
     await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'Single line effects after drag');
+    console.log('EDIT_STAGE:single-restored');
     singlePlaybackAdvanced = true;
     audio.currentTime = 0;
     lyricsLines[0].translation = ''; fx.lyricDisplayMode = 'triple'; clearStageLyrics();
     showStageLine(buildStageLyricDisplayPayload(0), true); stageLyrics.currentIdx = 0;
     await until(() => stageLyrics.current.userData.lyric.renderInitialTextReady, 'Missing translation text');
+    console.log('EDIT_STAGE:missing-translation');
     missingTranslationRows = stageLyrics.current.userData.lyric.rowLayers.filter(row => row.isTranslation && row.parentIndex === 0).length;
   }
   // End paths and stale jobs: a new gesture interrupts restoration, then a track clear invalidates it.
@@ -208,6 +211,7 @@ async function exercise(baseline, fullScene) {
     pointer(gapEl, 'pointerup');
     await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'New track effects after gesture');
     newTrackRestored = true;
+    console.log('EDIT_STAGE:new-track-restored');
     clearStageLyrics();
   }
   const finalValues = Object.fromEntries(['lyricWeight', 'lyricLetterSpacing', 'lyricTranslationGap', 'lyricTextureClarity'].map(key => [key, fx[key]]));
@@ -240,7 +244,8 @@ async function main() {
     assert.equal(result.singlePlaybackAdvanced, true);
     assert.equal(result.newTrackRestored, true);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/index.html`);
-    await win.webContents.executeJavaScript(`new Promise(resolve => { (function ready(){ if(typeof fx!=='undefined'&&typeof bindFxPanel==='function')resolve(); else setTimeout(ready,50); })(); })`);
+    console.log('EDIT_STAGE:reload');
+    await win.webContents.executeJavaScript(`new Promise((resolve, reject) => { const end = Date.now() + 20000; (function ready(){ if(typeof fx!=='undefined'&&typeof bindFxPanel==='function')resolve(); else if(Date.now()>end)reject(new Error('Reload settings ready timeout')); else setTimeout(ready,50); })(); })`);
     const reloaded = await win.webContents.executeJavaScript(`Object.fromEntries(${JSON.stringify(Object.keys(result.finalValues))}.map(key => [key,fx[key]]))`);
     assert.deepEqual(reloaded, result.finalValues, 'committed glyph and spacing settings survive a renderer restart');
     result.reloadRestored = true;

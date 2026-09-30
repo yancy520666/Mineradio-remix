@@ -21,7 +21,7 @@ try {
   run(electron, [path.join(root, 'tests', 'media-security-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'visual-resource-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'fx-slider-electron-smoke.js')]);
-  run(electron, [path.join(root, 'tests', 'lyric-edit-electron-smoke.js')]);
+  run(electron, [path.join(root, 'tests', 'lyric-edit-electron-smoke.js')], 180000);
   run(electron, [path.join(root, 'tests', 'original-profile-entry-electron-smoke.js')]);
   profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-lyric-layout-'));
   const lyricArgs = [path.join(root, 'tests', 'lyric-layout-electron-smoke.js'), '--qa-profile', profile];
