@@ -183,8 +183,11 @@ async function exercise(baseline, fullScene) {
     console.log('EDIT_STAGE:single-restored');
     singlePlaybackAdvanced = true;
     audio.currentTime = 0;
-    lyricsLines[0].translation = ''; fx.lyricDisplayMode = 'triple'; clearStageLyrics();
-    showStageLine(buildStageLyricDisplayPayload(0), true); stageLyrics.currentIdx = 0;
+    // A one-line untranslated song also exercises the multi-line boundary.
+    // Keep this data case separate from the already-tested 12-line restoration.
+    lyricsLines = [{ t: 0, text: '没有译文的单句歌词', translation: '' }];
+    lyricsTranslationLines = []; fx.lyricDisplayMode = 'triple'; clearStageLyrics();
+    showStageLine(buildStageLyricPlaybackPayload(0), true); stageLyrics.currentIdx = 0;
     await until(() => stageLyrics.current.userData.lyric.renderInitialTextReady, 'Missing translation text');
     console.log('EDIT_STAGE:missing-translation');
     missingTranslationRows = stageLyrics.current.userData.lyric.rowLayers.filter(row => row.isTranslation && row.parentIndex === 0).length;
