@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { Readable } = require('stream');
 
 const LOCAL_MUSIC_SCHEME = 'mineradio-local';
-const LOCAL_LIBRARY_VERSION = 1;
+const LOCAL_LIBRARY_VERSION = 2;
 const LOCAL_LIBRARY_FILE = 'local-music-library.json';
 const LOCAL_LIBRARY_DIRECTORY = 'local-music-library';
 const LOCAL_COVER_DIRECTORY = 'covers';
@@ -82,6 +82,21 @@ function cleanText(value, fallback, maxLength = 1000) {
 
 function localFileId(filePath) {
   return crypto.createHash('sha256').update(normalizedPathIdentity(filePath)).digest('hex').slice(0, 24);
+}
+
+function availableAudioPath(record) {
+  for (const file of [record.audioPath, ...(record.alternatePaths || [])]) {
+    try { if (fs.statSync(file).isFile()) return file; } catch (_) {}
+  }
+  return '';
+}
+
+async function audioFingerprint(file) {
+  // Full content hashing avoids merging different recordings with equal sizes
+  // or matching headers. Streaming keeps import memory independent of length.
+  const hash = crypto.createHash('sha256');
+  for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
+  return hash.digest('hex');
 }
 
 function audioRevision(stat) {
@@ -311,19 +326,21 @@ class LocalMusicLibrary {
       const stat = fs.statSync(this.indexPath);
       if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_LIBRARY_INDEX_BYTES) return;
       const parsed = JSON.parse(fs.readFileSync(this.indexPath, 'utf8'));
-      if (!parsed || parsed.version !== LOCAL_LIBRARY_VERSION || !Array.isArray(parsed.records)) return;
+      if (!parsed || ![1, LOCAL_LIBRARY_VERSION].includes(parsed.version) || !Array.isArray(parsed.records)) return;
       if (/^[a-f0-9]{48}$/i.test(String(parsed.mediaToken || ''))) this.mediaToken = String(parsed.mediaToken).toLowerCase();
       const nextRecords = new Map();
       const nextOrder = [];
       for (const source of parsed.records.slice(0, MAX_IMPORT_FILES)) {
         const audioPath = supportedAudioPath(source && source.audioPath);
         const id = cleanText(source && source.id, '', 64).toLowerCase();
-        if (!audioPath || !/^[a-f0-9]{24}$/.test(id) || id !== localFileId(audioPath) || nextRecords.has(id)) continue;
+        if (!audioPath || !/^[a-f0-9]{24}$/.test(id) || (parsed.version === 1 && id !== localFileId(audioPath)) || nextRecords.has(id)) continue;
         let coverPath = normalizedAbsoluteFilePath(source.coverPath);
         if (!coverPath || !isPathInside(this.coverDirectory, coverPath)) coverPath = '';
         const record = {
           id,
           audioPath,
+          fingerprint: /^[a-f0-9]{64}$/.test(String(source.fingerprint || '')) ? source.fingerprint : '',
+          alternatePaths: Array.isArray(source.alternatePaths) ? source.alternatePaths.slice(0, 32).map(supportedAudioPath).filter(Boolean) : [],
           relativePath: cleanText(source.relativePath, path.basename(audioPath), 2000),
           name: cleanText(source.name, path.basename(audioPath, path.extname(audioPath)), 1000),
           artist: cleanText(source.artist, '本地文件', 1000),
@@ -346,7 +363,7 @@ class LocalMusicLibrary {
     } catch (_) {}
   }
 
-  serializeRecord(record) {
+  serializeRecord(record, availablePath = availableAudioPath(record)) {
     const coverAvailable = !!record.coverPath;
     return {
       type: 'local',
@@ -357,7 +374,7 @@ class LocalMusicLibrary {
       localKey: record.id,
       localUrl: localMediaUrl('audio', record.id, record.revision, this.mediaToken),
       localPath: record.relativePath || path.basename(record.audioPath),
-      localMissing: false,
+      localMissing: !availablePath,
       name: record.name,
       title: record.name,
       artist: record.artist || '本地文件',
@@ -371,21 +388,39 @@ class LocalMusicLibrary {
 
   listTracksSync() {
     const tracks = [];
+    let missing = 0;
     for (const id of this.order) {
       const record = this.records.get(id);
-      if (record) tracks.push(this.serializeRecord(record));
+      if (!record) continue;
+      const available = availableAudioPath(record);
+      if (available) tracks.push(this.serializeRecord(record, available));
+      else missing++;
     }
-    return { ok: true, version: LOCAL_LIBRARY_VERSION, count: tracks.length, tracks };
+    return { ok: true, version: LOCAL_LIBRARY_VERSION, count: tracks.length, missing, tracks };
   }
 
   async listTracks() {
     const tracks = [];
+    let missing = 0;
     for (let index = 0; index < this.order.length; index += 1) {
       const record = this.records.get(this.order[index]);
-      if (record) tracks.push(this.serializeRecord(record));
+      if (record) {
+        let available = '';
+        for (const file of [record.audioPath, ...(record.alternatePaths || [])]) {
+          try { if ((await fs.promises.stat(file)).isFile()) { available = file; break; } } catch (_) {}
+        }
+        if (available) tracks.push(this.serializeRecord(record, available));
+        else missing++;
+      }
       if (index > 0 && index % 400 === 0) await new Promise((resolve) => setImmediate(resolve));
     }
-    return { ok: true, version: LOCAL_LIBRARY_VERSION, count: tracks.length, tracks };
+    return { ok: true, version: LOCAL_LIBRARY_VERSION, count: tracks.length, missing, tracks };
+  }
+
+  resolveTrack(value) {
+    const id = cleanText(value, '', 64).replace(/^local:/, '').toLowerCase();
+    const record = this.records.get(id);
+    return record ? this.serializeRecord(record) : null;
   }
 
   lyricForTrack(value) {
@@ -456,15 +491,20 @@ class LocalMusicLibrary {
     return { path: target, mime, stagedPath: temporary };
   }
 
-  async parseEntry(entry, sidecarDirectories) {
+  async parseEntry(entry, sidecarDirectories, existingPaths) {
     const stat = await fs.promises.stat(entry.path);
     if (!stat.isFile()) {
       const error = new Error('LOCAL_AUDIO_NOT_FILE');
       error.code = 'LOCAL_AUDIO_NOT_FILE';
       throw error;
     }
-    const id = localFileId(entry.path);
-    const previous = this.records.get(id);
+    const identity = normalizedPathIdentity(entry.path);
+    const previous = existingPaths ? existingPaths.get(identity) : this.records.get(localFileId(entry.path));
+    let id = previous ? previous.id : localFileId(entry.path);
+    if (!previous && this.records.has(id)) id = crypto.randomBytes(12).toString('hex');
+    const fingerprint = await audioFingerprint(entry.path);
+    const afterHash = await fs.promises.stat(entry.path);
+    if (afterHash.size !== stat.size || afterHash.mtimeMs !== stat.mtimeMs) throw new Error('LOCAL_AUDIO_CHANGED_DURING_IMPORT');
     let metadata = {};
     let metadataError = '';
     try {
@@ -510,6 +550,8 @@ class LocalMusicLibrary {
       record: {
         id,
         audioPath: entry.path,
+        fingerprint,
+        alternatePaths: previous && previous.fingerprint === fingerprint ? previous.alternatePaths || [] : [],
         relativePath: entry.relativePath || path.basename(entry.path),
         name: cleanText(common.title, metadataError && previous ? previous.name : fallbackTitle, 1000),
         artist: cleanText(common.artist || artists, metadataError && previous ? previous.artist : '本地文件', 1000),
@@ -537,9 +579,13 @@ class LocalMusicLibrary {
     const operation = async () => {
       if (!entries.length) return { ok: false, count: 0, tracks: [], failures: [], error: 'NO_SUPPORTED_LOCAL_AUDIO' };
       const sidecarDirectories = await buildLrcSidecarIndex(entries);
+      const existingPaths = new Map();
+      for (const record of this.records.values()) {
+        for (const file of [record.audioPath, ...(record.alternatePaths || [])]) existingPaths.set(normalizedPathIdentity(file), record);
+      }
       const parsed = await mapWithConcurrency(entries, METADATA_CONCURRENCY, async (entry) => {
         try {
-          return await this.parseEntry(entry, sidecarDirectories);
+          return await this.parseEntry(entry, sidecarDirectories, existingPaths);
         } catch (error) {
           return {
             failure: {
@@ -551,6 +597,8 @@ class LocalMusicLibrary {
       });
       const nextRecords = replace ? new Map() : new Map(this.records);
       const nextOrder = replace ? [] : this.order.slice();
+      const orderedIds = new Set(nextOrder);
+      const fingerprints = new Map([...nextRecords.values()].filter(record => record.fingerprint).map(record => [record.fingerprint, record.id]));
       const failures = [];
       const metadataWarnings = [];
       const stagedCovers = [];
@@ -561,10 +609,21 @@ class LocalMusicLibrary {
           continue;
         }
         const record = result.record;
+        const matchedId = fingerprints.get(record.fingerprint);
+        const existing = matchedId && nextRecords.get(matchedId);
+        if (existing && existing.id !== record.id && !nextRecords.has(record.id)) {
+          record.id = existing.id;
+          record.alternatePaths = [...new Set([existing.audioPath, ...(existing.alternatePaths || []), ...record.alternatePaths])].filter(file => normalizedPathIdentity(file) !== normalizedPathIdentity(record.audioPath)).slice(0, 32);
+          if (!record.lyric && existing.lyric) { record.lyric = existing.lyric; record.lyricSource = existing.lyricSource; }
+          if (!record.coverPath && existing.coverPath) { record.coverPath = existing.coverPath; record.coverMime = existing.coverMime; }
+          // Keep the canonical ID so built-in playlists/history survive a move.
+          if (existing.coverPath && existing.coverPath !== record.coverPath) cleanupAfterCommit.add(existing.coverPath);
+        }
+        const prior = nextRecords.get(record.id);
+        if (prior && prior.fingerprint && prior.fingerprint !== record.fingerprint && fingerprints.get(prior.fingerprint) === prior.id) fingerprints.delete(prior.fingerprint);
+        fingerprints.set(record.fingerprint, record.id);
         nextRecords.set(record.id, record);
-        const previousIndex = nextOrder.indexOf(record.id);
-        if (previousIndex >= 0) nextOrder.splice(previousIndex, 1);
-        nextOrder.push(record.id);
+        if (!orderedIds.has(record.id)) { nextOrder.push(record.id); orderedIds.add(record.id); }
         if (result.metadataError) metadataWarnings.push({ name: path.basename(record.audioPath), error: result.metadataError });
         if (result.coverWarning) metadataWarnings.push({ name: path.basename(record.audioPath), error: result.coverWarning });
         if (result.stagedCoverPath) {
@@ -588,6 +647,7 @@ class LocalMusicLibrary {
       let snapshotTemporary = '';
       const createdCoverTargets = [];
       try {
+        if (nextOrder.length > MAX_IMPORT_FILES) throw new Error('LOCAL_LIBRARY_TRACK_LIMIT');
         snapshotTemporary = await this.stageSnapshot(nextOrder, nextRecords);
         for (const cover of stagedCovers) {
           if (fs.existsSync(cover.targetPath)) {
@@ -649,7 +709,7 @@ class LocalMusicLibrary {
       if (!kind || !/^[a-f0-9]{24}$/.test(id) || url.searchParams.get('cap') !== this.mediaToken) return null;
       const record = this.records.get(id);
       if (!record) return null;
-      const filePath = kind === 'audio' ? record.audioPath : record.coverPath;
+      const filePath = kind === 'audio' ? availableAudioPath(record) : record.coverPath;
       if (!filePath) return null;
       if (kind === 'audio' && !supportedAudioPath(filePath)) return null;
       if (kind === 'cover' && (!isPathInside(this.coverDirectory, filePath) || !COVER_MIME_BY_EXTENSION.has(path.extname(filePath).toLowerCase()))) return null;

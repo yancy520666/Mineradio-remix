@@ -189,6 +189,7 @@ function playbackTransitionHasAudibleNextDeck() {
 }
 
 function bindPlaybackProgressEvents(audioEl) {
+  if (audioEl && audioEl === audio && typeof bindSystemMediaAudio === 'function') bindSystemMediaAudio(audioEl);
   if (!audioEl || audioEl._mineradioProgressBound) return;
   audioEl._mineradioProgressBound = true;
   ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'play', 'pause', 'emptied'].forEach(function (name) {
@@ -216,6 +217,7 @@ function bindPlaybackProgressEvents(audioEl) {
       if (audioEl !== audio) return;
       if (Number(audioEl.__mineradioTrackSwitchToken) !== Number(trackSwitchToken)) return;
       if (typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audioEl)) return;
+      if (name === 'error' && typeof handleLocalPlaybackReadFailure === 'function' && handleLocalPlaybackReadFailure(audioEl)) return;
       if (typeof schedulePlaybackStallRecovery === 'function') {
         schedulePlaybackStallRecovery(name, {
           silent: name !== 'error',

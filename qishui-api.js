@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const path = require('path');
+const { createCookieStore } = require('./cookie-storage');
 
 const QISHUI_API_BASE = (process.env.QISHUI_API_BASE || 'https://open.douyin.com').replace(/\/+$/, '');
 const QISHUI_RELATED_MEDIA_PATH = '/api/luna/v1/platform/feed/related-media/';
@@ -450,7 +451,7 @@ function qishuiAccessTokenInfo() {
   const file = qishuiTokenFile();
   try {
     if (fs.existsSync(file)) {
-      const token = normalizeQishuiToken(fs.readFileSync(file, 'utf8'));
+      const token = normalizeQishuiToken(createCookieStore(file).read());
       if (token) return { token, source: 'file', file };
     }
   } catch (_) {}
@@ -470,7 +471,7 @@ function saveQishuiAccessToken(value) {
   }
   const file = qishuiTokenFile();
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, token, 'utf8');
+  createCookieStore(file).write(token);
   clearQishuiRuntimeCaches();
   return { ...getQishuiStatus(), saved: true };
 }

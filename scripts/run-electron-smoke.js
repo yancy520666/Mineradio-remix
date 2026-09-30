@@ -18,6 +18,7 @@ function run(executable, args, timeout = 90000) {
 let profile;
 try {
   run(electron, [path.join(root, 'tests', 'background-resume-electron-smoke.js')]);
+  run(electron, [path.join(root, 'tests', 'media-security-electron-smoke.js')]);
   profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-lyric-layout-'));
   const lyricArgs = [path.join(root, 'tests', 'lyric-layout-electron-smoke.js'), '--qa-profile', profile];
   run(electron, lyricArgs);

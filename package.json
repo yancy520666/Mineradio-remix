@@ -33,6 +33,8 @@
       "build/**/*",
       "cuefield/**/*",
       "server.js",
+      "server-security.js",
+      "cookie-storage.js",
       "*-api.js",
       "qishui-auth-v6.js",
       "qishui-qr-login.js",

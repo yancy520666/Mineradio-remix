@@ -448,7 +448,7 @@ async function decodePodcastDjEnergyRange(audioUrl, opts) {
       'Referer': 'https://music.163.com/',
     };
     if (opts.range) headers.Range = opts.range;
-    const resp = await fetch(audioUrl, { headers });
+    const resp = await require('./server-security').fetchPublicResource(audioUrl, { headers });
     if (!resp.ok && resp.status !== 206) throw new Error('Audio fetch failed: ' + resp.status);
     if (!resp.body) throw new Error('Audio response has no body');
     const reader = resp.body.getReader();
@@ -524,7 +524,7 @@ async function analyzePodcastDjRangeSamples(audioUrl, opts) {
 
   let contentLength = 0;
   try {
-    const head = await fetch(audioUrl, {
+    const head = await require('./server-security').fetchPublicResource(audioUrl, {
       method: 'HEAD',
       headers: {
         'User-Agent': opts.userAgent || DEFAULT_UA,
@@ -818,7 +818,7 @@ async function analyzePodcastDjStreamFull(audioUrl, opts) {
   }
 
   try {
-    const resp = await fetch(audioUrl, {
+    const resp = await require('./server-security').fetchPublicResource(audioUrl, {
       headers: {
         'User-Agent': opts.userAgent || DEFAULT_UA,
         'Referer': 'https://music.163.com/',

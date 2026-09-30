@@ -231,15 +231,27 @@ function ensureSourceFallbackStack() {
 }
 function removeSourceFallbackCard(card) {
   if (!card) return;
+  clearTimeout(card._mineradioNoticeTimer);
+  card._mineradioNoticeKey = '';
   card.classList.add('leaving');
   setTimeout(function () {
     if (card.parentNode) card.parentNode.removeChild(card);
   }, 260);
 }
-function showSourceFallbackNotice(title, body) {
+function showSourceFallbackNotice(title, body, options) {
+  options = options || {};
   var stack = ensureSourceFallbackStack();
   if (stack) {
+    var existingCard = options.coalesceKey && Array.prototype.find.call(stack.children, function (item) { return item._mineradioNoticeKey === options.coalesceKey; });
+    if (existingCard) {
+      existingCard.querySelector('.source-fallback-title').textContent = title || '自动换源';
+      existingCard.querySelector('.source-fallback-body').textContent = body || '';
+      clearTimeout(existingCard._mineradioNoticeTimer);
+      existingCard._mineradioNoticeTimer = setTimeout(function () { removeSourceFallbackCard(existingCard); }, 5600);
+      return;
+    }
     var card = document.createElement('div');
+    card._mineradioNoticeKey = options.coalesceKey || '';
     card.className = 'source-fallback-card';
     var head = document.createElement('div');
     head.className = 'source-fallback-head';
@@ -261,7 +273,7 @@ function showSourceFallbackNotice(title, body) {
     stack.insertBefore(card, stack.firstChild || null);
     while (stack.children.length > 4) removeSourceFallbackCard(stack.lastElementChild);
     requestAnimationFrame(function () { card.classList.add('show'); });
-    setTimeout(function () { removeSourceFallbackCard(card); }, 5600);
+    card._mineradioNoticeTimer = setTimeout(function () { removeSourceFallbackCard(card); }, 5600);
     return;
   }
   var notice = document.getElementById('source-fallback-notice');
@@ -629,7 +641,12 @@ async function skipFailedQueueItem(idx, token, message, opts) {
   if (nextIdx < 0) {
     return settleSourceFallbackTerminal(idx, token, '已尝试绕开受限歌曲，当前队列没有新的可播放项。', terminalOpts);
   }
-  if (!opts.silent) showSourceFallbackNotice('已跳过受限歌曲', message || '未找到同名同歌手的另一个平台版本，正在播放下一首。');
+  if (!opts.silent) {
+    recovery.skippedTracks = (Number(recovery.skippedTracks) || 0) + 1;
+    var skippedSong = playQueue[idx] || {};
+    showSourceFallbackNotice('已跳过不可播放歌曲' + (recovery.skippedTracks > 1 ? '（连续 ' + recovery.skippedTracks + ' 首）' : ''),
+      '《' + (skippedSong.name || skippedSong.title || '当前歌曲') + '》：' + (message || '未找到可用音源，正在播放下一首。'), { coalesceKey: 'skip-' + recovery.id });
+  }
   recovery.queueAdvances++;
   var nextRecoveryKey = sourceFallbackRecoveryContentKey(playQueue[nextIdx]);
   if (nextRecoveryKey) recovery.visitedSongKeys[nextRecoveryKey] = true;

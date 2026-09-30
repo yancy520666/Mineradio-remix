@@ -60,6 +60,8 @@ const fs   = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const tls = require('tls');
+const { createCookieStore } = require('./cookie-storage');
+const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -119,7 +121,7 @@ const {
 const { planCuefieldTransitionFromCache } = require('./cuefield/mineradio-bridge');
 
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = '127.0.0.1';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const DEFAULT_COOKIE_FILE = path.join(__dirname, '.cookie');
 const DEFAULT_QQ_COOKIE_FILE = path.join(__dirname, '.qq-cookie');
@@ -294,17 +296,10 @@ function getQishuiCookieFile() {
   return process.env.QISHUI_COOKIE_FILE || DEFAULT_QISHUI_COOKIE_FILE;
 }
 function readConfiguredCookieFile(file) {
-  try {
-    if (file && fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
-  } catch (_) {}
-  return '';
+  return file ? createCookieStore(file).read() : '';
 }
 function writeConfiguredCookieFile(file, value) {
-  try {
-    if (!file) return;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, String(value || ''), 'utf8');
-  } catch (_) {}
+  if (file) createCookieStore(file).write(value);
 }
 const configuredCookieStores = {
   netease: { file: '', value: '', getFile: getCookieFile },
@@ -322,9 +317,10 @@ function refreshConfiguredCookieStore(store, force) {
 }
 function saveConfiguredCookieStore(store, value) {
   const file = store.getFile();
+  const nextValue = String(value || '');
+  writeConfiguredCookieFile(file, nextValue);
   store.file = file;
-  store.value = String(value || '');
-  writeConfiguredCookieFile(file, store.value);
+  store.value = nextValue;
   return store.value;
 }
 let userCookie = '';
@@ -393,6 +389,10 @@ function serveStatic(res, filePath) {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
     });
     res.end(data);
   });
@@ -400,7 +400,6 @@ function serveStatic(res, filePath) {
 function sendJSON(res, data, status) {
   res.writeHead(status || 200, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
     'Pragma': 'no-cache',
     'Expires': '0',
@@ -2863,7 +2862,7 @@ async function getQishuiDecryptedAudio(audioUrl) {
     cached.at = Date.now();
     return cached;
   }
-  const up = await fetch(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, '') });
+  const up = await fetchPublicResource(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, '') });
   if (!up.ok) throw new Error('Qishui encrypted audio fetch failed: HTTP ' + up.status);
   const encryptedBuffer = Buffer.from(await up.arrayBuffer());
   const result = qishuiAudioDecryptor.decrypt({ encryptedBuffer, spadeA: parsed.auth });
@@ -2891,7 +2890,7 @@ function sendAudioBuffer(res, buffer, contentType, range) {
     }
     res.writeHead(206, {
       'Content-Type': contentType || 'audio/mp4',
-      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff',
       'Accept-Ranges': 'bytes',
       'Content-Length': end - start + 1,
       'Content-Range': 'bytes ' + start + '-' + end + '/' + total,
@@ -2901,7 +2900,7 @@ function sendAudioBuffer(res, buffer, contentType, range) {
   }
   res.writeHead(200, {
     'Content-Type': contentType || 'audio/mp4',
-    'Access-Control-Allow-Origin': '*',
+    'X-Content-Type-Options': 'nosniff',
     'Accept-Ranges': 'bytes',
     'Content-Length': total,
   });
@@ -2916,7 +2915,8 @@ function audioContentTypeForUrl(audioUrl, upstreamType) {
   if (/\.(m4a|mp4)$/.test(pathname)) return 'audio/mp4';
   if (/\.ogg$/.test(pathname)) return 'audio/ogg';
   if (/\.wav$/.test(pathname)) return 'audio/wav';
-  return upstreamType || 'audio/mpeg';
+  const normalized = String(upstreamType || '').split(';')[0].trim().toLowerCase();
+  return normalized.startsWith('audio/') ? normalized : 'application/octet-stream';
 }
 
 function mapQQPlaylist(pl, kind) {
@@ -4612,6 +4612,10 @@ async function handlePlatformListenReport(body) {
 //  HTTP Server
 // ====================================================================
 const server = http.createServer(async (req, res) => {
+  if (!isTrustedLocalApiRequest(req)) {
+    sendJSON(res, { error: 'LOCAL_API_REQUEST_REJECTED' }, 403);
+    return;
+  }
   refreshConfiguredCookieStores(false);
   const url = new URL(req.url, 'http://localhost:' + PORT);
   const pn = url.pathname;
@@ -6583,25 +6587,44 @@ const server = http.createServer(async (req, res) => {
       const coverUrl = url.searchParams.get('url');
       // URL 校验: 必须是 http(s) 开头, 否则直接 404 (不要让 fetch 抛错)
       if (!coverUrl || !/^https?:\/\//i.test(coverUrl)) {
-        res.writeHead(400, { 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(400);
         res.end('Invalid cover url');
         return;
       }
-      const resp = await fetch(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
-      const ct  = resp.headers.get('content-type') || 'image/jpeg';
+      const resp = await fetchPublicResource(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
+      const ct = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!SAFE_COVER_CONTENT_TYPES.has(ct)) {
+        if (resp.body) await resp.body.cancel();
+        res.writeHead(415, { 'X-Content-Type-Options': 'nosniff' });
+        res.end('Unsupported cover type');
+        return;
+      }
       const cl  = resp.headers.get('content-length');
       const hdr = {
         'Content-Type': ct,
-        'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'public, max-age=86400',
       };
       if (cl) hdr['Content-Length'] = cl;
       res.writeHead(resp.status, hdr);
+      if (!resp.body) { res.end(); return; }
       const reader = resp.body.getReader();
-      while (true) { const c = await reader.read(); if (c.done) break; res.write(c.value); }
+      const cancelCover = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} };
+      res.once('close', cancelCover);
+      try {
+        while (!res.destroyed) {
+          const c = await readStreamChunkWithTimeout(reader, 12000);
+          if (c.done) break;
+          res.write(c.value);
+        }
+      } finally { res.removeListener('close', cancelCover); }
       res.end();
-    } catch (err) { console.error('[Cover]', err); res.writeHead(500); res.end(); }
+    } catch (err) {
+      console.warn('[Cover]', err && (err.code || err.name || 'COVER_PROXY_FAILED'));
+      if (res.headersSent) res.destroy();
+      else { res.writeHead(502); res.end(); }
+    }
     return;
   }
 
@@ -6619,10 +6642,10 @@ const server = http.createServer(async (req, res) => {
         }
       }
       const hdr = audioProxyHeadersFor(audioUrl, range);
-      const up = await fetchWithTimeout(audioUrl, { headers: hdr }, 9000);
+      const up = await fetchPublicResource(audioUrl, { headers: hdr });
       const out = {
         'Content-Type': audioContentTypeForUrl(audioUrl, up.headers.get('content-type')),
-        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-store',
       };
