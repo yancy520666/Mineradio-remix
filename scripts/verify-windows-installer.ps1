@@ -59,7 +59,6 @@ Run-Installer $baselinePath
 $target = Installed-Root
 $report.baseline = $true
 Run-Installed $target 'write'
-$report.launched = $true
 # Prove upgrade and uninstall do not remove user-owned files or neighboring data.
 $userFile = Join-Path $target 'user-music-fixture.txt'
 $neighbor = Join-Path (Split-Path -Parent $target) 'mineradio-unrelated-fixture.txt'
@@ -77,6 +76,7 @@ foreach ($relative in $sourceFiles) {
 }
 $report.sourceMatched = $true
 Run-Installed $target 'read'
+$report.launched = $true
 Run-Installed $target 'read'
 $report.restarted = $true
 $profileFile = Join-Path $profile 'current-fx-autosave.json'

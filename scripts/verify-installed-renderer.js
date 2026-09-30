@@ -35,18 +35,25 @@ async function main() {
   }
   try {
     let ready = false;
+    // The old D3D11 build cannot initialize WebGL on hosted runners. Seed its
+    // real configuration through its preload IPC; only the new build must pass
+    // complete UI and graphics initialization, twice across restarts.
+    const readiness = mode === 'write'
+      ? 'typeof desktopWindow !== "undefined" && typeof desktopWindow.saveCurrentFxAutosaveSync === "function"'
+      : 'typeof renderer !== "undefined" && !!renderer && !renderer.getContext().isContextLost() && typeof ACCOUNT_PROVIDER_KEYS !== "undefined" && Array.isArray(ACCOUNT_PROVIDER_KEYS) && typeof saveLyricLayout === "function"';
     while (Date.now() < deadline) {
-      // The legacy installer forced D3D11, which can fail on hosted runners.
-      // Use its real settings bridge to seed upgrade data; require live WebGL
-      // when validating every launch of the new installer.
-      const graphics = mode === 'write' ? 'true' : 'typeof renderer !== "undefined" && !!renderer && !renderer.getContext().isContextLost()';
-      ready = await evaluate(graphics + ' && typeof fx !== "undefined" && typeof ACCOUNT_PROVIDER_KEYS !== "undefined" && Array.isArray(ACCOUNT_PROVIDER_KEYS) && typeof saveLyricLayout === "function"');
+      ready = await evaluate(readiness);
       if (ready) break;
       await sleep(200);
     }
+    if (!ready) console.error('INSTALLED_DIAGNOSTICS:' + JSON.stringify(await evaluate('({ url: location.href, renderer: typeof renderer, fx: typeof fx, providers: typeof ACCOUNT_PROVIDER_KEYS, bridge: typeof desktopWindow })')));
     assert(ready, 'installed app modules did not initialize');
-    if (mode === 'write') await evaluate('fx.lyricScale = 1.17; fx.lyricTranslationGap = 0.61; saveLyricLayout({ user: true, force: true, reason: "installer-smoke" }); true');
-    const values = await evaluate('({ scale: fx.lyricScale, gap: fx.lyricTranslationGap, bridge: typeof desktopWindow !== "undefined" && !!desktopWindow, title: document.title })');
+    let values;
+    if (mode === 'write') {
+      const saved = await evaluate('desktopWindow.saveCurrentFxAutosaveSync({ lyricScale: 1.17, lyricTranslationGap: 0.61, autosaveUser: true, autosavedAt: Date.now(), autosaveReason: "installer-smoke" })');
+      assert(saved.ok, 'legacy settings IPC did not write upgrade data');
+      values = await evaluate('(() => { const raw = desktopWindow.readCurrentFxAutosaveSync().payload; return { scale: raw.lyricScale, gap: raw.lyricTranslationGap, bridge: true, mode: "legacy-settings-ipc" }; })()');
+    } else values = await evaluate('({ scale: fx.lyricScale, gap: fx.lyricTranslationGap, bridge: typeof desktopWindow !== "undefined" && !!desktopWindow, title: document.title })');
     assert.equal(values.scale, 1.17, 'upgrade must preserve lyric scale');
     assert.equal(values.gap, 0.61, 'upgrade must preserve translation gap');
     assert(values.bridge, 'installed preload bridge is missing');
