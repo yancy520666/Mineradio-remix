@@ -29,11 +29,16 @@ let restarted = false;
 ipcMain.removeHandler('mineradio-restart-app');
 ipcMain.handle('mineradio-restart-app', () => { restarted = true; return { ok: true }; });
 const deadline = Date.now() + 30000;
+const observedWindows = new WeakSet();
 async function run() {
   while (Date.now() < deadline) {
     const win = BrowserWindow.getAllWindows().find(value => /^http:\/\/127\.0\.0\.1:/.test(value.webContents.getURL()));
+    if (win && !observedWindows.has(win)) {
+      observedWindows.add(win);
+      win.webContents.on('console-message', event => { if (event.level === 'error' || event.level === 3) console.error('[Profile renderer]', event.message, event.lineNumber); });
+    }
     if (win && !win.webContents.isLoading()) {
-      const ready = await win.webContents.executeJavaScript('typeof openOriginalProfileImport === "function" && typeof onUserBtnClick === "function"');
+      const ready = await win.webContents.executeJavaScript('typeof openOriginalProfileImport === "function" && typeof onUserBtnClick === "function" && typeof ACCOUNT_PROVIDER_KEYS !== "undefined" && Array.isArray(ACCOUNT_PROVIDER_KEYS)');
       if (ready) {
         const result = await win.webContents.executeJavaScript(`(async () => {
           document.querySelectorAll('.modal-mask.show').forEach(el => el.classList.remove('show'));
