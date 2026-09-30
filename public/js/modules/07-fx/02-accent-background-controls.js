@@ -164,16 +164,26 @@ function applyCustomBackground() {
     layer.style.setProperty('--custom-bg-glass-brightness', glassBrightness.toFixed(3));
     layer.style.setProperty('--custom-bg-glass-veil', glassVeil.toFixed(3));
   }
-  var token = ++customBgApplyToken;
   if (!video) return;
+  var mediaKey = hasVideo ? (media.src || 'id:' + media.id) : '';
+  var wallpaperEngineActive = document.body.classList.contains('wallpaper-engine-active');
+  if (customBgVideoState.element === video && customBgVideoState.key === mediaKey
+    && customBgVideoState.wallpaperActive === wallpaperEngineActive) return;
+  var token = ++customBgApplyToken;
+  customBgVideoState.element = video;
+  customBgVideoState.key = mediaKey;
+  customBgVideoState.wallpaperActive = wallpaperEngineActive;
   if (!hasVideo) {
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
+    if (video.getAttribute('src') || video.srcObject) {
+      video.pause();
+      video.removeAttribute('src');
+      video.srcObject = null;
+      video.load();
+    }
     if (customBgObjectUrl) { URL.revokeObjectURL(customBgObjectUrl); customBgObjectUrl = ''; }
+    customBgVideoState.loadedKey = '';
     return;
   }
-  var wallpaperEngineActive = document.body.classList.contains('wallpaper-engine-active');
   if (wallpaperEngineActive) {
     video.pause();
     return;
@@ -192,18 +202,24 @@ function applyCustomBackground() {
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
-    var p = video.play();
+    customBgVideoState.loadedKey = mediaKey;
+    var p = video.paused ? video.play() : null;
     if (p && p.catch) p.catch(function () { });
   }
   if (media.src) {
     setVideoSrc(media.src);
+  } else if (media.id && customBgVideoState.loadedKey === mediaKey && customBgObjectUrl) {
+    setVideoSrc(customBgObjectUrl);
   } else if (media.id) {
     getCustomBackgroundBlob(media.id).then(function (blob) {
       if (token !== customBgApplyToken || !blob) return;
       if (customBgObjectUrl) URL.revokeObjectURL(customBgObjectUrl);
       customBgObjectUrl = URL.createObjectURL(blob);
       setVideoSrc(customBgObjectUrl);
-    }).catch(function (err) { console.warn('background video load failed:', err); });
+    }).catch(function (err) {
+      if (token === customBgApplyToken) customBgVideoState.key = '';
+      console.warn('background video load failed:', err);
+    });
   }
 }
 function updateCustomBackgroundMediaPreview(media) {
@@ -342,7 +358,7 @@ function applyCustomBackgroundCropSnapshot(snapshot) {
   fx.backgroundMediaCropX = clampRange(Number(snapshot.x), 0, 100);
   fx.backgroundMediaCropY = clampRange(Number(snapshot.y), 0, 100);
   fx.backgroundMediaZoom = clampRange(Number(snapshot.zoom), 1, 2.8);
-  updateCustomBackgroundControls();
+  queueFxSliderPreview('backgroundMediaCropX');
   updateCustomBackgroundCropModalView();
 }
 function customBackgroundCropMediaSrc(media) {
@@ -497,6 +513,8 @@ function closeCustomBackgroundCropModal(restoreOriginal) {
   var modal = document.getElementById('background-crop-modal');
   var original = customBackgroundCropModalState && customBackgroundCropModalState.original;
   if (restoreOriginal && original) applyCustomBackgroundCropSnapshot(original);
+  flushFxSliderPreview();
+  updateCustomBackgroundControls();
   closeGsapModal(modal, function () {
     setCustomBackgroundCropModalSource({ type: 'image' }, '');
     releaseCustomBackgroundCropModalObjectUrl();
