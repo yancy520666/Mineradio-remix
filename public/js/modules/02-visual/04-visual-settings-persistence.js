@@ -966,6 +966,7 @@ function scheduleLyricLayoutSave(delay, opts) {
   if (lyricLayoutSaveTimer) clearTimeout(lyricLayoutSaveTimer);
   lyricLayoutSaveTimer = setTimeout(function () {
     lyricLayoutSaveTimer = null;
+    if (typeof fxSliderEdit !== 'undefined' && fxSliderEdit.active) return;
     var nextOpts = lyricLayoutSaveOpts || {};
     lyricLayoutSaveOpts = null;
     saveLyricLayout(nextOpts);

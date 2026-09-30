@@ -328,7 +328,7 @@ function lyricMaskStoneSeed(lines, entries, fontSize) {
 }
 
 function makeLyricMask(input, layoutOverride) {
-  var layout = measureLyricMaskLayout(input, layoutOverride);
+  var layout = layoutOverride && layoutOverride.preparedLayout || measureLyricMaskLayout(input, layoutOverride);
   var payload = layout.payload;
   var entries = layout.entries;
   var lines = layout.lines;
@@ -369,13 +369,20 @@ function makeLyricMask(input, layoutOverride) {
   ctx.globalAlpha = 1;
   ctx.font = lyricFontCss(fontSize);
   var stoneSeed = lyricMaskStoneSeed(lines, entries, fontSize);
-  applyStonePrintTexture(ctx, W, H, fontSize, lyricSeededRandom(stoneSeed));
+  if (!layoutOverride || !layoutOverride.plainPreview) applyStonePrintTexture(ctx, W, H, fontSize, lyricSeededRandom(stoneSeed));
   applyLyricVerticalEdgeFade(ctx, W, H, lyricEdgeFadeValue() * (payload.contextLayer ? 1.15 : 0.74), activeLine, lines.length);
   var tex = new THREE.CanvasTexture(canvas);
   tex.userData = tex.userData || {};
   tex.userData.__mineradioLyricOwned = true;
   configureLyricTextureSampling(tex);
-  return { texture: tex, width: W, height: H, textWidth: width, activeTextWidth: activeWidth, textHeight: blockH, fontSize: fontSize, lineHeight: lineHeight, lineY0: y0, lineCount: lines.length, lines: lines, entries: entries, activeLine: activeLine, contextLayer: payload.contextLayer, activeLayer: payload.activeLayer, fitScaleX: fitScaleX, textMin: layout.textMin, textMax: layout.textMax, stoneSeed: stoneSeed };
+  var inkEntry = entries[activeLine] || {};
+  var inkSize = fontSize * (inkEntry.scale || 1);
+  ctx.font = lyricFontCss(inkSize, lyricEntryWeight(inkEntry));
+  var ink = ctx.measureText(lines[activeLine] || '');
+  var baseline = y0 + activeLine * lineHeight + lyricEntryLineOffset(inkEntry) * lineHeight - H / 2;
+  var inkBounds = { top: baseline - (isFinite(ink.actualBoundingBoxAscent) ? ink.actualBoundingBoxAscent : inkSize * 0.84),
+    bottom: baseline + (isFinite(ink.actualBoundingBoxDescent) ? ink.actualBoundingBoxDescent : inkSize * 0.24), em: fontSize };
+  return { texture: tex, width: W, height: H, textWidth: width, activeTextWidth: activeWidth, textHeight: blockH, fontSize: fontSize, lineHeight: lineHeight, lineY0: y0, lineCount: lines.length, lines: lines, entries: entries, activeLine: activeLine, contextLayer: payload.contextLayer, activeLayer: payload.activeLayer, fitScaleX: fitScaleX, textMin: layout.textMin, textMax: layout.textMax, stoneSeed: stoneSeed, inkBounds: inkBounds };
 }
 
 function lyricTextureClarityScale() {

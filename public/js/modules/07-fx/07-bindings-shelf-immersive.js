@@ -141,6 +141,7 @@ function bindFxPanel() {
       var saveOpts = { user: true, reason: /^backgroundMedia(CropX|CropY|Zoom)$/.test(pair[1]) ? 'backgroundMediaCrop' : pair[1] };
       scheduleLyricLayoutSave(360, saveOpts);
     });
+    bindFxSliderEdit(el, pair[1]);
     el.addEventListener('change', commitFxSliderPreview);
   });
   var lyricPicker = document.getElementById('lyric-color-picker');
@@ -471,6 +472,7 @@ function toggleFxPanel(force) {
   if (peekTimers && peekTimers.fx) { clearTimeout(peekTimers.fx); peekTimers.fx = null; }
   fxPanelPinned = false;
   if (force === false) {
+    endFxSliderEdit();
     el.classList.remove('show', 'peek');
     el.classList.toggle('closing', currentlyOpen);
     setTimeout(function () { el.classList.remove('closing'); }, 280);

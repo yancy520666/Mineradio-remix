@@ -64,7 +64,9 @@ assert(/Math\.min\(leftSpace, rightSpace\) \* 2/.test(source), 'the shorter live
 assert(/if \(\(row\.isPrimary \|\| row\.isTranslation\) && renderWindowActive && \(!fx \|\| fx\.lyricLiveViewportFit !== false\)\)/.test(source), 'visible original and translated rows share the live measurement path when live fitting is enabled');
 assert(/baseScale \*= lyricRowLiveViewportScale\(row, baseScale\)/.test(source), 'the live fit ratio participates in the existing scale target');
 assert(!/lyricLongLineDefaultScale|longLineScale|1380\s*\//.test(source), 'the old fixed-width hard compression must not return');
-assert(/row\.mesh\.scale\.setScalar\(row\.mesh\.scale\.x \+ \(scaleTarget - row\.mesh\.scale\.x\) \* ease\)/.test(source), 'original lyric scale easing remains intact');
+assert(/var editLayoutEase = editPreview \? 1 : ease;/.test(source)
+  && /row\.mesh\.scale\.setScalar\(row\.mesh\.scale\.x \+ \(scaleTarget - row\.mesh\.scale\.x\) \* editLayoutEase\)/.test(source),
+  'slider previews follow input directly while normal playback retains original scale easing');
 assert(/row\.readability\.scale\.setScalar\(row\.readability\.scale\.x \+ \(scaleTarget - row\.readability\.scale\.x\) \* ease\)/.test(source), 'readability continues to follow the original easing');
 assert(/row\.glow\.scale\.setScalar\(row\.glow\.scale\.x \+ \(glowTargetScale - row\.glow\.scale\.x\) \* glowEase\)/.test(source), 'glow continues to follow the fitted lyric scale');
 
