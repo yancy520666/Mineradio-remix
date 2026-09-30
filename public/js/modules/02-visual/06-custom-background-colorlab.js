@@ -54,6 +54,7 @@ var CUSTOM_BG_DB_NAME = 'mineradio-custom-background-v1';
 var CUSTOM_BG_STORE = 'media';
 var customBgObjectUrl = '';
 var customBgApplyToken = 0;
+var customBgVideoState = { element: null, key: '', loadedKey: '', wallpaperActive: false };
 function openCustomBackgroundDb() {
   return new Promise(function (resolve, reject) {
     if (!window.indexedDB) { reject(new Error('indexedDB unavailable')); return; }

@@ -1,5 +1,5 @@
 function flushPersistentVisualState() {
-  try { saveLyricLayout(); } catch (e) { }
+  try { flushLyricLayoutSave('visual-state-flush'); } catch (e) { }
   try { saveFreeCameraState(); } catch (e) { }
 }
 window.addEventListener('beforeunload', flushPersistentVisualState);

@@ -583,7 +583,7 @@ function scopeCurrentFxAutosavePayload(payload, opts) {
   opts = opts || {};
   payload = plainCurrentFxAutosavePayload(payload);
   if (!payload || opts.user !== true || opts.force === true) return payload;
-  var keys = currentFxAutosaveTouchedKeys(currentFxAutosaveSaveReason(opts, ''), payload);
+  var keys = opts.fullSnapshot ? null : (Array.isArray(opts.touchedKeys) ? opts.touchedKeys : currentFxAutosaveTouchedKeys(currentFxAutosaveSaveReason(opts, ''), payload));
   if (!keys || !keys.length) return payload;
   var base = plainCurrentFxAutosavePayload(readCurrentFxAutosaveStorageRaw()) || {};
   var scoped = Object.assign({}, base, {
@@ -939,7 +939,14 @@ function saveLyricLayout(opts) {
 var lyricLayoutSaveTimer = null;
 var lyricLayoutSaveOpts = null;
 function flushLyricLayoutSave(reason) {
+  if (!lyricLayoutSaveOpts) {
+    if (currentFxAutosaveDiskPayload) writeCurrentFxAutosavePayload(currentFxAutosaveDiskPayload, { syncDisk: true });
+    return;
+  }
   var pendingOpts = lyricLayoutSaveOpts ? Object.assign({}, lyricLayoutSaveOpts) : {};
+  if (lyricLayoutSaveTimer) clearTimeout(lyricLayoutSaveTimer);
+  lyricLayoutSaveTimer = null;
+  lyricLayoutSaveOpts = null;
   try {
     saveLyricLayout(Object.assign({}, pendingOpts, {
       syncDisk: true,
@@ -950,6 +957,11 @@ function flushLyricLayoutSave(reason) {
 function scheduleLyricLayoutSave(delay, opts) {
   delay = Math.max(80, Math.round(Number(delay) || 280));
   opts = opts || {};
+  var touched = currentFxAutosaveTouchedKeys(currentFxAutosaveSaveReason(opts, ''), fx);
+  opts = Object.assign({}, opts, {
+    touchedKeys: Array.from(new Set((lyricLayoutSaveOpts && lyricLayoutSaveOpts.touchedKeys || []).concat(touched || []))),
+    fullSnapshot: !touched || !!(lyricLayoutSaveOpts && lyricLayoutSaveOpts.fullSnapshot)
+  });
   lyricLayoutSaveOpts = Object.assign({}, lyricLayoutSaveOpts || {}, opts);
   if (lyricLayoutSaveTimer) clearTimeout(lyricLayoutSaveTimer);
   lyricLayoutSaveTimer = setTimeout(function () {

@@ -448,13 +448,11 @@ function isDesktopLyricRealtimeFxKey(key) {
     || key === 'lyricGlowStrength';
 }
 var lyricRealtimeRefreshTimer = null;
-var lyricRealtimeLastRefreshAt = 0;
 function flushStageLyricRealtimeRefresh() {
   if (lyricRealtimeRefreshTimer) {
     clearTimeout(lyricRealtimeRefreshTimer);
     lyricRealtimeRefreshTimer = null;
   }
-  lyricRealtimeLastRefreshAt = window.performance && performance.now ? performance.now() : Date.now();
   refreshStageLyricDisplayMode();
 }
 function scheduleStageLyricRealtimeRefresh(deferred) {
@@ -462,14 +460,8 @@ function scheduleStageLyricRealtimeRefresh(deferred) {
     flushStageLyricRealtimeRefresh();
     return;
   }
-  var now = window.performance && performance.now ? performance.now() : Date.now();
-  var wait = Math.max(0, 120 - (now - lyricRealtimeLastRefreshAt));
-  if (wait <= 0) {
-    flushStageLyricRealtimeRefresh();
-    return;
-  }
   if (lyricRealtimeRefreshTimer) clearTimeout(lyricRealtimeRefreshTimer);
-  lyricRealtimeRefreshTimer = setTimeout(flushStageLyricRealtimeRefresh, wait);
+  lyricRealtimeRefreshTimer = setTimeout(flushStageLyricRealtimeRefresh, 180);
 }
 function syncLyricRealtimeFxChange(key, opts) {
   opts = opts || {};
@@ -477,7 +469,24 @@ function syncLyricRealtimeFxChange(key, opts) {
   if (key === 'lyricMotionSoftness' || /^lyricGlitch/.test(key)) updateLyricMotionStyleControls();
   if (isStageLyricRealtimeFxKey(key)) scheduleStageLyricRealtimeRefresh(!!opts.deferred);
   else if (key === 'lyricLetterSpacing' || key === 'lyricLineHeight' || key === 'lyricWeight') refreshCurrentLyricStyle();
-  if (isDesktopLyricRealtimeFxKey(key)) pushDesktopLyricsState(true);
+  if (opts.deferred && (key === 'lyricLineHeight' || key === 'lyricContextSpread' || key === 'lyricContextOpacity')) {
+    [stageLyrics.current].concat(stageLyrics.outgoing || []).forEach(function (mesh) {
+      var data = mesh && mesh.userData && mesh.userData.lyric;
+      if (!data) return;
+      data.lineWorldStep = lyricTrackLineStepWorld();
+      data.translationLineStepWorld = lyricTranslationLineStepWorld();
+      if (key === 'lyricContextOpacity') {
+        (data.rowLayers || []).forEach(function (row) {
+          var index = row.isTranslation ? row.parentIndex : row.lineIndex;
+          if (index == null) return;
+          var entry = stageLyricContextEntry(index, Number(data.trackTargetLineIndex) || 0);
+          if (entry && row.isTranslation) entry = makeStageLyricTranslationEntry(entry, index === data.trackTargetLineIndex);
+          if (entry) row.targetAlpha = entry.alpha;
+        });
+      }
+    });
+  }
+  if (!opts.skipDesktop && isDesktopLyricRealtimeFxKey(key)) pushDesktopLyricsState(true);
 }
 function resetFxSliderValue(id, key, btn) {
   if (!Object.prototype.hasOwnProperty.call(fxDefaults, key)) return;

@@ -58,7 +58,6 @@ function bindFxPanel() {
       }
       if (pair[1] === 'coverResolution') {
         fx.coverResolution = normalizeCoverResolution(fx.coverResolution);
-        applyCoverParticleResolution(fx.coverResolution, { reload: true });
       }
       if (pair[1] === 'lyricWeight') fx.lyricWeight = Math.round(clampRange(fx.lyricWeight, 500, 900) / 50) * 50;
       if (pair[1] === 'lyricCustomLineCount') {
@@ -70,28 +69,22 @@ function bindFxPanel() {
         fx.backgroundOpacity = clampRange(fx.backgroundOpacity, 0, 1);
         fx.backgroundColorMode = 'custom';
         fx.backgroundColorCustom = true;
-        updateCustomBackgroundControls();
       }
       if (pair[1] === 'backgroundMediaCropX' || pair[1] === 'backgroundMediaCropY') {
         fx[pair[1]] = Math.round(clampRange(fx[pair[1]], 0, 100));
         el.value = fx[pair[1]];
-        updateCustomBackgroundControls();
       }
       if (pair[1] === 'backgroundMediaZoom') {
         fx.backgroundMediaZoom = clampRange(fx.backgroundMediaZoom, 1, 2.8);
-        updateCustomBackgroundControls();
       }
       if (pair[1] === 'windowBackgroundOpacity') {
         fx.windowBackgroundOpacity = clampRange(fx.windowBackgroundOpacity, 0, 1);
-        updateCustomBackgroundControls();
       }
       if (pair[1] === 'backgroundGlassOpacity') {
         fx.backgroundGlassOpacity = clampRange(fx.backgroundGlassOpacity, 0, 1);
-        updateCustomBackgroundControls();
       }
       if (pair[1] === 'controlGlassChromaticOffset') {
         fx.controlGlassChromaticOffset = normalizeControlGlassChromaticOffset(fx.controlGlassChromaticOffset);
-        applyControlGlassChromaticOffset();
       }
       if (pair[1] === 'playlistPanelGlassBlur') fx.playlistPanelGlassBlur = Math.round(clampRange(fx.playlistPanelGlassBlur, 14, 60));
       if (pair[1] === 'playlistPanelGlassDensity') fx.playlistPanelGlassDensity = clampRange(fx.playlistPanelGlassDensity, 0.55, 1);
@@ -144,19 +137,11 @@ function bindFxPanel() {
       if (out) out.textContent = pair[1] === 'coverResolution'
         ? coverParticleCountLabel(fx.coverResolution)
         : (pair[1] === 'lyricWeight' || /^sonicGround/.test(pair[1]) || /^sonicAudio/.test(pair[1]) || pair[1] === 'sonicWorkshopInputGain' || pair[1] === 'controlGlassChromaticOffset' || pair[1] === 'playlistPanelGlassBlur' || pair[1] === 'backgroundMediaCropX' || pair[1] === 'backgroundMediaCropY' || pair[1] === 'lyricTiltX' || pair[1] === 'lyricTiltY' || pair[1] === 'shelfAngleY' || pair[1] === 'shelfDetailAngleX' || pair[1] === 'shelfDetailAngleY' ? String(Math.round(fx[pair[1]])) : Number(el.value).toFixed(pair[1] === 'lyricLetterSpacing' ? 3 : 2));
-      if (typeof refreshSonicAudioMonitorUi === 'function' && /^sonicAudio/.test(pair[1])) refreshSonicAudioMonitorUi();
-      if (/^sonicWorkshop/.test(pair[1]) && window.MineradioSonicWorkshop && typeof MineradioSonicWorkshop.pushProperties === 'function') MineradioSonicWorkshop.pushProperties(true);
-      syncFxUniforms();
-      if (/^playlistPanel/.test(pair[1])) applyPlaylistPanelFxSettings();
-      if (/^shelf(Size|OffsetX|OffsetY|OffsetZ|AngleY|Opacity|BgOpacity|Detail|Summon|Camera)/.test(pair[1]) && shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
-      syncLyricRealtimeFxChange(pair[1], { deferred: true });
-      if (/^(desktopLyricsSize|desktopLyricsOpacity|desktopLyricsY)$/.test(pair[1])) pushDesktopLyricsState(true);
-      if (pair[1] === 'wallpaperOpacity') pushWallpaperState(true);
+      queueFxSliderPreview(pair[1]);
       var saveOpts = { user: true, reason: /^backgroundMedia(CropX|CropY|Zoom)$/.test(pair[1]) ? 'backgroundMediaCrop' : pair[1] };
-      if (pair[1] === 'controlGlassChromaticOffset') saveOpts.syncDisk = true;
-      if (isStageLyricRealtimeFxKey(pair[1]) || isDesktopLyricRealtimeFxKey(pair[1])) scheduleLyricLayoutSave(360, saveOpts);
-      else saveLyricLayout(saveOpts);
+      scheduleLyricLayoutSave(360, saveOpts);
     });
+    el.addEventListener('change', commitFxSliderPreview);
   });
   var lyricPicker = document.getElementById('lyric-color-picker');
   if (lyricPicker) {
