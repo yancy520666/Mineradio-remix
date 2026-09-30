@@ -112,6 +112,10 @@ function disposeLyricStarRiver() {
 }
 
 function updateLyricStarRiver(dt) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) {
+    if (stageLyrics.starRiver) stageLyrics.starRiver.visible = false;
+    return;
+  }
   var river = ensureLyricStarRiver();
   if (!river || !river.material || !river.material.uniforms) return;
   var u = river.material.uniforms;

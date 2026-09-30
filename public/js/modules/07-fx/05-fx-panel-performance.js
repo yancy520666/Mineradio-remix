@@ -465,6 +465,10 @@ function scheduleStageLyricRealtimeRefresh(deferred) {
 }
 function syncLyricRealtimeFxChange(key, opts) {
   opts = opts || {};
+  if (opts.deferred && typeof lyricFxEditActive === 'function' && lyricFxEditActive()) {
+    if (isStageLyricRealtimeFxKey(key)) syncLyricFxLiveRows(key);
+    return;
+  }
   if (key === 'lyricCustomLineCount') updateLyricDisplayModeControls();
   if (key === 'lyricMotionSoftness' || /^lyricGlitch/.test(key)) updateLyricMotionStyleControls();
   if (isStageLyricRealtimeFxKey(key)) scheduleStageLyricRealtimeRefresh(!!opts.deferred);

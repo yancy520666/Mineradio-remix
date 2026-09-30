@@ -56,6 +56,8 @@ function lyricMeshLineStepWorld(data, translation) {
 
 function lyricTranslationAnchoredY(entry, fallbackIndex, activeLine, lineStepWorld, translationLineStepWorld, scrollOffset, rowDrift, currentTranslation, usesTrack) {
   entry = entry || {};
+  var distance = lyricTranslationVisualGapValue() * translationLineStepWorld;
+  if (typeof lyricTranslationDistanceForRow === 'function') distance = lyricTranslationDistanceForRow(entry, entry.tightParent, distance);
   if (!usesTrack) {
     var rowVirtualLocal = entry.virtualIndex != null && isFinite(Number(entry.virtualIndex))
       ? Number(entry.virtualIndex)
@@ -66,7 +68,7 @@ function lyricTranslationAnchoredY(entry, fallbackIndex, activeLine, lineStepWor
     var parentDeltaLocal = localDelta - localSign * lyricTranslationVisualGapValue();
     var parentAbsLocal = Math.abs(parentDeltaLocal);
     var parentDriftLocal = currentTranslation ? 0 : ((Number(rowDrift) || 0) * clampRange(0.70 + parentAbsLocal * 0.10, 0.65, 1.20));
-    return -parentDeltaLocal * lineStepWorld + parentDriftLocal - localSign * lyricTranslationVisualGapValue() * translationLineStepWorld;
+    return -parentDeltaLocal * lineStepWorld + parentDriftLocal - localSign * distance;
   }
   var parentIndex = entry.parentIndex != null && isFinite(Number(entry.parentIndex))
     ? Number(entry.parentIndex)
@@ -80,7 +82,7 @@ function lyricTranslationAnchoredY(entry, fallbackIndex, activeLine, lineStepWor
   var parentAbs = Math.abs(parentDelta);
   var parentDrift = currentTranslation ? 0 : ((Number(rowDrift) || 0) * clampRange(0.70 + parentAbs * 0.10, 0.65, 1.20));
   var sign = rowVirtual >= parentVirtual ? 1 : -1;
-  return -parentDelta * lineStepWorld + parentDrift - sign * lyricTranslationVisualGapValue() * translationLineStepWorld;
+  return -parentDelta * lineStepWorld + parentDrift - sign * distance;
 }
 
 function lyricLineAllowedForDisplayMode(lineIndex, targetLineIndex, mode) {
@@ -368,7 +370,8 @@ function beginLyricRowLayerGroupBuild(payload, mask, worldW, worldH, pal, motion
   var translationLineStepWorld = lyricTranslationLineStepWorld();
   var displayLineCount = lyricDisplayLineCountForMode(payload && payload.mode);
   var visibleRadius = Math.max(0.85, displayLineCount * 0.50 * lyricPrimarySlotStepValue());
-  var textOnly = !!(payload && payload.trackTextOnly);
+  var textOnly = !!(payload && payload.trackTextOnly) || (typeof lyricFxEditActive === 'function' && lyricFxEditActive());
+  if (textOnly && payload && payload.mode === 'single' && typeof fxSliderEdit !== 'undefined' && fxSliderEdit.active) fxSliderEdit.rebuild = true;
   var activeMesh = null;
   var activeMat = null;
   var activeWorldH = 0.72;
@@ -519,6 +522,15 @@ function beginLyricRowLayerBuildEntry(state) {
     renderReadabilityUploaded: false,
     renderGlowUploaded: false
   };
+  if (entry.translationLine && typeof lyricTranslationDistanceForRow === 'function') {
+    var builtParent = state.rows.find(function (row) { return row.isPrimary && (entry.parentIndex != null ? row.lineIndex === entry.parentIndex : row.isActive); });
+    state.pendingRow.tightParent = builtParent;
+    var initialDistance = lyricTranslationVisualGapValue() * state.translationLineStepWorld;
+    var initialTight = lyricTranslationDistanceForRow(state.pendingRow, builtParent, initialDistance);
+    var initialSign = entry.parentRole === 'prev' && !state.usesTrack ? -1 : 1;
+    state.pendingRow.baseY += initialSign * (initialDistance - initialTight);
+    mesh.position.y = state.pendingRow.baseY;
+  }
   state.pendingPhase = state.textOnly ? 'complete' : 'readability';
   state.lastPhase = 'row-line';
   state.completedPhases += 1;
@@ -974,6 +986,7 @@ function lyricQualityEnsureCapacity(extraBytes, pinnedRow, tier) {
 }
 
 function scheduleLyricQualityBuild(delay) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
   if (lyricQualityState.timer || lyricQualityState.idle || !lyricQualityState.queue.length) return;
   if (delay > 0) {
     lyricQualityState.timer = setTimeout(function () {
@@ -984,6 +997,7 @@ function scheduleLyricQualityBuild(delay) {
   }
   var run = function (deadline) {
     lyricQualityState.idle = 0;
+    if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
     if (!lyricQualityState.queue.length) return;
     if ((typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive()) || lyricQualityInputPending()) {
       scheduleLyricQualityBuild(72);
@@ -1097,6 +1111,7 @@ function disposeLyricQualityOwner(data) {
 }
 
 function commitLyricRowQuality(row) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return false;
   if (!row || lyricQualityState.deferFinalize || row.qualityWanted !== true) return false;
   if (row.qualityPendingTexture) {
     var previous = row.qualityTexture;
@@ -1200,6 +1215,7 @@ function lyricQualityRowMatchesTarget(row, targetInfo) {
 
 function finalizeLyricQualitySelectionFrame() {
   lyricQualityState.deferFinalize = false;
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
   var tier = lyricTextureClarityScale();
   var now = lyricQualityNowMs();
   if (tier <= 1) {
@@ -1330,6 +1346,9 @@ function consumeLyricRenderUploadFrameBudget() {
 function updateLyricRowLayers(data, opts) {
   if (!data || !data.rowLayers || !data.rowLayers.length) return;
   opts = opts || {};
+  var editPreview = typeof lyricFxEditActive === 'function' && lyricFxEditActive();
+  if (editPreview && typeof updateLyricFxTextPreview === 'function') updateLyricFxTextPreview(data);
+  if (typeof prepareLyricTranslationParents === 'function') prepareLyricTranslationParents(data);
   var opacity = clampRange(Number(opts.opacity) || 0, 0, 1);
   var readability = clampRange(Number(opts.readability) || 0.58, 0, 1);
   var contextIntro = opts.contextIntro == null ? 1 : clampRange(Number(opts.contextIntro) || 0, 0, 1);
@@ -1358,6 +1377,7 @@ function updateLyricRowLayers(data, opts) {
   // Preserve the 60 Hz feel while keeping the same motion duration when a
   // low-spec machine briefly renders at 30/45 Hz.
   var ease = 1 - Math.pow(1 - baseEase, frameScale);
+  var editLayoutEase = editPreview ? 1 : ease;
   var pendingPayload = data.trackPersistent && data.trackPendingPayload ? data.trackPendingPayload : null;
   var pendingTargetLineIndex = pendingPayload && pendingPayload.trackIndex != null && isFinite(Number(pendingPayload.trackIndex))
     ? Number(pendingPayload.trackIndex)
@@ -1380,8 +1400,8 @@ function updateLyricRowLayers(data, opts) {
   var nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   var trackTargetJustCommitted = !!(data.trackPersistent && isFinite(Number(data.trackTargetCommittedAt)) && nowMs - Number(data.trackTargetCommittedAt) <= 34);
   var initialTextRevealPending = !!(data.usesTrack && data.renderInitialTextReady !== true);
-  var textureEffectsAllowed = !initialTextRevealPending;
-  var persistentTrackTransparentPrewarm = !!(data.usesTrack && data.trackPersistent && !initialTextRevealPending);
+  var textureEffectsAllowed = !initialTextRevealPending && !editPreview;
+  var persistentTrackTransparentPrewarm = !!(data.usesTrack && data.trackPersistent && !initialTextRevealPending && !editPreview);
   var visibleRadiusForSnap = Math.max(1.2, Number(data.trackVisibleRadius) || 3);
   var currentScrollOffset = Number(data.trackScrollOffset);
   // Progress preview only suppresses decorative drift.  It must never turn
@@ -1537,7 +1557,9 @@ function updateLyricRowLayers(data, opts) {
       row.renderRevealAt = 0;
     }
     var rowHighQualityAllowed = contextHighQualityEnabled || isActive || currentTranslation;
-    if (lyricQualityTier <= 1 || !rowHighQualityAllowed) {
+    if (editPreview || row.editTextPreview) {
+      if (!row.editTextPreview && row.baseLineTexture && lyricQualityCurrentMap(row) !== row.baseLineTexture) setLyricRowTextureMap(row, row.baseLineTexture);
+    } else if (lyricQualityTier <= 1 || !rowHighQualityAllowed) {
       if (row.qualityTexture || row.qualityPendingTexture || row.qualityQueuedKey) releaseLyricRowQuality(row, true);
     } else if (!initialTextRevealPending && (renderWindowActive || lineUploadPrewarm || pendingWindowAllowed)) {
       var qualityPriority = isActive ? 10 : (currentTranslation ? 11 : (row.isTranslation ? 22 : (lineUploadPrewarm ? 34 : 24 + Math.min(8, visibilityAbs))));
@@ -1549,10 +1571,10 @@ function updateLyricRowLayers(data, opts) {
     }
     var rowRevealAt = Number(row.renderRevealAt) || nowMs;
     var lineLayerVisible = renderWindowActive && (initialTextRevealPending || nowMs >= rowRevealAt);
-    var readabilityLayerVisible = textureEffectsAllowed && lineLayerVisible && readability > 0.001 && nowMs >= rowRevealAt + 18;
+    var readabilityLayerVisible = textureEffectsAllowed && !row.editTextPreview && lineLayerVisible && readability > 0.001 && nowMs >= rowRevealAt + 18;
     var existingGlowOpacity = row.glowMat ? getLyricTextureMaterialOpacity(row.glowMat) : 0;
     var glowLayerWanted = rowGlow > 0.001 || rowGlowBeat > 0.001 || existingGlowOpacity > 0.004;
-    var glowLayerVisible = textureEffectsAllowed && lineLayerVisible && glowLayerWanted && nowMs >= rowRevealAt + 40;
+    var glowLayerVisible = textureEffectsAllowed && !row.editTextPreview && lineLayerVisible && glowLayerWanted && nowMs >= rowRevealAt + 40;
     var anchorRevealPriority = isActive ? 0 : (currentTranslation ? 1 : null);
     var contextRevealPriority = 20 + Math.min(8, visibilityAbs) * 6 + (row.isTranslation ? 1 : 0);
     if (row.mesh) {
@@ -1563,7 +1585,7 @@ function updateLyricRowLayers(data, opts) {
           : (anchorRevealPriority == null ? contextRevealPriority : anchorRevealPriority);
         renderRevealCandidates.push({ row: row, mesh: row.mesh, flag: 'renderLineUploaded', priority: lineRevealPriority });
       }
-      if (row.renderLineUploaded && renderWindowActive && (row.qualityPendingTexture || (row.qualityTexture && lyricQualityCurrentMap(row) !== row.qualityTexture))) {
+      if (!editPreview && !row.editTextPreview && row.renderLineUploaded && renderWindowActive && (row.qualityPendingTexture || (row.qualityTexture && lyricQualityCurrentMap(row) !== row.qualityTexture))) {
         renderRevealCandidates.push({ row: row, quality: true, priority: 50 + (isActive ? 0 : (currentTranslation ? 1 : Math.min(8, visibilityAbs))) });
       }
     }
@@ -1579,7 +1601,7 @@ function updateLyricRowLayers(data, opts) {
         renderRevealCandidates.push({ row: row, mesh: row.glow, flag: 'renderGlowUploaded', priority: 200 + (anchorRevealPriority == null ? contextRevealPriority : anchorRevealPriority) });
       }
     }
-    if (pendingWindowAllowed) {
+    if (pendingWindowAllowed && !editPreview) {
       var pendingDistance = Math.abs(Number(rowWindowLineIndex) - pendingTargetLineIndex);
       var pendingPriority = pendingDistance * 4 + (row.isTranslation ? 1 : 0);
       if (row.mesh && !row.renderLineUploaded) {
@@ -1607,6 +1629,10 @@ function updateLyricRowLayers(data, opts) {
       yTarget = singleLineTranslationSwap && isFinite(Number(row.baseY))
         ? Number(row.baseY)
         : lyricTranslationAnchoredY(row, i, presentationIndex, lineStepWorld, translationLineStepWorld, scrollOffset, rowDrift, currentTranslation, !!data.usesTrack);
+      if (singleLineTranslationSwap && typeof lyricTranslationDistanceForRow === 'function') {
+        var legacyDistance = lyricTranslationVisualGapValue() * translationLineStepWorld;
+        if (row.tightParent && row.tightParent.mesh) yTarget = row.tightParent.mesh.position.y - lyricTranslationDistanceForRow(row, row.tightParent, legacyDistance);
+      }
     }
     var zBase = 0.055 - Math.pow(Math.min(5.5, visibilityAbs), 1.06) * 0.145;
     var zTarget = zBase - (motionAnchor ? 0 : Math.abs(rowDrift) * 0.18) + (row.isTranslation ? translationFocus * 0.065 : 0);
@@ -1614,7 +1640,7 @@ function updateLyricRowLayers(data, opts) {
     // offset is still easing toward the newly committed line.
     var scaleDistance = motionAnchor ? 0 : visibilityAbs;
     var baseScale = clampRange(1 - Math.min(5.5, scaleDistance) * 0.026, 0.84, 1.02);
-    if (row.isTranslation) baseScale *= clampRange(Number(row.fontScale) || 1, 0.72, 1.34);
+    if (row.isTranslation) baseScale *= clampRange(Number(row.fontScale) || 1, row.editTranslationScale ? 0.20 : 0.72, row.editTranslationScale ? 3 : 1.34);
     if (singleLineTranslationSwap) {
       if (isFinite(Number(row.baseZ))) zTarget = Number(row.baseZ);
       if (isFinite(Number(row.baseScale))) baseScale = Number(row.baseScale);
@@ -1634,7 +1660,7 @@ function updateLyricRowLayers(data, opts) {
     if (row.mesh) {
       row.mesh.position.x += ((isActive ? jitterX : (currentTranslation ? jitterX * 0.82 : jitterX * 0.28)) - row.mesh.position.x) * (opts.glitchPulse ? 0.48 : 0.13);
       var rowYTarget = yTarget + (verticalFloatOn ? (isActive ? jitterY : (currentTranslation ? jitterY * 0.78 : jitterY * 0.24)) : 0);
-      var rowYStep = (rowYTarget - row.mesh.position.y) * ease;
+      var rowYStep = (rowYTarget - row.mesh.position.y) * editLayoutEase;
       if (data.usesTrack && persistentPrimedTrack) {
         var continuousRowMaxRowsPerFrame = 0.66;
         var continuousRowMaxStepWorld = continuousTrackSlotStep * lineStepWorld * continuousRowMaxRowsPerFrame;
@@ -1642,10 +1668,11 @@ function updateLyricRowLayers(data, opts) {
       }
       row.mesh.position.y += rowYStep;
       row.mesh.position.z += (zTarget - row.mesh.position.z) * ease;
-      row.mesh.scale.setScalar(row.mesh.scale.x + (scaleTarget - row.mesh.scale.x) * ease);
+      row.mesh.scale.setScalar(row.mesh.scale.x + (scaleTarget - row.mesh.scale.x) * editLayoutEase);
       row.mesh.renderOrder = isActive ? (renderBase + 0.40) : (row.isTranslation ? (renderBase + 0.05 + (currentTranslation ? 0.34 : translationFocus * 0.30)) : (renderBase - 0.40 - Math.min(5.5, abs) * 0.015));
     }
     if (row.mat && row.mat.uniforms) {
+      if (row.mat.uniforms.uEditPreview) row.mat.uniforms.uEditPreview.value = editPreview || row.editTextPreview ? 1 : 0;
       if (row.mat.uniforms.uOpacity) {
         var lineOpacityTarget = data.usesTrack && (initialTextRevealPending || !lineLayerVisible || !row.renderLineUploaded) ? 0 : target * depthFade;
         if (initialTextRevealPending) row.mat.uniforms.uOpacity.value = 0;

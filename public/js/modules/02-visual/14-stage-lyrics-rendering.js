@@ -416,6 +416,7 @@ function takeStageLyricSingleLinePrewarmMesh(payload) {
 }
 
 function scheduleStageLyricSingleLineCachePrewarm(index, reason, delay) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && reason !== 'single-line-demand') return false;
   if (!fx || !fx.particleLyrics || !lyricsLines || !lyricsLines.length) return false;
   var payload = buildStageLyricDisplayPayload(index);
   if (!stageLyricPayloadIsSingleLine(payload)) return false;
@@ -440,6 +441,7 @@ function scheduleStageLyricSingleLineCachePrewarm(index, reason, delay) {
   item.timer = setTimeout(function () {
     item.timer = 0;
     item.dueAt = 0;
+    if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && reason !== 'single-line-demand') return;
     if (!fx || !fx.particleLyrics || !lyricsLines || !lyricsLines.length) {
       clearStageLyricSingleLinePrewarmItem(key);
       return;
@@ -1023,7 +1025,7 @@ function runStageLyricResidentBuild(job) {
     return;
   }
   var startedAt = stageLyricNowMs();
-  var phaseLimit = job.textOnly ? 8 : (job.interactive ? 5 : 2);
+  var phaseLimit = typeof lyricFxEditActive === 'function' && lyricFxEditActive() ? 1 : (job.textOnly ? 8 : (job.interactive ? 5 : 2));
   var phaseBudget = job.textOnly ? 2.8 : (job.interactive ? 3.4 : 4.2);
   var done = stepLyricRowLayerGroupBuild(job.state, phaseLimit, phaseBudget);
   var chunkMs = stageLyricNowMs() - startedAt;
@@ -1258,6 +1260,12 @@ function ensureStageLyricPersistentTrackRows(mesh, targetIndex, options) {
   var firstVisibleMissing = -1;
   for (var visibleIndex = visibleStart; visibleIndex <= visibleEnd; visibleIndex++) {
     if (lyricLineDisplayTextAt(visibleIndex) && !stageLyricPersistentLineRowsResident(data, visibleIndex, residentRowMap)) { firstVisibleMissing = visibleIndex; break; }
+  }
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) {
+    if (firstVisibleMissing < 0) return true;
+    var editJob = stageLyricResidentBuild.job;
+    if (editJob && editJob.mesh === mesh && editJob.textOnly && editJob.start <= visibleStart && editJob.end >= visibleEnd) return true;
+    return startStageLyricResidentBuild(mesh, targetIndex, visibleStart, visibleEnd, { textOnly: true, interactive: true, reason: 'fx-edit-visible-text' });
   }
   var firstMissing = firstVisibleMissing;
   if (firstMissing < 0) {
@@ -1630,6 +1638,20 @@ function finishStageLyricCooperativePrewarm(job) {
   stageLyricPrewarm.key = finalKey;
   stageLyricPrewarm.lightweight = job.lightweight;
   clearStageLyricWarmup();
+  if (job.reason === 'fx-edit-commit') {
+    var time = getAdjustedLyricPlaybackTime(stageLyricPlaybackSeconds());
+    var index = findStageLyricIndexAtTime(time);
+    if (index !== job.payload.trackIndex) {
+      finishLyricFxEditWork(true);
+    } else if (showStageLine(job.payload, true, { holdOutgoing: true })) {
+      stageLyrics.currentIdx = index;
+      updateLyricMeshProgress(stageLyrics.current, getLyricLineProgress(lyricsLines[index], lyricsLines[index + 1], time));
+      stageLyrics.current.userData.age = 0.48;
+      scheduleStageLyricFullTrackWarmup('style-refresh', 180);
+    }
+    updateStageLyricBuildStats(job, false, stageLyricNowMs() - startedAt);
+    return;
+  }
   if (!job.lightweight && stageLyricCurrentUsesPersistentTrack()) {
     disposeStageLyricPrewarmMesh();
     ensureStageLyricPersistentTrackRows(stageLyrics.current, stageLyrics.currentIdx, { reason: 'discard-full-track-takeover' });
@@ -1640,6 +1662,7 @@ function finishStageLyricCooperativePrewarm(job) {
 }
 
 function stageLyricShouldYieldToPendingInput() {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return true;
   try {
     return !!(
       typeof navigator !== 'undefined' && navigator.scheduling && typeof navigator.scheduling.isInputPending === 'function' &&
@@ -1759,6 +1782,8 @@ function startStageLyricCooperativePrewarm(payload, key, token, lightweight, rea
 }
 
 function scheduleStageLyricPrewarmForIndex(targetIndex, reason, delay) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
+  if (stageLyricPrewarm.build && stageLyricPrewarm.build.reason === 'fx-edit-commit') return;
   var hasTarget = targetIndex != null && isFinite(Number(targetIndex));
   var prewarmIndex = hasTarget ? Math.round(Number(targetIndex)) : null;
   if (hasTarget && lyricsLines && lyricsLines.length) prewarmIndex = Math.max(0, Math.min(lyricsLines.length - 1, prewarmIndex));
@@ -1907,6 +1932,7 @@ function runStageLyricFullTrackWarmup(reason) {
 }
 
 function scheduleStageLyricFullTrackWarmup(reason, delay) {
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return false;
   if (stageLyricCurrentUsesPersistentTrack()) {
     ensureStageLyricPersistentTrackRows(stageLyrics.current, stageLyrics.currentIdx, { reason: reason || 'persistent-track-warmup' });
     return true;
@@ -1968,9 +1994,9 @@ function showStageLine(text, redrawOnly, options) {
     markRenderInteraction('lyric-swap', 360);
   }
   var outgoingMesh = stageLyrics.current;
-  var holdOutgoingForReveal = !redrawOnly && stageLyricShouldHoldOutgoingForReveal(outgoingMesh, mesh);
+  var holdOutgoingForReveal = options.holdOutgoing === true || (!redrawOnly && stageLyricShouldHoldOutgoingForReveal(outgoingMesh, mesh));
   releaseStageLyricRevealHoldsForSuccessor(outgoingMesh);
-  if (redrawOnly && stageLyrics.current) {
+  if (redrawOnly && !options.holdOutgoing && stageLyrics.current) {
     disposeLyricMesh(stageLyrics.current);
     stageLyrics.current = null;
   } else if (stageLyrics.current) {
@@ -1991,6 +2017,10 @@ function showStageLine(text, redrawOnly, options) {
   }
   stageLyrics.group.add(mesh);
   stageLyrics.current = mesh;
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && fxSliderEdit.trackToken !== trackSwitchToken) {
+    fxSliderEdit.trackToken = trackSwitchToken;
+    fxSliderEdit.rebuild = true;
+  }
   initializeStageLyricPersistentTrack(mesh, payload);
   return true;
 }
@@ -2069,7 +2099,8 @@ function updateStageLyrics3D(dt) {
   var previewMotionLock = stageLyricProgressPreviewActive();
   var verticalFloatOn = !previewMotionLock && lyricVerticalFloatEnabled();
   var lyricFloatAmp = verticalFloatOn ? (lyricMotion.floatAmp || 1) : 0;
-  var lyricGlowStrength = fx.lyricGlow ? Math.min(0.85, Math.max(0, fx.lyricGlowStrength)) : 0;
+  var editPreview = typeof lyricFxEditActive === 'function' && lyricFxEditActive();
+  var lyricGlowStrength = fx.lyricGlow && !editPreview ? Math.min(0.85, Math.max(0, fx.lyricGlowStrength)) : 0;
   var glowDrive = Math.min(1.7, Math.max(0, lyricGlowStrength / 0.50));
   var glowBreath = lyricGlowStrength > 0 ? (0.5 + 0.5 * Math.sin(t * 1.05)) : 0;
   var musicBloom = Math.max(lyricSunEnergy, beatPulse * 0.10);
@@ -2269,7 +2300,7 @@ function updateStageLyrics3D(dt) {
     var singleLineSwap = stageLyricUsesSingleLineSwap(mesh);
     var style = mesh.userData.motionStyle || lyricMotion.style;
     var seed = mesh.userData.floatSeed || 0;
-    var glitchAmount = !previewMotionLock && style === 'glitch' ? clampRange(Number(lyricMotion.glitch) || 0, 0, 1.5) : 0;
+    var glitchAmount = !previewMotionLock && !editPreview && style === 'glitch' ? clampRange(Number(lyricMotion.glitch) || 0, 0, 1.5) : 0;
     var glitchSlice = style === 'glitch' ? clampRange(Number(lyricMotion.glitchSlice) || 0, 0, 1.4) : 0;
     var glitchRate = style === 'glitch' ? clampRange(Number(lyricMotion.glitchRate) || 1, 0.45, 2.2) : 1;
     var glitchJitter = style === 'glitch' ? clampRange(Number(lyricMotion.glitchJitter) || 0, 0, 1.8) : 0;
@@ -2347,14 +2378,14 @@ function updateStageLyrics3D(dt) {
     if (data.glow) {
       var glowFollowX = data.glowFrameLocked ? 0.045 : 0.14;
       var glowFollowY = data.glowFrameLocked ? 0.040 : 0.12;
-      data.glow.visible = !data.suppressStaticGlow;
+      data.glow.visible = !data.suppressStaticGlow && !editPreview;
       if (!data.suppressStaticGlow) {
         data.glow.position.set(glowX * glowFollowX + textJitterX * 0.32, glowY * glowFollowY + textJitterY * 0.36, -0.006);
         data.glow.rotation.z = glowRoll * 0.30;
       }
     }
     if (data.sun) {
-      data.sun.visible = !data.suppressStaticGlow;
+      data.sun.visible = !data.suppressStaticGlow && !editPreview;
       if (!data.suppressStaticGlow) {
         data.sun.position.set(glowX * 0.42, 0.02 + glowY * 0.34, -0.035);
         data.sun.rotation.z = glowRoll * 0.36;
@@ -2508,8 +2539,8 @@ function updateStageLyrics3D(dt) {
         var rootRotationTarget = (Math.sin(t * 0.34 + seed) * (style === 'smooth' ? 0.006 : (style === 'float' ? 0.026 : 0.018)) + textJitterX * 0.18 + glitchCameraDrive * glitchAmount * 0.014) * previewMotionBlend;
         mesh.rotation.z = previewMotionBlend < 1 ? mesh.rotation.z + (rootRotationTarget - mesh.rotation.z) * 0.18 : rootRotationTarget;
       }
-      if (data.sparks && data.sparkMat) data.sparks.visible = fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015;
-      if (data.sparks && data.basePositions) {
+      if (data.sparks && data.sparkMat) data.sparks.visible = !editPreview && (fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015);
+      if (!editPreview && data.sparks && data.basePositions) {
         var pos = data.sparks.geometry.attributes.position;
         var arr = pos.array, base = data.basePositions;
         data.sparks.rotation.z += ((fx.lyricGlowParticles ? 0.0009 : 0.00025) + stageLyrics.beatGlow * 0.0007) * (dt * 60);
@@ -2612,6 +2643,11 @@ function lyricKaraokeMetricsKey(line) {
 }
 function lyricKaraokeWordRanges(line) {
   if (!line || !line.words || !line.words.length || !line.text) return null;
+  if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) {
+    if (Array.isArray(line._karaokeWordRanges)) return line._karaokeWordRanges;
+    var characters = Math.max(1, line.charCount || line.text.length);
+    return line.words.map(function (word) { return { p0: clampRange(word.c0 / characters, 0, 1), p1: clampRange(word.c1 / characters, 0, 1) }; });
+  }
   var key = lyricKaraokeMetricsKey(line);
   if (line._karaokeMetricKey === key && Array.isArray(line._karaokeWordRanges)) return line._karaokeWordRanges;
   var ctx = lyricKaraokeMeasureContext();

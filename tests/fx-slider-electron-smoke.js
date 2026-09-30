@@ -181,7 +181,7 @@ async function main() {
     assert.equal(result.savedUntouched, result.untouched, 'scoped save cannot overwrite an unrelated runtime value');
     assert.deepEqual(result.savedValues, result.finalValues, 'multiple touched controls must all persist');
     assert.deepEqual(result.restoredValues, result.finalValues);
-    assert.equal(result.settled.rebuilds, 1, 'commit must render the final lyric style once');
+    assert.equal(result.settled.rebuilds, 0, 'layout and glitch uniforms must not rebuild glyphs on commit');
     assert.equal(result.coverBuildsBeforeCommit, 0);
     assert.equal(result.coverBuildsAfterCommit, 1);
     assert.equal(result.pendingReads, 2, 'pending local loads must survive appearance-only updates');
