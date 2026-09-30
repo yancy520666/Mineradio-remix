@@ -1171,8 +1171,7 @@ body.render-deep-sleep #sonic-workshop-layer,
 body.render-deep-sleep #idle-guide-canvas,
 body.render-deep-sleep #splash-canvas,
 body.render-deep-sleep #hand-canvas {
-  opacity: 0 !important;
-  visibility: hidden !important
+  animation-play-state: paused !important
 }
 
 body.splash-active:not(.splash-revealing) #canvas-container {

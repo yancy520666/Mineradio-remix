@@ -215,6 +215,11 @@ function wakeMainLoopFromBackground() {
     mainLoopAnimationRequested = false;
     mainLoopAnimationFrameId = 0;
   }
+  // A native show/restore can precede focus and Chromium's next animation frame.
+  // Submit the existing scene immediately; the normal loop updates it afterward.
+  if (!mainLoopDeepBackgroundSleeping() && typeof renderer !== 'undefined' && renderer
+    && typeof scene !== 'undefined' && typeof camera !== 'undefined'
+    && !renderer.getContext().isContextLost()) renderer.render(scene, camera);
   requestMainLoopAnimationFrame();
 }
 function tickDeepBackgroundFrame(now, dt) {

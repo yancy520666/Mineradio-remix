@@ -43,10 +43,19 @@ function makeContext(getState) {
 }
 
 async function testWakeReadsNativeWindowState() {
-  const { context, events } = makeContext(() => Promise.resolve({ isMinimized: false, isVisible: true, isFocused: true }));
+  const { context, events } = makeContext(() => Promise.resolve({ isMinimized: false, isVisible: true, isFocused: false }));
   assert.equal(context.isDeepBackgroundMode(), true);
   context.refreshDesktopRuntimeStateAfterWake('test');
   await Promise.resolve();
+  assert.equal(context.isDeepBackgroundMode(), false);
+  assert.equal(context.desktopRuntimeState.focused, false, 'a preview must not need focus');
+  assert.deepEqual(events, ['classes', 'renderer', 'visuals', 'loop']);
+}
+
+async function testNativePushWakesWithoutFocusOrVisibilityEvent() {
+  const { context, events } = makeContext(() => Promise.resolve({}));
+  context.document.hidden = true; // Chromium visibility can lag the native restore.
+  context.updateDesktopRuntimeState({ isMinimized: false, isVisible: true, isFocused: false });
   assert.equal(context.isDeepBackgroundMode(), false);
   assert.deepEqual(events, ['classes', 'renderer', 'visuals', 'loop']);
 }
@@ -64,6 +73,7 @@ async function testNewerWindowPushWinsOverLateReply() {
 
 Promise.resolve()
   .then(testWakeReadsNativeWindowState)
+  .then(testNativePushWakesWithoutFocusOrVisibilityEvent)
   .then(testNewerWindowPushWinsOverLateReply)
   .then(() => console.log('OK background-window-state-recovery'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
