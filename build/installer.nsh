@@ -1023,6 +1023,7 @@ Function un.MineradioValidateUninstallDir
 FunctionEnd
 
 Function un.MineradioRemoveInstalledFiles
+  Call un.MineradioValidateUninstallDir
   SetOutPath $TEMP
 
   Delete "$INSTDIR\${PRODUCT_FILENAME}.exe"
@@ -1047,9 +1048,11 @@ Function un.MineradioRemoveInstalledFiles
   Delete "$INSTDIR\vk_swiftshader_icd.json"
   Delete "$INSTDIR\vulkan-1.dll"
 
-  RMDir "$INSTDIR\locales"
-  RMDir "$INSTDIR\resources"
-  RMDir "$INSTDIR\swiftshader"
+  RMDir /r "$INSTDIR\locales"
+  RMDir /r "$INSTDIR\resources"
+  RMDir /r "$INSTDIR\swiftshader"
+
+  Delete "$INSTDIR\${MINERADIO_INSTALL_MARKER}"
 
   RMDir "$INSTDIR"
 FunctionEnd

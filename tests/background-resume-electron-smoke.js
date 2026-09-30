@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { app, BrowserWindow } = require('electron');
 
 const appRoot = path.resolve(__dirname, '..');
@@ -24,7 +25,18 @@ async function main() {
   });
   await win.loadFile(path.join(appRoot, 'public', 'index.html'));
   await new Promise(resolve => setTimeout(resolve, 2500));
+  if (process.argv.includes('--baseline')) {
+    const committed = execFileSync('git', ['show', 'HEAD:public/js/modules/02-visual/14-stage-lyrics-rendering.js'], { cwd: appRoot, encoding: 'utf8' });
+    for (const name of ['markStageLyricsPlaybackResume', 'restorePausedStageLyrics', 'restoreStageLyricsAfterBackground']) {
+      const start = committed.indexOf('function ' + name + '(');
+      const end = committed.indexOf('\nfunction ', start + 1);
+      if (start < 0 || end < 0) throw new Error('Missing committed recovery function');
+      await win.webContents.executeJavaScript('window.' + name + ' = ' + committed.slice(start, end) + '; void 0;');
+    }
+  }
   const result = await win.webContents.executeJavaScript(`(async () => {
+    dismissSplash({ instant: true });
+    await new Promise(resolve => setTimeout(resolve, 80));
     const result = { wake: null, audio: null, lyrics: null };
     const originalBridge = window.desktopWindow;
     const originalRuntime = { ...desktopRuntimeState };
@@ -51,7 +63,7 @@ async function main() {
       };
 
       const sampleRate = 8000;
-      const samples = sampleRate * 3;
+      const samples = sampleRate * 30;
       const bytes = new Uint8Array(44 + samples * 2);
       const view = new DataView(bytes.buffer);
       const writeText = (offset, text) => { for (let i = 0; i < text.length; i++) bytes[offset + i] = text.charCodeAt(i); };
@@ -94,6 +106,73 @@ async function main() {
         attached: !!(stageLyrics.current && stageLyrics.current.parent === stageLyrics.group),
         text: stageLyrics.currentText,
       };
+      // Exercise a single first-play request while native visibility is still stale.
+      // Wait for actual material opacity and a changed GPU framebuffer, not just a mesh pointer.
+      result.firstPlay = [];
+      for (const scenario of ['missing-pause-hide', 'detached', 'hidden-group']) {
+        media.pause();
+        playing = false;
+        fx.lyricPauseHold = true;
+        clearStageLyrics();
+        restoreStageLyricsAfterBackground('fixture');
+        const before = stageLyrics.current;
+        if (scenario === 'missing-pause-hide') {
+          clearStageLyrics(); fx.lyricPauseHold = false;
+          scene.remove(stageLyrics.group);
+          stageLyrics.group.visible = false;
+        }
+        if (scenario === 'detached') stageLyrics.group.remove(before);
+        if (scenario === 'hidden-group') {
+          scene.remove(stageLyrics.group);
+          stageLyrics.group.visible = false;
+          before.visible = false;
+        }
+        desktopRuntimeState.desktop = true;
+        desktopRuntimeState.minimized = true;
+        desktopRuntimeState.visible = false;
+        updateRenderPowerClasses();
+        applyRendererPowerMode();
+        await audioCtx.suspend();
+        let playRequests = 0;
+        const nativePlay = media.play.bind(media);
+        media.play = () => { playRequests++; return nativePlay(); };
+        const resumed = await resumePausedAudioFast({ manual: true });
+        media.play = nativePlay;
+        const end = Date.now() + 2500;
+        let visibleText = false;
+        while (Date.now() < end) {
+          const mesh = stageLyrics.current;
+          const data = mesh && mesh.userData.lyric;
+          visibleText = !!(mesh && mesh.parent === stageLyrics.group && mesh.visible && stageLyrics.group.visible
+            && stageLyrics.group.parent === scene && data && ((data.rowLayers || []).some(row => getLyricTextureMaterialOpacity(row.mat) > 0.02)
+              || data.textMat && data.textMat.uniforms && data.textMat.uniforms.uOpacity && data.textMat.uniforms.uOpacity.value > 0.02));
+          if (visibleText && !isDeepBackgroundMode()) break;
+          await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        let changedPixels = 0;
+        if (visibleText && !isDeepBackgroundMode()) {
+          const gl = renderer.getContext();
+          const width = gl.drawingBufferWidth, height = gl.drawingBufferHeight;
+          const shown = new Uint8Array(width * height * 4);
+          const hidden = new Uint8Array(shown.length);
+          renderer.render(scene, camera);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, shown);
+          stageLyrics.current.visible = false;
+          renderer.render(scene, camera);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, hidden);
+          stageLyrics.current.visible = true;
+          for (let offset = 0; offset < shown.length; offset += 4) {
+            if (shown[offset] !== hidden[offset] || shown[offset + 1] !== hidden[offset + 1] || shown[offset + 2] !== hidden[offset + 2]) changedPixels++;
+          }
+        }
+        result.firstPlay.push({ scenario, resumed, playRequests, awake: !isDeepBackgroundMode(), visibleText, changedPixels,
+          reused: before === stageLyrics.current, diagnostics: { playing, particleLyrics: fx.particleLyrics,
+            attached: !!(stageLyrics.current && stageLyrics.current.parent === stageLyrics.group),
+            groupAttached: stageLyrics.group.parent === scene, groupVisible: stageLyrics.group.visible,
+            meshVisible: stageLyrics.current && stageLyrics.current.visible,
+            age: stageLyrics.current && stageLyrics.current.userData.age,
+            rows: stageLyrics.current && (stageLyrics.current.userData.lyric.rowLayers || []).map(row => getLyricTextureMaterialOpacity(row.mat)) } });
+      }
     } finally {
       clearStageLyrics();
       lyricsLines = originalLyricsLines;
@@ -116,7 +195,9 @@ async function main() {
     && result.audio && result.audio.suspended && result.audio.resumed
     && result.audio.contextState === 'running' && !result.audio.paused && result.audio.currentTime > 0
     && result.lyrics && result.lyrics.restored && result.lyrics.attached
-    && result.lyrics.text === '后台恢复歌词测试';
+    && result.lyrics.text === '后台恢复歌词测试'
+    && result.firstPlay.every(item => item.resumed && item.playRequests === 1 && item.awake && item.visibleText && item.changedPixels > 10)
+    && result.firstPlay.find(item => item.scenario === 'hidden-group').reused;
   console.log('MINERADIO_BACKGROUND_SMOKE:' + JSON.stringify({ ok, result }));
   app.exit(ok ? 0 : 1);
 }
