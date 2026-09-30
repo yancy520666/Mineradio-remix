@@ -86,7 +86,7 @@ app.whenReady().then(async () => {
     offline.remove(); delete navigator.onLine;
     const online = add('online');
     stage = 'online retry exhaustion';
-    await waitFor(() => providerAvatarRecovery.get(online)?.attempts === 3 && !providerAvatarRetryTimers.has(online));
+    await waitFor(() => providerAvatarRecovery.get(online)?.attempts === 3 && !providerAvatarRetryTimers.has(online) && online.getAttribute('src') === providerAvatarRecovery.get(online)?.fallback && online.complete && online.naturalWidth > 0);
     window.dispatchEvent(new Event('online'));
     stage = 'online recovery';
     await waitFor(() => providerAvatarRecovery.get(online)?.failed === false);
