@@ -532,7 +532,7 @@ function resetPreparedStageLyricMesh(mesh, payload, lineStep) {
     data.context.userData.progressPreviewMotionLocked = false;
     data.context.userData.progressPreviewMotionBlend = 1;
   }
-  var lineWorldStep = clampRange(Number(data.lineWorldStep) || 0.38, 0.20, 0.94);
+  var lineWorldStep = lyricMeshLineStepWorld(data, false);
   if (!singleLineSwap) mesh.position.y += enterDir * lineWorldStep;
   if (data && isFinite(Number(data.trackTargetVirtualIndex))) {
     data.trackScrollOffset = Number(data.trackTargetVirtualIndex);
@@ -814,7 +814,7 @@ function alignStageLyricResidentEffectToRow(row, effect, zOffset) {
 
 function stageLyricResidentDisplayedScrollOffset(data, fallbackOffset) {
   if (!data || !Array.isArray(data.rowLayers) || !data.rowLayers.length) return fallbackOffset;
-  var lineStepWorld = clampRange(Number(data.lineWorldStep) || 0.38, 0.20, 0.94);
+  var lineStepWorld = lyricMeshLineStepWorld(data, false);
   var samples = [];
   for (var i = 0; i < data.rowLayers.length; i++) {
     var row = data.rowLayers[i];
@@ -859,8 +859,8 @@ function primeStageLyricResidentRowTransform(data, row, transformSnapshot) {
   var targetLineIndex = Number(snapshot.targetLineIndex) || 0;
   var targetVirtualIndex = isFinite(Number(snapshot.targetVirtualIndex)) ? Number(snapshot.targetVirtualIndex) : lyricPrimaryVirtualIndex(targetLineIndex);
   var scrollOffset = isFinite(Number(snapshot.scrollOffset)) ? Number(snapshot.scrollOffset) : targetVirtualIndex;
-  var lineStepWorld = clampRange(Number(data.lineWorldStep) || 0.38, 0.20, 0.94);
-  var translationLineStepWorld = clampRange(Number(data.translationLineStepWorld) || lineStepWorld, 0.20, 0.78);
+  var lineStepWorld = lyricMeshLineStepWorld(data, false);
+  var translationLineStepWorld = lyricMeshLineStepWorld(data, true);
   var rowVirtualIndex = isFinite(Number(row.virtualIndex)) ? Number(row.virtualIndex) : targetVirtualIndex;
   var rowLineIndex = isFinite(Number(row.lineIndex)) ? Number(row.lineIndex) : null;
   var isActive = !!row.isPrimary && rowLineIndex === targetLineIndex;
@@ -2265,7 +2265,7 @@ function updateStageLyrics3D(dt) {
     if (isCurrent && data.trackPersistent && data.trackPendingPayload && stageLyricPersistentTargetRowsReady(mesh, data.trackPendingPayload.trackIndex)) {
       commitStageLyricPersistentPendingTarget(mesh);
     }
-    var lineStepWorld = clampRange(Number(data.lineWorldStep) || lyricMotion.slide, 0.20, 0.94);
+    var lineStepWorld = lyricMeshLineStepWorld(data, false);
     var singleLineSwap = stageLyricUsesSingleLineSwap(mesh);
     var style = mesh.userData.motionStyle || lyricMotion.style;
     var seed = mesh.userData.floatSeed || 0;

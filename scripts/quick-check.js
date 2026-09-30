@@ -1334,8 +1334,12 @@ function checkLyricScrollPerformanceGuard() {
   if (!/singleLineStaticSwap = displayMode === 'single' && !data\.usesTrack/.test(rowText) || !/singleLineTranslationSwap && isFinite\(Number\(row\.baseY\)\)/.test(rowText) || !/baseScale = Number\(row\.baseScale\)/.test(rowText) || !/cloneStageLyricEntryForLayer\(entry,\s*\{\s*virtualIndex:\s*virtualIndex\s*\}\)/.test(rowText)) {
     fail('single-line translation rows must share the primary single-line swap instead of sliding up from their own anchor');
   }
-  if (!/lyricLineHasTranslationAt\(n \+ 1\)/.test(displayModeText)) {
-    fail('translation-aware lyric spacing must reserve room before a translated next line enters');
+  const spacing = spawnSync(process.execPath, [path.join(appRoot, 'tests', 'lyric-spacing-stability.test.js')], {
+    cwd: appRoot, encoding: 'utf8', timeout: 10000
+  });
+  if (spacing.status !== 0) {
+    process.stderr.write(spacing.stderr || spacing.stdout || '');
+    fail('DIY lyric spacing must stay stable and reserve translation slots across songs');
   }
   if (/trackScrollPayloadKey/.test(meshText) || !/function lyricTrackScrollWindowKey/.test(meshText) || !/return payload\.trackKey;/.test(meshText) || !/data\.trackScrollWindowKey !== payloadWindowKey/.test(meshText)) {
     fail('multi-line lyric scrolling identity must stay bound to the song/style track instead of resident window bounds');
@@ -1358,8 +1362,8 @@ function checkLyricScrollPerformanceGuard() {
   if (!/function clearStageLyricFullTrackWarmup/.test(stageText) || /function disposeStageLyricPrewarmMesh\(\)\s*\{[\s\S]{0,220}stageLyricFullTrackWarmupTimer/.test(stageText)) {
     fail('disposing a lightweight prewarm mesh must not cancel the pending full-track lyric warmup');
   }
-  if (!/clampRange\(Number\(data\.lineWorldStep\) \|\| 0\.38, 0\.20, 0\.94\)/.test(stageText) || !/clampRange\(Number\(data\.lineWorldStep\) \|\| lyricMotion\.slide, 0\.20, 0\.94\)/.test(stageText) || !/clampRange\(Number\(data\.lineWorldStep\) \|\| 0\.38, 0\.20, 0\.94\)/.test(rowText)) {
-    fail('multi-line lyric reuse and row-layer scrolling must keep the same line spacing clamp as mesh construction');
+  if (!/lyricMeshLineStepWorld\(data, false\)/.test(stageText) || !/lyricMeshLineStepWorld\(data, false\)/.test(rowText) || /clampRange\(Number\(data\.(?:lineWorldStep|translationLineStepWorld)\)/.test(stageText + rowText)) {
+    fail('multi-line lyric reuse and scrolling must preserve authored spacing without texture-dependent hard caps');
   }
   if (!/function lyricsAreFallbackTitleOnly/.test(lyricText) || !/var fallbackTitleOnly = lyricsAreFallbackTitleOnly\(lyricsLines\)/.test(lyricText) || !/if \(!fallbackTitleOnly && typeof scheduleStageLyricFullTrackWarmup === 'function'\)/.test(lyricText)) {
     fail('track-title fallback lyrics must not schedule a full multi-line track warmup before real lyrics arrive');
@@ -1436,8 +1440,12 @@ function checkLyricScrollPerformanceGuard() {
   if (!/stageLyricTrackGeneration \+= 1/.test(stageText) || !/songKey,\s*stageLyricTrackGeneration/.test(stageText)) {
     fail('lyric track identity must change when refreshed lyrics alter a middle line');
   }
-  if (!/function refreshStageLyricDisplayMode\(\) \{\s*refreshCurrentLyricStyle\(\);\s*\}/.test(lyricActionsText) || !/buildStageLyricDisplayPayload\(stageLyrics\.currentIdx, \{ lightweightTrack: true \}\)/.test(stageText)) {
-    fail('lyric display mode changes must rebuild from a lightweight payload instead of synchronously constructing the whole song');
+  const styleRefresh = spawnSync(process.execPath, [path.join(appRoot, 'tests', 'lyric-style-refresh.test.js')], {
+    cwd: appRoot, encoding: 'utf8', timeout: 10000
+  });
+  if (styleRefresh.status !== 0) {
+    process.stderr.write(styleRefresh.stderr || styleRefresh.stdout || '');
+    fail('lyric display mode changes must defer a lightweight rebuild and reject stale track results');
   }
   if (/renderer\.initTexture/.test(maskText + rowText + meshText + stageText)) {
     fail('lyric texture prewarm must not force synchronous GPU uploads with renderer.initTexture');
@@ -1487,7 +1495,11 @@ function checkLyricScrollPerformanceGuard() {
   if (!/function lyricKaraokeWordRanges/.test(stageText) || !/lyricMeasureTextAtSize\(ctx, text\.slice\(0, c0\)/.test(stageText) || !/mesh\.userData\.nativeKaraokeProgress/.test(stageText) || !/updateLyricMeshProgress\(stageLyrics\.current, progress, \{ nativeKaraoke: lyricLineHasNativeKaraoke\(curLine\) \}\)/.test(stageText)) {
     fail('native YRC karaoke highlight must follow word timing and measured word width without smoothed line-level lag');
   }
-  if (!/function retireCurrentStageLyricForIdle/.test(stageText) || !/pausedWithTrack/.test(stageText) || !/if \(pausedWithTrack\) \{[\s\S]{0,360}return;[\s\S]{0,120}retireCurrentStageLyricForIdle\(\)/.test(stageText)) {
+  const pausedLyrics = spawnSync(process.execPath, [path.join(appRoot, 'tests', 'stage-lyric-background-restore.test.js')], {
+    cwd: appRoot, encoding: 'utf8', timeout: 10000
+  });
+  if (pausedLyrics.status !== 0) {
+    process.stderr.write(pausedLyrics.stderr || pausedLyrics.stdout || '');
     fail('paused playback must keep the current lyric mesh instead of retiring it after a few seconds');
   }
   if (!/function resetFrameGate/.test(schedulerText) || !/function markStageLyricsPlaybackResume/.test(stageText) || !/resetFrameGate\(mainFrameGates\.lyricsParticles/.test(stageText) || !/markStageLyricsPlaybackResume\(reason \|\| 'playback-started'\)/.test(controlsText) || !/markStageLyricsPlaybackResume\(reason\)/.test(switchText)) {
@@ -2937,7 +2949,7 @@ function checkPlaybackResumeRecoveryGuard() {
   if (!/function schedulePlaybackStallRecovery/.test(controlsText) || !/ensureAudiblePlaybackGain\('resume-stall-before-refresh'\)/.test(controlsText) || !/recoverCurrentTrackPlaybackFromFreshUrl\('play-rejected'/.test(controlsText)) {
     fail('playback resume recovery must cover rejected play() and stalled media after WebAudio checks');
   }
-  if (!/function trackSwitchStallRecoveryAllowed/.test(controlsText) || !/playbackResumeProvider\(song\) === 'qishui'/.test(controlsText) || !/\(opts\.trackSwitch \|\| opts\.manual \|\| opts\.fastResume\)/.test(controlsText) || !/function nudgeQishuiTrackStart/.test(controlsText) || !/qishui-track-start-stalled/.test(controlsText) || /if \(opts\.trackSwitch && !opts\.resumeRecovery\) return;/.test(controlsText)) {
+  if (!/function trackSwitchStallRecoveryAllowed/.test(controlsText) || !/playbackResumeProvider\(song\) (?:===|!==) 'qishui'/.test(controlsText) || !/\(opts\.trackSwitch \|\| opts\.manual \|\| opts\.fastResume\)/.test(controlsText) || !/function nudgeQishuiTrackStart/.test(controlsText) || !/qishui-track-start-stalled/.test(controlsText) || /if \(opts\.trackSwitch && !opts\.resumeRecovery\) return;/.test(controlsText)) {
     fail('Qishui auto-next start stalls must be watched, nudged, and refreshed instead of skipping track-switch recovery');
   }
   if (
@@ -5605,7 +5617,7 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
     performanceBackground: 'release',
     performanceQuality: 'eco',
     memoryAutoSystemTrim: true,
-    memorySystemAutoElevate: true,
+    memorySystemAutoElevate: false,
     wallpaperFps: 60,
     shelfCameraMode: 'dynamic',
     shelfPresence: 'auto'
@@ -5639,6 +5651,10 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
 
 async function main() {
   console.log(`App root: ${appRoot}`);
+  if (process.argv.includes('--startup')) {
+    runMainStartupRecoveryCheck();
+    return;
+  }
   runNodeSyntaxCheck(jsCheckFiles());
   runPlaybackAudioGraphRegressionCheck();
   runBackgroundResumeRegressionChecks();

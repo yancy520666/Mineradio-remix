@@ -32,10 +32,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Run regression tests
+        run: npm test
+      - name: Check source and runtime guards
+        run: npm run check
+      - name: Check Electron startup and recovery
+        run: npm run test:electron
       - name: Build Windows installer and update metadata
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

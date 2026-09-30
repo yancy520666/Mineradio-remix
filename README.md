@@ -10,6 +10,8 @@ Remix 由 [yancy520666](https://github.com/yancy520666) 维护，[Codex](https:/
 - 手动恢复播放前先唤醒音频上下文，减少界面显示播放但没有声音的情况。
 - 移除未登录时的“世界和平”解锁彩蛋；首次登录引导保留，点击右上角登录入口可直接绑定账号。
 - 增加后台唤醒的回归测试和 Electron 运行测试。
+- DIY 歌词间距按固定布局单位计算，切歌、长句和纹理清晰度不再改变基础间距；开启翻译时统一预留译文空间。
+- 增加每次 push / PR 的自动回归检查，发布打包前也必须通过测试。
 
 相关修复见 [播放与窗口恢复 PR #1](https://github.com/yancy520666/Mineradio-remix/pull/1)。真实歌曲长时间闲置后的持续观察仍在进行。
 
@@ -31,8 +33,12 @@ npm start
 运行源码检查：
 
 ```powershell
-node scripts/quick-check.js
+npm test
+npm run check
+npm run test:electron
 ```
+
+`npm test` 自动发现并运行全部 `*.test.js`；`npm run check` 检查源码和运行规则；`npm run test:electron` 使用隔离的临时用户目录验证启动恢复、音频恢复、歌词间距及设置保存/读取，不修改日常使用配置。字体观感、特效流畅度与画面效果仍由人工验收。
 
 构建 Windows 安装包：
 
