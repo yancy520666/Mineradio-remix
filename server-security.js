@@ -46,13 +46,34 @@ async function resolvePublicTarget(value, lookup = dns.lookup) {
   try { addresses = net.isIP(host) ? [{ address: host, family: net.isIP(host) }] : await lookup(host, { all: true, verbatim: true }); }
   catch (_) { throw proxyError('PROXY_DNS_FAILED'); }
   if (!addresses.length || addresses.some(item => isBlockedIpAddress(item.address))) throw proxyError('UNSAFE_PROXY_URL');
-  return { url, address: addresses[0].address, family: addresses[0].family };
+  // Validate every DNS result before choosing one; never fall back to a fresh,
+  // unchecked lookup. Prefer IPv4 but retain IPv6 for networks that need it.
+  addresses = addresses.filter((item, index, all) => all.findIndex(other => other.address === item.address) === index)
+    .sort((a, b) => a.family - b.family);
+  return { url, addresses, address: addresses[0].address, family: addresses[0].family };
 }
-function requestPinned(target, options = {}) {
+const RETRYABLE_PROXY_ERRORS = new Set(['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'PROXY_TIMEOUT']);
+async function requestPinned(target, options = {}) {
+  const limit = ['GET', 'HEAD'].includes(options.method || 'GET') ? 4 : 1;
+  const addresses = (target.addresses || [{ address: target.address, family: target.family }]).slice(0, limit);
+  const deadline = Date.now() + 9000;
+  for (let index = 0; index < addresses.length; index++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw proxyError('PROXY_TIMEOUT');
+    try {
+      return await requestPinnedAddress({ ...target, ...addresses[index] }, options,
+        index < addresses.length - 1 ? Math.min(2500, remaining) : remaining);
+    } catch (error) {
+      if (options.signal && options.signal.aborted || !RETRYABLE_PROXY_ERRORS.has(error.code) || index === addresses.length - 1) throw error;
+    }
+  }
+  throw proxyError('PROXY_DNS_FAILED');
+}
+function requestPinnedAddress(target, options, headerTimeout) {
   return new Promise((resolve, reject) => {
     let headerTimer;
     const request = (target.url.protocol === 'https:' ? https : http).request(target.url, {
-      method: options.method || 'GET', headers: options.headers, agent: false,
+      method: options.method || 'GET', headers: options.headers, agent: false, signal: options.signal,
       lookup: (_host, lookupOptions, callback) => lookupOptions.all
         ? callback(null, [{ address: target.address, family: target.family }])
         : callback(null, target.address, target.family),
@@ -67,7 +88,7 @@ function requestPinned(target, options = {}) {
       } catch (error) { response.destroy(); request.destroy(); reject(error); }
     });
     request.setTimeout(9000, () => request.destroy(proxyError('PROXY_TIMEOUT')));
-    headerTimer = setTimeout(() => request.destroy(proxyError('PROXY_TIMEOUT')), 9000);
+    headerTimer = setTimeout(() => request.destroy(proxyError('PROXY_TIMEOUT')), headerTimeout);
     request.on('error', error => { clearTimeout(headerTimer); reject(error); });
     request.end();
   });

@@ -66,7 +66,7 @@ Set-Content -LiteralPath $neighbor -Value 'keep neighbor' -Encoding utf8
 Run-Installer $installerPath
 if ((Installed-Root) -ne $target) { throw 'Upgrade moved the installation unexpectedly.' }
 $report.upgraded = $true
-$sourceFiles = @('package.json', 'desktop/main.js', 'server.js', 'server-security.js') + @(Get-ChildItem (Join-Path $PSScriptRoot '../public/js') -File -Recurse | ForEach-Object { [System.IO.Path]::GetRelativePath((Resolve-Path (Join-Path $PSScriptRoot '..')).Path, $_.FullName) })
+$sourceFiles = @('package.json', 'desktop/main.js', 'server.js', 'server-security.js', 'public/index.html', 'public/css/index.css') + @(Get-ChildItem (Join-Path $PSScriptRoot '../public/js') -File -Recurse | ForEach-Object { [System.IO.Path]::GetRelativePath((Resolve-Path (Join-Path $PSScriptRoot '..')).Path, $_.FullName) })
 foreach ($relative in $sourceFiles) {
   $source = Join-Path (Join-Path $PSScriptRoot '..') $relative
   $installed = Join-Path (Join-Path $target 'resources/app') $relative

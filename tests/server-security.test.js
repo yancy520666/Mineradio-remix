@@ -50,6 +50,40 @@ test('transport uses its validated address, preserving HEAD and Range bytes', as
   target.url.pathname = '/broken'; const broken = await requestPinned(target); await assert.rejects(broken.text());
 });
 
+test('media transport falls back between pinned DNS addresses without replaying a partial stream', async t => {
+  const resolved = await resolvePublicTarget('https://dual.example/', async () => [
+    { address: '2606:4700:4700::1111', family: 6 }, { address: '8.8.8.8', family: 4 }, { address: '8.8.8.8', family: 4 },
+  ]);
+  assert.deepEqual(resolved.addresses.map(item => item.family), [4, 6]);
+  let requests = 0;
+  const server = http.createServer((req, res) => {
+    requests++;
+    assert.equal(req.headers.host, 'dual.invalid:' + server.address().port);
+    assert.equal(req.headers.range, 'bytes=0-3');
+    res.writeHead(206, { 'content-range': 'bytes 0-3/10' });
+    res.write('wave');
+    if (req.url === '/broken') setTimeout(() => res.destroy(), 20);
+    else res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  // Controlled loopback fixture exercises real sockets, not the public resolver.
+  const target = { url: new URL('http://dual.invalid:' + server.address().port + '/song'),
+    addresses: [{ address: '127.0.0.2', family: 4 }, { address: '127.0.0.1', family: 4 }] };
+  const options = { headers: { Range: 'bytes=0-3' } };
+  const response = await requestPinned(target, options);
+  assert.equal(response.status, 206);
+  assert.equal(await response.text(), 'wave');
+  target.url.pathname = '/broken';
+  const broken = await requestPinned(target, options);
+  await assert.rejects(broken.text());
+  assert.equal(requests, 2, 'headers already delivered must not start another download');
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(requestPinned(target, { ...options, signal: controller.signal }), { name: 'AbortError' });
+  assert.equal(requests, 2, 'cancelled downloads must not open another socket');
+});
+
 test('actual server rejects cross-site calls and every private media entry', async t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-security-'));
   const reservation = http.createServer();

@@ -134,7 +134,6 @@ function renderQualityProfile() {
 }
 function getRenderPixelRatio() {
   var device = window.devicePixelRatio || 1;
-  if (isDeepBackgroundMode()) return Math.min(device, 0.30);
   var cssPixels = Math.max(1, innerWidth * innerHeight);
   var quality = renderQualityProfile();
   var budgetCap = Math.sqrt(quality.budget / cssPixels);

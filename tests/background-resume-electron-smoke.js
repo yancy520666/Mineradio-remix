@@ -48,19 +48,34 @@ async function main() {
     const originalPlaying = playing;
     const originalParticleLyrics = fx.particleLyrics;
     try {
+      applyRendererPowerMode();
+      const retainedWidth = renderer.domElement.width;
+      const retainedHeight = renderer.domElement.height;
+      const nativeRender = renderer.render.bind(renderer);
+      let renderCalls = 0;
+      renderer.render = (...args) => { renderCalls++; return nativeRender(...args); };
       desktopRuntimeState.desktop = true;
       desktopRuntimeState.minimized = true;
       desktopRuntimeState.visible = false;
       updateRenderPowerClasses();
       applyRendererPowerMode();
       const slept = isDeepBackgroundMode() && document.body.classList.contains('render-deep-sleep');
-      window.desktopWindow = { getState: () => Promise.resolve({ isMinimized: false, isVisible: true, isFocused: true }) };
+      const retainedCanvas = renderer.domElement.width === retainedWidth && renderer.domElement.height === retainedHeight;
+      const canvasStyle = getComputedStyle(document.getElementById('canvas-container'));
+      const retainedLayer = canvasStyle.visibility !== 'hidden' && Number(canvasStyle.opacity) > 0;
+      const beforeSleep = renderCalls;
+      await new Promise(resolve => setTimeout(resolve, 2100));
+      const sleptWithoutRendering = renderCalls === beforeSleep;
+      window.desktopWindow = { getState: () => Promise.resolve({ isMinimized: false, isVisible: true, isFocused: false }) };
+      const beforeWake = renderCalls;
       await refreshDesktopRuntimeStateAfterWake('electron-smoke');
       result.wake = {
-        slept,
+        slept, retainedCanvas, retainedLayer, sleptWithoutRendering,
+        paintedBeforeFocus: renderCalls > beforeWake && !desktopRuntimeState.focused,
         awake: !isDeepBackgroundMode() && !document.body.classList.contains('render-deep-sleep'),
         canvasWidth: renderer.domElement.width,
       };
+      renderer.render = nativeRender;
 
       const sampleRate = 8000;
       const samples = sampleRate * 30;
@@ -192,6 +207,7 @@ async function main() {
     return result;
   })()`);
   const ok = result.wake && result.wake.slept && result.wake.awake && result.wake.canvasWidth > 4
+    && result.wake.retainedCanvas && result.wake.retainedLayer && result.wake.sleptWithoutRendering && result.wake.paintedBeforeFocus
     && result.audio && result.audio.suspended && result.audio.resumed
     && result.audio.contextState === 'running' && !result.audio.paused && result.audio.currentTime > 0
     && result.lyrics && result.lyrics.restored && result.lyrics.attached

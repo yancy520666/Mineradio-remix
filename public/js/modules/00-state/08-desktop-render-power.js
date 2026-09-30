@@ -407,20 +407,28 @@ function maybeTrimRuntimeCaches(now) {
 function applyRendererPowerMode() {
   if (typeof renderer === 'undefined' || !renderer) return;
   var deep = isDeepBackgroundMode();
-  var width = deep ? 4 : Math.max(1, innerWidth);
-  var height = deep ? 4 : Math.max(1, innerHeight);
+  // Keep the last composited frame for Windows Alt+Tab / taskbar previews.
+  // Resizing a sleeping canvas clears it before an unfocused preview can wake it.
+  if (deep) {
+    if (renderPowerState.mode !== 'sleep') {
+      renderPowerState.mode = 'sleep';
+      scheduleBackgroundCacheTrim();
+      requestBackgroundAppMemoryTrim('renderer-deep-sleep', isBackgroundReleaseMode() ? 900 : 2200);
+    }
+    return;
+  }
+  var width = Math.max(1, innerWidth);
+  var height = Math.max(1, innerHeight);
   var pixelRatio = getRenderPixelRatio();
   var mode = deep ? 'sleep' : 'active';
-  if (renderPowerState.mode === mode && renderPowerState.width === width && renderPowerState.height === height && Math.abs(renderPowerState.pixelRatio - pixelRatio) < 0.001) return;
+  if (renderPowerState.width === width && renderPowerState.height === height && Math.abs(renderPowerState.pixelRatio - pixelRatio) < 0.001) {
+    renderPowerState.mode = mode;
+    return;
+  }
   renderPowerState = { mode: mode, width: width, height: height, pixelRatio: pixelRatio };
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(width, height, false);
   if (typeof uniforms !== 'undefined' && uniforms && uniforms.uPixel) uniforms.uPixel.value = renderer.getPixelRatio();
-  if (deep) {
-    if (renderer.renderLists && renderer.renderLists.dispose) renderer.renderLists.dispose();
-    scheduleBackgroundCacheTrim();
-    requestBackgroundAppMemoryTrim('renderer-deep-sleep', isBackgroundReleaseMode() ? 900 : 2200);
-  }
 }
 function updateDesktopRuntimeState(state) {
   state = state || {};
@@ -441,7 +449,10 @@ function updateDesktopRuntimeState(state) {
     flushLyricLayoutSave();
   }
   if (fx && (fx.desktopLyrics || fx.wallpaperMode)) setTimeout(syncDesktopOverlayState, 0);
-  if (wasDeep && !isDeepBackgroundMode()) recoverVisualsAfterBackground('desktop-runtime-state');
+  if (wasDeep && !isDeepBackgroundMode()) {
+    recoverVisualsAfterBackground('desktop-runtime-state');
+    if (typeof wakeMainLoopFromBackground === 'function') wakeMainLoopFromBackground();
+  }
   if (desktopRuntimeState.fullscreen !== wasFullscreen) scheduleMainRendererViewportRefresh('desktop-runtime-state');
 }
 function refreshDesktopRuntimeStateAfterWake(reason) {
@@ -451,9 +462,6 @@ function refreshDesktopRuntimeStateAfterWake(reason) {
     // A newer push from the main process takes precedence over this reply.
     if (revision !== desktopRuntimeStateRevision) return;
     updateDesktopRuntimeState(state);
-    if (!isDeepBackgroundMode() && typeof wakeMainLoopFromBackground === 'function') {
-      wakeMainLoopFromBackground();
-    }
   }).catch(function (error) {
     console.warn('[RenderPower] window state refresh failed:', reason || 'wake', error);
   });
