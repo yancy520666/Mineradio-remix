@@ -7,8 +7,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag, for example v2.2.1
+        description: Draft version, for example v2.2.4
         required: true
+      ref:
+        description: Commit SHA to validate and build (manual draft preparation)
+        required: true
+        default: main
+      prepare_draft:
+        description: Upload validated assets to a draft Release
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -16,19 +24,28 @@ permissions:
 jobs:
   windows-release:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
       - name: Verify tag and package version
+        id: source
         shell: pwsh
         env:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           $version = node -p "require('./package.json').version"
           if ($env:RELEASE_TAG -ne "v$version") { throw "Tag $env:RELEASE_TAG does not match package version $version" }
-          if (-not (git tag --list $env:RELEASE_TAG)) { throw "Tag $env:RELEASE_TAG does not exist" }
+          if ($env:GITHUB_EVENT_NAME -eq 'push' -and -not (git tag --list $env:RELEASE_TAG)) { throw "Tag $env:RELEASE_TAG does not exist" }
+          $sha = git rev-parse HEAD
+          $existing = @(git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG" "refs/tags/$env:RELEASE_TAG^{}")
+          $peeled = $existing | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+          $tagLine = if ($peeled) { $peeled } else { $existing | Select-Object -First 1 }
+          if ($tagLine -and ($tagLine -split '\s+')[0] -ne $sha) { throw 'Existing version tag points to different source; increment the version instead of replacing it.' }
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -47,6 +64,20 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         shell: pwsh
         run: '& .\node_modules\.bin\electron-builder.cmd --win nsis --publish never'
+      - name: Verify real install, upgrade, restart and uninstall
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $baseline = 'Mineradio-Remix-2.2.2-Setup.exe'
+          gh release download v2.2.2 --repo yancy520666/Mineradio-remix --pattern $baseline --dir verification/baseline
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline installer download failed' }
+          $release = gh release view v2.2.2 --repo yancy520666/Mineradio-remix --json assets | ConvertFrom-Json
+          $asset = $release.assets | Where-Object { $_.name -eq $baseline }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath "verification/baseline/$baseline").Hash.ToLowerInvariant()
+          if ($asset.digest -ne "sha256:$hash") { throw 'Baseline installer checksum mismatch' }
+          $version = node -p "require('./package.json').version"
+          & ./scripts/verify-windows-installer.ps1 -Installer "dist/Mineradio-Remix-$version-Setup.exe" -BaselineInstaller "verification/baseline/$baseline"
       - name: Create SHA-256 manifest
         shell: pwsh
         run: |
@@ -55,13 +86,26 @@ jobs:
           if (-not ($files | Where-Object { $_.Name -eq 'latest.yml' })) { throw 'latest.yml missing' }
           $lines = $files | ForEach-Object { $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant(); "$hash  $($_.Name)" }
           $lines | Set-Content -Path dist/SHA256SUMS.txt -Encoding utf8
+      - name: Save build and installer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remix-windows-validation
+          path: |
+            dist/INSTALLER_VALIDATION.json
+            dist/SHA256SUMS.txt
+            dist/Mineradio-Remix-*-Setup.exe
+            dist/latest.yml
+            dist/*.blockmap
       - name: Create draft Release
+        if: github.event_name == 'push' || inputs.prepare_draft
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           draft: true
           prerelease: false
-          generate_release_notes: true
+          body_path: docs/RELEASE_NOTES_v${{ steps.source.outputs.version }}.md
+          target_commitish: ${{ steps.source.outputs.sha }}
           files: |
             dist/Mineradio-Remix-*-Setup.exe
             dist/*.blockmap
