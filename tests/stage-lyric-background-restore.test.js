@@ -19,11 +19,13 @@ function functionSource(name) {
 function makeLyricsContext() {
   const calls = [];
   const group = {};
+  const scene = { add(object) { object.parent = this; } };
+  group.parent = scene;
   const lyricsLines = [{ t: 0, text: '第一句' }, { t: 10, text: '第二句' }];
   const stageLyrics = { group, current: null, currentIdx: -1, transitionLineStep: 0 };
   const audio = { src: 'song-a', paused: true, ended: false, currentTime: 12 };
   const context = vm.createContext({
-    fx: { particleLyrics: true }, audio, lyricsLines, stageLyrics,
+    fx: { particleLyrics: true }, audio, lyricsLines, stageLyrics, scene,
     trackSwitchToken: 1, playing: false,
     stageLyricBackgroundRestoreLastAt: 0,
     stageLyricPlaybackSeconds: () => audio.currentTime,
@@ -46,6 +48,7 @@ function makeLyricsContext() {
     stageLyricProgressPreviewActive: () => false,
   });
   vm.runInContext([
+    functionSource('restoreCurrentStageLyrics'),
     functionSource('restorePausedStageLyrics'),
     functionSource('restoreStageLyricsAfterBackground'),
     functionSource('tickLyricsParticles'),
@@ -89,4 +92,41 @@ test('pause-hide preference keeps lyrics hidden while paused', () => {
   context.fx.lyricPauseHold = false;
   assert.equal(context.restoreStageLyricsAfterBackground('focus'), false);
   assert.equal(calls.filter((call) => call[0] === 'show').length, 0);
+});
+
+test('first play restores a detached lyric even when pause hold is disabled', () => {
+  const { context, calls, audio, stageLyrics } = makeLyricsContext();
+  audio.paused = false;
+  context.playing = true;
+  context.fx.lyricPauseHold = false;
+  stageLyrics.current = { parent: null, userData: {} };
+  stageLyrics.currentIdx = 1;
+  stageLyrics.group.parent = null;
+  stageLyrics.group.visible = false;
+  assert.equal(context.restoreStageLyricsAfterBackground('first-play'), true);
+  assert.equal(stageLyrics.current.parent, stageLyrics.group);
+  assert.equal(stageLyrics.currentPayload.text, '第二句');
+  assert.equal(stageLyrics.group.parent, context.scene);
+  assert.equal(stageLyrics.group.visible, true);
+  assert.equal(calls.filter(call => call[0] === 'show').length, 1);
+});
+
+test('wake repairs hidden scene attachment without rebuilding healthy lyric textures', () => {
+  const { context, calls, audio, stageLyrics } = makeLyricsContext();
+  context.restoreStageLyricsAfterBackground('prepare');
+  const mesh = stageLyrics.current;
+  mesh.visible = false;
+  stageLyrics.group.visible = false;
+  stageLyrics.group.parent = null;
+  audio.paused = false;
+  calls.length = 0;
+  for (let i = 0; i < 3; i++) assert.equal(context.restoreStageLyricsAfterBackground('wake'), true);
+  assert.equal(stageLyrics.current, mesh);
+  assert.equal(mesh.visible, true);
+  assert.equal(stageLyrics.group.visible, true);
+  assert.equal(stageLyrics.group.parent, context.scene);
+  assert.equal(calls.filter(call => call[0] === 'show').length, 0);
+  mesh.userData.__mineradioDisposeQueued = true;
+  assert.equal(context.restoreStageLyricsAfterBackground('disposed'), true);
+  assert.notEqual(stageLyrics.current, mesh);
 });
