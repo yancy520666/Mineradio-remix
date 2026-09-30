@@ -59,44 +59,11 @@ function lyricPrimarySlotStepValue() {
   if (!lyricTranslationLayoutActive()) return 1;
   return clampRange(lyricTranslationVisualGapValue() + 0.82 + lyricTranslationScaleValue() * 0.14, 1.78, 2.88);
 }
-function lyricLineHasTranslationAt(index) {
-  if (!lyricTranslationLayoutActive()) return false;
-  var n = Math.max(0, Math.round(Number(index) || 0));
-  return !!lyricLineTranslationTextAt(n);
-}
-function lyricLineSlotStepValue(index) {
-  if (!lyricTranslationLayoutActive()) return 1;
-  var n = Math.round(Number(index) || 0);
-  var needsTranslationSlot = lyricLineHasTranslationAt(n) || (n >= 0 && lyricLineHasTranslationAt(n + 1));
-  return needsTranslationSlot ? lyricPrimarySlotStepValue() : clampRange(1.04 + (lyricContextSpreadValue() - 1) * 0.10, 0.96, 1.24);
-}
-var lyricPrimaryVirtualPrefixCache = { key: '', values: [0] };
-function lyricPrimaryVirtualPrefixKey() {
-  var first = lyricsLines && lyricsLines[0];
-  var last = lyricsLines && lyricsLines.length ? lyricsLines[lyricsLines.length - 1] : null;
-  return [
-    lyricTranslationLayoutActive() ? 1 : 0,
-    Math.round(lyricTranslationGapValue() * 1000),
-    Math.round(lyricTranslationScaleValue() * 1000),
-    Math.round(lyricContextSpreadValue() * 1000),
-    lyricsLines ? lyricsLines.length : 0,
-    lyricsTranslationLines ? lyricsTranslationLines.length : 0,
-    first ? normalizeLyricTranslationText(first.translation).slice(0, 12) : '',
-    last ? normalizeLyricTranslationText(last.translation).slice(0, 12) : ''
-  ].join('|');
-}
 function lyricPrimaryVirtualIndex(index) {
   var n = Math.round(Number(index) || 0);
   if (!isFinite(n) || n === 0) return 0;
-  if (!lyricTranslationLayoutActive()) return n;
-  if (n < 0) return n * lyricPrimarySlotStepValue();
-  var key = lyricPrimaryVirtualPrefixKey();
-  if (!lyricPrimaryVirtualPrefixCache || lyricPrimaryVirtualPrefixCache.key !== key) {
-    lyricPrimaryVirtualPrefixCache = { key: key, values: [0] };
-  }
-  var values = lyricPrimaryVirtualPrefixCache.values;
-  for (var i = values.length; i <= n; i++) values[i] = values[i - 1] + lyricLineSlotStepValue(i - 1);
-  return values[n] || 0;
+  // A fixed slot keeps primary gaps stable through missing translations and song switches.
+  return n * lyricPrimarySlotStepValue();
 }
 function lyricTranslationVirtualIndex(parentIndex) {
   return lyricPrimaryVirtualIndex(parentIndex) + lyricTranslationVisualGapValue();

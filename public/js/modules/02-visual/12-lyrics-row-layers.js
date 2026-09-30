@@ -29,23 +29,29 @@ function lyricLayerVirtualIndex(entry, fallbackIndex, activeLine, usesTrack) {
   return lyricRowVirtualIndex(entry, fallbackIndex);
 }
 
-function lyricTrackLineStepWorld(mask, worldH) {
-  mask = mask || {};
-  var h = Math.max(1, Number(mask.height) || 384);
-  var lineHeight = Number(mask.lineHeight) || Number(mask.fontSize) || 128;
-  var step = worldH * (lineHeight / h);
-  step *= clampRange(1 + (lyricContextSpreadValue() - 1) * 0.32, 0.86, 1.45);
-  if (lyricTranslationLayoutActive()) step *= 1.06;
-  return clampRange(step, 0.22, 0.94);
+function lyricLayoutLineStepWorld() {
+  // Match the fixed logical glyph size, not a song's canvas width or raster scale.
+  var layout = stableStageLyricRowMaskLayout();
+  return 6.10 * layout.lineHeight / 2048;
 }
 
-function lyricTranslationLineStepWorld(mask, worldH) {
-  mask = mask || {};
-  var h = Math.max(1, Number(mask.height) || 384);
-  var lineHeight = Number(mask.lineHeight) || Number(mask.fontSize) || 128;
-  var step = worldH * (lineHeight / h);
+function lyricTrackLineStepWorld() {
+  var step = lyricLayoutLineStepWorld();
+  step *= clampRange(1 + (lyricContextSpreadValue() - 1) * 0.32, 0.86, 1.45);
+  if (lyricTranslationLayoutActive()) step *= 1.06;
+  return step;
+}
+
+function lyricTranslationLineStepWorld() {
+  var step = lyricLayoutLineStepWorld();
   if (lyricTranslationLayoutActive()) step *= 1.04;
-  return clampRange(step, 0.20, 0.78);
+  return step;
+}
+
+function lyricMeshLineStepWorld(data, translation) {
+  var stored = Number(data && data[translation ? 'translationLineStepWorld' : 'lineWorldStep']);
+  if (isFinite(stored) && stored > 0) return stored;
+  return translation ? lyricTranslationLineStepWorld() : lyricTrackLineStepWorld();
 }
 
 function lyricTranslationAnchoredY(entry, fallbackIndex, activeLine, lineStepWorld, translationLineStepWorld, scrollOffset, rowDrift, currentTranslation, usesTrack) {
@@ -358,8 +364,8 @@ function beginLyricRowLayerGroupBuild(payload, mask, worldW, worldH, pal, motion
   var activeLineIndex = usesTrack ? Number(payload.trackIndex) : (payload ? payload.activeLine : 0);
   var activeLine = usesTrack ? lyricPrimaryVirtualIndex(activeLineIndex) : activeLineIndex;
   var entries = usesTrack ? payload.trackEntries : (payload && payload.entries || []);
-  var lineStepWorld = lyricTrackLineStepWorld(mask, worldH);
-  var translationLineStepWorld = lyricTranslationLineStepWorld(mask, worldH);
+  var lineStepWorld = lyricTrackLineStepWorld();
+  var translationLineStepWorld = lyricTranslationLineStepWorld();
   var displayLineCount = lyricDisplayLineCountForMode(payload && payload.mode);
   var visibleRadius = Math.max(0.85, displayLineCount * 0.50 * lyricPrimarySlotStepValue());
   var textOnly = !!(payload && payload.trackTextOnly);
@@ -1412,8 +1418,8 @@ function updateLyricRowLayers(data, opts) {
     data.trackScrollOffset += trackStep;
   }
   var scrollOffset = data.trackScrollOffset;
-  var lineStepWorld = clampRange(Number(data.lineWorldStep) || 0.38, 0.20, 0.94);
-  var translationLineStepWorld = clampRange(Number(data.translationLineStepWorld) || lineStepWorld, 0.20, 0.78);
+  var lineStepWorld = lyricMeshLineStepWorld(data, false);
+  var translationLineStepWorld = lyricMeshLineStepWorld(data, true);
   var displayedTrackOffset = typeof stageLyricResidentDisplayedScrollOffset === 'function'
     ? stageLyricResidentDisplayedScrollOffset(data, scrollOffset)
     : scrollOffset;

@@ -189,10 +189,8 @@ function buildLyricMesh(input, preparedRowLayerBundle, preparedMasks) {
   sparks.visible = !!fx.lyricGlowParticles;
   group.add(sparks);
 
-  var lineWorldStep = rowLayerBundle && rowLayerBundle.lineStepWorld ? rowLayerBundle.lineStepWorld : worldH * ((mask.lineHeight || mask.fontSize || 1) / Math.max(1, mask.height || 1));
-  lineWorldStep = clampRange(lineWorldStep, 0.20, 0.94);
-  var translationLineStepWorld = rowLayerBundle && rowLayerBundle.translationLineStepWorld ? rowLayerBundle.translationLineStepWorld : lineWorldStep;
-  translationLineStepWorld = clampRange(translationLineStepWorld, 0.20, 0.78);
+  var lineWorldStep = rowLayerBundle && rowLayerBundle.lineStepWorld ? rowLayerBundle.lineStepWorld : lyricTrackLineStepWorld();
+  var translationLineStepWorld = rowLayerBundle && rowLayerBundle.translationLineStepWorld ? rowLayerBundle.translationLineStepWorld : lyricTranslationLineStepWorld();
   if (!singleLineSwap) group.position.y += enterDir * lineWorldStep;
   group.userData.lyric = {
     mask: mask, activeMask: activeMask, contextMask: contextMask, textMesh: null, context: context, readability: readability, glow: glow, sparks: sparks, sun: sun,

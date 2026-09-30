@@ -60,6 +60,12 @@ test('paused lyrics are rebuilt from the current position after the mesh disappe
   assert.equal(stageLyrics.currentPayload.text, '第二句');
   assert.deepEqual(calls[0], ['show', '第二句', true]);
   assert.ok(calls.some((call) => call[0] === 'progress'));
+  const mesh = stageLyrics.current;
+  const showCount = calls.filter(call => call[0] === 'show').length;
+  context.retireCurrentStageLyricForIdle = () => { throw new Error('paused lyrics must not retire'); };
+  for (let i = 0; i < 100; i++) context.tickLyricsParticles();
+  assert.equal(stageLyrics.current, mesh, 'repeated paused ticks keep the restored mesh');
+  assert.equal(calls.filter(call => call[0] === 'show').length, showCount, 'pause hold must not repeatedly rebuild');
 });
 
 test('foreground recovery redraws a paused mesh once and rejects a stale track', () => {
