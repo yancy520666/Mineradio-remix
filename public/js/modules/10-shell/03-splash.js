@@ -27,7 +27,7 @@ function splashEaseOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 function splashTimelineElapsed(elapsed) {
-  return elapsed * (5200 / 1500);
+  return elapsed;
 }
 function stopSplashIntroSound() {
   if (!splashAudioCtx) return;
@@ -483,15 +483,14 @@ function playMineradioIntroSound() {
     splashSoundPlayed = true;
 
     var now = ctx.currentTime + 0.02;
-    var timeScale = 1500 / 5200;
     var master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.052, now + 0.16 * timeScale);
-    master.gain.exponentialRampToValueAtTime(0.034, now + 3.35 * timeScale);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 5.28 * timeScale);
+    master.gain.exponentialRampToValueAtTime(0.052, now + 0.16);
+    master.gain.exponentialRampToValueAtTime(0.034, now + 3.35);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 5.28);
     master.connect(ctx.destination);
 
-    var noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2.45 * timeScale), ctx.sampleRate);
+    var noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2.45), ctx.sampleRate);
     var data = noiseBuffer.getChannelData(0);
     for (var i = 0; i < data.length; i++) {
       var tail = 1 - i / data.length;
@@ -503,30 +502,30 @@ function playMineradioIntroSound() {
     noise.buffer = noiseBuffer;
     noiseFilter.type = 'bandpass';
     noiseFilter.frequency.setValueAtTime(720, now);
-    noiseFilter.frequency.exponentialRampToValueAtTime(2400, now + 2.2 * timeScale);
+    noiseFilter.frequency.exponentialRampToValueAtTime(2400, now + 2.2);
     noiseFilter.Q.setValueAtTime(0.72, now);
     noiseGain.gain.setValueAtTime(0.0001, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.020, now + 0.12 * timeScale);
-    noiseGain.gain.exponentialRampToValueAtTime(0.010, now + 1.60 * timeScale);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.42 * timeScale);
+    noiseGain.gain.exponentialRampToValueAtTime(0.020, now + 0.12);
+    noiseGain.gain.exponentialRampToValueAtTime(0.010, now + 1.60);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.42);
     noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(master);
-    noise.start(now); noise.stop(now + 2.46 * timeScale);
+    noise.start(now); noise.stop(now + 2.46);
 
     var low = ctx.createOscillator();
     var lowGain = ctx.createGain();
     low.type = 'sine';
-    low.frequency.setValueAtTime(86, now + 0.18 * timeScale);
-    low.frequency.exponentialRampToValueAtTime(43, now + 1.18 * timeScale);
-    lowGain.gain.setValueAtTime(0.0001, now + 0.12 * timeScale);
-    lowGain.gain.exponentialRampToValueAtTime(0.032, now + 0.30 * timeScale);
-    lowGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.34 * timeScale);
+    low.frequency.setValueAtTime(86, now + 0.18);
+    low.frequency.exponentialRampToValueAtTime(43, now + 1.18);
+    lowGain.gain.setValueAtTime(0.0001, now + 0.12);
+    lowGain.gain.exponentialRampToValueAtTime(0.032, now + 0.30);
+    lowGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.34);
     low.connect(lowGain); lowGain.connect(master);
-    low.start(now + 0.12 * timeScale); low.stop(now + 1.40 * timeScale);
+    low.start(now + 0.12); low.stop(now + 1.40);
 
     function retroChord(frequencies, startAt, dur, peak) {
       frequencies.forEach(function (frequency, index) {
-        var start = now + (startAt + index * 0.036) * timeScale;
-        var end = now + (startAt + dur + index * 0.018) * timeScale;
+        var start = now + startAt + index * 0.036;
+        var end = now + startAt + dur + index * 0.018;
         var body = ctx.createOscillator();
         var edge = ctx.createOscillator();
         var filter = ctx.createBiquadFilter();
@@ -542,15 +541,15 @@ function playMineradioIntroSound() {
         filter.frequency.exponentialRampToValueAtTime(1450, end);
         filter.Q.setValueAtTime(0.72, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.linearRampToValueAtTime(peak, start + 0.026 * timeScale);
+        gain.gain.linearRampToValueAtTime(peak, start + 0.026);
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
         edgeGain.gain.setValueAtTime(0.0001, start);
-        edgeGain.gain.linearRampToValueAtTime(peak * 0.11, start + 0.012 * timeScale);
-        edgeGain.gain.exponentialRampToValueAtTime(0.0001, Math.min(end, start + 0.34 * timeScale));
+        edgeGain.gain.linearRampToValueAtTime(peak * 0.11, start + 0.012);
+        edgeGain.gain.exponentialRampToValueAtTime(0.0001, Math.min(end, start + 0.34));
         body.connect(filter); filter.connect(gain); gain.connect(master);
         edge.connect(edgeGain); edgeGain.connect(master);
         body.start(start); edge.start(start);
-        body.stop(end + 0.04 * timeScale); edge.stop(end + 0.04 * timeScale);
+        body.stop(end + 0.04); edge.stop(end + 0.04);
       });
     }
     // Soft four-voice console chords: Am7 -> Fmaj7 -> Cmaj7 -> G6.
@@ -658,18 +657,6 @@ function markSplashReadyToEnter() {
   s.setAttribute('aria-label', '点击进入 Mineradio');
 }
 
-function waitForSplashLogo() {
-  var s = document.getElementById('splash');
-  if (!s || s.classList.contains('hide') || s.classList.contains('exiting')) return;
-  var logo = s.querySelector('.splash-word-radio');
-  var animations = logo && typeof logo.getAnimations === 'function' ? logo.getAnimations() : [];
-  if (animations.some(function (animation) { return animation.playState !== 'finished'; })) {
-    splashTimer = setTimeout(waitForSplashLogo, 50);
-    return;
-  }
-  markSplashReadyToEnter();
-}
-
 function startSplashWhenVisible() {
   var bridge = window.desktopWindow;
   var unsubscribe = null;
@@ -683,7 +670,8 @@ function startSplashWhenVisible() {
     document.documentElement.classList.remove('splash-intro-pending');
     if (reduceSplashMotion) document.getElementById('splash').classList.add('reduce-motion');
     else playMineradioIntroSound();
-    splashTimer = setTimeout(reduceSplashMotion ? markSplashReadyToEnter : waitForSplashLogo, reduceSplashMotion ? 650 : 1500);
+    // Upstream allows entry at 1.5s while its unscaled 5.2s logo continues.
+    splashTimer = setTimeout(markSplashReadyToEnter, reduceSplashMotion ? 650 : 1500);
   }
   if (bridge && typeof bridge.getState === 'function') {
     if (typeof bridge.onStateChange === 'function') unsubscribe = bridge.onStateChange(start);
