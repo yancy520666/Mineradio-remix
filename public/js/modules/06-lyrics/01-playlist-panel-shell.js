@@ -216,6 +216,7 @@ function preparePlaylistPanelTabOnOpen(panel) {
 }
 function switchPlaylistTab(tab, opts) {
   opts = opts || {};
+  cancelPlaylistReturnMotion();
   tab = normalizePlaylistPanelTab(tab);
   queueViewTab = tab;
   if (opts.save !== false) savePlaylistPanelTabPreference(tab);
@@ -606,6 +607,7 @@ function requestNextPlaylistCatalogPage(reason) {
   return true;
 }
 async function refreshUserPlaylists(force) {
+  beginPlaylistCoverSession();
   if (typeof refreshBuiltInPlaylists === 'function') await refreshBuiltInPlaylists(!!force);
   if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn && !kugouLoginStatus.loggedIn && !qishuiLoginStatus.loggedIn && !spotifyLoginStatus.loggedIn) {
     resetPlaylistPanelRenderLimit();
@@ -664,9 +666,11 @@ async function refreshUserPlaylists(force) {
       if (playlistCatalogSyncState.token !== token) return;
       myPodcastCollections = r && r.collections || [];
       renderMyPodcastCollections({ animate: isPlaylistPanelVisibleForRender() });
+      scheduleUiWarmTask(prewarmPlaylistCatalogCovers, 500);
     }).catch(function (e) { console.warn('[PodcastCatalog]', e); })
     : Promise.resolve();
   await Promise.allSettled(firstPageTasks.concat([podcastTask]));
+  scheduleUiWarmTask(prewarmPlaylistCatalogCovers, 500);
   if (playlistCatalogSyncState.token !== token) return;
   playlistCatalogSyncState.loading = playlistCatalogHasPendingPages();
   if (userPlaylists.length) renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });

@@ -22,31 +22,6 @@ function drawCanvasHeart(ctx, cx, cy, size, color) {
   ctx.fill();
   ctx.restore();
 }
-function requestPlaylistCover(url, cb) {
-  if (!url) { if (cb) cb(null); return; }
-  var rec = playlistCoverCache[url];
-  if (rec && rec.loaded) { if (cb) setTimeout(function () { cb(rec.img); }, 0); return; }
-  if (rec && rec.loading) { if (cb) rec.waiters.push(cb); return; }
-  rec = playlistCoverCache[url] = { loaded: false, loading: true, waiters: cb ? [cb] : [], img: null, failed: false };
-  var img = new Image();
-  if (!isInlineCoverSrc(url)) img.crossOrigin = 'anonymous';
-  img.onload = function () {
-    rec.loaded = true; rec.loading = false; rec.img = img;
-    rec.waiters.splice(0).forEach(function (fn) { setTimeout(function () { fn(img); }, 0); });
-  };
-  img.onerror = function () {
-    rec.loading = false; rec.failed = true;
-    rec.waiters.splice(0).forEach(function (fn) { setTimeout(function () { fn(null); }, 0); });
-  };
-  var src = coverProxySrc(url);
-  if (!src) {
-    rec.loading = false; rec.failed = true;
-    rec.waiters.splice(0).forEach(function (fn) { setTimeout(function () { fn(null); }, 0); });
-    return;
-  }
-  img.src = src;
-}
-
 // ============================================================
 //  3D 卡片交互 - PSP 风格
 //   - 滚轮: 滚动 center 卡 (一级或二级)
