@@ -13829,6 +13829,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   max-height: calc(100vh - 120px);
   overflow: auto;
   background: rgba(12, 12, 18, 0.42);
+  overflow-anchor: none;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 18px;
@@ -18049,3 +18050,9 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
 .qi-act button svg { width: 15px; height: 15px; display: block; flex-shrink: 0; }
 
 #playlist-panel .queue-toolbar { top: var(--playlist-toolbar-top, 82px); }
+
+/* Keep virtual entry heights exact: sibling margins must not collapse. */
+#pl-list { display: flex; flex-direction: column; }
+#pl-list > * { flex-shrink: 0; }
+#pl-list > .pl-card { box-sizing: border-box; height: 64px; }
+#pl-list > .pl-section-label { line-height: 12px; }
