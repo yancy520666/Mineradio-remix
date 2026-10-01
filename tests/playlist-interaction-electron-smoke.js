@@ -67,18 +67,28 @@ if (!process.argv.includes('--child')) {
         playlistPanelDetailState.tracks = Array.from({length: 200}, (_, id) => ({id:id+1,name:'Track '+id}));
         playlistPanelDetailState.playlist = userPlaylists[400];
         renderUserPlaylistsList({animate:false});
-        panel.scrollTop = playlistPanelTopInset(panel) + 28000;
+        panel.scrollTop = playlistPanelTopInset(panel) + 30000;
         renderUserPlaylistsList({animate:false,preserveScroll:true});
         const measure = () => {
           const card=panel.querySelector('[data-playlist-id="401"]');
           const header=panel.querySelector('.playlist-panel-sticky');
           const toolbar=panel.querySelector('#pl-pane .queue-toolbar');
+          const row=panel.querySelector('.pl-card:not(.expanded)');
           return { top:panel.scrollTop, card:card && card.getBoundingClientRect().top,
-            safe:Math.max(header.getBoundingClientRect().bottom,toolbar.getBoundingClientRect().bottom), rendered:panel.querySelectorAll('.pl-card').length };
+            safe:Math.max(header.getBoundingClientRect().bottom,toolbar.getBoundingClientRect().bottom), rendered:panel.querySelectorAll('.pl-card').length,
+            rowHeight:row && row.offsetHeight,rowMargin:row && getComputedStyle(row).marginBottom, expandedHeight:card && card.offsetHeight, scale:panel.getBoundingClientRect().height/panel.offsetHeight};
         };
-        animatePlaylistCatalogToTop('netease:401');
-        await new Promise(r=>setTimeout(r,750));
-        const first=measure();
+        const returnWithTrace=async()=>{
+          const started=performance.now(),trace=[panel.scrollTop],times=[started];
+          animatePlaylistCatalogToTop('netease:401');
+          while(performance.now()-started<750){await new Promise(r=>requestAnimationFrame(r));trace.push(panel.scrollTop);times.push(performance.now());}
+          const deltas=trace.slice(1).map((top,i)=>top-trace[i]);
+          const direction=Math.sign(trace.at(-1)-trace[0]);
+          const settled=trace.filter((_,i)=>times[i]-started>=600);
+          return {...measure(),reversePx:Math.max(0,...deltas.map(d=>-direction*d)),
+            tailRangePx:Math.max(...settled)-Math.min(...settled),samples:trace.length};
+        };
+        const first=await returnWithTrace();
         panel.scrollTop+=500;
         renderUserPlaylistsList({animate:false,preserveScroll:true});
         await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -93,9 +103,7 @@ if (!process.argv.includes('--child')) {
         panel.style.width='280px';
         await new Promise(r=>setTimeout(r,50));
         panel.scrollTop+=3000; renderUserPlaylistsList({animate:false,preserveScroll:true});
-        animatePlaylistCatalogToTop('netease:401');
-        await new Promise(r=>setTimeout(r,750));
-        const narrow=measure();
+        const narrow=await returnWithTrace();
         panel.scrollTop+=500;
         renderUserPlaylistsList({animate:false,preserveScroll:true});
         await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -112,6 +120,8 @@ if (!process.argv.includes('--child')) {
       for (const sample of [geometry.first, geometry.narrow]) {
         assert(sample.card - sample.safe >= 7 && sample.card - sample.safe <= 11, JSON.stringify(geometry));
         assert(sample.rendered < 35);
+        assert(sample.reversePx <= 1, JSON.stringify(sample));
+        assert(sample.tailRangePx <= 1, 'settled scroll must not move again: '+JSON.stringify(sample));
       }
       assert.deepEqual(geometry.defaults, [true, true]);
       for (const sample of [geometry.scrolled, geometry.narrowScrolled]) {

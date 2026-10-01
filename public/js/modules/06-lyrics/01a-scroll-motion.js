@@ -36,6 +36,28 @@ function playlistCatalogScrollTarget(panel, key) {
   if (!list || index < 0) return null;
   var contentTop = panel.scrollTop + list.getBoundingClientRect().top - panel.getBoundingClientRect().top;
   var target = contentTop + cache.offsets[index] - playlistPanelTopInset(panel);
+  target = Math.max(0, Math.min(target, Math.max(0, panel.scrollHeight - panel.clientHeight)));
+  var originalTop = panel.scrollTop;
+  // Mount the destination and measure before yielding a frame. Restore the
+  // current viewport synchronously so the user only sees the eased movement.
+  try {
+    panel.scrollTop = target;
+    renderUserPlaylistsList({ animate: false, preserveScroll: true });
+    var anchor = Array.prototype.find.call(panel.querySelectorAll('.pl-card[data-playlist-id]'), function (card) {
+      return playlistPanelKey(card.getAttribute('data-playlist-provider'), card.getAttribute('data-playlist-id')) === key;
+    });
+    if (anchor) {
+      var header = panel.querySelector('.playlist-panel-sticky');
+      var toolbar = panel.querySelector('#pl-pane .queue-toolbar');
+      var bottom = Math.max(header ? header.getBoundingClientRect().bottom : 0, toolbar ? toolbar.getBoundingClientRect().bottom : 0);
+      // Client rectangles include panel zoom/scale; scrollTop uses layout pixels.
+      var scale = panel.getBoundingClientRect().height / panel.offsetHeight || 1;
+      target = panel.scrollTop + (anchor.getBoundingClientRect().top - bottom - 8) / scale;
+    }
+  } finally {
+    panel.scrollTop = originalTop;
+    renderUserPlaylistsList({ animate: false, preserveScroll: true });
+  }
   return Math.max(0, Math.min(target, Math.max(0, panel.scrollHeight - panel.clientHeight)));
 }
 function animatePlaylistCatalogToTop(key) {
@@ -51,27 +73,9 @@ function animatePlaylistCatalogToTop(key) {
   var duration = Math.max(0.3, Math.min(0.5, 0.3 + Math.abs(panel.scrollTop - target) / 10000));
   function complete() {
     if (playlistReturnMotion !== job) return;
-    var finalTop = playlistCatalogScrollTarget(panel, key);
-    if (finalTop !== null) panel.scrollTop = finalTop;
+    playlistPanelDetailState.scrollTop = 0;
     schedulePlaylistPanelVirtualRender();
-    // Borders and fractional font metrics can differ from virtual row estimates.
-    // Correct against the mounted anchor after rendering, without restarting motion.
-    function correct(attempt) {
-      if (playlistReturnMotion !== job) return;
-      var anchor = Array.prototype.find.call(panel.querySelectorAll('.pl-card[data-playlist-id]'), function (card) {
-        return playlistPanelKey(card.getAttribute('data-playlist-provider'), card.getAttribute('data-playlist-id')) === key;
-      });
-      var header = panel.querySelector('.playlist-panel-sticky');
-      var toolbar = panel.querySelector('#pl-pane .queue-toolbar');
-      if (anchor) {
-        var bottom = Math.max(header ? header.getBoundingClientRect().bottom : 0, toolbar ? toolbar.getBoundingClientRect().bottom : 0);
-        panel.scrollTop += anchor.getBoundingClientRect().top - bottom - 8;
-      }
-      schedulePlaylistPanelVirtualRender();
-      if (attempt < 2) job.raf = requestAnimationFrame(function () { correct(attempt + 1); });
-      else { playlistPanelDetailState.scrollTop = 0; cancelPlaylistReturnMotion(); }
-    }
-    job.raf = requestAnimationFrame(function () { correct(1); });
+    cancelPlaylistReturnMotion();
   }
   if (reduced) { panel.scrollTop = target; complete(); return; }
   if (window.gsap) {

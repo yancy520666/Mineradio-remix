@@ -547,10 +547,10 @@ function playlistPanelBuildVirtualEntries() {
       return priority || (a.sourceIndex - b.sourceIndex);
     });
     if (!items.length) return;
-    entries.push({ type: 'label', key: key, label: labels[key] || key, height: 31 });
+    entries.push({ type: 'label', key: key, label: labels[key] || key, height: 33 });
     items.forEach(function (entry) {
-      entries.push({ type: 'card', pl: entry.pl, sourceIndex: entry.sourceIndex, height: 69 });
       var cardKey = playlistPanelKey(normalizePlaylistProvider(entry.pl.provider), entry.pl.id);
+      entries.push({ type: 'card', pl: entry.pl, sourceIndex: entry.sourceIndex, height: playlistPanelDetailState.key === cardKey ? 64 : 71 });
       if (playlistPanelDetailState.key === cardKey) {
         entries.push({ type: 'detail', pl: entry.pl, provider: normalizePlaylistProvider(entry.pl.provider), height: playlistPanelDetailShellHeight() });
       }
