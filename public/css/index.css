@@ -16384,6 +16384,7 @@ body.panel-reordering .mini-queue-item.is-reordering {
 
 /* 左侧歌单详情与整栏共用一条滚动轴：保留虚拟行性能，不再出现内嵌小滚动窗。 */
 #playlist-panel .pl-inline-detail {
+  height: auto;
   min-height: 0;
   display: block;
   overflow: visible;
@@ -16409,7 +16410,10 @@ body.panel-reordering .mini-queue-item.is-reordering {
 }
 
 #playlist-panel .pl-detail-list {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: none;
   min-height: 0;
   overflow: visible;
   overscroll-behavior: auto;
@@ -16417,10 +16421,16 @@ body.panel-reordering .mini-queue-item.is-reordering {
 }
 
 #playlist-panel .pl-detail-row {
+  /* Keep the virtual row stride at 50px + 6px, independent of font metrics. */
+  height: 50px;
   min-height: 50px;
+  flex: none;
   margin: 0 0 6px;
   box-sizing: border-box
 }
+
+#playlist-panel .pl-detail-row-title { line-height: 16px; }
+#playlist-panel .pl-detail-row-artist { display: flex; line-height: 14px; }
 
 #playlist-panel .pl-card.expanded {
   position: relative;
