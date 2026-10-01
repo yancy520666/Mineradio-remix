@@ -309,45 +309,12 @@ function renderPlaylistPanelDetailState() {
   renderUserPlaylistsList();
 }
 function scrollPlaylistPanelDetailToTop(button) {
-  var panel = document.getElementById('playlist-panel');
   var detail = button && button.closest ? button.closest('[data-pl-detail]') : null;
-  if (!panel || !detail || detail.getAttribute('data-pl-detail') !== playlistPanelDetailState.key) return;
-  var inner = detail.querySelector('[data-pl-detail-scroll]');
-  if (inner) inner.scrollTop = 0;
-  playlistPanelDetailState.scrollTop = 0;
-  var anchor = detail.previousElementSibling || detail;
-  var toolbar = panel.querySelector('.queue-toolbar');
-  var safeOffset = toolbar ? Math.max(126, toolbar.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 12) : 126;
-  var top = Math.max(0, panel.scrollTop + anchor.getBoundingClientRect().top - panel.getBoundingClientRect().top - safeOffset);
-  // Smooth scrolling continually remounts virtual rows and can stop short.
-  panel.scrollTop = top;
-  schedulePlaylistPanelVirtualRender();
+  if (!detail || detail.getAttribute('data-pl-detail') !== playlistPanelDetailState.key) return;
+  animatePlaylistCatalogToTop(playlistPanelDetailState.key);
 }
 function scrollPlaylistPanelDetailIntoView(key) {
-  var panel = document.getElementById('playlist-panel');
-  if (!panel || !key) return;
-  requestAnimationFrame(function () {
-    var detail = null;
-    Array.prototype.some.call(panel.querySelectorAll('[data-pl-detail]'), function (node) {
-      if (node.getAttribute('data-pl-detail') === key) {
-        detail = node;
-        return true;
-      }
-      return false;
-    });
-    if (!detail) return;
-    var anchor = detail.previousElementSibling || detail;
-    var toolbar = panel.querySelector('.queue-toolbar');
-    var safeOffset = 126;
-    if (toolbar) {
-      var toolbarTop = 82;
-      try { toolbarTop = parseFloat(getComputedStyle(toolbar).top) || toolbarTop; } catch (e) { }
-      safeOffset = Math.max(safeOffset, toolbarTop + toolbar.offsetHeight + 12);
-    }
-    var top = Math.max(0, anchor.offsetTop - safeOffset);
-    try { panel.scrollTo({ top: top, behavior: 'smooth' }); }
-    catch (e) { panel.scrollTop = top; }
-  });
+  requestAnimationFrame(function () { animatePlaylistCatalogToTop(key); });
 }
 function cancelPlaylistPanelDetailRequest() {
   if (playlistPanelDetailState.warmTimer) clearTimeout(playlistPanelDetailState.warmTimer);
@@ -717,8 +684,8 @@ function renderMyPodcastCollections(opts) {
     return;
   }
   $pod.innerHTML = items.map(function (pc) {
-    var thumb = pc.cover ? coverUrlWithSize(pc.cover, 88) : '';
-    var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(0,245,212,.07);flex-shrink:0"></div>';
+    var thumb = pc.cover ? coverUrlWithSize(pc.cover, 88) : podcastDefaultCover(pc.key);
+    var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=podcastDefaultCover(this.dataset.podcastKind)" data-podcast-kind="' + escHtml(pc.key || '') + '">' : '';
     return '<div class="pl-card podcast-card" data-podcast-key="' + escHtml(pc.key || '') + '" data-podcast-title="' + escHtml(pc.title || '') + '">' +
       imgTag +
       '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(pc.title || '') + '</div><div class="pl-sub">' + (pc.count || 0) + ' 项 · ' + escHtml(pc.sub || '') + '</div></div>' +

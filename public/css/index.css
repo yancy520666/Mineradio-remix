@@ -14141,6 +14141,11 @@ html:fullscreen body.desktop-shell #playlist-panel {
 }
 
 .qi-act button {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   width: 24px;
   height: 24px;
   border: none;
@@ -18039,3 +18044,8 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
     width: calc(100vw - var(--desktop-safe-left) - var(--desktop-safe-right) - 24px);
   }
 }
+
+/* Queue icons use a common box, independent of text baselines. */
+.qi-act button svg { width: 15px; height: 15px; display: block; flex-shrink: 0; }
+
+#playlist-panel .queue-toolbar { top: var(--playlist-toolbar-top, 82px); }

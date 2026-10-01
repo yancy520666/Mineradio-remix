@@ -78,7 +78,7 @@ function makeShelfManager() {
       });
       if (shelfShowsPodcasts() && (shelfPane === 'mine' || shelfMergesCollections()) && myPodcastCollections.length) {
         myPodcastCollections.forEach(function (pc) {
-          items.push({ type: 'podcastCollection', title: pc.title, sub: (pc.count || 0) + ' items', cover: pc.cover || '', tag: '我的播客', podcastKey: pc.key, itemType: pc.itemType });
+          items.push({ type: 'podcastCollection', title: pc.title, sub: (pc.count || 0) + ' items', cover: podcastCollectionCover(pc), tag: '我的播客', podcastKey: pc.key, itemType: pc.itemType });
         });
       }
       if (items.length) return items;
@@ -126,7 +126,9 @@ function makeShelfManager() {
   }
 
   function drawCard(card, item) {
+    if (card.disposed) return;
     item = item || card.item || {};
+    var paintStarted = performance.now();
     var nextDrawKey = cardDrawSignature(card, item);
     if (card.drawKey === nextDrawKey) return;
     card.drawKey = nextDrawKey;
@@ -175,9 +177,14 @@ function makeShelfManager() {
       if (rec && rec.loaded && rec.img) {
         ctx.save(); makeRoundRect(ctx, cx, cy, coverSize, coverSize, 26); ctx.clip();
         ctx.drawImage(rec.img, cx, cy, coverSize, coverSize); ctx.restore();
-      } else if (!rec || (!rec.loading && !rec.failed)) {
-        requestPlaylistCover(item.cover, function () { drawCard(card, item); });
+      } else if (!rec || card.coverWaitUrl !== item.cover || rec && rec.failed && rec.session !== playlistCoverSession) {
+        card.coverWaitUrl = item.cover;
+        requestPlaylistCover(item.cover, function () { if (!card.disposed && card.item === item) drawCard(card, item); }, { priority: card.isCenter ? 0 : 1 });
       }
+    }
+
+    if (item.type === 'podcastCollection' && (!rec || !rec.loaded)) {
+      drawPodcastFallback(card, item, ctx, cx, cy, coverSize, function () { if (!card.disposed && card.item === item) { card.drawKey = ''; drawCard(card, item); } });
     }
 
     // 文本区
@@ -239,6 +246,7 @@ function makeShelfManager() {
     }
 
     card.texture.needsUpdate = true;
+    if (rec && rec.loaded && rec.metrics) rec.metrics.cardPaintMs = performance.now() - paintStarted;
   }
 
   function buildOneCard(item, i) {
@@ -272,6 +280,8 @@ function makeShelfManager() {
 
   function rebindShelfCard(card, item, index) {
     card.item = item;
+    card.coverWaitUrl = '';
+    card.podcastFallbackWaiting = false;
     card.index = index;
     card.selected = index === selectedIdx;
     card.isCenter = Math.abs(index - centerSmooth) < 0.5;
@@ -284,6 +294,7 @@ function makeShelfManager() {
 
   function disposeShelfCard(card) {
     if (!card) return;
+    card.disposed = true;
     if (card.mesh && card.mesh.parent) card.mesh.parent.remove(card.mesh);
     if (card.mesh && card.mesh.material) {
       if (card.mesh.material.map) card.mesh.material.map.dispose();
@@ -358,6 +369,7 @@ function makeShelfManager() {
       return;
     }
     cancelCardBuildQueue();
+    prewarmPlaylistCovers(allItems, center);
     renderedStart = start;
     if (asyncBuild && !cards.length) {
       cardBuildQueue = { start: start, end: end, next: start, cancelled: false, raf: 0 };
@@ -389,6 +401,7 @@ function makeShelfManager() {
       connectorParticles = null;
     }
     allItems = currentItems();
+    beginPlaylistCoverSession();
     lastSig = sig(allItems);
     lastCardRedrawAt = -10;
     lastCardPulseBucket = -1;
@@ -401,6 +414,7 @@ function makeShelfManager() {
       centerTarget = Math.max(0, allItems.length - 1);
       centerSmooth = centerTarget;
     }
+    prewarmPlaylistCovers(allItems, centerTarget);
     if (selectedIdx >= allItems.length) selectedIdx = -1;
     syncRenderedWindow(true, !!asyncCards);
     if (mode === 'stage') {
@@ -727,7 +741,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (m === mode && group) return;
       mode = m;
       if (m === 'off') {
-        if (group) { scene.remove(group); cards.forEach(function (c) { c.texture.dispose(); c.mesh.material.dispose(); c.mesh.geometry.dispose(); }); }
+        if (group) { scene.remove(group); disposeRenderedCards(); }
         if (connectorParticles) { scene.remove(connectorParticles); connectorParticles.geometry.dispose(); connectorParticles.material.dispose(); connectorParticles = null; }
         group = null; cards = [];
         if (contentList) contentList.close();
