@@ -6,6 +6,8 @@
 
 发布前提交并同步所有改动，运行 `npm test`、`npm run check`、`npm run test:electron`。`package.json` 与 lockfile 版本必须一致。已有标签不能移动到新源码；新修复递增版本。
 
+后续已完成的变化先累积在 [docs/RELEASE_NOTES_NEXT.md](./docs/RELEASE_NOTES_NEXT.md)。下次确定新版本号后，将其中实际进入最终构建的变化整理到 `docs/RELEASE_NOTES_v<新版本号>.md`，再构建；发布工作流使用这个版本专属文件作为 Release 正文。不要将源码新修复写成旧安装包已具备，也不要覆盖历史版本说明。交付后再清理已发布的待发布条目。
+
 手动执行 **Build Remix Windows release draft**，填写最终提交 SHA 和 `v2.2.4`。先保持 `prepare_draft=false` 验证；通过后，对同一最终提交执行 `prepare_draft=true`。完整构建使用 `--publish never`，上传步骤只能创建 draft。
 
 ## 安装与卸载验证
