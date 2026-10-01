@@ -68,3 +68,15 @@ test('visual import replaces only default Remix values and persists the merged s
   assert.equal(Object.hasOwn(saved.payload, 'secret'), false);
   assert.equal(saved.options.syncDisk, true);
 });
+
+test('preference import fills audio settings without replacing user choices or importing history', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public/js/modules/08-account/06-original-profile-import.js'), 'utf8');
+  const saved = new Map([['apex-player-volume', '0.15']]);
+  const context = { localStorage: { getItem: key => saved.has(key) ? saved.get(key) : null, setItem: (key, value) => saved.set(key, value) }, markStartupGuideSeen() {} };
+  vm.runInNewContext(source.slice(source.indexOf('function mergeOriginalPreferences('), source.indexOf('async function openOriginalProfileImport(')), context);
+  assert.equal(context.mergeOriginalPreferences({ 'apex-player-volume': '0.48', 'mineradio-audio-fade-v1': '{"fadeInMs":321}', 'mineradio-search-history': '["ignored"]', secret: 'ignored' }), 1);
+  assert.equal(saved.get('apex-player-volume'), '0.15');
+  assert.equal(saved.get('mineradio-audio-fade-v1'), '{"fadeInMs":321}');
+  assert.equal(saved.has('mineradio-search-history'), false);
+  assert.equal(saved.has('secret'), false);
+});

@@ -572,10 +572,10 @@ function activeVisualGuideSteps() {
   return diyPlayerMode ? visualGuideStepsDiy : visualGuideSteps;
 }
 function visualGuideWasSeen() {
-  try { return localStorage.getItem(VISUAL_GUIDE_SEEN_STORE_KEY) === '1'; } catch (e) { return true; }
+  return startupGuideWasSeen('visual');
 }
 function markVisualGuideSeen() {
-  try { localStorage.setItem(VISUAL_GUIDE_SEEN_STORE_KEY, '1'); } catch (e) { }
+  markStartupGuideSeen('visual');
 }
 var startupVisualGuideScheduled = false;
 function maybeRunStartupVisualGuide(source) {
@@ -599,6 +599,7 @@ function startVisualGuide(opts) {
     return;
   }
   if (immersiveMode) setImmersiveMode(false);
+  markVisualGuideSeen();
   closeMiniQueue();
   closeUploadTip(false);
   visualGuideActive = true;

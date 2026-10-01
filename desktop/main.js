@@ -20,6 +20,8 @@ const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
+const { createOnboardingStore } = require('./onboarding-state');
+const { readOriginalPreferences } = require('./original-profile-preferences');
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
 const { clearSpotifyToken } = require('../spotify-api');
@@ -154,13 +156,15 @@ const STARTUP_QA_USER_DATA_PATH = (() => {
 const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_NAME);
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
+const onboardingStore = createOnboardingStore(STABLE_USER_DATA_PATH);
+const ORIGINAL_PROFILE_PATH = path.join(app.getPath('appData'), 'Mineradio');
 const originalProfileImporter = createOriginalProfileImporter({
-  originalPath: path.join(app.getPath('appData'), 'Mineradio'),
+  originalPath: ORIGINAL_PROFILE_PATH,
   remixPath: STABLE_USER_DATA_PATH,
   validateSource: appOwnedMigrationFileValid,
 });
 const ORIGINAL_PROFILE_IMPORT_SUPPORTED = path.resolve(STABLE_USER_DATA_PATH).toLowerCase()
-  !== path.resolve(app.getPath('appData'), 'Mineradio').toLowerCase();
+  !== path.resolve(ORIGINAL_PROFILE_PATH).toLowerCase();
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
 const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS.nativePath;
 fs.mkdirSync(NATIVE_HELPER_TEMP_PATH, { recursive: true });
@@ -4804,6 +4808,15 @@ ipcMain.handle('mineradio-import-json-file', async (event) => {
   }
 });
 
+ipcMain.on('mineradio-onboarding-read-sync', (event) => {
+  event.returnValue = isTrustedMainWindowIpc(event)
+    ? { ok: true, payload: onboardingStore.read() } : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
+ipcMain.on('mineradio-onboarding-seen-sync', (event, kind) => {
+  event.returnValue = isTrustedMainWindowIpc(event)
+    ? onboardingStore.markSeen(kind) : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
+
 ipcMain.on('mineradio-current-fx-autosave-read-sync', (event) => {
   event.returnValue = { ok: true, payload: readCurrentFxAutosaveFile() };
 });
@@ -4895,7 +4908,16 @@ ipcMain.handle('mineradio-original-profile-import', async (event, visualKeys) =>
   if (!isTrustedMainWindowIpc(event) || !ORIGINAL_PROFILE_IMPORT_SUPPORTED) {
     return { ok: false, error: 'UNAVAILABLE' };
   }
-  return originalProfileImporter.importFiles(visualKeys);
+  const result = originalProfileImporter.importFiles(visualKeys);
+  if (result.ok) {
+    const preferences = await readOriginalPreferences({
+      originalPath: ORIGINAL_PROFILE_PATH,
+      defaultCacheRoot: defaultCacheRootPath(), BrowserWindow, session,
+    });
+    result.preferences = preferences.values;
+    result.preferencesReadFailed = preferences.failed;
+  }
+  return result;
 });
 
 ipcMain.handle('mineradio-restart-app', async () => {
@@ -5302,10 +5324,10 @@ function showMainWindowSafely(win, reason) {
   // A renderer may be reloaded while the user intentionally keeps Mineradio
   // in the tray. Runtime recovery must never turn that reload into a surprise
   // foreground window.
-  if (startupCompleted && win.__mineradioIntentionalHide === true) return false;
+  if (startupCompleted && win.__mineradioStartupShown === true && win.__mineradioIntentionalHide === true) return false;
   // A completed app may reload or recover while another program owns focus.
   // Startup callbacks must not restore a minimized/hidden window in that case.
-  if (startupCompleted && (win.isMinimized() || !win.isVisible()) && !win.isFocused()) return false;
+  if (startupCompleted && win.__mineradioStartupShown === true && (win.isMinimized() || !win.isVisible()) && !win.isFocused()) return false;
   markMainWindowExpectedVisible(win, true, reason || 'show-safe');
   if (win.__mineradioStartupShowTimer) {
     clearTimeout(win.__mineradioStartupShowTimer);
@@ -5314,6 +5336,7 @@ function showMainWindowSafely(win, reason) {
   ensureMainWindowInsideDisplay(win);
   if (win.isMinimized()) win.restore();
   if (!win.isVisible()) win.show();
+  win.__mineradioStartupShown = true;
   resetMainWindowZoom(win);
   sendWindowState(win);
   if (!startupState.windowVisibleAt) {

@@ -115,7 +115,7 @@ function testWindowVisibilityAndSystemWakeGuards() {
   assert.match(mainText, /win\.on\('closed'[\s\S]{0,160}clearMainWindowVisibilityGuard\(\)/, 'main guard must stop on window close');
   assert.match(mainText, /win\.on\('enter-full-screen'[\s\S]{0,220}startMainWindowFullscreenVisibilityGuard\(win\)/, 'enter fullscreen must start fullscreen guard');
   assert.match(mainText, /win\.on\('leave-full-screen'[\s\S]{0,180}clearMainWindowFullscreenVisibilityGuard\(\)/, 'leave fullscreen must stop fullscreen guard');
-  assert.match(mainText, /startupCompleted && \(win\.isMinimized\(\) \|\| !win\.isVisible\(\)\) && !win\.isFocused\(\)/,
+  assert.match(mainText, /startupCompleted && win\.__mineradioStartupShown === true && \(win\.isMinimized\(\) \|\| !win\.isVisible\(\)\) && !win\.isFocused\(\)/,
     'renderer load callbacks must not reopen minimized background windows');
   assert.match(mainText, /const\s+\{[^}]*\bpowerMonitor\b[^}]*\}\s*=\s*require\('electron'\)/, 'main process must import powerMonitor');
   assert.match(mainText, /powerMonitor\.on\('resume',[\s\S]{0,140}restoreUnexpectedMainWindowVisibility\(mainWindow, 'system-resume'\)/, 'system resume must check main window visibility');

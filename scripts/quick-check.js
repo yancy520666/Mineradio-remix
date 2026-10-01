@@ -5631,22 +5631,22 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
   }
   if (!/function splashTimelineElapsed\(elapsed\)\s*\{\s*return elapsed;\s*\}/.test(splashText)
     || /elapsed\s*\*\s*3\.32/.test(splashText)
-    || !/setTimeout\(markSplashReadyToEnter,\s*650\)/.test(splashText)
-    || !/setTimeout\(markSplashReadyToEnter,\s*1500\)/.test(splashText)
+    || !/setTimeout\(reduceSplashMotion \? markSplashReadyToEnter : waitForSplashLogo,\s*reduceSplashMotion \? 650 : 5200\)/.test(splashText)
+    || !/function startSplashWhenVisible\(\)/.test(splashText)
     || !/\.splash-word-mine\s*\{[\s\S]{0,160}animation:\s*splash-mine-in 5200ms/.test(css)
     || !/\.splash-word-radio\s*\{[\s\S]{0,420}animation:\s*splash-radio-in 5200ms/.test(css)
     || !/\.splash-word-i::after\s*\{[\s\S]{0,480}animation:\s*splash-i-dot-pop 4200ms/.test(css)
     || !/\.splash-signal-line\s*\{[\s\S]{0,500}animation:\s*splash-signal-line 4200ms/.test(css)
     || !/\.splash-signal-line::after\s*\{[\s\S]{0,420}animation:\s*splash-signal-blip 4200ms/.test(css)
     || !/\.splash-sub\s*\{[\s\S]{0,260}animation:\s*splash-sub-in 4200ms/.test(css)) {
-    fail('public-repo splash motion speed and the independent fast click-entry gate must stay decoupled');
+    fail('splash must wait for native visibility and finish its logo timeline before allowing entry');
   }
   if (!/\.user-archive-toolbar\s*\{[\s\S]{0,220}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css)
     || !/\.user-archive-tools\s*\{[\s\S]{0,180}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/.test(css)
     || !/\.user-archive-tools \.fx-mini-btn\s*\{[\s\S]{0,180}width:\s*100%;[\s\S]{0,160}white-space:\s*nowrap/.test(css)) {
     fail('user archive actions must stay in one balanced three-column row');
   }
-  console.log(`[OK] ${keys.length} captured defaults match; splash motion is 5.2s/4.2s while entry stays ready at 1.5s/0.65s; archive actions stay in one row.`);
+  console.log(`[OK] ${keys.length} captured defaults match; visible splash completes in 5.2s (0.65s reduced motion); archive actions stay in one row.`);
 }
 
 async function main() {

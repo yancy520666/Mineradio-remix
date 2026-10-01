@@ -20,6 +20,7 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
   const bodyClasses = new Set();
   const context = {
     localStorage: { getItem: (key) => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) },
+    window: {},
     VISUAL_GUIDE_SEEN_STORE_KEY: 'guide-seen',
     visualGuideActive: false,
     visualGuideState: null,
@@ -37,6 +38,7 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
     maybeRunStartupLoginGuide: () => shown.push('login')
   };
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'public/js/modules/00-state/02a-onboarding-state.js'), 'utf8'), context);
   const file = 'public/js/modules/09-idle-toast-libraries.js';
   vm.runInContext(source(file, 'function visualGuideWasSeen()', 'function startVisualGuide(opts)'), context);
   vm.runInContext(source(file, 'function closeVisualGuide(markSeen)', 'function handleVisualGuideSurfaceClick(e)'), context);
