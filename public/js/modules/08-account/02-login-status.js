@@ -530,23 +530,27 @@ function renderUserBtn() {
   });
   if (loggedIn && !externalProviders.length) externalProviders = [firstLoggedProvider()];
   var topRight = document.getElementById('top-right');
-  if (topRight) topRight.classList.toggle('account-pill-stack', externalProviders.length > 1);
-  btn.classList.remove('multi-account', 'external-account-pills', 'logged-in', 'logged-out');
+  if (topRight && topRight.classList.contains('account-pill-stack') !== (externalProviders.length > 1)) topRight.classList.toggle('account-pill-stack', externalProviders.length > 1);
+  ['multi-account', 'external-account-pills', 'logged-in', 'logged-out'].forEach(function (name) {
+    var enabled = name === 'logged-out' ? !loggedIn : loggedIn;
+    if (btn.classList.contains(name) !== enabled) btn.classList.toggle(name, enabled);
+  });
+  var pillsChanged = false;
   if (loggedIn) {
     activeAccountProvider = firstLoggedProvider();
     var st = platformStatus(activeAccountProvider);
     var meta = platformMeta(activeAccountProvider);
-    btn.classList.add('logged-in', 'multi-account', 'external-account-pills');
-    btn.title = providerAccountIdentity(activeAccountProvider, st) + ' / 账号与登录接入';
-    btn.innerHTML = externalProviders.map(function (provider) {
-      return renderTopAccountPill(provider);
-    }).join('');
+    var title = providerAccountIdentity(activeAccountProvider, st) + ' / 账号与登录接入';
+    if (btn.title !== title) btn.title = title;
+    pillsChanged = syncTopAccountPills(btn, externalProviders);
   } else {
-    btn.classList.add('logged-out');
-    btn.title = '登录账号';
-    btn.innerHTML = '<span class="login-word">登录</span>';
+    if (btn.title !== '登录账号') btn.title = '登录账号';
+    if (!btn.querySelector('.login-word')) {
+      btn.innerHTML = '<span class="login-word">登录</span>';
+      pillsChanged = true;
+    }
   }
-  if (typeof updateAccountPillGlassDisplacementMap === 'function') {
+  if (pillsChanged && typeof updateAccountPillGlassDisplacementMap === 'function') {
     requestAnimationFrame(updateAccountPillGlassDisplacementMap);
   }
   bindTopAccountPillSorting();

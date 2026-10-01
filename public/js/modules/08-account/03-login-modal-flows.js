@@ -313,10 +313,12 @@ function updateLoginProviderCapsuleStatus(provider, btn) {
   if (logo) {
     if (st.loggedIn) {
       logo.classList.add('has-avatar');
-      logo.innerHTML = providerAvatarHtml(provider, st);
+      var avatar = logo.querySelector('img');
+      if (avatar) setProviderAvatar(avatar, provider, st);
+      else logo.innerHTML = providerAvatarHtml(provider, st);
     } else {
       logo.classList.remove('has-avatar');
-      logo.textContent = meta.short;
+      if (logo.textContent !== meta.short || logo.querySelector('img')) logo.textContent = meta.short;
     }
   }
   var badge = btn.querySelector('.login-provider-state-badge');
