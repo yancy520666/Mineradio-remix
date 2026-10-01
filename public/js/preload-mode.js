@@ -1,4 +1,3 @@
-document.documentElement.classList.add('splash-intro-pending');
 try {
   if (localStorage.getItem('mineradio-startup-fast-skip-v1') === '1') {
     document.documentElement.classList.add('startup-fast-skip-preload');

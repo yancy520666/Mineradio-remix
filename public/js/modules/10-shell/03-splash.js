@@ -9,7 +9,7 @@ var splashDust = [];
 var splashStreaks = [];
 var splashShards = [];
 var splashPixelRatio = 1;
-var splashStartedAt = null;
+var splashStartedAt = performance.now();
 var splashSoundPlayed = false;
 var splashAudioCtx = null;
 var splashSoundFallbackArmed = false;
@@ -657,31 +657,11 @@ function markSplashReadyToEnter() {
   s.setAttribute('aria-label', '点击进入 Mineradio');
 }
 
-function startSplashWhenVisible() {
-  var bridge = window.desktopWindow;
-  var unsubscribe = null;
-  var started = false;
-  function start(state) {
-    if (started || state && (state.isVisible === false || state.isMinimized === true)) return;
-    if (!document.body.classList.contains('splash-active')) return;
-    started = true;
-    if (unsubscribe) unsubscribe();
-    splashStartedAt = performance.now();
-    document.documentElement.classList.remove('splash-intro-pending');
-    if (reduceSplashMotion) document.getElementById('splash').classList.add('reduce-motion');
-    else playMineradioIntroSound();
-    // Upstream allows entry at 1.5s while its unscaled 5.2s logo continues.
-    splashTimer = setTimeout(markSplashReadyToEnter, reduceSplashMotion ? 650 : 1500);
-  }
-  if (bridge && typeof bridge.getState === 'function') {
-    if (typeof bridge.onStateChange === 'function') unsubscribe = bridge.onStateChange(start);
-    bridge.getState().then(start).catch(function () { start(); });
-  } else if (!document.hidden) start();
-  else document.addEventListener('visibilitychange', function onVisible() {
-    if (document.hidden) return;
-    document.removeEventListener('visibilitychange', onVisible);
-    start();
-  });
+function startSplashIntro() {
+  // Match upstream: CSS starts with the page; sound and entry gate start at DOM ready.
+  if (reduceSplashMotion) document.getElementById('splash').classList.add('reduce-motion');
+  else playMineradioIntroSound();
+  splashTimer = setTimeout(markSplashReadyToEnter, reduceSplashMotion ? 650 : 1500);
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -689,7 +669,6 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!s) return;
   markAppPerf('dom-content-loaded');
   if (startupFastSkipPreference) {
-    document.documentElement.classList.remove('splash-intro-pending');
     dismissSplash({ instant: true });
     return;
   }
@@ -707,5 +686,5 @@ document.addEventListener('DOMContentLoaded', function () {
       requestSplashEnter();
     }
   });
-  startSplashWhenVisible();
+  startSplashIntro();
 });
