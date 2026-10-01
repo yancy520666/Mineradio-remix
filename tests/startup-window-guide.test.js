@@ -43,22 +43,15 @@ test('shown guide survives immediate exit, cache changes and a missing browser m
   assert.equal(restarted.startupGuideWasSeen('login'), true);
   assert.equal(store.markSeen('../other').ok, false);
 });
-test('intro begins at native visibility and permits entry at 1.5s independently of logo completion', async () => {
-  let listener, clock = 25, delay, readyCallback;
-  const classes = new Set(['splash-intro-pending']);
-  const context = { splashStartedAt: null, splashTimer: null, reduceSplashMotion: false, markSplashReadyToEnter() {}, playMineradioIntroSound() {}, performance: { now: () => clock }, setTimeout: (fn, ms) => { delay = ms; readyCallback = fn; }, document: { body: { classList: { contains: () => true } }, documentElement: { classList: { remove: k => classes.delete(k) } } }, window: { desktopWindow: { onStateChange: callback => { listener = callback; return () => { listener = null; }; }, getState: async () => ({ isVisible: false, isMinimized: false }) } } };
-  vm.createContext(context);
-  vm.runInContext(block('public/js/modules/10-shell/03-splash.js', 'function startSplashWhenVisible()', "document.addEventListener('DOMContentLoaded'"), context);
-  context.startSplashWhenVisible();
-  await Promise.resolve();
-  assert.equal(context.splashStartedAt, null);
-  assert(classes.has('splash-intro-pending'));
-  clock = 6025;
-  listener({ isVisible: true, isMinimized: false });
-  assert.equal(context.splashStartedAt, 6025);
-  assert.equal(delay, 1500);
-  assert.equal(readyCallback, context.markSplashReadyToEnter);
-  assert.equal(classes.has('splash-intro-pending'), false);
+test('intro uses upstream DOM-ready sound and entry timing without a native window wait', () => {
+  let delay,callback,sounds=0,reduced=false;
+  const context=vm.createContext({splashStartedAt:25,splashTimer:null,reduceSplashMotion:false,
+    markSplashReadyToEnter(){},playMineradioIntroSound(){sounds++;},setTimeout(fn,ms){callback=fn;delay=ms;},
+    document:{getElementById:()=>({classList:{add:()=>{reduced=true;}}})}});
+  vm.runInContext(block('public/js/modules/10-shell/03-splash.js','function startSplashIntro()',"document.addEventListener('DOMContentLoaded'"),context);
+  context.startSplashIntro();assert.equal(delay,1500);assert.equal(sounds,1);
+  assert.equal(callback,context.markSplashReadyToEnter);assert.equal(context.splashStartedAt,25);
+  context.reduceSplashMotion=true;context.startSplashIntro();assert.equal(delay,650);assert(reduced);assert.equal(sounds,1);
 });
 
 test('background timeline retains upstream real-time speed', () => {

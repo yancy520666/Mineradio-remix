@@ -5632,14 +5632,14 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
   if (!/function splashTimelineElapsed\(elapsed\)\s*\{\s*return elapsed;\s*\}/.test(splashText)
     || /elapsed\s*\*\s*3\.32/.test(splashText)
     || !/setTimeout\(markSplashReadyToEnter,\s*reduceSplashMotion \? 650 : 1500\)/.test(splashText)
-    || !/function startSplashWhenVisible\(\)/.test(splashText)
+    || !/function startSplashIntro\(\)/.test(splashText)
     || !/\.splash-word-mine\s*\{[\s\S]{0,160}animation:\s*splash-mine-in 5200ms/.test(css)
     || !/\.splash-word-radio\s*\{[\s\S]{0,420}animation:\s*splash-radio-in 5200ms/.test(css)
     || !/\.splash-word-i::after\s*\{[\s\S]{0,480}animation:\s*splash-i-dot-pop 4200ms/.test(css)
     || !/\.splash-signal-line\s*\{[\s\S]{0,500}animation:\s*splash-signal-line 4200ms/.test(css)
     || !/\.splash-signal-line::after\s*\{[\s\S]{0,420}animation:\s*splash-signal-blip 4200ms/.test(css)
     || !/\.splash-sub\s*\{[\s\S]{0,260}animation:\s*splash-sub-in 4200ms/.test(css)) {
-    fail('splash must start at native visibility, preserve upstream animation speed and allow entry at 1.5s');
+    fail('splash must use upstream page-start animation speed and DOM-ready entry at 1.5s');
   }
   if (!/\.user-archive-toolbar\s*\{[\s\S]{0,220}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css)
     || !/\.user-archive-tools\s*\{[\s\S]{0,180}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/.test(css)

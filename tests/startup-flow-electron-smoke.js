@@ -9,7 +9,7 @@ if (!process.argv.includes('--child')) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-startup-flow-'));
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
   try {
-    for (const mode of ['first', 'restart']) {
+    for (const mode of (process.argv.includes('--only-first') ? ['first'] : ['first', 'restart'])) {
       const result = spawnSync(require('electron'), [__filename, '--child', profile, mode], { cwd: root, env, encoding: 'utf8', timeout: 45000 });
       if (result.status !== 0) throw new Error(result.stderr || result.stdout || String(result.error));
       const evidence = result.stdout.split('\n').find(line => line.startsWith('STARTUP_FLOW:'));
@@ -61,7 +61,7 @@ if (!process.argv.includes('--child')) {
     assert.equal(entry.duration, '5.2s', 'logo must preserve upstream speed');
     if (entry.age < 5000) assert(entry.animations.some(a => a.playState === 'running'), 'logo should continue after entry becomes available');
     await sleep(Math.max(0, 5400 - entry.age));
-    // CSS starts on the compositor's next frame, after the visibility timestamp.
+    // CSS and the script clock start with the page, as in upstream.
     while (Date.now() < deadline && !await win.webContents.executeJavaScript('document.querySelector(".splash-word-radio").getAnimations().every(a => a.playState === "finished")')) await sleep(100);
     const logo = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, opacity: getComputedStyle(el).opacity, animation: getComputedStyle(el).animationName, playState: getComputedStyle(el).animationPlayState, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState})), classes: document.documentElement.className}; })()');
     assert(logo.ready);
@@ -76,7 +76,18 @@ if (!process.argv.includes('--child')) {
     assert.equal(guides.before, mode === 'restart');
     assert(guides.active && guides.seen, 'guide is recorded when displayed and remains manually accessible');
     assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'user', 'onboarding-state.json'))).visual, true);
-    console.log('STARTUP_FLOW:' + JSON.stringify({ mode, firstShowMs, fontsBlocked: true, introAgeMs: Math.round(intro.age), entry, logo, guides }));
+    const queueButton = await win.webContents.executeJavaScript(`(() => {
+      closeVisualGuide(false); revealBottomControls(1500);
+      const button=document.getElementById('mini-queue-btn'),svg=button.querySelector('svg');
+      const b=button.getBoundingClientRect(),v=svg.getBoundingClientRect(),ink=svg.getBBox();
+      button.click();const opened=miniQueueOpen && document.getElementById('mini-queue-popover').classList.contains('show');
+      button.click();const closed=!miniQueueOpen && !document.getElementById('mini-queue-popover').classList.contains('show');
+      return {opened,closed,boxOffset:[(b.left+b.right-v.left-v.right)/2,(b.top+b.bottom-v.top-v.bottom)/2],
+        inkOffset:[ink.x+ink.width/2-12,ink.y+ink.height/2-12]};
+    })()`);
+    assert(queueButton.opened && queueButton.closed, 'queue button must open and close the current queue');
+    assert(queueButton.boxOffset.concat(queueButton.inkOffset).every(offset=>Math.abs(offset)<0.1), JSON.stringify(queueButton));
+    console.log('STARTUP_FLOW:' + JSON.stringify({ mode, firstShowMs, fontsBlocked: true, introAgeMs: Math.round(intro.age), entry, logo, guides, queueButton }));
     app.exit(0);
   }).catch(error => { console.error(error.stack); app.exit(1); });
 }
