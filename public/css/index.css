@@ -1367,7 +1367,7 @@ html.splash-intro-pending #splash::before {
 
 .splash-word-mine {
   opacity: 0;
-  animation: splash-mine-in 1500ms cubic-bezier(.22, 1, .36, 1) forwards;
+  animation: splash-mine-in 5200ms cubic-bezier(.22, 1, .36, 1) forwards;
   text-shadow: -2px 0 0 rgba(255, 83, 103, .24), 2px 0 0 rgba(122, 215, 194, .18), 0 22px 72px rgba(0, 0, 0, .58), 0 0 34px rgba(244, 210, 138, .10)
 }
 
@@ -1380,7 +1380,7 @@ html.splash-intro-pending #splash::before {
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: splash-radio-in 1500ms cubic-bezier(.22, 1, .36, 1) forwards;
+  animation: splash-radio-in 5200ms cubic-bezier(.22, 1, .36, 1) forwards;
   text-shadow: -2px 0 0 rgba(255, 83, 103, .16), 2px 0 0 rgba(122, 215, 194, .22), 0 0 34px rgba(122, 215, 194, .10)
 }
 
@@ -1420,7 +1420,7 @@ html.splash-intro-pending #splash::before {
   box-shadow: 0 0 16px rgba(244, 210, 138, .44), 0 0 36px rgba(255, 255, 255, .16);
   opacity: 0;
   transform: translate(-50%, .22em) scale(.34);
-  animation: splash-i-dot-pop 1212ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-i-dot-pop 4200ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-word-o {
@@ -1438,7 +1438,7 @@ html.splash-intro-pending #splash::before {
   opacity: 0;
   transform: scaleX(.12);
   box-shadow: 0 0 18px rgba(244, 210, 138, .24), 0 0 34px rgba(122, 215, 194, .10);
-  animation: splash-signal-line 1212ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-signal-line 4200ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-signal-line::after {
@@ -1453,7 +1453,7 @@ html.splash-intro-pending #splash::before {
   box-shadow: 0 0 24px rgba(244, 210, 138, .54);
   transform: translate(-50%, -50%) scale(.32);
   opacity: 0;
-  animation: splash-signal-blip 1212ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-signal-blip 4200ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-sub {
@@ -1463,7 +1463,7 @@ html.splash-intro-pending #splash::before {
   color: rgba(255, 255, 255, .34);
   text-transform: uppercase;
   opacity: 0;
-  animation: splash-sub-in 1212ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-sub-in 4200ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-enter {

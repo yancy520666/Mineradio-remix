@@ -43,10 +43,10 @@ test('shown guide survives immediate exit, cache changes and a missing browser m
   assert.equal(restarted.startupGuideWasSeen('login'), true);
   assert.equal(store.markSeen('../other').ok, false);
 });
-test('intro begins at native visibility and allows entry after the complete logo timeline', async () => {
-  let listener, clock = 25, delay;
+test('intro begins at native visibility and permits entry at 1.5s independently of logo completion', async () => {
+  let listener, clock = 25, delay, readyCallback;
   const classes = new Set(['splash-intro-pending']);
-  const context = { splashStartedAt: null, splashTimer: null, reduceSplashMotion: false, markSplashReadyToEnter() {}, waitForSplashLogo() {}, playMineradioIntroSound() {}, performance: { now: () => clock }, setTimeout: (_fn, ms) => { delay = ms; }, document: { body: { classList: { contains: () => true } }, documentElement: { classList: { remove: k => classes.delete(k) } } }, window: { desktopWindow: { onStateChange: callback => { listener = callback; return () => { listener = null; }; }, getState: async () => ({ isVisible: false, isMinimized: false }) } } };
+  const context = { splashStartedAt: null, splashTimer: null, reduceSplashMotion: false, markSplashReadyToEnter() {}, playMineradioIntroSound() {}, performance: { now: () => clock }, setTimeout: (fn, ms) => { delay = ms; readyCallback = fn; }, document: { body: { classList: { contains: () => true } }, documentElement: { classList: { remove: k => classes.delete(k) } } }, window: { desktopWindow: { onStateChange: callback => { listener = callback; return () => { listener = null; }; }, getState: async () => ({ isVisible: false, isMinimized: false }) } } };
   vm.createContext(context);
   vm.runInContext(block('public/js/modules/10-shell/03-splash.js', 'function startSplashWhenVisible()', "document.addEventListener('DOMContentLoaded'"), context);
   context.startSplashWhenVisible();
@@ -57,20 +57,14 @@ test('intro begins at native visibility and allows entry after the complete logo
   listener({ isVisible: true, isMinimized: false });
   assert.equal(context.splashStartedAt, 6025);
   assert.equal(delay, 1500);
+  assert.equal(readyCallback, context.markSplashReadyToEnter);
   assert.equal(classes.has('splash-intro-pending'), false);
 });
 
-test('a delayed compositor cannot enable entry while the logo is still animating', () => {
-  let ready = false, retry;
-  const animation = { playState: 'running' };
-  const context = { splashTimer: null, markSplashReadyToEnter: () => { ready = true; }, setTimeout: fn => { retry = fn; }, document: { getElementById: () => ({ classList: { contains: () => false }, querySelector: () => ({ getAnimations: () => [animation] }) }) } };
-  vm.createContext(context);
-  vm.runInContext(block('public/js/modules/10-shell/03-splash.js', 'function waitForSplashLogo()', 'function startSplashWhenVisible()'), context);
-  context.waitForSplashLogo();
-  assert.equal(ready, false);
-  animation.playState = 'finished';
-  retry();
-  assert.equal(ready, true);
+test('background timeline retains upstream real-time speed', () => {
+  const context = vm.createContext({});
+  vm.runInContext(block('public/js/modules/10-shell/03-splash.js', 'function splashTimelineElapsed(', 'function stopSplashIntroSound('), context);
+  for (const elapsed of [0, 0.72, 1.5, 3.62, 5.2, 10]) assert.equal(context.splashTimelineElapsed(elapsed), elapsed);
 });
 test('native visibility controls throttling without needing focus or redundant native calls', () => {
   let visible = true, minimized = false; const values = [];

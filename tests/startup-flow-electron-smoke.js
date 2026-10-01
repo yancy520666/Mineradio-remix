@@ -53,12 +53,20 @@ if (!process.argv.includes('--child')) {
     assert(firstShowMs !== null, 'first launch must not require second-instance activation');
     const intro = await win.webContents.executeJavaScript('({started: splashStartedAt, age: performance.now() - splashStartedAt, pending: document.documentElement.classList.contains("splash-intro-pending"), ready: splashReadyToEnter})');
     assert(intro.started !== null && !intro.pending);
-    if (intro.age < 1500) assert.equal(intro.ready, false, 'intro must not allow entry before the logo finishes');
+    if (intro.age < 1500) assert.equal(intro.ready, false, 'entry must wait for the upstream 1.5s gate');
     await sleep(Math.max(0, 1600 - intro.age));
     while (Date.now() < deadline && !await win.webContents.executeJavaScript('splashReadyToEnter')) await sleep(100);
+    const entry = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, duration: getComputedStyle(el).animationDuration, age: performance.now() - splashStartedAt, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState}))}; })()');
+    assert(entry.ready, 'entry must be available without waiting for the entire logo');
+    assert.equal(entry.duration, '5.2s', 'logo must preserve upstream speed');
+    if (entry.age < 5000) assert(entry.animations.some(a => a.playState === 'running'), 'logo should continue after entry becomes available');
+    await sleep(Math.max(0, 5400 - entry.age));
+    // CSS starts on the compositor's next frame, after the visibility timestamp.
+    while (Date.now() < deadline && !await win.webContents.executeJavaScript('document.querySelector(".splash-word-radio").getAnimations().every(a => a.playState === "finished")')) await sleep(100);
     const logo = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, opacity: getComputedStyle(el).opacity, animation: getComputedStyle(el).animationName, playState: getComputedStyle(el).animationPlayState, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState})), classes: document.documentElement.className}; })()');
     assert(logo.ready);
-    assert.equal(Number(logo.opacity), 1, 'complete logo must be visible before entry');
+    assert.equal(Number(logo.opacity), 1, 'complete logo must be visible after its original timeline');
+    assert(logo.animations.every(a => a.playState === 'finished'), 'logo must finish when the user stays on the splash');
     const guides = await win.webContents.executeJavaScript(`(() => {
       const before = startupGuideWasSeen('visual');
       dismissSplash({instant: true});
@@ -68,7 +76,7 @@ if (!process.argv.includes('--child')) {
     assert.equal(guides.before, mode === 'restart');
     assert(guides.active && guides.seen, 'guide is recorded when displayed and remains manually accessible');
     assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'user', 'onboarding-state.json'))).visual, true);
-    console.log('STARTUP_FLOW:' + JSON.stringify({ mode, firstShowMs, fontsBlocked: true, introAgeMs: Math.round(intro.age), logo, guides }));
+    console.log('STARTUP_FLOW:' + JSON.stringify({ mode, firstShowMs, fontsBlocked: true, introAgeMs: Math.round(intro.age), entry, logo, guides }));
     app.exit(0);
   }).catch(error => { console.error(error.stack); app.exit(1); });
 }
