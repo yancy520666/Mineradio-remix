@@ -292,7 +292,8 @@ function firstLoggedProvider() {
 }
 function providerAvatarSrc(provider, status) {
   status = status || platformStatus(provider) || {};
-  if (status.avatar) return avatarSrc(status.avatar);
+  // A stable URL keeps decoded avatars cached; recovery adds a version only on failure.
+  if (status.avatar) return coverProxySrc(status.avatar);
   var meta = platformMeta(provider);
   var fill = provider === 'qq' ? '#bfd66b' : (provider === 'kugou' ? '#56e0ff' : (provider === 'qishui' ? '#45d68f' : (provider === 'spotify' ? '#1ed760' : '#d95b67')));
   var bg = provider === 'qq' ? '#11150b' : (provider === 'kugou' ? '#071722' : (provider === 'qishui' ? '#071a12' : (provider === 'spotify' ? '#06140a' : '#180b0f')));
@@ -382,6 +383,49 @@ function renderTopAccountPill(provider, opts) {
     '<span class="top-account-name">' + escHtml(displayName) + '</span>' +
     vipTag +
     '</span>';
+}
+function syncTopAccountPills(btn, providers) {
+  var existing = Array.prototype.slice.call(btn.querySelectorAll('.top-account-pill'));
+  var cursor = btn.firstChild;
+  var changed = false;
+  providers.forEach(function (provider) {
+    var html = renderTopAccountPill(provider);
+    var pill = existing.find(function (node) { return node.getAttribute('data-account-provider') === provider; });
+    if (!pill || pill.__accountHtml !== html) {
+      var template = document.createElement('template');
+      template.innerHTML = html;
+      var desired = template.content.firstElementChild;
+      if (!pill) {
+        pill = desired;
+      } else {
+        // Keep the loaded image and its bounded retry state across status updates.
+        if (pill.className !== desired.className) pill.className = desired.className;
+        setProviderAvatar(pill.querySelector('img'), provider, platformStatus(provider));
+        var name = pill.querySelector('.top-account-name');
+        var nextName = desired.querySelector('.top-account-name').textContent;
+        if (name.textContent !== nextName) name.textContent = nextName;
+        var badge = pill.querySelector('.top-account-vip');
+        var nextBadge = desired.querySelector('.top-account-vip');
+        if (badge && !nextBadge) badge.remove();
+        else if (!badge && nextBadge) pill.appendChild(nextBadge);
+        else if (badge && nextBadge && badge.outerHTML !== nextBadge.outerHTML) badge.replaceWith(nextBadge);
+      }
+      pill.__accountHtml = html;
+      changed = true;
+    }
+    if (pill !== cursor) {
+      btn.insertBefore(pill, cursor);
+      changed = true;
+    }
+    cursor = pill.nextSibling;
+  });
+  while (cursor) {
+    var next = cursor.nextSibling;
+    cursor.remove();
+    cursor = next;
+    changed = true;
+  }
+  return changed;
 }
 function bindTopAccountPillSorting() {
   var btn = document.getElementById('user-btn');
