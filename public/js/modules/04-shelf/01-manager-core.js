@@ -179,12 +179,12 @@ function makeShelfManager() {
         ctx.drawImage(rec.img, cx, cy, coverSize, coverSize); ctx.restore();
       } else if (!rec || card.coverWaitUrl !== item.cover || rec && rec.failed && rec.session !== playlistCoverSession) {
         card.coverWaitUrl = item.cover;
-        requestPlaylistCover(item.cover, function () { if (!card.disposed && card.item === item) drawCard(card, item); }, { priority: card.isCenter ? 0 : 1 });
+        requestPlaylistCover(item.cover, function () { if (!card.disposed && card.item === item) { drawCard(card, item); requestShelfCoverFrame(); } }, { priority: card.isCenter ? 0 : 1 });
       }
     }
 
     if (item.type === 'podcastCollection' && (!rec || !rec.loaded)) {
-      drawPodcastFallback(card, item, ctx, cx, cy, coverSize, function () { if (!card.disposed && card.item === item) { card.drawKey = ''; drawCard(card, item); } });
+      drawPodcastFallback(card, item, ctx, cx, cy, coverSize, function () { if (!card.disposed && card.item === item) { card.drawKey = ''; drawCard(card, item); requestShelfCoverFrame(); } });
     }
 
     // 文本区

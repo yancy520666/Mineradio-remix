@@ -16405,7 +16405,7 @@ body.panel-reordering .mini-queue-item.is-reordering {
 
 #playlist-panel .pl-detail-sticky {
   position: sticky;
-  top: 126px;
+  top: var(--playlist-detail-top, 126px);
   z-index: 8;
   margin: 0 0 8px;
   padding: 8px 2px 8px;
