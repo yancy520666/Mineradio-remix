@@ -26,31 +26,33 @@ function playbackRestoreSongSnapshot(song) {
   return snap;
 }
 function readLastPlaybackSnapshot() {
+  var local = null, disk = null;
+  try { local = PlaybackCheckpointFormat.normalize(JSON.parse(localStorage.getItem(LAST_PLAYBACK_STORE_KEY) || 'null')); } catch (e) { }
   try {
-    var raw = localStorage.getItem(LAST_PLAYBACK_STORE_KEY);
-    if (!raw) return null;
-    var data = JSON.parse(raw);
-    if (!data || data.version !== 1 || !data.current) return null;
-    return data;
-  } catch (e) {
-    return null;
-  }
+    if (window.desktopWindow && window.desktopWindow.readPlaybackCheckpointSync) {
+      var result = window.desktopWindow.readPlaybackCheckpointSync();
+      if (result.ok) disk = PlaybackCheckpointFormat.normalize(result.payload);
+    }
+  } catch (e) { }
+  return disk && (!local || disk.savedAt >= local.savedAt) ? disk : local;
 }
 function saveLastPlaybackSnapshot(force, reason) {
   var now = Date.now();
   if (!force && now - lastPlaybackSnapshotSavedAt < 2500) return;
   var song = currentCoverSong();
   if (!song) return;
+  if (audio && typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audio)) return;
   if (!audio && restoredLastPlaybackSnapshot && restoredLastPlaybackSnapshot.current && queueItemKey(song) === queueItemKey(restoredLastPlaybackSnapshot.current)) return;
   var durationSec = getPlaybackDurationSeconds();
-  var currentSec = getPlaybackCurrentSeconds();
+  var currentSec = audio && audio.__mineradioPendingResumeAt > 0 ? audio.__mineradioPendingResumeAt : getPlaybackCurrentSeconds();
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
-  var queue = Array.isArray(playQueue) ? playQueue.slice(0, 120).map(playbackRestoreSongSnapshot).filter(function (item) { return item && (item.id || item.mid || item.localKey || item.name); }) : [];
+  var queueStart = Math.max(0, currentIdx - 60);
+  var queue = Array.isArray(playQueue) ? playQueue.slice(queueStart, queueStart + 120).map(playbackRestoreSongSnapshot).filter(function (item) { return item && (item.id || item.mid || item.localKey || item.name); }) : [];
   var payload = {
     version: 1,
-    savedAt: now,
+    savedAt: Math.max(now, lastPlaybackSnapshotSavedAt + 1),
     reason: reason || '',
-    currentIdx: currentIdx,
+    currentIdx: currentIdx < 0 ? -1 : currentIdx - queueStart,
     currentTime: Math.max(0, Number(currentSec) || 0),
     duration: Math.max(0, Number(durationSec) || playbackDurationFromSong(song) || 0),
     playing: !!(audio && !audio.paused && !audio.ended),
@@ -59,8 +61,9 @@ function saveLastPlaybackSnapshot(force, reason) {
   };
   try {
     localStorage.setItem(LAST_PLAYBACK_STORE_KEY, JSON.stringify(payload));
-    lastPlaybackSnapshotSavedAt = now;
   } catch (e) { }
+  lastPlaybackSnapshotSavedAt = payload.savedAt;
+  persistPlaybackCheckpoint(payload);
 }
 function applyRestoredPlaybackProgressUi(snapshot) {
   snapshot = snapshot || {};

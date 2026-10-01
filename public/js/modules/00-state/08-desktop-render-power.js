@@ -477,7 +477,7 @@ function installRenderPowerHooks() {
     });
   }
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) refreshDesktopRuntimeStateAfterWake('visibilitychange');
+    refreshDesktopRuntimeStateAfterWake('visibilitychange');
     updateRenderPowerClasses();
     applyRendererPowerMode();
     if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('visibilitychange');
@@ -495,6 +495,7 @@ function installRenderPowerHooks() {
     desktopRuntimeState.focused = false;
     updateRenderPowerClasses();
     applyRendererPowerMode();
+    if (!isDeepBackgroundMode()) recoverVisualsAfterBackground('blur');
   });
   if (window.desktopWindow && typeof window.desktopWindow.onStateChange === 'function') {
     window.desktopWindow.onStateChange(updateDesktopRuntimeState);

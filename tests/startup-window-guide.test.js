@@ -72,3 +72,14 @@ test('a delayed compositor cannot enable entry while the logo is still animating
   retry();
   assert.equal(ready, true);
 });
+test('native visibility controls throttling without needing focus or redundant native calls', () => {
+  let visible = true, minimized = false; const values = [];
+  const win = { isDestroyed: () => false, isVisible: () => visible, isMinimized: () => minimized,
+    webContents: { isDestroyed: () => false, setBackgroundThrottling: value => values.push(value) } };
+  const c = vm.createContext({});
+  vm.runInContext(block('desktop/main.js', 'function setMainWindowBackgroundThrottling(', 'function finishWallpaperEngineVisibleHostResume('), c);
+  c.setMainWindowBackgroundThrottling(win, true); c.setMainWindowBackgroundThrottling(win, true);
+  assert.deepEqual(values, [false]);
+  minimized = true; c.setMainWindowBackgroundThrottling(win, true); assert.equal(values.at(-1), true);
+  visible = false; c.setMainWindowBackgroundThrottling(win, false); assert.equal(values.at(-1), false);
+});

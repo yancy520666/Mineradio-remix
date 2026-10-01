@@ -196,6 +196,7 @@ function bindPlaybackProgressEvents(audioEl) {
     audioEl.addEventListener(name, updatePlaybackProgressUi);
   });
   audioEl.addEventListener('timeupdate', function () {
+    if (audioEl === audio && Number(audioEl.__mineradioTrackSwitchToken) === Number(trackSwitchToken)) saveLastPlaybackSnapshot(false, 'media-timeupdate');
     if (typeof tickCuefieldAutoMix === 'function') tickCuefieldAutoMix();
   });
   ['play', 'playing', 'pause', 'ended', 'emptied', 'abort', 'error'].forEach(function (name) {
@@ -209,7 +210,7 @@ function bindPlaybackProgressEvents(audioEl) {
       ) return;
       if (name === 'ended' && audioEl === audio && playbackTransitionHasAudibleNextDeck()) return;
       syncPlaybackStateFromAudioEvent(name);
-      saveLastPlaybackSnapshot(name === 'pause' || name === 'ended', name);
+      saveLastPlaybackSnapshot(['play', 'playing', 'pause', 'ended'].indexOf(name) >= 0, name);
     });
   });
   ['error', 'stalled'].forEach(function (name) {
@@ -420,6 +421,7 @@ function commitProgressSeek(targetTime, resumeAfterSeek) {
   if (resumeAfterSeek) primeProgressSeekPlayback(media, mediaSrc, serial);
   renderProgressPreview(targetTime, durationSec);
   syncBeatMapPlaybackCursor(targetTime, true);
+  if (audio) audio.__mineradioPendingResumeAt = 0;
   saveLastPlaybackSnapshot(true, 'seek');
   waitForProgressSeekReady(media, targetTime, serial, 1800).then(function (ready) {
     if (serial !== progressDragState.commitSerial || !progressSeekMediaStillCurrent(media, mediaSrc)) return false;
