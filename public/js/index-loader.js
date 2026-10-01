@@ -3,6 +3,7 @@
 (function loadMineradioIndexModules() {
   const moduleCacheBust = String(Date.now());
   const modulePaths = [
+    'js/playback-checkpoint-format.js',
     'js/modules/00-state/00-core-stores.js',
     'js/modules/00-state/01-perf-render-state.js',
     'js/modules/00-state/02-preferences-ui-modes.js',
@@ -66,6 +67,7 @@
     'js/modules/05-playback/07-search.js',
     'js/modules/05-playback/08-audio-graph-controls.js',
     'js/modules/05-playback/09-queue-snapshot-autoplay.js',
+    'js/modules/05-playback/09a-playback-checkpoint.js',
     'js/modules/05-playback/10-queue-actions.js',
     'js/modules/05-playback/11-provider-fallback.js',
     'js/modules/05-playback/12-playback-switch-core.js',

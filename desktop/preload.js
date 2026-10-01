@@ -105,6 +105,8 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   exportLoginCookie: (provider) => ipcRenderer.invoke('mineradio-export-login-cookie', provider || ''),
   importJsonFile: () => ipcRenderer.invoke('mineradio-import-json-file'),
   readCurrentFxAutosaveSync: () => ipcRenderer.sendSync('mineradio-current-fx-autosave-read-sync'),
+  readPlaybackCheckpointSync: () => ipcRenderer.sendSync('mineradio-playback-checkpoint-read-sync'),
+  savePlaybackCheckpoint: (payload) => ipcRenderer.invoke('mineradio-playback-checkpoint-save', payload),
   readOnboardingStateSync: () => ipcRenderer.sendSync('mineradio-onboarding-read-sync'),
   markOnboardingSeenSync: (kind) => ipcRenderer.sendSync('mineradio-onboarding-seen-sync', kind),
   saveCurrentFxAutosaveSync: (payload) => ipcRenderer.sendSync('mineradio-current-fx-autosave-save-sync', payload || {}),

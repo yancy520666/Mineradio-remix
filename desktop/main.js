@@ -21,6 +21,7 @@ const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
+const { createPlaybackCheckpointStore } = require('./playback-checkpoint-store');
 const { readOriginalPreferences } = require('./original-profile-preferences');
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
@@ -157,6 +158,7 @@ const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const onboardingStore = createOnboardingStore(STABLE_USER_DATA_PATH);
+const playbackCheckpointStore = createPlaybackCheckpointStore(STABLE_USER_DATA_PATH);
 const ORIGINAL_PROFILE_PATH = path.join(app.getPath('appData'), 'Mineradio');
 const originalProfileImporter = createOriginalProfileImporter({
   originalPath: ORIGINAL_PROFILE_PATH,
@@ -1198,7 +1200,11 @@ function stopWallpaperEngineRuntimeForRenderer(reason = '') {
 function setMainWindowBackgroundThrottling(win, enabled) {
   if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
   try {
-    win.webContents.setBackgroundThrottling(enabled === true);
+    // Native visibility governs throttling; losing focus alone must not freeze the compositor.
+    const throttle = enabled === true && (!win.isVisible() || win.isMinimized());
+    if (win.__mineradioBackgroundThrottling === throttle) return;
+    win.webContents.setBackgroundThrottling(throttle);
+    win.__mineradioBackgroundThrottling = throttle;
   } catch (_) { }
 }
 
@@ -1773,6 +1779,10 @@ function configureLocalAppPermissions() {
 
 function sendWindowState(win) {
   if (!win || win.isDestroyed()) return;
+  if (win === mainWindow) {
+    const desktopMode = fullDesktopModeRuntime.getStatus('window-render-policy');
+    setMainWindowBackgroundThrottling(win, desktopMode.enabled === true ? false : MAIN_WINDOW_BACKGROUND_THROTTLING);
+  }
   win.webContents.send('desktop-window-state', getWindowState(win));
 }
 
@@ -2294,7 +2304,7 @@ function reportWindowCreationFailure(context, error) {
     try {
       // Keep this literal visible for startup dialog regression checks:
       // dialog.showErrorBox('Mineradio 启动失败'
-      dialog.showErrorBox(`Mineradio 启动失败 (${code})`, buildStartupErrorMessage(context, code, logInfo, error));
+      if (!STARTUP_QA_USER_DATA_PATH) dialog.showErrorBox(`Mineradio 启动失败 (${code})`, buildStartupErrorMessage(context, code, logInfo, error));
     } catch (_) {}
   }
   if (!startupCompleted) {
@@ -4808,6 +4818,12 @@ ipcMain.handle('mineradio-import-json-file', async (event) => {
   }
 });
 
+ipcMain.on('mineradio-playback-checkpoint-read-sync', (event) => {
+  event.returnValue = isTrustedMainWindowIpc(event) ? { ok: true, payload: playbackCheckpointStore.read() } : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
+ipcMain.handle('mineradio-playback-checkpoint-save', (event, payload) => {
+  return isTrustedMainWindowIpc(event) ? playbackCheckpointStore.save(payload) : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
 ipcMain.on('mineradio-onboarding-read-sync', (event) => {
   event.returnValue = isTrustedMainWindowIpc(event)
     ? { ok: true, payload: onboardingStore.read() } : { ok: false, error: 'UNTRUSTED_SENDER' };
@@ -5293,7 +5309,8 @@ async function ensureLocalServerStarted() {
   localServerStartPromise = (async () => {
     const injectedDelay = Math.max(0, Math.min(15000, Number(process.env.MINERADIO_STARTUP_TEST_SERVER_DELAY_MS) || 0));
     if (injectedDelay) await startupDelay(injectedDelay);
-    const port = await withStartupTimeout(findOpenPort(3000), 5000, 'findOpenPort');
+    const firstPort = STARTUP_QA_USER_DATA_PATH ? 40000 + process.pid % 20000 : 3000;
+    const port = await withStartupTimeout(findOpenPort(firstPort), 5000, 'findOpenPort');
     mainServerPort = port;
     configureLocalAppPermissions();
     configureLocalServerEnvironment(port);
@@ -5869,7 +5886,7 @@ async function createWindowOnce() {
     scheduleAppMemoryTrim('hide', 2200);
   });
   win.on('focus', () => refreshMainWindowAfterForeground(win, 'focus'));
-  win.on('blur', () => sendWindowState(win));
+  win.on('blur', () => refreshMainWindowAfterForeground(win, 'blur'));
   win.on('move', () => {
     updateMainWindowMinimumSize(win);
     scheduleWindowStateSend(win);
@@ -6177,7 +6194,10 @@ if (!gotSingleInstanceLock) {
         console.warn('[Wallpaper Engine] dispose failed:', error && error.message || error);
       });
     })();
-    const runtimeCleanup = fullDesktopAndWallpaperEngineCleanup;
+    const checkpointCleanup = quitMainWindow && !quitMainWindow.webContents.isDestroyed()
+      ? quitMainWindow.webContents.executeJavaScript("saveLastPlaybackSnapshot(true, 'app-quit'); playbackCheckpointPending").catch(() => {}).then(() => playbackCheckpointStore.flush())
+      : playbackCheckpointStore.flush();
+    const runtimeCleanup = Promise.allSettled([fullDesktopAndWallpaperEngineCleanup, checkpointCleanup]);
     const timeoutCleanup = new Promise((resolve) => {
       cleanupTimeout = setTimeout(() => {
         console.warn('[Shutdown] runtime cleanup exceeded 15000ms; continuing bounded application exit.');

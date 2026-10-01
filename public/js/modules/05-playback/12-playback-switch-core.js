@@ -75,13 +75,16 @@ function scheduleAudioResumePosition(media, seconds, token) {
   seconds = Math.max(0, Number(seconds) || 0);
   if (!media || seconds < 0.35) return;
   var applied = false;
+  media.__mineradioPendingResumeAt = seconds;
   function applyResume() {
-    if (applied || token !== trackSwitchToken || !media) return;
+    if (applied || token !== trackSwitchToken || !media || media.__mineradioPendingResumeAt !== seconds) return;
+    if (typeof media.readyState === 'number' && media.readyState < 1) return;
     var duration = Number(media.duration) || 0;
     var target = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.45)) : seconds;
     try {
       media.currentTime = target;
       applied = true;
+      media.__mineradioPendingResumeAt = 0;
       if (typeof syncBeatMapPlaybackCursor === 'function') syncBeatMapPlaybackCursor(target, true);
       if (typeof syncPodcastDjMapCursor === 'function') syncPodcastDjMapCursor(target, true);
       updatePlaybackProgressUi();
