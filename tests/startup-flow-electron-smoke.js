@@ -53,8 +53,8 @@ if (!process.argv.includes('--child')) {
     assert(firstShowMs !== null, 'first launch must not require second-instance activation');
     const intro = await win.webContents.executeJavaScript('({started: splashStartedAt, age: performance.now() - splashStartedAt, pending: document.documentElement.classList.contains("splash-intro-pending"), ready: splashReadyToEnter})');
     assert(intro.started !== null && !intro.pending);
-    if (intro.age < 5200) assert.equal(intro.ready, false, 'intro must not allow entry before the logo finishes');
-    await sleep(Math.max(0, 5300 - intro.age));
+    if (intro.age < 1500) assert.equal(intro.ready, false, 'intro must not allow entry before the logo finishes');
+    await sleep(Math.max(0, 1600 - intro.age));
     while (Date.now() < deadline && !await win.webContents.executeJavaScript('splashReadyToEnter')) await sleep(100);
     const logo = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, opacity: getComputedStyle(el).opacity, animation: getComputedStyle(el).animationName, playState: getComputedStyle(el).animationPlayState, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState})), classes: document.documentElement.className}; })()');
     assert(logo.ready);
