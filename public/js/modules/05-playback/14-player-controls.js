@@ -595,7 +595,11 @@ async function togglePlay() {
         && (albumGaplessState.preload.mixPending || albumGaplessState.preload.mixStarted)
         && typeof clearAlbumGaplessPreload === 'function'
       ) clearAlbumGaplessPreload('manual-pause');
-      await fadeOutAndPauseAudio();
+      if (!await fadeOutAndPauseAudio()) {
+        playing = !!(audio && !audio.paused && !audio.ended);
+        setPlayIcon(playing);
+        return;
+      }
       playing = false;
       setPlayIcon(false);
       hideLoading();

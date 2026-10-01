@@ -286,8 +286,8 @@ function renderMiniQueuePanel(opts) {
     return '<div class="mini-queue-item' + (i === currentIdx ? ' now' : '') + '" data-queue-index="' + i + '" onclick="if(window.__mineradioSuppressReorderClick)return;playQueueAt(' + i + ')">' +
       imgTag +
       '<div class="mini-queue-info"><div class="mini-queue-name">' + escHtml(song.name) + '</div><div class="mini-queue-sub">' + escHtml(song.artist || '') + '</div></div>' +
-      '<button class="mini-queue-remove mini-queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放">下</button>' +
-      '<button class="mini-queue-remove" onclick="event.stopPropagation();removeFromQueue(' + i + ')" title="移除">×</button>' +
+      '<button class="mini-queue-remove mini-queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放" aria-label="下一首播放">' + queueNextIconSvg() + '</button>' +
+      '<button class="mini-queue-remove" onclick="event.stopPropagation();removeFromQueue(' + i + ')" title="移除" aria-label="移除">' + queueRemoveIconSvg() + '</button>' +
       '</div>';
   }).join('') + queueVirtualSpacerHtml(windowInfo.bottom) + queueHydrationFooterHtml(true);
   if (opts.animate || opts.scrollCurrent) {
@@ -469,9 +469,9 @@ function renderQueuePanel(opts) {
       '<div class="qi-info"><div class="qi-name">' + escHtml(song.name) + '</div><div class="qi-sub"><button class="queue-artist-link" type="button" onclick="event.stopPropagation();openQueueArtist(' + i + ')">' + escHtml(song.artist || '未知歌手') + '</button></div></div>' +
       '<div class="qi-act">' +
       '<button class="' + (isSongLiked(song) ? 'liked' : '') + '" onclick="event.stopPropagation();toggleLikeQueueIndex(' + i + ')" title="' + (isSongLiked(song) ? '取消红心' : '红心喜欢') + '">' + heartIconSvg() + '</button>' +
-      '<button class="queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放">下</button>' +
+      '<button class="queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放" aria-label="下一首播放">' + queueNextIconSvg() + '</button>' +
       '<button onclick="event.stopPropagation();collectQueueIndex(' + i + ')" title="收藏到歌单">' + playlistPlusIconSvg() + '</button>' +
-      '<button onclick="event.stopPropagation();removeFromQueue(' + i + ')" title="移除">×</button>' +
+      '<button onclick="event.stopPropagation();removeFromQueue(' + i + ')" title="移除" aria-label="移除">' + queueRemoveIconSvg() + '</button>' +
       '</div>' +
       '</div>';
   }).join('') + queueVirtualSpacerHtml(windowInfo.bottom) + queueHydrationFooterHtml(false);
@@ -675,4 +675,10 @@ async function refreshUserPlaylists(force) {
   playlistCatalogSyncState.loading = playlistCatalogHasPendingPages();
   if (userPlaylists.length) renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });
   if (playlistCatalogSyncState.loading) requestNextPlaylistCatalogPage('after-first-pages');
+}
+function queueNextIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12m-5-5 5 5 5-5M5 20h14"/></svg>';
+}
+function queueRemoveIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 }

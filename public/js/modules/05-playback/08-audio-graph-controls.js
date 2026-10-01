@@ -376,10 +376,16 @@ function playShelfSelectTick(direction, variant) {
   }, 160);
 }
 
+var pendingAudioPause = null;
 function clearAudioFadeTimers() {
   if (audioFadeTimer) {
     clearTimeout(audioFadeTimer);
     audioFadeTimer = null;
+  }
+  if (pendingAudioPause) {
+    var pending = pendingAudioPause;
+    pendingAudioPause = null;
+    pending.resolve(false);
   }
   cancelAudioElementFadeFrame();
   clearAudioAudibilityRecoveryTimers();
@@ -484,6 +490,7 @@ function isBackgroundAudioFadeConstrained() {
   return false;
 }
 function ensureAudiblePlaybackGain(reason) {
+  if (pendingAudioPause) return false;
   if (!audio || audio.paused || audio.ended || !audio.src) return false;
   if (targetVolume <= 0.001) return false;
   if (typeof cuefieldAutoMixExecuting !== 'undefined' && cuefieldAutoMixExecuting) return false;
@@ -541,18 +548,22 @@ function restorePlaybackGain() {
 }
 function fadeOutAndPauseAudio() {
   if (!audio || audio.paused) return Promise.resolve(false);
+  var media = audio;
+  var mediaSrc = media.currentSrc || media.src;
   var serial = ++audioFadeSerial;
   rampAudioOutputGain(0, AUDIO_FADE_OUT_MS);
   return new Promise(function (resolve) {
+    pendingAudioPause = { resolve: resolve };
     audioFadeTimer = setTimeout(function () {
       audioFadeTimer = null;
-      if (serial !== audioFadeSerial || !audio) {
+      pendingAudioPause = null;
+      if (serial !== audioFadeSerial || audio !== media || (media.currentSrc || media.src) !== mediaSrc) {
         resolve(false);
         return;
       }
-      try { audio.pause(); } catch (pauseErr) { console.warn('[TogglePlayPause]', pauseErr); }
+      try { media.pause(); } catch (pauseErr) { console.warn('[TogglePlayPause]', pauseErr); }
       setAudioOutputGainImmediate(0);
-      resolve(true);
+      resolve(media.paused);
     }, AUDIO_FADE_OUT_MS + 80);
   });
 }
