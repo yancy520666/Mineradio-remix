@@ -2,6 +2,15 @@ var playlistCoverQueue = [];
 var playlistCoverActive = 0;
 var playlistCoverSession = 0;
 var playlistCoverMetrics = [];
+var shelfCoverFrame = 0;
+function requestShelfCoverFrame() {
+  if (shelfCoverFrame || typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
+  shelfCoverFrame = requestAnimationFrame(function () {
+    shelfCoverFrame = 0;
+    if (typeof markRenderInteraction === 'function') markRenderInteraction('shelf-cover', 200);
+    if (typeof requestMainLoopAnimationFrame === 'function') requestMainLoopAnimationFrame();
+  });
+}
 function podcastDefaultCover(key) {
   var path = key === 'liked'
     ? '<path d="M32 46L15 30C5 19 22 9 32 22C42 9 59 19 49 30Z"/>'

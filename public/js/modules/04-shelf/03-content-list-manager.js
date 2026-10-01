@@ -138,8 +138,13 @@ function makeContentListManager() {
         ctx.clip();
         ctx.drawImage(coverRec.img, coverX, coverY, coverSize, coverSize);
         ctx.restore();
-      } else if (!coverRec || (!coverRec.loading && !coverRec.failed)) {
-        requestPlaylistCover(coverUrl, function () { drawPanel(); });
+      } else if (!coverRec || panel.coverWaitRecord !== coverRec || coverRec.failed && coverRec.session !== playlistCoverSession) {
+        var waitingPanel = panel, panelToken = requestToken;
+        requestPlaylistCover(coverUrl, function () {
+          if (!open || panelToken !== requestToken || panel !== waitingPanel || !sourceCard || sourceCard.item.cover !== coverUrl) return;
+          drawPanel(); requestShelfCoverFrame();
+        }, { priority: 0 });
+        panel.coverWaitRecord = playlistCoverCache[coverUrl];
       }
     }
     var sweep = (Math.sin((uniforms.uTime.value || 0) * 1.7) + 1) * 0.5;
@@ -369,10 +374,13 @@ function makeContentListManager() {
           ctx.clip();
           ctx.drawImage(songCoverRec.img, coverX, coverY, coverSize, coverSize);
           ctx.restore();
-        } else if (!songCoverRec || (!songCoverRec.loading && !songCoverRec.failed)) {
+        } else if (!songCoverRec || row.coverWaitRecord !== songCoverRec || songCoverRec.failed && songCoverRec.session !== playlistCoverSession) {
+          var rowToken = requestToken;
           requestPlaylistCover(songCover, function () {
-            if (row && row.mesh && row.mesh.parent) drawRow(row, row.song, !!row.lastCenter);
-          });
+            if (!open || rowToken !== requestToken || row.disposed || row.song !== song || songCoverSrc(row.song, 80) !== songCover) return;
+            drawRow(row, row.song, !!row.lastCenter); requestShelfCoverFrame();
+          }, { priority: isCenter ? 0 : 1 });
+          row.coverWaitRecord = playlistCoverCache[songCover];
         }
       }
     }
@@ -534,6 +542,7 @@ function makeContentListManager() {
   function disposeRowList(rowList) {
     while (rowList.length) {
       var row = rowList.pop();
+      row.disposed = true;
       if (row.mesh && row.mesh.parent) row.mesh.parent.remove(row.mesh);
       if (row.mesh && row.mesh.material) {
         if (row.mesh.material.map) row.mesh.material.map.dispose();
@@ -550,6 +559,7 @@ function makeContentListManager() {
 
   function rebindContentRow(row, song, index) {
     row.song = song;
+    row.coverWaitRecord = null;
     row.index = index;
     row.lastCenter = index === Math.round(centerSmooth);
     row.mesh.renderOrder = 240 + index;

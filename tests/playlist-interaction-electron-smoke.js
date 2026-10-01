@@ -79,12 +79,27 @@ if (!process.argv.includes('--child')) {
         animatePlaylistCatalogToTop('netease:401');
         await new Promise(r=>setTimeout(r,750));
         const first=measure();
+        panel.scrollTop+=500;
+        renderUserPlaylistsList({animate:false,preserveScroll:true});
+        await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const measureScrolled=()=>{
+          const toolbar=panel.querySelector('#pl-pane .queue-toolbar').getBoundingClientRect();
+          const sticky=panel.querySelector('.pl-detail-sticky').getBoundingClientRect();
+          const list=panel.querySelector('#pl-list');
+          return {gap:sticky.top-toolbar.bottom,clip:getComputedStyle(list).clipPath,
+            clippedHit:!list.contains(document.elementFromPoint(toolbar.left+30,toolbar.bottom+4))};
+        };
+        const scrolled=measureScrolled();
         panel.style.width='280px';
         await new Promise(r=>setTimeout(r,50));
         panel.scrollTop+=3000; renderUserPlaylistsList({animate:false,preserveScroll:true});
         animatePlaylistCatalogToTop('netease:401');
         await new Promise(r=>setTimeout(r,750));
         const narrow=measure();
+        panel.scrollTop+=500;
+        renderUserPlaylistsList({animate:false,preserveScroll:true});
+        await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const narrowScrolled=measureScrolled();
         myPodcastCollections=[{key:'created',title:'创建播客',count:0},{key:'liked',title:'喜欢的声音',count:0}];
         renderMyPodcastCollections({animate:false});
         const defaults=Array.from(document.querySelectorAll('#podcast-list img')).map(i=>i.src.startsWith('data:image/svg+xml'));
@@ -92,23 +107,31 @@ if (!process.argv.includes('--child')) {
         const button=document.querySelector('.qi-act button');
         const svg=button.querySelector('svg');
         const b=button.getBoundingClientRect(),v=svg.getBoundingClientRect();
-        return {first,narrow,defaults,iconOffset:[Math.abs((b.left+b.right-v.left-v.right)/2),Math.abs((b.top+b.bottom-v.top-v.bottom)/2)]};
+        return {first,narrow,scrolled,narrowScrolled,defaults,iconOffset:[Math.abs((b.left+b.right-v.left-v.right)/2),Math.abs((b.top+b.bottom-v.top-v.bottom)/2)]};
       })()`);
       for (const sample of [geometry.first, geometry.narrow]) {
         assert(sample.card - sample.safe >= 7 && sample.card - sample.safe <= 11, JSON.stringify(geometry));
         assert(sample.rendered < 35);
       }
       assert.deepEqual(geometry.defaults, [true, true]);
+      for (const sample of [geometry.scrolled, geometry.narrowScrolled]) {
+        assert(sample.gap >= 7 && sample.gap <= 11, JSON.stringify(geometry));
+        assert(sample.clip !== 'none' && sample.clippedHit, JSON.stringify(geometry));
+      }
       assert(geometry.iconOffset.every(offset => offset < 1));
       const counts = new Map(); let active = 0, peak = 0;
       const image = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#399"/></svg>';
       const server = require('node:http').createServer((req, res) => {
-        counts.set(req.url, (counts.get(req.url) || 0) + 1); peak = Math.max(peak, ++active);
+        const requestPath=req.url.split('?')[0];
+        counts.set(requestPath, (counts.get(requestPath) || 0) + 1); peak = Math.max(peak, ++active);
         setTimeout(() => {
+          if (requestPath === '/row16.svg' && counts.get(requestPath) === 1) {
+            res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); active--; return;
+          }
           res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Timing-Allow-Origin': '*', 'Cache-Control': 'public, max-age=86400' });
           res.write(image.slice(0, 70));
           setTimeout(() => { res.end(image.slice(70)); active--; }, 25);
-        }, 250);
+        }, req.url.startsWith('/row') ? 500 : 250);
       });
       await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
       const base = 'http://127.0.0.1:' + server.address().port;
@@ -124,12 +147,32 @@ if (!process.argv.includes('--child')) {
           shelfManager.setMode('side'); shelfManager.rebuild(false);
           const card=shelfManager.getCards().find(card=>card.item.cover===cover);
           const uploadStart=performance.now(); renderer.initTexture(card.texture);
-          return {coldMs,cachedMs,textureSubmitMs:performance.now()-uploadStart,metrics:playlistCoverCache[cover].metrics};
+          const textureSubmitMs=performance.now()-uploadStart;
+          const api=apiJson, detail=makeContentListManager();
+          const tracks=Array.from({length:30},(_,i)=>({id:1000+i,name:'Idle cover '+i,artist:'Fixture',cover:${JSON.stringify(base)}+'/row'+i+'.svg',provider:'netease'}));
+          const target=songCoverSrc(tracks[16],80);
+          apiJson=async url=>url.startsWith('/api/playlist/tracks?id=992')?{tracks,hasMore:false,total:30}:api(url);
+          try {
+            // Start preloading before a row subscribes, then scroll and leave it idle.
+            requestPlaylistCover(target);
+            await detail.open('992','Idle covers',card);
+            detail.scrollBy(16);
+            const row=detail.getRows().find(r=>r.index===16);
+            const before=row.texture.version;
+            const expires=performance.now()+10000;
+            while(performance.now()<expires && !(playlistCoverCache[target].loaded && row.texture.version>before)) await new Promise(r=>setTimeout(r,30));
+            const pixel=Array.from(row.canvas.getContext('2d').getImageData(110,52,1,1).data);
+            const idle={loaded:playlistCoverCache[target].loaded,before,after:row.texture.version,pixel,waiters:playlistCoverCache[target].waiters.length};
+            return {coldMs,cachedMs,textureSubmitMs,metrics:playlistCoverCache[cover].metrics,idle};
+          } finally {detail.close();apiJson=api;}
         } finally { coverProxySrc=proxy; }
       })()`);
       await new Promise(resolve => server.close(resolve));
       assert(covers.coldMs >= 250); assert(covers.cachedMs < 50);
       assert.equal(counts.get('/cold.svg'), 1); assert(peak <= 4);
+      assert(covers.idle.loaded && covers.idle.after > covers.idle.before, JSON.stringify(covers));
+      assert.deepEqual(covers.idle.pixel,[51,153,153,255]);
+      assert.equal(counts.get('/row16.svg'), 2, 'one failed preload must retry and notify the idle row');
       console.log('INTERACTION:' + JSON.stringify({mode,geometry,covers:{...covers,requests:counts.size,maxConcurrent:peak},checkpoint:{id:checkpoint.current.id,time:checkpoint.currentTime,queue:checkpoint.queue.length},visibleUnfocusedThrottling:win.webContents.getBackgroundThrottling()}));
     } else console.log('INTERACTION:' + JSON.stringify({mode,restored:{id:checkpoint.current.id,time:checkpoint.currentTime}}));
     // app.exit bypasses before-quit: recovery must rely on the committed checkpoint.
