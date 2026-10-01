@@ -58,7 +58,7 @@ var volumeTween = null, trackSwitchToken = 0;
 var audioFadeTimer = null, audioElementFadeFrame = 0, audioFadeSerial = 0;
 var playbackResumeRecovery = { serial: 0, pending: false, lastAttemptAt: 0, lastReason: '', pausedAt: 0, pausedSongKey: '', pausedSrc: '', pausedPosition: 0, timerIds: [] };
 var albumGaplessState = { enabled: false, defaultEnabled: true, albumKey: '', disabledAlbumKey: '', context: null, preload: null, serial: 0, monitorTimer: 0, handoff: false };
-var PLAYBACK_RESUME_STALL_DELAYS = [1600, 3600];
+var PLAYBACK_RESUME_STALL_DELAYS = [1600, 3600, 6500, 9500];
 var PLAYBACK_RESUME_LONG_PAUSE_MS = 8 * 60 * 1000;
 var PLAYBACK_RESUME_LONG_PAUSE_PROVIDER_MS = { qishui: 3 * 60 * 1000, qq: 8 * 60 * 1000, kugou: 8 * 60 * 1000, netease: 12 * 60 * 1000 };
 var AUDIO_FADE_STORE_KEY = 'mineradio-audio-fade-v1';
