@@ -46,7 +46,7 @@ test('shown guide survives immediate exit, cache changes and a missing browser m
 test('intro begins at native visibility and allows entry after the complete logo timeline', async () => {
   let listener, clock = 25, delay;
   const classes = new Set(['splash-intro-pending']);
-  const context = { splashStartedAt: null, splashTimer: null, reduceSplashMotion: false, markSplashReadyToEnter() {}, waitForSplashLogo() {}, playMineradioIntroSound() {}, performance: { now: () => clock }, setTimeout: (_fn, ms) => { delay = ms; }, document: { body: { classList: { contains: () => true } }, documentElement: { classList: { remove: k => classes.delete(k) } } }, window: { desktopWindow: { onStateChange: callback => { listener = callback; return () => { listener = null; }; }, getState: async () => ({ visible: false, minimized: false }) } } };
+  const context = { splashStartedAt: null, splashTimer: null, reduceSplashMotion: false, markSplashReadyToEnter() {}, waitForSplashLogo() {}, playMineradioIntroSound() {}, performance: { now: () => clock }, setTimeout: (_fn, ms) => { delay = ms; }, document: { body: { classList: { contains: () => true } }, documentElement: { classList: { remove: k => classes.delete(k) } } }, window: { desktopWindow: { onStateChange: callback => { listener = callback; return () => { listener = null; }; }, getState: async () => ({ isVisible: false, isMinimized: false }) } } };
   vm.createContext(context);
   vm.runInContext(block('public/js/modules/10-shell/03-splash.js', 'function startSplashWhenVisible()', "document.addEventListener('DOMContentLoaded'"), context);
   context.startSplashWhenVisible();
@@ -54,9 +54,9 @@ test('intro begins at native visibility and allows entry after the complete logo
   assert.equal(context.splashStartedAt, null);
   assert(classes.has('splash-intro-pending'));
   clock = 6025;
-  listener({ visible: true, minimized: false });
+  listener({ isVisible: true, isMinimized: false });
   assert.equal(context.splashStartedAt, 6025);
-  assert.equal(delay, 5200);
+  assert.equal(delay, 1500);
   assert.equal(classes.has('splash-intro-pending'), false);
 });
 
