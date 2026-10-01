@@ -6,6 +6,7 @@
     'js/modules/00-state/00-core-stores.js',
     'js/modules/00-state/01-perf-render-state.js',
     'js/modules/00-state/02-preferences-ui-modes.js',
+    'js/modules/00-state/02a-onboarding-state.js',
     'js/modules/00-state/03-beat-dj-state.js',
     'js/modules/00-state/04-fx-defaults.js',
     'js/modules/00-state/05-packaged-fx-archive.js',

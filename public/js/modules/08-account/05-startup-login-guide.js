@@ -108,7 +108,7 @@ function runLoginGuideParticles(done) {
 function maybeRunStartupLoginGuide(source) {
   if (typeof originalProfileImportPending !== 'undefined' && originalProfileImportPending) return;
   if (typeof visualGuideWasSeen === 'function' && !visualGuideWasSeen()) return;
-  if (startupLoginGuideShown || loginGuideAnimating) return;
+  if (startupLoginGuideShown || loginGuideAnimating || startupGuideWasSeen('login')) return;
   if (visualGuideActive) return;
   if (document.body.classList.contains('splash-active')) return;
   if (immersiveMode) return;
@@ -119,7 +119,12 @@ function maybeRunStartupLoginGuide(source) {
   startupLoginGuideShown = true;
   setTimeout(function () {
     if (loginStatus.loggedIn || playing || immersiveMode || visualGuideActive || document.body.classList.contains('splash-active') || originalProfileImportPending) return;
-    runLoginGuideParticles(function () { showLoginModal({ guided: true, source: source || 'startup' }); });
+    if (startupGuideWasSeen('login')) return;
+    runLoginGuideParticles(function () {
+      if (loginStatus.loggedIn || playing || immersiveMode) return;
+      markStartupGuideSeen('login');
+      showLoginModal({ guided: true, source: source || 'startup' });
+    });
   }, source === 'splash' ? 6200 : 2600);
 }
 

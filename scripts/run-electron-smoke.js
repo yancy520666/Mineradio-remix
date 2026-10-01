@@ -17,6 +17,7 @@ function run(executable, args, timeout = 90000) {
 }
 let profile;
 try {
+  run(process.execPath, [path.join(root, 'tests', 'startup-flow-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'background-resume-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'media-security-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'visual-resource-electron-smoke.js')]);

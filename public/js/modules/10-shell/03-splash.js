@@ -9,7 +9,7 @@ var splashDust = [];
 var splashStreaks = [];
 var splashShards = [];
 var splashPixelRatio = 1;
-var splashStartedAt = performance.now();
+var splashStartedAt = null;
 var splashSoundPlayed = false;
 var splashAudioCtx = null;
 var splashSoundFallbackArmed = false;
@@ -309,7 +309,7 @@ function drawMineradioSplashWebgl(elapsed) {
 function drawMineradioSplash() {
   if (!splashAnimating || (!splashCtx && !splashGl)) return;
   requestAnimationFrame(drawMineradioSplash);
-  var elapsed = splashTimelineElapsed((performance.now() - splashStartedAt) / 1000);
+  var elapsed = splashStartedAt === null ? 0 : splashTimelineElapsed((performance.now() - splashStartedAt) / 1000);
   if (splashGl && splashGlProgram) {
     drawMineradioSplashWebgl(elapsed);
     return;
@@ -657,11 +657,50 @@ function markSplashReadyToEnter() {
   s.setAttribute('aria-label', '点击进入 Mineradio');
 }
 
+function waitForSplashLogo() {
+  var s = document.getElementById('splash');
+  if (!s || s.classList.contains('hide') || s.classList.contains('exiting')) return;
+  var logo = s.querySelector('.splash-word-radio');
+  var animations = logo && typeof logo.getAnimations === 'function' ? logo.getAnimations() : [];
+  if (animations.some(function (animation) { return animation.playState !== 'finished'; })) {
+    splashTimer = setTimeout(waitForSplashLogo, 250);
+    return;
+  }
+  markSplashReadyToEnter();
+}
+
+function startSplashWhenVisible() {
+  var bridge = window.desktopWindow;
+  var unsubscribe = null;
+  var started = false;
+  function start(state) {
+    if (started || state && (state.visible === false || state.minimized === true)) return;
+    if (!document.body.classList.contains('splash-active')) return;
+    started = true;
+    if (unsubscribe) unsubscribe();
+    splashStartedAt = performance.now();
+    document.documentElement.classList.remove('splash-intro-pending');
+    if (reduceSplashMotion) document.getElementById('splash').classList.add('reduce-motion');
+    else playMineradioIntroSound();
+    splashTimer = setTimeout(reduceSplashMotion ? markSplashReadyToEnter : waitForSplashLogo, reduceSplashMotion ? 650 : 5200);
+  }
+  if (bridge && typeof bridge.getState === 'function') {
+    if (typeof bridge.onStateChange === 'function') unsubscribe = bridge.onStateChange(start);
+    bridge.getState().then(start).catch(function () { start(); });
+  } else if (!document.hidden) start();
+  else document.addEventListener('visibilitychange', function onVisible() {
+    if (document.hidden) return;
+    document.removeEventListener('visibilitychange', onVisible);
+    start();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   var s = document.getElementById('splash');
   if (!s) return;
   markAppPerf('dom-content-loaded');
   if (startupFastSkipPreference) {
+    document.documentElement.classList.remove('splash-intro-pending');
     dismissSplash({ instant: true });
     return;
   }
@@ -679,11 +718,5 @@ document.addEventListener('DOMContentLoaded', function () {
       requestSplashEnter();
     }
   });
-  if (reduceSplashMotion) {
-    s.classList.add('reduce-motion');
-    splashTimer = setTimeout(markSplashReadyToEnter, 650);
-    return;
-  }
-  playMineradioIntroSound();
-  splashTimer = setTimeout(markSplashReadyToEnter, 1500);
+  startSplashWhenVisible();
 });

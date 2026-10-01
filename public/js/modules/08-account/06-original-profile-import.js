@@ -39,6 +39,20 @@ function mergeOriginalVisualSettings(original) {
   return count;
 }
 
+function mergeOriginalPreferences(preferences) {
+  var keys = ['apex-player-volume', 'mineradio-audio-fade-v1', 'mineradio-playback-quality-v1',
+    'mineradio-audio-output-device-v1', 'mineradio-audio-output-mirror-v1', 'mineradio-visual-guide-seen-v2'];
+  var count = 0;
+  keys.forEach(function (key) {
+    if (!preferences || typeof preferences[key] !== 'string' || preferences[key].length > 16384) return;
+    if (localStorage.getItem(key) !== null) return;
+    localStorage.setItem(key, preferences[key]);
+    count++;
+  });
+  if (preferences && preferences['mineradio-visual-guide-seen-v2'] === '1') markStartupGuideSeen('visual');
+  return count;
+}
+
 async function openOriginalProfileImport(manual) {
   var bridge = window.desktopWindow;
   if (!bridge || typeof bridge.inspectOriginalProfile !== 'function') {
@@ -67,7 +81,7 @@ async function openOriginalProfileImport(manual) {
     originalProfileAvailable = true;
     originalProfileImportPending = true;
     document.getElementById('original-profile-confirm').style.display = '';
-    if (description) description.textContent = '找到 ' + info.settings + ' 项配置文件和 ' + info.credentials + ' 项账号文件。只补齐 Remix 的默认设置与缺失账号；原版文件保持原样。';
+    if (description) description.textContent = '找到 ' + info.settings + ' 项配置文件和 ' + info.credentials + ' 项账号文件。补齐账号、视觉与声音设置，保留 Remix 已有调整；不导入播放和搜索历史。';
     document.getElementById('original-profile-modal').classList.add('show');
     return true;
   } catch (error) {
@@ -87,8 +101,9 @@ async function confirmOriginalProfileImport() {
     var imported = await bridge.importOriginalProfile(Object.keys(fxDefaults));
     if (!imported || !imported.ok) throw new Error(imported && imported.error || 'IMPORT_FAILED');
     var visualCount = mergeOriginalVisualSettings(imported.visualSettings);
+    var preferenceCount = mergeOriginalPreferences(imported.preferences);
     try { localStorage.setItem(ORIGINAL_PROFILE_IMPORT_DECISION_KEY, 'imported'); } catch (_) { }
-    if (description) description.textContent = '已导入 ' + imported.importedCredentials + ' 项账号、' + imported.importedSettings + ' 项配置文件和 ' + visualCount + ' 项视觉设置。正在重启以重新读取账号。';
+    if (description) description.textContent = '已导入 ' + imported.importedCredentials + ' 项账号、' + imported.importedSettings + ' 项配置文件、' + visualCount + ' 项视觉设置和 ' + preferenceCount + ' 项用户设置。' + (imported.preferencesReadFailed ? '部分声音设置未能读取，可稍后重试。' : '') + '正在重启以重新读取配置。';
     if (bridge.restartApp) {
       var restart = await bridge.restartApp();
       if (!restart || restart.ok !== true) throw new Error(restart && restart.error || 'RESTART_FAILED');

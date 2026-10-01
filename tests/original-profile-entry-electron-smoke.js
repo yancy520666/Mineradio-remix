@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const { createCookieStore, ENCRYPTED_COOKIE_PREFIX } = require('../cookie-storage');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-profile-entry-'));
 const original = path.join(root, 'Mineradio');
@@ -13,6 +13,8 @@ fs.mkdirSync(remix);
 const token = 'isolated-original-token-fixture';
 fs.writeFileSync(path.join(original, '.qishui-token'), token);
 fs.writeFileSync(path.join(original, 'current-fx-autosave.json'), JSON.stringify({ lyricScale: 1.2 }));
+fs.writeFileSync(path.join(original, 'cache-settings.json'), JSON.stringify({ rootPath: path.join(root, 'original-cache') }));
+fs.writeFileSync(path.join(remix, 'cache-settings.json'), JSON.stringify({ rootPath: path.join(root, 'remix-cache') }));
 app.setPath('appData', root);
 app.setPath('userData', remix);
 app.setPath('sessionData', path.join(root, 'session'));
@@ -53,11 +55,19 @@ async function run() {
           const until = Date.now() + 5000;
           while (!document.getElementById('original-profile-modal').classList.contains('show') && Date.now() < until) await new Promise(r => setTimeout(r, 25));
           const opened = document.getElementById('original-profile-modal').classList.contains('show');
+          localStorage.setItem('apex-player-volume', '0.21');
           await confirmOriginalProfileImport();
-          return { visible, opened, supported: info.supported, available: info.available, description: document.getElementById('original-profile-description').textContent };
+          return { visible, opened, supported: info.supported, available: info.available,
+            volume: localStorage.getItem('apex-player-volume'), fade: JSON.parse(localStorage.getItem('mineradio-audio-fade-v1')),
+            originalHistoryImported: (localStorage.getItem('mineradio-search-history') || '').includes('original-history-fixture'),
+            description: document.getElementById('original-profile-description').textContent };
         })()`);
         for (const key of ['visible', 'opened', 'supported', 'available']) assert.equal(result[key], true, key);
         assert(restarted, 'the import confirmation requests an application restart');
+        console.log('PROFILE_PREFERENCE_RESULT:' + JSON.stringify(result));
+        assert.equal(result.volume, '0.21', 'an existing Remix volume must be preserved');
+        assert.deepEqual(result.fade, { fadeInMs: 321, fadeOutMs: 234 });
+        assert.equal(result.originalHistoryImported, false);
         assert.equal(createCookieStore(path.join(remix, '.qishui-token')).read(), token);
         assert(fs.readFileSync(path.join(remix, '.qishui-token'), 'utf8').startsWith(ENCRYPTED_COOKIE_PREFIX));
         assert.equal(fs.readFileSync(path.join(original, '.qishui-token'), 'utf8'), token);
@@ -71,7 +81,17 @@ async function run() {
   }
   throw new Error('Original-profile entry startup timed out');
 }
-app.whenReady().then(run).catch(error => { console.error(error.stack || error); app.exit(1); });
+app.whenReady().then(async () => {
+  const originalSession = session.fromPath(original);
+  originalSession.protocol.handle('http', () => new Response('<html></html>'));
+  const seed = new BrowserWindow({ show: false, webPreferences: { session: originalSession, offscreen: true } });
+  await seed.loadURL('http://127.0.0.1:3000/');
+  await seed.webContents.executeJavaScript(`localStorage.setItem('apex-player-volume', '0.48'); localStorage.setItem('mineradio-audio-fade-v1', '{"fadeInMs":321,"fadeOutMs":234}'); localStorage.setItem('mineradio-search-history', '["original-history-fixture"]');`);
+  originalSession.flushStorageData();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  seed.destroy();
+  await run();
+}).catch(error => { console.error(error.stack || error); app.exit(1); });
 process.on('exit', () => {
   if (path.dirname(path.resolve(root)) === path.resolve(os.tmpdir()) && path.basename(root).startsWith('mineradio-profile-entry-')) {
     try { fs.rmSync(root, { recursive: true, force: true }); } catch (_) {}
