@@ -87,3 +87,18 @@ The web security runtime resources under `qishui-auth-v6/` are retained
 byte-for-byte for protocol compatibility and remain the property of their
 respective rights holders. They are loaded only inside the isolated authentication
 partition for the user's own official login session.
+
+## Qishui public SEO playback fallback
+
+The public fallback approach follows the discussion in upstream
+[Issue #452](https://github.com/XxHuberrr/Mineradio-paused/issues/452), not a merged PR.
+Remix's adapter changes were implemented in commit `6e73285`: public metadata and
+VOD requests do not send account cookies, and actual returned duration determines
+trial status. No official-client `.node` or `.dll` signing bridge was added.
+The fallback does not guarantee VIP full tracks or a permanent public API.
+
+This attribution concerns those adapter changes only. The pre-existing
+`qishui-audio-decryptor/` entered this repository in initialization commit
+`345dbb2`; its separate provenance and redistribution terms, and those of the
+retained `qishui-auth-v6/` Web resources, remain unverified. See the
+[scoped audit](NEXT_PATH_AUDIT.md). Existing files have not been removed.

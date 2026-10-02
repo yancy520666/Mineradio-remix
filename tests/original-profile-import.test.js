@@ -106,3 +106,21 @@ test('preference import fills audio settings without replacing user choices or i
   assert.equal(saved.has('mineradio-search-history'), false);
   assert.equal(saved.has('secret'), false);
 });
+
+test('preference consumers reject hostile keys, oversized strings and wrong types without changing current settings', () => {
+  const { loadFunctions } = require('./helpers/classic-functions');
+  const saved = new Map([['apex-player-volume', '0.15']]);
+  const c = vm.createContext({ localStorage: { getItem: key => saved.has(key) ? saved.get(key) : null,
+    setItem: (key, value) => saved.set(key, value) }, markStartupGuideSeen() {},
+    fxDefaults: { lyricScale: 1 }, readCurrentFxAutosaveRaw: () => ({ lyricScale: 1.4 }),
+    writeCurrentFxAutosavePayload() { throw new Error('no valid visual change'); } });
+  loadFunctions(c, 'public/js/modules/08-account/06-original-profile-import.js', ['mergeOriginalPreferences', 'mergeOriginalVisualSettings']);
+  const payload = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"apex-player-volume":"0.8","mineradio-audio-fade-v1":42}');
+  payload['mineradio-playback-quality-v1'] = 'x'.repeat(16385);
+  payload['mineradio-audio-output-device-v1'] = 'valid-fixture-device';
+  assert.equal(c.mergeOriginalPreferences(payload), 1);
+  assert.equal(c.mergeOriginalVisualSettings(payload), 0);
+  assert.equal(saved.get('apex-player-volume'), '0.15');
+  assert.deepEqual([...saved.keys()], ['apex-player-volume', 'mineradio-audio-output-device-v1']);
+  assert.equal(vm.runInContext('Object.prototype.polluted', c), undefined);
+});

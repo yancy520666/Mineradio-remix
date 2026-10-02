@@ -40,7 +40,7 @@ function fixtures(url, options, settings = {}) {
   if (url.pathname === '/luna/h5/seo_track') {
     assert.equal(options.headers.Cookie, undefined, 'public catalog must not receive account credentials');
     return { body: {
-      seo_track: { track: { id: settings.wrongId || 'fixture', duration: 240000, preview: { duration: 30000 } } },
+      seo_track: { track: { id: settings.wrongId || 'fixture', duration: settings.fullDuration ?? 240000, preview: { duration: 30000 } } },
       track_player: { url_player_info: settings.playerUrl || 'https://vod-luna.douyin.com/player-info' },
     } };
   }
@@ -96,6 +96,17 @@ test('public 60-second audio remains a trial for both free and VIP accounts', as
       assert.equal(elements['trial-text'].textContent, result.message);
       assert.doesNotMatch(elements['trial-text'].textContent, /SVIP|购买/);
       assert.equal(elements['trial-banner'].classList.added, 'show');
+    });
+  }
+});
+
+test('short full songs are not trials, while 30-second excerpts and the duration tolerance are respected', async t => {
+  for (const [fullDuration, duration, trial] of [[29000, 28.5, false], [240000, 30, true], [32000, 30, false], [33000, 30, true]]) {
+    await t.test(`${fullDuration}/${duration}`, async child => {
+      qishui._test.clearQishuiRuntimeCaches();
+      mockRequests(child, (url, options) => fixtures(url, options, { fullDuration, duration }));
+      const result = await qishui.handleQishuiSongUrl({ id: 'fixture' }, cookie);
+      assert.equal(result.playable, true); assert.equal(result.trial, trial);
     });
   }
 });

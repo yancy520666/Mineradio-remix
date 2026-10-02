@@ -10,12 +10,16 @@ const rules = [
   ['fixed-drive', String.raw`D:\\|\^C:\$`],
   ['plaintext-sensitive', String.raw`http://(?:[^/\s'"\x60]*(?:ip-api|passport|oauth|login)[^/\s'"\x60]*)`],
   ['literal-credential', String.raw`(?:cookie|(?:access|refresh)[_-]?token)\s*[:=]\s*['"][^'"]{12,}['"]`],
-  ['credential-log', String.raw`console\.(?:log|warn|error|debug)\([^\n]*(?:cookie|token)`],
+  ['credential-log', String.raw`console\.(?:log|warn|error|debug)\([^\n]*(?:cookie|token|Authorization)`],
+  ['native-dialog', String.raw`(?:window\.)?(?:alert|confirm)\s*\(`],
+  ['dynamic-execution', String.raw`\beval\s*\(|new\s+Function\s*\(|shell\s*:\s*true`],
+  ['window-security', String.raw`nodeIntegration\s*:\s*true|webSecurity\s*:\s*false`],
+  ['delete-entry', String.raw`\b(?:rmSync|rmdirSync|unlinkSync)\s*\(`],
 ];
 const findings = [];
 for (const [rule, pattern] of rules) {
   const result = spawnSync('rg', ['--json', '--ignore-case', '-e', pattern,
-    '-g', '*.js', '-g', '!node_modules/**', '-g', '!public/vendor/**', '-g', '!tests/**', '-g', '!scripts/**', '.'],
+    '-g', '*.js', '-g', '!node_modules/**', '-g', '!public/vendor/**', '-g', '!qishui-auth-v6/**', '-g', '!tests/**', '-g', '!scripts/**', '.'],
   { cwd: root, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, windowsHide: true });
   if (result.error || ![0, 1].includes(result.status)) throw result.error || new Error(result.stderr);
   let count = 0;

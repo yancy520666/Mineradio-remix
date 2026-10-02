@@ -8,8 +8,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
-const reportFile = path.resolve(root, 'docs/CRITICAL_PATH_MUTATION_RESULTS.json');
-const groups = {
+const next = process.argv.includes('--next') ? require('./audit-next-targets') : null;
+const reportFile = path.resolve(root, next ? 'docs/NEXT_PATH_MUTATION_RESULTS.json' : 'docs/CRITICAL_PATH_MUTATION_RESULTS.json');
+const groups = next ? next.groups : {
   security: { files: ['server-security.test.js'], pattern: 'HTTP boundary|proxy blocks' },
   dns: { files: ['music-dns.test.js'] },
   playback: { files: ['playback-start-stall.test.js', 'playback-pause-cancellation.test.js'] },
@@ -21,7 +22,7 @@ const groups = {
 const controls = 'public/js/modules/05-playback/14-player-controls.js';
 const graph = 'public/js/modules/05-playback/08-audio-graph-controls.js';
 const queue = 'public/js/modules/05-playback/09-queue-snapshot-autoplay.js';
-const mutations = [
+const mutations = next ? next.mutations : [
   ['proxy-mixed-address', 'security', 'server-security.js', 'addresses.some(item => isBlockedIpAddress(item.address))', 'addresses.every(item => isBlockedIpAddress(item.address))'],
   ['proxy-redirect-revalidation', 'security', 'server-security.js', 'target = await resolveTarget(new URL(response.headers.get(\'location\'), target.url).href);', 'target = { ...target, url: new URL(response.headers.get(\'location\'), target.url) };'],
   ['local-origin-boundary', 'security', 'server-security.js', "if (req.headers.origin && (new URL(req.headers.origin).origin !== host.origin || new URL(req.headers.origin).origin !== req.headers.origin)) return false;", 'if (false) return false;'],
@@ -56,6 +57,7 @@ const mutations = [
 ];
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-critical-mutations-'));
 const testEnv = { ...process.env };
+testEnv.NODE_PATH = path.join(root, 'node_modules');
 for (const key of ['COOKIE_FILE', 'QQ_COOKIE_FILE', 'KUGOU_COOKIE_FILE', 'QISHUI_COOKIE_FILE',
   'QISHUI_TOKEN_FILE', 'QISHUI_QR_CONFIG_FILE', 'MINERADIO_LISTEN_SYNC_FILE', 'CUEFIELD_FEEDBACK_FILE']) {
   testEnv[key] = path.join(sandbox, 'runtime', key);
@@ -64,19 +66,19 @@ const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'u
 assert.equal(commit.status, 0);
 const report = { baselineCommit: commit.stdout.trim(), sourceHashes: {}, baseline: {}, mutations: [] };
 const originals = new Map();
-function run(group) {
+function run(group, env = testEnv) {
   const args = ['--test', '--test-reporter=tap'];
   if (group.pattern) args.push('--test-name-pattern=' + group.pattern);
   args.push(...group.files.map(name => 'tests/' + name));
-  const result = spawnSync(process.execPath, args, { cwd: sandbox, env: testEnv, encoding: 'utf8', timeout: 30000, windowsHide: true });
+  const result = spawnSync(process.execPath, args, { cwd: sandbox, env, encoding: 'utf8', timeout: 30000, windowsHide: true });
   const output = (result.stdout || '') + (result.stderr || '');
   return { exit: result.status, error: result.error && result.error.code,
-    invalid: /SyntaxError|Cannot find module|ERR_MODULE_NOT_FOUND/.test(output),
+    invalid: /SyntaxError|Cannot find module|ERR_MODULE_NOT_FOUND|Error in script/.test(output),
     failedTests: [...output.matchAll(/^\s*not ok \d+ - (.+)$/gm)].map(match => match[1]),
     tests: Number(output.match(/^# tests (\d+)/m)?.[1] || 0),
     skipped: Number(output.match(/^# skipped (\d+)/m)?.[1] || 0),
     // Bound output for troubleshooting; fixtures contain no real credentials.
-    detail: result.status ? output.slice(-3500) : undefined };
+    detail: result.status ? output.split(sandbox).join('<isolated-copy>').split(root).join('<repository>').slice(-3500) : undefined };
 }
 try {
   const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', windowsHide: true });
@@ -85,6 +87,8 @@ try {
     file === 'package.json' || file.endsWith('.js') && !/^(node_modules|public\/vendor|qishui-auth-v6)\//.test(file)));
   // Include newly added tests before they have been committed.
   for (const group of Object.values(groups)) for (const name of group.files) files.add('tests/' + name);
+  for (const file of next ? next.extraFiles : []) files.add(file);
+  for (const item of mutations) files.add(item[2]);
   for (const file of files) {
     const target = path.resolve(sandbox, file);
     assert(target.startsWith(sandbox + path.sep));
@@ -105,18 +109,31 @@ try {
     assert(source && source.split(from).length === 2, name + ': mutation target must be unique');
     const target = path.join(sandbox, file);
     fs.writeFileSync(target, source.replace(from, to));
-    const syntax = spawnSync(process.execPath, ['--check', target], { encoding: 'utf8', windowsHide: true });
-    assert.equal(syntax.status, 0, name + ': invalid mutation syntax');
+    if (file.endsWith('.js')) {
+      const syntax = spawnSync(process.execPath, ['--check', target], { encoding: 'utf8', windowsHide: true });
+      assert.equal(syntax.status, 0, name + ': invalid mutation syntax');
+    }
     const result = run(groups[group]);
     fs.writeFileSync(target, source);
-    const status = result.error || result.invalid || result.exit === null || (result.exit !== 0 && !result.failedTests.length)
+    let status = result.error || result.invalid || result.exit === null || (result.exit !== 0 && !result.failedTests.length)
       ? 'inconclusive' : result.exit === 0 ? 'survived' : 'killed';
-    report.mutations.push({ name, group, file, status, ...result, detail: status === 'inconclusive' ? result.detail : undefined });
+    const equivalentReason = next && next.equivalentMutations[name];
+    if (status === 'survived' && equivalentReason) status = 'equivalent';
+    report.mutations.push({ name, group, file, status, ...result, equivalentReason: status === 'equivalent' ? equivalentReason : undefined, detail: status === 'inconclusive' ? result.detail : undefined });
     console.log(name + ': ' + status);
+  }
+  if (next) {
+    // The download test mutates the locked dependency in RAM, never node_modules.
+    const result = run({ files: ['remix-updater-download.test.js'] }, { ...testEnv, MINERADIO_UPDATE_DIGEST_MUTANT: '1' });
+    const status = result.exit !== 0 && result.failedTests.length && !result.error && !result.invalid ? 'killed' : 'inconclusive';
+    const file = 'node_modules/builder-util-runtime/out/httpExecutor.js';
+    report.sourceHashes[file] = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
+    report.mutations.push({ name: 'dependency-sha512-comparison', group: 'updater', file, mode: 'RAM only', status, ...result });
+    console.log('dependency-sha512-comparison: ' + status);
   }
   fs.writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n');
   console.log('Report: ' + path.relative(root, reportFile));
-  if (report.mutations.some(item => item.status !== 'killed')) process.exitCode = 1;
+  if (report.mutations.some(item => !['killed', 'equivalent'].includes(item.status))) process.exitCode = 1;
 } finally {
   assert(path.dirname(sandbox) === path.resolve(os.tmpdir()) && path.basename(sandbox).startsWith('mineradio-critical-mutations-'));
   fs.rmSync(sandbox, { recursive: true, force: true });
