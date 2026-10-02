@@ -58,6 +58,7 @@ var updatePreviewState = {
   open: false,
   status: 'idle',
   progress: 0,
+  downloadBytes: 0,
   currentVersion: '2.2.0',
   version: '2.2.0',
   configured: false,

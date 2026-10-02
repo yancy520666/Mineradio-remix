@@ -18332,3 +18332,92 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 @media (prefers-reduced-motion: reduce) {
   #playlist-panel .panel-tabs.indicator-ready .panel-tab-indicator { transition: none }
 }
+
+/* ---------- Update dialog: release highlights (next release) ---------- */
+#update-modal .update-hero-main[hidden],
+#update-modal .update-hero-sub[hidden],
+#update-modal .update-notes-title[hidden],
+#update-modal .update-list[hidden],
+#update-modal .update-notes-link[hidden] {
+  display: none !important
+}
+
+#update-modal .update-hero-sub:not([hidden]) {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 244, 218, .50);
+  font-variant-numeric: tabular-nums
+}
+
+#update-modal .update-hero-main:not([hidden]) + .update-hero-sub:not([hidden]) {
+  margin-top: 4px
+}
+
+#update-modal .update-notes-title {
+  margin: 4px 0 2px;
+  font-size: 10.5px;
+  font-weight: 760;
+  letter-spacing: .14em;
+  color: rgba(244, 210, 138, .66)
+}
+
+#update-modal .update-list.highlights {
+  margin-bottom: 10px
+}
+
+#update-modal .update-list.highlights .update-item {
+  grid-template-columns: 14px 1fr;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom-color: rgba(255, 255, 255, .045)
+}
+
+#update-modal .update-list.highlights .update-item:last-child {
+  border-bottom: 0
+}
+
+#update-modal .update-list.highlights .update-item-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: rgba(244, 210, 138, .86);
+  box-shadow: 0 0 10px rgba(244, 210, 138, .35)
+}
+
+#update-modal .update-list.highlights .update-item-dot::before {
+  content: none
+}
+
+#update-modal .update-list.highlights .update-item-text {
+  color: rgba(255, 246, 228, .86)
+}
+
+#update-modal .update-notes-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(244, 210, 138, .78);
+  cursor: pointer;
+  transition: color .18s ease
+}
+
+#update-modal .update-notes-link span {
+  transition: transform .18s ease
+}
+
+#update-modal .update-notes-link:hover {
+  color: #fff3d6
+}
+
+#update-modal .update-notes-link:hover span {
+  transform: translateX(2px)
+}

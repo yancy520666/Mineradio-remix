@@ -113,6 +113,14 @@ const remixUpdater = createRemixUpdater({
     }
   },
 });
+// After an in-app upgrade, drop the already-installed download once startup
+// has settled (never blocks launch).
+app.whenReady().then(() => {
+  setTimeout(() => {
+    const result = remixUpdater.cleanupInstalledDownload();
+    if (result.removed) console.log('[RemixUpdater] removed installed update download', result.version);
+  }, 15000).unref();
+});
 const CURRENT_FX_AUTOSAVE_FILE = 'current-fx-autosave.json';
 const CURRENT_FX_AUTOSAVE_MAX_BYTES = 12 * 1024 * 1024;
 const STARTUP_ERROR_LOG_FILE = 'startup-error.log';

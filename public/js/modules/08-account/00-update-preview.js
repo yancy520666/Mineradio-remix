@@ -116,12 +116,17 @@ function applyRemixUpdateState(state) {
   updatePreviewState.releaseUrl = state.version
     ? 'https://github.com/yancy520666/Mineradio-remix/releases/tag/v' + encodeURIComponent(state.version)
     : '';
-  updatePreviewState.hero = state.status === 'downloaded' ? '新版已下载，随时可以重启安装。'
-    : state.status === 'downloading' ? '正在下载并校验 Remix 安装包。'
-    : state.status === 'error' ? '更新失败，可重试或稍后再试。'
-    : updatePreviewState.updateAvailable ? '发现 Mineradio Remix 新版本。' : '当前版本已是最新。';
-  updatePreviewState.notes = updatePreviewState.updateAvailable
-    ? ['下载完成后由你决定何时重启安装', '现有 Remix 设置和登录信息会保留'] : [];
+  updatePreviewState.hero = state.status === 'downloaded' ? '已下载完成，重启即可安装。'
+    : state.status === 'downloading' ? '正在下载新版本…'
+    : state.status === 'error' ? '更新没有完成，可以重试。'
+    : updatePreviewState.updateAvailable ? '' : '当前版本已是最新。';
+  // What the release says matters, not how updating works: show its 更新重点.
+  if (Array.isArray(state.highlights)) {
+    updatePreviewState.notes = updatePreviewState.updateAvailable
+      ? state.highlights.slice(0, 4).map(function (text) { return String(text || '').slice(0, 40); }).filter(Boolean)
+      : [];
+  } else if (!updatePreviewState.updateAvailable) updatePreviewState.notes = [];
+  if (Number.isFinite(Number(state.downloadBytes))) updatePreviewState.downloadBytes = Number(state.downloadBytes) || 0;
   renderUpdatePreviewPanel();
   setUpdatePreviewVisible(updatePreviewState.updateAvailable);
 }
@@ -207,19 +212,38 @@ function renderUpdatePreviewPanel() {
   var hero = document.getElementById('update-hero-main');
   var list = document.getElementById('update-list');
   if (version) version.textContent = 'v' + updatePreviewState.version;
-  if (hero) hero.textContent = updatePreviewState.hero || '当前版本已是最新。';
+  if (hero) {
+    hero.textContent = updatePreviewState.autoMode ? (updatePreviewState.hero || '') : (updatePreviewState.hero || '当前版本已是最新。');
+    hero.hidden = !hero.textContent;
+  }
+  var heroSub = document.getElementById('update-hero-sub');
+  if (heroSub) {
+    var subParts = [];
+    if (updatePreviewState.autoMode && updatePreviewState.updateAvailable) {
+      if (updatePreviewState.currentVersion) subParts.push('当前 v' + updatePreviewState.currentVersion);
+      if (updatePreviewState.downloadBytes > 0) subParts.push('安装包约 ' + Math.max(1, Math.round(updatePreviewState.downloadBytes / 1048576)) + ' MB');
+    }
+    heroSub.textContent = subParts.join(' · ');
+    heroSub.hidden = !subParts.length;
+  }
+  var notes = Array.isArray(updatePreviewState.notes) ? updatePreviewState.notes : [];
+  var notesTitle = document.getElementById('update-notes-title');
+  if (notesTitle) notesTitle.hidden = !(updatePreviewState.autoMode && notes.length);
   if (list) {
-    var notes = Array.isArray(updatePreviewState.notes) && updatePreviewState.notes.length
-      ? updatePreviewState.notes
-      : ['更新检测已就绪'];
-    list.innerHTML = notes.map(function (text, i) {
+    var autoHighlights = updatePreviewState.autoMode;
+    list.hidden = !notes.length && autoHighlights;
+    if (list.classList) list.classList.toggle('highlights', autoHighlights);
+    var shown = notes.length ? notes : (autoHighlights ? [] : ['更新检测已就绪']);
+    list.innerHTML = shown.map(function (text, i) {
       return '<div class="update-item"><span class="update-item-dot" data-index="'
-        + String(i + 1).padStart(2, '0')
+        + (autoHighlights ? '' : String(i + 1).padStart(2, '0'))
         + '"></span><div class="update-item-text">'
         + escHtml(text)
         + '</div></div>';
     }).join('');
   }
+  var notesLink = document.getElementById('update-notes-link');
+  if (notesLink) notesLink.hidden = !(updatePreviewState.updateAvailable && isSafeUpdatePageUrl(updatePreviewState.releaseUrl));
   renderUpdateDownloadSources();
   updateUpdatePreviewProgress();
   syncUpdatePreviewStateClass();
@@ -267,9 +291,9 @@ function syncUpdatePreviewStateClass() {
   if (label) {
     if (updatePreviewState.autoMode) {
       if (updatePreviewState.status === 'downloading') label.textContent = '下载中 ' + Math.round(updatePreviewState.progress) + '%';
-      else if (updatePreviewState.status === 'downloaded') label.textContent = '立即重启安装';
-      else if (updatePreviewState.status === 'error') label.textContent = '重试更新';
-      else label.textContent = '确认下载更新';
+      else if (updatePreviewState.status === 'downloaded') label.textContent = '重启并安装';
+      else if (updatePreviewState.status === 'error') label.textContent = '重试';
+      else label.textContent = '下载更新';
     } else if (isOpening) label.textContent = '正在打开下载页';
     else if (isOpened) label.textContent = '下载页已打开';
     else if (isError) label.textContent = '重试打开';
@@ -294,7 +318,7 @@ function syncUpdatePreviewStateClass() {
   if (foot) {
     if (updatePreviewState.autoMode) foot.textContent = updatePreviewState.status === 'error'
       ? '更新失败：' + (updatePreviewState.errorReason || '请稍后重试')
-      : '安装包来自 Mineradio Remix 的 GitHub Release；下载校验完成后再由你决定何时重启。';
+      : '设置和登录会保留';
     else if (isOpening) foot.textContent = '正在调用系统浏览器。';
     else if (isError) foot.textContent = '无法打开下载页：' + (updatePreviewState.errorReason || '请稍后重试');
     else if (!updatePreviewState.updateAvailable) foot.textContent = '当前版本已是最新。';
@@ -322,6 +346,16 @@ function openUpdatePanel() {
   openGsapModal(mask);
   updatePreviewState.open = true;
   animateUpdatePanelContents();
+}
+
+function openUpdateReleaseNotes() {
+  var url = updatePreviewState.releaseUrl;
+  if (!isSafeUpdatePageUrl(url)) return;
+  if (window.desktopWindow && typeof window.desktopWindow.openUpdatePage === 'function') {
+    window.desktopWindow.openUpdatePage(url).catch(function () { showToast('无法打开更新说明'); });
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
 }
 
 function closeUpdatePanel() {
