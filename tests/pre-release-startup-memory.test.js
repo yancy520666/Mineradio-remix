@@ -137,3 +137,15 @@ test('built-in playlist dialog accepts a name and cancellation without native pr
   assert.equal(await canceled, null);
   assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /window\.prompt/);
 });
+
+test('application renderer sources never reintroduce Electron native prompt calls', () => {
+  const scan = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) scan(file);
+      else if (entry.name.endsWith('.js')) assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /\b(?:window\s*\.\s*)?prompt\s*\(/, file);
+    }
+  };
+  scan(path.join(root, 'public/js/modules'));
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'public/index.html'), 'utf8'), /\b(?:window\s*\.\s*)?prompt\s*\(/);
+});

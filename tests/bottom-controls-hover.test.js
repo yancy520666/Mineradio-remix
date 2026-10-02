@@ -1,0 +1,47 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source = fs.readFileSync(path.join(__dirname, '../public/js/modules/01-scene/04-bottom-controls-cursor.js'), 'utf8');
+function fixture() {
+  const events = {}, hides = [];
+  const listener = target => (event, fn) => { events[target + ':' + event] = fn; };
+  const bar = { classList: { contains: name => name === 'visible' }, getBoundingClientRect: () => ({ left: 100, right: 300, top: 400, bottom: 450 }), addEventListener: listener('bar') };
+  const handle = { getBoundingClientRect: () => ({ left: 190, right: 210, top: 470, bottom: 490 }), addEventListener: listener('handle') };
+  const ctx = { controlsHovering: false, controlsAutoHide: true, controlsHideTimer: null, miniQueueOpen: false,
+    diyPlayerMode: false, performance: { now: () => 1 },
+    document: { hidden: false, body: { classList: { contains: () => false } }, getElementById: id => id === 'bottom-bar' ? bar : (id === 'bottom-handle' ? handle : null), addEventListener: listener('document') },
+    window: { addEventListener: listener('window') },
+    isBottomControlsSuppressedForShelf: () => false, wakeBottomHandle() {}, setControlsHidden() {},
+    scheduleControlsHide: delay => hides.push(delay), revealBottomControls() {}, clearTimeout() {}, updateControlsChromeState() {},
+  };
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(source.indexOf('function updateControlsAutoHideFromPointer('), source.indexOf('function toggleControlsAutoHide(')), ctx);
+  vm.runInContext(source.slice(source.indexOf('(function initControlsAutoHide()'), source.indexOf('function isCursorAutoHideMode(')), ctx);
+  return { ctx, events, hides };
+}
+test('coordinate updates clear stale hover when mouseleave was missed, including DIY early-return', () => {
+  const { ctx, events, hides } = fixture();
+  events['bar:mouseenter'](); assert.equal(ctx.controlsHovering, true);
+  ctx.updateControlsAutoHideFromPointer(600, 200);
+  assert.equal(ctx.controlsHovering, false); assert.equal(hides.at(-1), 70);
+  ctx.updateControlsAutoHideFromPointer(200, 430); assert.equal(ctx.controlsHovering, true);
+  ctx.updateControlsAutoHideFromPointer(200, 480); assert.equal(ctx.controlsHovering, true);
+  ctx.diyPlayerMode = true;
+  const originalGet = ctx.document.getElementById;
+  ctx.document.getElementById = id => id === 'fx-panel' ? {
+    classList: { contains: () => true }, getBoundingClientRect: () => ({ left: 500, right: 650, top: 150, bottom: 250 }),
+  } : originalGet(id);
+  ctx.updateControlsAutoHideFromPointer(600, 200);
+  assert.equal(ctx.controlsHovering, false);
+  assert.equal(hides.at(-1), 80);
+});
+test('leaving document, blur and hidden page clear hover and schedule normal hide', () => {
+  const { ctx, events, hides } = fixture();
+  for (const event of ['document:mouseleave', 'window:blur', 'document:visibilitychange']) {
+    ctx.controlsHovering = true; ctx.document.hidden = true; events[event]();
+    assert.equal(ctx.controlsHovering, false); assert.equal(hides.at(-1), 70);
+  }
+});
