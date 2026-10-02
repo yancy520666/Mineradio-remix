@@ -48,6 +48,7 @@
   };
 
   var zeroSamples = new Array(512).fill(0);
+  var sampledSpectrum = new Float32Array(512);
   var state = {
     layer: null,
     iframe: null,
@@ -60,6 +61,8 @@
     lastMediaKey: '',
     lastPropertiesKey: '',
     samples: zeroSamples.slice(),
+    audioFrame: null,
+    analysisMedia: null,
     media: null,
     displayedTheme: null,
     themeTransition: null,
@@ -587,6 +590,8 @@
     state.displayedTheme = null;
     state.themeTransition = null;
     state.themeTransitionRaf = 0;
+    state.audioFrame = null;
+    state.analysisMedia = null;
   }
 
   function bodyClass(active) {
@@ -671,7 +676,18 @@
 
   function rawBinValue(raw, idx) {
     var value = Number(raw[idx]) || 0;
-    return clamp01(value > 1 ? value / 255 : value);
+    return clamp01(raw.BYTES_PER_ELEMENT === 1 || value > 1 ? value / 255 : value);
+  }
+
+  function resampleAudio(raw) {
+    var out = sampledSpectrum;
+    out.fill(0);
+    for (var i = 0; i < out.length; i++) {
+      var start = Math.floor(i * raw.length / out.length);
+      var end = Math.min(raw.length, Math.max(start + 1, Math.floor((i + 1) * raw.length / out.length)));
+      for (var j = start; j < end; j++) out[i] = Math.max(out[i], rawBinValue(raw, j));
+    }
+    return out;
   }
 
   function workshopAudioFrameStats(raw) {
@@ -707,14 +723,16 @@
 
   function buildAudioSamples(audioFrame) {
     var raw = rawAudioArray();
+    if (raw && raw.length) raw = resampleAudio(raw);
+    var stats = workshopAudioFrameStats(raw);
     var out = new Array(512);
     var inputGainValue = global.fx && global.fx.sonicWorkshopInputGain != null ? Number(global.fx.sonicWorkshopInputGain) : 82;
     var inputGain = clamp(inputGainValue, 40, 100) / 100;
     var beat = Math.max(frameValue(audioFrame, 'beat'), frameValue(audioFrame, 'kickEnvelope'), frameValue(audioFrame, 'triggerPulse'));
     var bassDrive = Math.max(frameValue(audioFrame, 'subBass'), frameValue(audioFrame, 'bass'));
-    if (raw && raw.length) {
+    // A retained but silent FFT buffer must not suppress a valid band frame.
+    if (raw && raw.length && stats.max > WORKSHOP_AUDIO_MIN_FLOOR) {
       var len = raw.length;
-      var stats = workshopAudioFrameStats(raw);
       for (var i = 0; i < 512; i++) {
         var idx = Math.min(len - 1, Math.floor(i * len / 512));
         out[i] = shapeWorkshopAudioValue(rawBinValue(raw, idx), i, stats, beat, bassDrive) * inputGain;
@@ -750,15 +768,33 @@
 
   function pushAudio(force, audioFrame) {
     if (!state.iframe) return;
+    if (audioFrame) state.audioFrame = audioFrame;
     var now = nowMs();
     if (!force && now - state.lastAudioAt < AUDIO_PUSH_INTERVAL_MS) return;
     state.lastAudioAt = now;
-    postMessage('mineradio-sonic-workshop-audio', { samples: buildAudioSamples(audioFrame || {}) });
+    postMessage('mineradio-sonic-workshop-audio', { samples: buildAudioSamples(audioFrame || state.audioFrame || {}) });
+  }
+
+  function recoverAudioAnalysis() {
+    var media = global.audio;
+    if (!global.playing || !media || media.paused || state.analysisMedia === media
+      || typeof global.ensurePlaybackAudioGraph !== 'function') return;
+    // Replacing a closed context can replace the media element. Leave that
+    // operation to playback, where its media clock and play intent are owned.
+    if (global.audioCtx && global.audioCtx.state === 'closed') return;
+    state.analysisMedia = media;
+    Promise.resolve(global.ensurePlaybackAudioGraph('sonic-workshop-activate')).then(function (healthy) {
+      if (healthy && isActive(global.fx) && global.playing && global.audio === media && !media.paused
+        && typeof global.schedulePlaybackAnalyserRecovery === 'function') {
+        global.schedulePlaybackAnalyserRecovery('sonic-workshop-activate');
+      }
+    }).catch(function (error) { console.warn('sonic workshop audio recovery failed:', error); });
   }
 
   function update(dt, ctx) {
     ctx = ctx || {};
     var targetActive = isActive(ctx.fx || global.fx);
+    if (targetActive && !state.active) recoverAudioAnalysis();
     state.active = targetActive;
     bodyClass(targetActive || state.opacity > 0.02);
     if (targetActive) ensureLayer();
@@ -785,7 +821,9 @@
 
   function onPresetChange(prev, next, opts) {
     if (Number(next) === INDEX) {
+      state.analysisMedia = null;
       ensureLayer();
+      recoverAudioAnalysis();
       state.opacity = Math.max(state.opacity, 0.001);
       bodyClass(true);
       pushProperties(true);

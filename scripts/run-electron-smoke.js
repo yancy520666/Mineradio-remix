@@ -22,6 +22,7 @@ try {
   run(electron, [path.join(root, 'tests', 'background-resume-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'media-security-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'visual-resource-electron-smoke.js')]);
+  run(process.execPath, [path.join(root, 'tests', 'sonic-workshop-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'fx-slider-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'lyric-edit-electron-smoke.js')], 180000);
   run(electron, [path.join(root, 'tests', 'original-profile-entry-electron-smoke.js')]);
