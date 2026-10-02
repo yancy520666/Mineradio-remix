@@ -459,15 +459,16 @@ function forceLoadingSettled(reason) {
   if (reason && window.__mineradioDebugLoading) console.log('[LoadingSettled]', reason);
 }
 function recoverVisualsAfterBackground(reason) {
+  var focusOnly = reason === 'focus';
   applyRendererPowerMode();
   if (typeof restoreStageLyricsAfterBackground === 'function') restoreStageLyricsAfterBackground(reason || 'background-restore');
   if (typeof refreshCurrentCoverAfterBackground === 'function') refreshCurrentCoverAfterBackground();
   if (typeof ensureAudiblePlaybackGain === 'function') ensureAudiblePlaybackGain(reason || 'background-restore');
-  if (typeof scheduleMainRendererViewportRefresh === 'function') scheduleMainRendererViewportRefresh(reason || 'restore');
+  if (!focusOnly && typeof scheduleMainRendererViewportRefresh === 'function') scheduleMainRendererViewportRefresh(reason || 'restore');
   if (audio && audio.src && !audio.paused && ((uniforms.uLoading.value || 0) > 0.015 || loadingTween || loadingHideTimer)) {
     forceLoadingSettled(reason || 'restore');
   }
-  if (typeof markRenderInteraction === 'function') markRenderInteraction('restore', 1100);
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('restore', focusOnly ? 160 : 1100);
 }
 
 function neutralCoverEdgeCanvas(size) {
@@ -597,6 +598,19 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   }
   var cacheSeed = (opts.coverKey || thumbSrc || '') + '|tex=' + (cv.width || 0) + 'x' + (cv.height || 0);
   var cachedDepth = getCoverDepthCache(cacheSeed);
+  // Sonic colors should follow the decoded cover, not delayed edge/AI work.
+  // Read a small canvas so high-resolution covers cannot stall the first frame.
+  var paletteReady = false;
+  if (fx.preset === 8) {
+    var paletteCanvas = cv;
+    if (cv.width > 128 || cv.height > 128) {
+      paletteCanvas = document.createElement('canvas');
+      paletteCanvas.width = paletteCanvas.height = 128;
+      paletteCanvas.getContext('2d').drawImage(cv, 0, 0, 128, 128);
+    }
+    updateLyricPaletteFromCover(paletteCanvas);
+    paletteReady = true;
+  }
   // 切歌颜色渐变: 把当前 coverTex 当作 prevCoverTex
   if (!opts.noCoverTransition && uniforms.uHasCover.value > 0.5 && coverTex.image) {
     var prevW = coverTex.image.width || 256;
@@ -645,7 +659,7 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
     if (token !== coverProcessToken || !coverApplyStillCurrent(opts)) return;
     if (floatGroup) refreshFloatColorsFromCover(cv);
     if (backCoverGroup) refreshBackCoverColorsFromCanvas(cv);
-    updateLyricPaletteFromCover(cv);
+    if (!paletteReady) updateLyricPaletteFromCover(cv);
   }
 
   function runHeavyCoverWork() {

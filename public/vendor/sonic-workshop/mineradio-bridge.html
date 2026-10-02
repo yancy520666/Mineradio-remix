@@ -21,9 +21,10 @@
         var PLAYING = 0;
         var PAUSED = 1;
         var lastAudio = new Array(512).fill(0);
-        var THEME_TRANSITION_MS = 1280;
+        var THEME_TRANSITION_MS = 800;
         var THEME_TRANSITION_STEP_MS = 33;
         var themeTransitionTimer = 0;
+        var themeTransitionTarget = '';
         var displayedTheme = null;
         var themeColorKeys = ['uBaseColor1', 'uBaseColor2', 'uCoolCore', 'uCoolEdge', 'uWarmCore', 'uWarmEdge', 'uRippleColor', 'uPeakColor'];
         var defaultProperties = {
@@ -135,10 +136,11 @@
 
         function themeEase(t) {
           t = clamp01(t);
-          return 0.5 - Math.cos(Math.PI * t) * 0.5;
+          return 1 - Math.pow(1 - t, 3);
         }
 
         function stopThemeTransition() {
+          themeTransitionTarget = '';
           if (themeTransitionTimer) {
             clearInterval(themeTransitionTimer);
             themeTransitionTimer = 0;
@@ -252,6 +254,10 @@
             return;
           }
           var targetKey = mineradioThemeSignature(targetTheme);
+          if (themeTransitionTimer && themeTransitionTarget === targetKey) {
+            if (propertyReady) applyDefaultProperties();
+            return;
+          }
           var currentKey = mineradioThemeSignature(displayedTheme || defaultProperties.mineradioCustomTheme);
           if (!displayedTheme || currentKey === targetKey) {
             stopThemeTransition();
@@ -264,6 +270,7 @@
           var fromTheme = cloneMineradioTheme(displayedTheme || defaultProperties.mineradioCustomTheme) || targetTheme;
           var startedAt = performance.now();
           stopThemeTransition();
+          themeTransitionTarget = targetKey;
           function stepThemeTransition() {
             var raw = clamp01((performance.now() - startedAt) / THEME_TRANSITION_MS);
             var shown = raw >= 1 ? targetTheme : mixMineradioTheme(fromTheme, targetTheme, themeEase(raw));

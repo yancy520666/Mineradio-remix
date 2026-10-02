@@ -495,7 +495,6 @@ function installRenderPowerHooks() {
     desktopRuntimeState.focused = false;
     updateRenderPowerClasses();
     applyRendererPowerMode();
-    if (!isDeepBackgroundMode()) recoverVisualsAfterBackground('blur');
   });
   if (window.desktopWindow && typeof window.desktopWindow.onStateChange === 'function') {
     window.desktopWindow.onStateChange(updateDesktopRuntimeState);
