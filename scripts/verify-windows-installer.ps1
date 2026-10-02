@@ -86,9 +86,6 @@ if (-not (Test-Path -LiteralPath $profileFile)) { throw 'Installed settings file
 $profileHash = (Get-FileHash -LiteralPath $profileFile).Hash
 $uninstallers = @(Get-ChildItem -LiteralPath $target -Filter 'Uninstall *.exe' -File)
 if ($uninstallers.Count -ne 1) { throw 'Uninstaller is missing or ambiguous.' }
-$traceLog = Join-Path $env:TEMP 'mineradio-uninstall-trace.log'
-Remove-Item -LiteralPath $traceLog -ErrorAction SilentlyContinue
-$env:MINERADIO_UNINSTALL_TRACE = '1'
 $uninstaller = Start-Process -FilePath $uninstallers[0].FullName -ArgumentList '/S' -WindowStyle Hidden -PassThru
 if (-not $uninstaller.WaitForExit(120000)) { throw 'Uninstaller timed out.' }
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -96,8 +93,6 @@ while (((Test-Path -LiteralPath (Join-Path $target '.mineradio-remix-install-roo
 $leftoverNames = @('resources', 'locales', 'swiftshader', 'MineradioRemix.exe', '.mineradio-remix-install-root') | Where-Object { Test-Path -LiteralPath (Join-Path $target $_) }
 if ($leftoverNames) {
   Write-Output ('UNINSTALL_LEFTOVER_ALL: ' + ($leftoverNames -join ', '))
-  if (Test-Path -LiteralPath $traceLog) { Get-Content -LiteralPath $traceLog -TotalCount 60 | ForEach-Object { Write-Output "UNINSTALL_TRACE: $_" } }
-  else { Write-Output 'UNINSTALL_TRACE: (no trace written)' }
 }
 foreach ($name in @('resources', 'locales', 'swiftshader', 'MineradioRemix.exe', '.mineradio-remix-install-root')) {
   $leftover = Join-Path $target $name

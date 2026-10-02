@@ -17,7 +17,8 @@ async function main() {
   try {
     const target = path.join(fixture, 'Mineradio Remix');
     fs.mkdirSync(target);
-    fs.writeFileSync(path.join(target, '.mineradio-remix-install-root'), 'appId=com.mineradio.remix');
+    // Same two-line format customInstall writes; the appId is not the first line.
+    fs.writeFileSync(path.join(target, '.mineradio-remix-install-root'), 'Mineradio install root\r\nappId=com.mineradio.remix\r\n');
     fs.writeFileSync(path.join(target, 'MineradioRemix.exe'), 'fixture executable');
     fs.writeFileSync(path.join(target, 'user-music.txt'), 'preserve user file');
     fs.writeFileSync(path.join(fixture, 'neighbor.txt'), 'preserve sibling');
@@ -59,7 +60,8 @@ SectionEnd
 ${functions.join('\n')}
 Section "Uninstall"
   FileOpen $0 "$INSTDIR\\.mineradio-remix-install-root" w
-  FileWrite $0 "appId=com.mineradio.remix-other"
+  FileWrite $0 "Mineradio install root$\\r$\\n"
+  FileWrite $0 "appId=com.mineradio.remix-other$\\r$\\n"
   FileClose $0
   Push "$INSTDIR"
   Call un.MineradioInstallDirLooksOwned
@@ -72,7 +74,8 @@ Section "Uninstall"
     Quit
   \${EndIf}
   FileOpen $0 "$INSTDIR\\.mineradio-remix-install-root" w
-  FileWrite $0 "appId=com.mineradio.remix"
+  FileWrite $0 "Mineradio install root$\\r$\\n"
+  FileWrite $0 "appId=com.mineradio.remix$\\r$\\n"
   FileClose $0
   Call un.MineradioRemoveInstalledFiles
 SectionEnd
