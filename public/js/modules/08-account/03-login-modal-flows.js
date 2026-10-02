@@ -1223,10 +1223,10 @@ async function pollQishuiQr(generation) {
         statusEl.textContent = '请求较频繁，稍后自动继续检查…';
         statusEl.className = 'preview';
       }
-    } else if (qrStatus === 'mfa_cancelled') {
+    } else if (qrStatus === 'mfa_cancelled' || qrStatus === 'cancelled') {
       stopQrPoll();
       if (statusEl) {
-        statusEl.textContent = '二次验证已取消，请刷新二维码后重试';
+        statusEl.textContent = qrStatus === 'cancelled' ? '登录已被退出操作取消，请刷新二维码后重试' : '二次验证已取消，请刷新二维码后重试';
         statusEl.className = 'fail';
       }
       return;
