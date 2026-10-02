@@ -175,14 +175,21 @@ function startUpdateIconBreathing() {
   window.gsap.killTweensOf(entry, 'y,boxShadow');
   window.gsap.set(entry, { autoAlpha: 1 });
   if (ring) window.gsap.killTweensOf(ring);
-  window.gsap.to(entry, {
-    y: -1.4,
-    boxShadow: '0 16px 44px rgba(0,0,0,.32),0 0 24px rgba(244,210,138,.18),0 0 13px rgba(157,184,207,.06),inset 0 1px 0 rgba(255,255,255,.11)',
-    duration: 2.6,
-    repeat: -1,
-    yoyo: true,
-    ease: 'sine.inOut'
-  });
+  // In the title bar the button sits in a row with "?" and DIY: floating it
+  // up and down (and adding a glow) made it look misaligned. Only the ring moves.
+  var inTitleBar = !!entry.closest('#desktop-titlebar');
+  if (inTitleBar) {
+    window.gsap.set(entry, { y: 0, clearProps: 'boxShadow' });
+  } else {
+    window.gsap.to(entry, {
+      y: -1.4,
+      boxShadow: '0 16px 44px rgba(0,0,0,.32),0 0 24px rgba(244,210,138,.18),0 0 13px rgba(157,184,207,.06),inset 0 1px 0 rgba(255,255,255,.11)',
+      duration: 2.6,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut'
+    });
+  }
   if (ring) {
     window.gsap.to(ring, {
       rotate: 18,
