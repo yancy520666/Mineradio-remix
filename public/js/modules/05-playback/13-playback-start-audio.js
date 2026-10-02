@@ -1290,7 +1290,8 @@ async function playQueueAt(idx, opts) {
       }
       if (data.trial) {
         var txt;
-        if (data.loggedIn && data.vipLevel === 'svip') txt = '此歌曲需要单曲、专辑购买或更高权限';
+        if (isQishuiPlayback && data.source === 'qishui-seo') txt = data.message || '汽水公开音源仅提供试听片段';
+        else if (data.loggedIn && data.vipLevel === 'svip') txt = '此歌曲需要单曲、专辑购买或更高权限';
         else if (data.loggedIn && data.vipLevel === 'vip') txt = '此歌曲需要 SVIP 或购买 · 当前仅播放试听片段';
         else if (data.loggedIn) txt = '此歌曲需 VIP · 当前仅播放试听片段';
         else txt = '当前未登录 · 仅播放试听片段';
