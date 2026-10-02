@@ -713,6 +713,11 @@ class LocalMusicLibrary {
       if (!filePath) return null;
       if (kind === 'audio' && !supportedAudioPath(filePath)) return null;
       if (kind === 'cover' && (!isPathInside(this.coverDirectory, filePath) || !COVER_MIME_BY_EXTENSION.has(path.extname(filePath).toLowerCase()))) return null;
+      if (kind === 'cover') {
+        const resolvedCover = fs.realpathSync(filePath);
+        if (!isPathInside(fs.realpathSync(this.coverDirectory), resolvedCover)) return null;
+        return { record, kind, filePath: resolvedCover };
+      }
       return { record, kind, filePath };
     } catch (_) {
       return null;

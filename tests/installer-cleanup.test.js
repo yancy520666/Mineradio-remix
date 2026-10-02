@@ -21,10 +21,20 @@ async function main() {
     fs.writeFileSync(path.join(target, 'MineradioRemix.exe'), 'fixture executable');
     fs.writeFileSync(path.join(target, 'user-music.txt'), 'preserve user file');
     fs.writeFileSync(path.join(fixture, 'neighbor.txt'), 'preserve sibling');
+    const original = path.join(fixture, 'Mineradio');
+    const similar = path.join(fixture, 'Mineradio Remix-extra');
+    const music = path.join(fixture, 'external-music');
+    for (const directory of [original, similar, music]) {
+      fs.mkdirSync(directory);
+      fs.writeFileSync(path.join(directory, 'preserve.txt'), 'preserve outside installation');
+    }
     for (const dir of ['resources', 'locales', 'swiftshader']) {
       fs.mkdirSync(path.join(target, dir, 'nested'), { recursive: true });
       fs.writeFileSync(path.join(target, dir, 'nested', 'payload'), 'owned payload');
     }
+    const junction = path.join(target, 'resources', 'external-junction');
+    fs.symlinkSync(music, junction, 'junction');
+    assert(fs.lstatSync(junction).isSymbolicLink());
     const source = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
     const functions = source.match(/^Function un\.[\s\S]*?^FunctionEnd/gm);
     assert(functions && functions.length >= 5);
@@ -34,6 +44,7 @@ async function main() {
 !define MINERADIO_INSTALL_DIR_NAME "Mineradio Remix"
 !define MINERADIO_INSTALL_DIR_NAME_LOWER "mineradio remix"
 !define MINERADIO_INSTALL_MARKER ".mineradio-remix-install-root"
+!define MINERADIO_MARKER_APP_ID "com.mineradio.remix"
 !define PRODUCT_FILENAME "MineradioRemix"
 Name "Mineradio cleanup fixture"
 OutFile "${path.join(fixture, 'setup.exe')}"
@@ -47,6 +58,22 @@ Section
 SectionEnd
 ${functions.join('\n')}
 Section "Uninstall"
+  FileOpen $0 "$INSTDIR\\.mineradio-remix-install-root" w
+  FileWrite $0 "appId=com.mineradio.remix-other"
+  FileClose $0
+  Push "$INSTDIR"
+  Call un.MineradioInstallDirLooksOwned
+  Pop $0
+  FileOpen $1 "${path.join(fixture, 'ownership-result.txt')}" w
+  FileWrite $1 "$0"
+  FileClose $1
+  \${If} $0 != "0"
+    SetErrorLevel 3
+    Quit
+  \${EndIf}
+  FileOpen $0 "$INSTDIR\\.mineradio-remix-install-root" w
+  FileWrite $0 "appId=com.mineradio.remix"
+  FileClose $0
   Call un.MineradioRemoveInstalledFiles
 SectionEnd
 `);
@@ -59,6 +86,9 @@ SectionEnd
     run(path.join(fixture, 'setup.exe'), ['/S']);
     run(path.join(target, 'Uninstall MineradioRemix.exe'), ['/S']);
     const end = Date.now() + 10000;
+    const ownershipResult = path.join(fixture, 'ownership-result.txt');
+    while (!fs.existsSync(ownershipResult) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 25));
+    assert.equal(fs.readFileSync(ownershipResult, 'utf8'), '0', 'a different app ID cannot claim this installation');
     while (fs.existsSync(path.join(target, '.mineradio-remix-install-root')) && Date.now() < end) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
@@ -67,6 +97,9 @@ SectionEnd
     }
     assert.equal(fs.readFileSync(path.join(target, 'user-music.txt'), 'utf8'), 'preserve user file');
     assert.equal(fs.readFileSync(path.join(fixture, 'neighbor.txt'), 'utf8'), 'preserve sibling');
+    for (const directory of [original, similar, music]) {
+      assert.equal(fs.readFileSync(path.join(directory, 'preserve.txt'), 'utf8'), 'preserve outside installation');
+    }
     console.log('OK native NSIS removes nested application resources and marker; preserves unrelated files');
   } finally {
     const resolved = path.resolve(fixture);

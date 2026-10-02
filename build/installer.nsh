@@ -941,11 +941,30 @@ FunctionEnd
 
 Function un.MineradioInstallDirLooksOwned
   Exch $0
+  Push $2
+  Push $3
   StrCpy $1 "0"
-
-  IfFileExists "$0\${MINERADIO_INSTALL_MARKER}" 0 +2
+  System::Call 'kernel32::GetFileAttributesW(w "$0\${MINERADIO_INSTALL_MARKER}") i.r3'
+  ${If} $3 == -1
+    Goto owned_marker_done
+  ${EndIf}
+  IntOp $3 $3 & 0x400
+  ${If} $3 != 0
+    Goto owned_marker_done
+  ${EndIf}
+  ClearErrors
+  FileOpen $2 "$0\${MINERADIO_INSTALL_MARKER}" r
+  IfErrors owned_marker_done
+  FileRead $2 $3
+  FileClose $2
+  ${If} $3 == "appId=${MINERADIO_MARKER_APP_ID}"
+  ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\r$\n"
+  ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\n"
     StrCpy $1 "1"
-
+  ${EndIf}
+  owned_marker_done:
+  Pop $3
+  Pop $2
   StrCpy $0 "$1"
   Exch $0
 FunctionEnd
@@ -1012,6 +1031,14 @@ Function un.MineradioValidateUninstallDir
   ${EndIf}
   StrCpy $INSTDIR "$0"
 
+  System::Call 'kernel32::GetFileAttributesW(w r0) i.r2'
+  IntOp $2 $2 & 0x400
+  ${If} $2 != 0
+    MessageBox MB_OK|MB_ICONSTOP "安装目录是目录联接或符号链接，已阻止卸载以避免删除链接目标。"
+    SetErrorLevel 2
+    Quit
+  ${EndIf}
+
   Push "$INSTDIR"
   Call un.MineradioInstallDirLooksOwned
   Pop $0
@@ -1020,6 +1047,52 @@ Function un.MineradioValidateUninstallDir
     SetErrorLevel 2
     Quit
   ${EndIf}
+FunctionEnd
+
+; Remove owned resources without following directory junctions or symlinks.
+Function un.MineradioRemoveOwnedTree
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  System::Call 'kernel32::GetFileAttributesW(w r0) i.r4'
+  ${If} $4 == -1
+    Goto owned_tree_done
+  ${EndIf}
+  IntOp $4 $4 & 0x400
+  ${If} $4 != 0
+    RMDir "$0"
+    Goto owned_tree_done
+  ${EndIf}
+  FindFirst $1 $2 "$0\*.*"
+  owned_tree_loop:
+    ${If} $2 == ""
+      Goto owned_tree_close
+    ${EndIf}
+    ${If} $2 != "."
+    ${AndIf} $2 != ".."
+      StrCpy $3 "$0\$2"
+      System::Call 'kernel32::GetFileAttributesW(w r3) i.r4'
+      IntOp $4 $4 & 0x10
+      ${If} $4 != 0
+        Push "$3"
+        Call un.MineradioRemoveOwnedTree
+      ${Else}
+        Delete "$3"
+      ${EndIf}
+    ${EndIf}
+    FindNext $1 $2
+    Goto owned_tree_loop
+  owned_tree_close:
+    FindClose $1
+    RMDir "$0"
+  owned_tree_done:
+    Pop $4
+    Pop $3
+    Pop $2
+    Pop $1
+    Pop $0
 FunctionEnd
 
 Function un.MineradioRemoveInstalledFiles
@@ -1048,9 +1121,12 @@ Function un.MineradioRemoveInstalledFiles
   Delete "$INSTDIR\vk_swiftshader_icd.json"
   Delete "$INSTDIR\vulkan-1.dll"
 
-  RMDir /r "$INSTDIR\locales"
-  RMDir /r "$INSTDIR\resources"
-  RMDir /r "$INSTDIR\swiftshader"
+  Push "$INSTDIR\locales"
+  Call un.MineradioRemoveOwnedTree
+  Push "$INSTDIR\resources"
+  Call un.MineradioRemoveOwnedTree
+  Push "$INSTDIR\swiftshader"
+  Call un.MineradioRemoveOwnedTree
 
   Delete "$INSTDIR\${MINERADIO_INSTALL_MARKER}"
 

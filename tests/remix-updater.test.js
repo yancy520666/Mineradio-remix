@@ -55,3 +55,45 @@ test('checksum or network failure is reported without claiming a downloaded upda
   assert.match(updater.getState().error, /sha512 mismatch/);
   assert.equal(updater.install().ok, false);
 });
+
+test('late progress and downloaded events cannot revive a failed download or bypass user confirmation', async () => {
+  const native = new EventEmitter();
+  native.quitAndInstall = () => {};
+  native.checkForUpdates = async () => native.emit('update-available', { version: '2.2.2' });
+  native.downloadUpdate = async () => { throw new Error('fixture failure'); };
+  const updater = createRemixUpdater({ app: { getVersion: () => '2.2.1' }, enabled: true, loadUpdater: () => native });
+  await updater.check();
+  native.emit('update-downloaded', { version: '2.2.2' });
+  assert.equal(updater.install().ok, false, 'an event outside the confirmed download is not readiness');
+  await updater.download();
+  assert.equal(updater.getState().status, 'error');
+  native.emit('download-progress', { percent: 99 });
+  native.emit('update-downloaded', { version: '2.2.2' });
+  assert.equal(updater.getState().status, 'error');
+  assert.equal(updater.install().ok, false);
+});
+
+test('an empty download result without a verified completion event is not an installable update', async () => {
+  const native = new EventEmitter();
+  native.checkForUpdates = async () => native.emit('update-available', { version: '2.2.2' });
+  native.downloadUpdate = async () => [];
+  const updater = createRemixUpdater({ app: { getVersion: () => '2.2.1' }, enabled: true, loadUpdater: () => native });
+  await updater.check(); await updater.download();
+  assert.equal(updater.getState().status, 'error'); assert.equal(updater.install().ok, false);
+});
+
+test('duplicate checks and confirmations use one native operation, and wrong-version events cannot mark readiness', async () => {
+  const native = new EventEmitter();
+  native.quitAndInstall = () => {};
+  let checks = 0, downloads = 0, finish;
+  native.checkForUpdates = async () => { checks++; native.emit('update-available', { version: '2.2.2' }); };
+  native.downloadUpdate = () => { downloads++; return new Promise(resolve => { finish = resolve; }); };
+  const updater = createRemixUpdater({ app: { getVersion: () => '2.2.1' }, enabled: true, loadUpdater: () => native });
+  await Promise.all([updater.check(), updater.check()]); assert.equal(checks, 1);
+  const pending = updater.download(); await Promise.resolve();
+  await updater.download(); assert.equal(downloads, 1);
+  native.emit('update-downloaded', { version: '2.2.0' });
+  assert.equal(updater.install().ok, false);
+  native.emit('update-downloaded', { version: '2.2.2' }); finish(['fixture.exe']);
+  await pending; assert.equal(updater.getState().status, 'downloaded');
+});
