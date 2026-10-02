@@ -38,6 +38,33 @@ test('coordinate updates clear stale hover when mouseleave was missed, including
   assert.equal(ctx.controlsHovering, false);
   assert.equal(hides.at(-1), 80);
 });
+test('pointer over a bar popover above the bar rect keeps controls visible', () => {
+  const { ctx, events, hides } = fixture();
+  const bar = ctx.document.getElementById('bottom-bar');
+  // Volume popover sits ~46px above the bar: outside rect + 18px slack.
+  bar.matches = selector => selector === ':hover';
+  ctx.updateControlsAutoHideFromPointer(200, 300);
+  assert.equal(ctx.controlsHovering, true);
+  assert.equal(hides.length, 0);
+  // Real hover moves elsewhere: geometry alone decides again.
+  bar.matches = () => false;
+  ctx.updateControlsAutoHideFromPointer(200, 300);
+  assert.equal(ctx.controlsHovering, false);
+  assert.equal(hides.at(-1), 70);
+});
+test('held slider drag outside the popover keeps controls until pointer release', () => {
+  const { ctx, events, hides } = fixture();
+  const bar = ctx.document.getElementById('bottom-bar');
+  bar.matches = () => false;
+  events['bar:pointerdown']();
+  ctx.updateControlsAutoHideFromPointer(700, 100);
+  assert.equal(ctx.controlsHovering, true);
+  events['bar:mouseleave']();
+  assert.equal(ctx.controlsHovering, true);
+  events['window:pointerup']();
+  assert.equal(ctx.controlsHovering, false);
+  assert.equal(hides.at(-1), 70);
+});
 test('leaving document, blur and hidden page clear hover and schedule normal hide', () => {
   const { ctx, events, hides } = fixture();
   for (const event of ['document:mouseleave', 'window:blur', 'document:visibilitychange']) {
