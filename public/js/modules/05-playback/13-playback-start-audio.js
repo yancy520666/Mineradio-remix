@@ -1076,6 +1076,9 @@ async function playQueueAt(idx, opts) {
     closeGsapModal(document.getElementById('local-beat-modal'));
     beatMapToken++;
     var token = trackSwitchToken;
+    // A fresh user-level playback replaces any pending Qishui lookup card;
+    // nested source-upgrade attempts keep it so they can report the result.
+    if (!opts.fallbackDepth && !opts.qishuiTrialUpgradeTried && typeof endQishuiPlaybackProgress === 'function') endQishuiPlaybackProgress(null);
     function playbackInvocationStillCurrent(media) {
       return !!(media && token === trackSwitchToken && currentIdx === idx && audio === media);
     }
@@ -1232,6 +1235,17 @@ async function playQueueAt(idx, opts) {
           '&fee=' + encodeURIComponent(song.fee || song.Fee || '') +
           qualityParam, { timeoutMs: 20000 });
       } else if (isQishuiPlayback) {
+        if (typeof beginQishuiPlaybackProgress === 'function') beginQishuiPlaybackProgress(song, token, opts);
+        var qishuiRemembered = !opts.fallbackDepth && !opts.qishuiTrialUpgradeTried && typeof qishuiRememberedFullSource === 'function'
+          ? qishuiRememberedFullSource(song)
+          : null;
+        if (qishuiRemembered) {
+          var rememberedOpts = Object.assign({}, opts, { resumeAt: opts.resumeAt != null ? opts.resumeAt : restoreResumeAt });
+          var rememberedResult = await tryQishuiTrialFullSourceUpgrade(song, { trial: true, remembered: true, fullDuration: qishuiRemembered.expectedSec }, idx, token, rememberedOpts);
+          if (rememberedResult !== null) return rememberedResult === true;
+          if (token !== trackSwitchToken) return;
+        }
+        if (typeof startQishuiFullSourcePrefetch === 'function') startQishuiFullSourcePrefetch(song, opts);
         data = await apiJson('/api/qishui/song/url?id=' + encodeURIComponent(song.id || song.providerSongId || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 15000 });
       } else if (isSpotifyPlayback) {
         data = await apiJson('/api/spotify/song/url?id=' + encodeURIComponent(song.id || song.providerSongId || song.spotifyId || '') +
@@ -1273,6 +1287,7 @@ async function playQueueAt(idx, opts) {
       }
       var retryPlaybackOpts = Object.assign({}, opts, { resumeAt: opts.resumeAt != null ? opts.resumeAt : restoreResumeAt });
       if (!data || !data.url) {
+        if (isQishuiPlayback && typeof endQishuiPlaybackProgress === 'function') endQishuiPlaybackProgress(token);
         var fallbackResult = await tryAutoPlaybackFallback(song, data, idx, token, retryPlaybackOpts);
         if (fallbackResult !== null) return fallbackResult === true;
         if (opts.startupAutoplay) {
@@ -1282,6 +1297,12 @@ async function playQueueAt(idx, opts) {
         handlePlaybackUnavailable(song, data);
         return false;
       }
+      if (data.trial && isQishuiPlayback && !albumGaplessHandoff && typeof tryQishuiTrialFullSourceUpgrade === 'function') {
+        var trialUpgrade = await tryQishuiTrialFullSourceUpgrade(song, data, idx, token, retryPlaybackOpts);
+        if (trialUpgrade !== null) return trialUpgrade === true;
+        if (token !== trackSwitchToken) return;
+      }
+      if (isQishuiPlayback && typeof endQishuiPlaybackProgress === 'function') endQishuiPlaybackProgress(token);
       var resolvedQualityText = playbackResolvedQualityText(data, playbackProvider);
       var qualityDowngraded = !!(data && data.level && playbackQualityWasDowngraded(requestedQuality, data.level, playbackProvider));
       if (qualityDowngraded) markPlaybackQualityRuntimeCap(song, playbackProvider, data.level, 'resolved-lower');
