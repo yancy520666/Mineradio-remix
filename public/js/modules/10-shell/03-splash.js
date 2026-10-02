@@ -26,6 +26,13 @@ function splashEaseOutCubic(t) {
   t = splashClamp01(t);
   return 1 - Math.pow(1 - t, 3);
 }
+// Intro cue pace relative to the upstream 5.2 s choreography. Logo keyframes,
+// chord hits and background cues scale together so they stay in sync; ambient
+// motion (waves, drift, scanlines) keeps its original speed.
+var SPLASH_CUE_PACE = 0.72;
+function splashCueTime(elapsed) {
+  return elapsed / SPLASH_CUE_PACE;
+}
 function splashTimelineElapsed(elapsed) {
   return elapsed;
 }
@@ -124,13 +131,14 @@ function initMineradioSplashWebgl(canvas) {
     '  vec2 p = vUv * 2.0 - 1.0;',
     '  p.x *= uResolution.x / max(uResolution.y, 1.0);',
     '  float t = uTime;',
-    '  float intro = ease(t / 0.72);',
-    '  float bloomIn = ease((t - 0.10) / 1.10);',
-    '  float climax = exp(-pow((t - 3.62) / 0.58, 2.0));',
-    '  float preClimax = ease((t - 2.15) / 1.25) * (1.0 - ease((t - 3.86) / 0.72));',
-    '  float afterglow = exp(-pow((t - 4.14) / 0.62, 2.0));',
-    '  float calm = 1.0 - 0.22 * ease((t - 4.75) / 0.70);',
-    '  float settle = 1.0 - 0.34 * ease((t - 5.05) / 0.52);',
+    '  float c = t / ' + SPLASH_CUE_PACE.toFixed(2) + ';',
+    '  float intro = ease(c / 0.72);',
+    '  float bloomIn = ease((c - 0.10) / 1.10);',
+    '  float climax = exp(-pow((c - 3.62) / 0.58, 2.0));',
+    '  float preClimax = ease((c - 2.15) / 1.25) * (1.0 - ease((c - 3.86) / 0.72));',
+    '  float afterglow = exp(-pow((c - 4.14) / 0.62, 2.0));',
+    '  float calm = 1.0 - 0.22 * ease((c - 4.75) / 0.70);',
+    '  float settle = 1.0 - 0.34 * ease((c - 5.05) / 0.52);',
     '  vec2 uv = p * (0.98 + 0.05 * sin(t * 0.25));',
     '  uv += vec2(0.0, -0.025);',
     '  vec2 flowAxis = normalize(vec2(0.86, -0.50));',
@@ -156,10 +164,10 @@ function initMineradioSplashWebgl(canvas) {
     '  vec3 climaxCol = (mix(ch2, ch3, 0.36) * phaseThread + ch1 * phaseThread2 * 0.52) * syncBand * climax;',
     '  float afterBand = exp(-pow((lane - 0.34) / 0.72, 2.0));',
     '  climaxCol += mix(ch1, ch2, vUv.x) * afterBand * afterglow * 0.13;',
-    '  float centerBeam = exp(-abs(p.y + 0.005 * sin(t * 3.0)) * 24.0) * (0.14 + 0.52 * exp(-pow((t - 0.74) / 0.34, 2.0)));',
+    '  float centerBeam = exp(-abs(p.y + 0.005 * sin(t * 3.0)) * 24.0) * (0.14 + 0.52 * exp(-pow((c - 0.74) / 0.34, 2.0)));',
     '  float bladeMask = smoothstep(-1.55, -0.08, p.x) * (1.0 - smoothstep(0.08, 1.55, p.x));',
     '  vec3 blade = mix(ch1, ch2, vUv.x) * centerBeam * bladeMask * (0.40 + 0.28 * climax);',
-    '  float flare = exp(-dot(p, p) * 3.6) * exp(-pow((t - 0.88) / 0.40, 2.0));',
+    '  float flare = exp(-dot(p, p) * 3.6) * exp(-pow((c - 0.88) / 0.40, 2.0));',
     '  vec3 col = vec3(0.002, 0.004, 0.005);',
     '  col += loopCol * (0.56 + 0.46 * bloomIn) * calm * settle;',
     '  col += climaxCol * 0.22;',
@@ -373,7 +381,8 @@ function drawMineradioSplash() {
     splashCtx.restore();
   }
 
-  var lineT = splashEaseOutCubic((elapsed - 0.12) / 1.18);
+  var cue = splashCueTime(elapsed);
+  var lineT = splashEaseOutCubic((cue - 0.12) / 1.18);
   var exitFade = 1 - splashSmoothstep(3.58, 4.12, elapsed);
   if (lineT > 0 && exitFade > 0) {
     var centerY = splashH * 0.5 + Math.sin(elapsed * 1.4) * 1.6;
@@ -398,7 +407,7 @@ function drawMineradioSplash() {
     splashCtx.lineTo(right, centerY);
     splashCtx.stroke();
 
-    var ignition = Math.exp(-Math.pow((elapsed - 0.72) / 0.26, 2));
+    var ignition = Math.exp(-Math.pow((cue - 0.72) / 0.26, 2));
     if (ignition > 0.018) {
       var ig = splashCtx.createLinearGradient(0, centerY, splashW, centerY);
       ig.addColorStop(0, 'rgba(122,215,194,0)');
@@ -453,7 +462,7 @@ function drawMineradioSplash() {
       splashCtx.restore();
     }
 
-    var flash = Math.exp(-Math.pow((elapsed - 2.52) / 0.38, 2));
+    var flash = Math.exp(-Math.pow((cue - 2.52) / 0.38, 2));
     if (flash > 0.015) {
       var fg = splashCtx.createLinearGradient(0, centerY, splashW, centerY);
       fg.addColorStop(0, 'rgba(255,83,103,0)');
@@ -485,9 +494,9 @@ function playMineradioIntroSound() {
     var now = ctx.currentTime + 0.02;
     var master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.052, now + 0.16);
-    master.gain.exponentialRampToValueAtTime(0.034, now + 3.35);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 5.28);
+    master.gain.exponentialRampToValueAtTime(0.052, now + 0.16 * SPLASH_CUE_PACE);
+    master.gain.exponentialRampToValueAtTime(0.034, now + 3.35 * SPLASH_CUE_PACE);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 5.28 * SPLASH_CUE_PACE);
     master.connect(ctx.destination);
 
     var noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2.45), ctx.sampleRate);
@@ -502,27 +511,28 @@ function playMineradioIntroSound() {
     noise.buffer = noiseBuffer;
     noiseFilter.type = 'bandpass';
     noiseFilter.frequency.setValueAtTime(720, now);
-    noiseFilter.frequency.exponentialRampToValueAtTime(2400, now + 2.2);
+    noiseFilter.frequency.exponentialRampToValueAtTime(2400, now + 2.2 * SPLASH_CUE_PACE);
     noiseFilter.Q.setValueAtTime(0.72, now);
     noiseGain.gain.setValueAtTime(0.0001, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.020, now + 0.12);
-    noiseGain.gain.exponentialRampToValueAtTime(0.010, now + 1.60);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.42);
+    noiseGain.gain.exponentialRampToValueAtTime(0.020, now + 0.12 * SPLASH_CUE_PACE);
+    noiseGain.gain.exponentialRampToValueAtTime(0.010, now + 1.60 * SPLASH_CUE_PACE);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.42 * SPLASH_CUE_PACE);
     noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(master);
-    noise.start(now); noise.stop(now + 2.46);
+    noise.start(now); noise.stop(now + 2.46 * SPLASH_CUE_PACE);
 
     var low = ctx.createOscillator();
     var lowGain = ctx.createGain();
     low.type = 'sine';
-    low.frequency.setValueAtTime(86, now + 0.18);
-    low.frequency.exponentialRampToValueAtTime(43, now + 1.18);
-    lowGain.gain.setValueAtTime(0.0001, now + 0.12);
-    lowGain.gain.exponentialRampToValueAtTime(0.032, now + 0.30);
-    lowGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.34);
+    low.frequency.setValueAtTime(86, now + 0.18 * SPLASH_CUE_PACE);
+    low.frequency.exponentialRampToValueAtTime(43, now + 1.18 * SPLASH_CUE_PACE);
+    lowGain.gain.setValueAtTime(0.0001, now + 0.12 * SPLASH_CUE_PACE);
+    lowGain.gain.exponentialRampToValueAtTime(0.032, now + 0.30 * SPLASH_CUE_PACE);
+    lowGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.34 * SPLASH_CUE_PACE);
     low.connect(lowGain); lowGain.connect(master);
-    low.start(now + 0.12); low.stop(now + 1.40);
+    low.start(now + 0.12 * SPLASH_CUE_PACE); low.stop(now + 1.40 * SPLASH_CUE_PACE);
 
     function retroChord(frequencies, startAt, dur, peak) {
+      startAt *= SPLASH_CUE_PACE;
       frequencies.forEach(function (frequency, index) {
         var start = now + startAt + index * 0.036;
         var end = now + startAt + dur + index * 0.018;

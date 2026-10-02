@@ -1355,12 +1355,12 @@ body.idle-guide-dragging #canvas-container {
   left: 50%;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  will-change: opacity, transform, letter-spacing
+  will-change: opacity, transform
 }
 
 .splash-word-mine {
   opacity: 0;
-  animation: splash-mine-in 5200ms cubic-bezier(.22, 1, .36, 1) forwards;
+  animation: splash-mine-in 3750ms cubic-bezier(.22, 1, .36, 1) forwards;
   text-shadow: -2px 0 0 rgba(255, 83, 103, .24), 2px 0 0 rgba(122, 215, 194, .18), 0 22px 72px rgba(0, 0, 0, .58), 0 0 34px rgba(244, 210, 138, .10)
 }
 
@@ -1373,7 +1373,7 @@ body.idle-guide-dragging #canvas-container {
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: splash-radio-in 5200ms cubic-bezier(.22, 1, .36, 1) forwards;
+  animation: splash-radio-in 3750ms cubic-bezier(.22, 1, .36, 1) forwards;
   text-shadow: -2px 0 0 rgba(255, 83, 103, .16), 2px 0 0 rgba(122, 215, 194, .22), 0 0 34px rgba(122, 215, 194, .10)
 }
 
@@ -1413,7 +1413,7 @@ body.idle-guide-dragging #canvas-container {
   box-shadow: 0 0 16px rgba(244, 210, 138, .44), 0 0 36px rgba(255, 255, 255, .16);
   opacity: 0;
   transform: translate(-50%, .22em) scale(.34);
-  animation: splash-i-dot-pop 4200ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-i-dot-pop 3030ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-word-o {
@@ -1431,7 +1431,7 @@ body.idle-guide-dragging #canvas-container {
   opacity: 0;
   transform: scaleX(.12);
   box-shadow: 0 0 18px rgba(244, 210, 138, .24), 0 0 34px rgba(122, 215, 194, .10);
-  animation: splash-signal-line 4200ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-signal-line 3030ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-signal-line::after {
@@ -1446,7 +1446,7 @@ body.idle-guide-dragging #canvas-container {
   box-shadow: 0 0 24px rgba(244, 210, 138, .54);
   transform: translate(-50%, -50%) scale(.32);
   opacity: 0;
-  animation: splash-signal-blip 4200ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-signal-blip 3030ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-sub {
@@ -1456,7 +1456,7 @@ body.idle-guide-dragging #canvas-container {
   color: rgba(255, 255, 255, .34);
   text-transform: uppercase;
   opacity: 0;
-  animation: splash-sub-in 4200ms cubic-bezier(.22, 1, .36, 1) forwards
+  animation: splash-sub-in 3030ms cubic-bezier(.22, 1, .36, 1) forwards
 }
 
 .splash-enter {
@@ -1494,33 +1494,30 @@ body.idle-guide-dragging #canvas-container {
   0% {
     opacity: 0;
     clip-path: inset(48% 0 49% 0);
-    transform: translate(calc(-50% - 10px), -42%) skewX(-10deg) scaleX(1.08);
-    letter-spacing: .055em
+    transform: translate(calc(-50% - 10px), -42%) skewX(-10deg) scaleX(1.16)
   }
 
   14% {
     opacity: .92;
     clip-path: inset(40% 0 42% 0);
-    transform: translate(calc(-50% - 4px), -50%) skewX(-4deg) scaleX(1.04);
-    letter-spacing: .014em
+    transform: translate(calc(-50% - 4px), -50%) skewX(-4deg) scaleX(1.06)
   }
 
   26% {
     opacity: 1;
     clip-path: inset(0);
-    transform: translate(-50%, -50%) skewX(0) scaleX(1);
-    letter-spacing: -.040em
+    transform: translate(-50%, -50%) skewX(0) scaleX(1.01)
   }
 
   48% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1)
+    transform: translate(-50%, -50%) scale(1);
+    animation-timing-function: cubic-bezier(.65, 0, .35, 1)
   }
 
   67% {
     opacity: 1;
-    transform: translate(calc(-50% - clamp(66px, 10.8vw, 130px)), -50%) scale(.998);
-    letter-spacing: -.055em
+    transform: translate(calc(-50% - clamp(66px, 10.8vw, 130px)), -50%) scale(.998)
   }
 
   100% {
