@@ -1,0 +1,499 @@
+{
+  "baselineCommit": "3c877489d7f67535b57b32c69685f23748c3583b",
+  "sourceHashes": {
+    "server-security.js": "1f3e6cc48e1e0f9aa0dae1423d1215e8d211deea378657cf37850a217481e795",
+    "music-dns.js": "c1cbf48d2ac796b1f24b8bfcb0051ad858c1ec9de7542d0a3d690c7324c4ea6f",
+    "public/js/modules/05-playback/14-player-controls.js": "e2173cec35f2dc77ab5dcaef67bf56921bbedac03aa97d8c8c2785d0e5664439",
+    "public/js/modules/05-playback/08-audio-graph-controls.js": "5bee649963fea0b73396a119017f7dc4c9373003aca282a1c88e299a793c9de6",
+    "desktop/playback-checkpoint-store.js": "5193ef478ac04a13ba97f20c4752c21bc3917d3f12f8099f6673e95c4207b235",
+    "public/js/playback-checkpoint-format.js": "e8a311bbe0f75e89e09d797e19f6fa72ebc7b1529604972c4694d5ae7c504794",
+    "public/js/modules/05-playback/09-queue-snapshot-autoplay.js": "235d3712961665b120455eb4d1f80ffc819e1667b922cd05df2841b78eeb6c8a",
+    "qishui-api.js": "be695ce39c8fcbf0d9cbb3d7151fa4ca2b8a9b1a8b11971db334457060dd23cf",
+    "desktop/main.js": "0d4638c114ca470ec1ca517387c7ec06480e74b5a3611a2e4fa0947f8033e23c",
+    "server.js": "2cc77a0cc315861a1010694d06603f6e45b6e8007a9aed52586d271f92c23d59",
+    "public/js/modules/08-account/06-original-profile-import.js": "d4c2a3dc8fe984136faf3a197b91ac782ea46c936d11ef83f955414316ebaa95",
+    "desktop/original-profile-import.js": "a47b0e9d9b0ed62baaba98b0cb0dfbb5d5429048be8533d5ab3b3b85ecfa45c1",
+    "tests/server-security.test.js": "5ae9a77bb1a4460fcdd6725f18e5cf86ca37ca0e988dca70f2d4a646f0fa6b28",
+    "tests/music-dns.test.js": "b758f46e98fd11539ec0a036019008131cf9cc13af7f04be46436050c13d9673",
+    "tests/playback-start-stall.test.js": "2edde2cc647e5c8f15eb6fa2e5a35b1718a20371c54c4e49a85650a982b579f3",
+    "tests/playback-pause-cancellation.test.js": "7732b1bab8fecdf938f5e8c75aeb43ec6f008773ba095cd040a6db7cf6035567",
+    "tests/playback-checkpoint.test.js": "d52f62632043d65be1123c5e9eae0acc252bb31eaa89880276a04caa5d9aea02",
+    "tests/qishui-seo-playback.test.js": "16489fd84e8ad25d6aa6ccf0a408f5c94aabdab19d7fea5dc81ff6c27dbab2c1",
+    "tests/qishui-tier-rights.test.js": "e33c77a71405a007a21445cc9090491702c77020700de72411a31fe71da141c6",
+    "tests/qishui-session-recovery.test.js": "89601dfd7a79eeec134e3ba52b57488bf893542b11b5f96f477f3e938a1d8031",
+    "tests/cache-root-fallback.test.js": "4bf6d4aeeab7a6498d375c845f77674a9d2ef15d538ad6378aadec82f656a630",
+    "tests/network-compatibility.test.js": "e2573bb438ffd643b3854ba1659dfc2fd2cf55ffe74a7550a7367b247663e151",
+    "tests/original-profile-import.test.js": "9241a5672f40b245c447e94ead014b5278076cf6cc6cb88377a615e413e75df2"
+  },
+  "baseline": {
+    "security": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 2,
+      "skipped": 0
+    },
+    "dns": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 6,
+      "skipped": 0
+    },
+    "playback": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 2,
+      "skipped": 0
+    },
+    "checkpoint": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 9,
+      "skipped": 0
+    },
+    "qishui": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 34,
+      "skipped": 0
+    },
+    "cache": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 4,
+      "skipped": 0
+    },
+    "config": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 5,
+      "skipped": 0
+    }
+  },
+  "mutations": [
+    {
+      "name": "proxy-mixed-address",
+      "group": "security",
+      "file": "server-security.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "proxy blocks encoded, mapped, DNS and redirect targets before opening a socket"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "proxy-redirect-revalidation",
+      "group": "security",
+      "file": "server-security.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "proxy blocks encoded, mapped, DNS and redirect targets before opening a socket"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "local-origin-boundary",
+      "group": "security",
+      "file": "server-security.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "HTTP boundary preserves same-origin/native requests and rejects remote authority"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "fake-ip-domain-suffix",
+      "group": "dns",
+      "file": "server-security.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "known music fake-IP uses real addresses; public DNS and unsafe hosts do not use DoH"
+      ],
+      "tests": 6,
+      "skipped": 0
+    },
+    {
+      "name": "dns-ttl-direction",
+      "group": "dns",
+      "file": "music-dns.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "DoH coalesces queries, honors CNAME TTL and retries after expiration"
+      ],
+      "tests": 6,
+      "skipped": 0
+    },
+    {
+      "name": "stale-track-recovery",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/14-player-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-start-stall.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "pending-pause-recovery",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/14-player-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-start-stall.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "error-pause-intent",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/14-player-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-start-stall.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "fresh-url-retry-bound",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/14-player-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-start-stall.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "old-media-pause",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/08-audio-graph-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-pause-cancellation.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "old-source-pause",
+      "group": "playback",
+      "file": "public/js/modules/05-playback/08-audio-graph-controls.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\playback-pause-cancellation.test.js"
+      ],
+      "tests": 2,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-order",
+      "group": "checkpoint",
+      "file": "desktop/playback-checkpoint-store.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "unchanged checkpoints skip fsync but preserve ordering and important state changes"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-fsync",
+      "group": "checkpoint",
+      "file": "desktop/playback-checkpoint-store.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "unchanged checkpoints skip fsync but preserve ordering and important state changes"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-backup",
+      "group": "checkpoint",
+      "file": "desktop/playback-checkpoint-store.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "corrupt main file and interrupted temporary write fall back to valid backup"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-position-bound",
+      "group": "checkpoint",
+      "file": "public/js/playback-checkpoint-format.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "out-of-order submissions cannot overwrite progress, failed writes preserve last valid file"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-browser-disk-order",
+      "group": "checkpoint",
+      "file": "public/js/modules/05-playback/09-queue-snapshot-autoplay.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "browser snapshots remain compatible and newest valid source wins"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "checkpoint-song-identity",
+      "group": "checkpoint",
+      "file": "public/js/modules/05-playback/09-queue-snapshot-autoplay.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "large queues keep the current track; browser storage failure still saves to disk"
+      ],
+      "tests": 9,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-trial-direction",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "empty PC responses recover full public audio despite misleading preview metadata",
+        "free account",
+        "VIP account",
+        "public 60-second audio remains a trial for both free and VIP accounts"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-expired-login",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "expired login stops before public playback fallback",
+        "empty PC responses keep public search available but identify an expired playback session"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-svip-tier",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "VIP may use lossless but cannot use Hi-Res reserved for explicit SVIP",
+        "SVIP-only track flags are normalized and gated independently from VIP"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-song-match",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "{\"wrongId\":\"other-song\"}",
+        "mismatched songs, unsafe VOD targets, unknown durations and disallowed quality fail closed"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-public-cookie",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "empty PC responses recover full public audio despite misleading preview metadata",
+        "free account",
+        "VIP account",
+        "public 60-second audio remains a trial for both free and VIP accounts",
+        "failed public requests retry and successful public audio is reused"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "qishui-vod-origin",
+      "group": "qishui",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "https://attacker.invalid/player-info",
+        "https://vod-luna.douyin.com.attacker.invalid/player-info",
+        "https://fixture:secret@vod-luna.douyin.com/player-info",
+        "https://vod-luna.douyin.com:444/player-info",
+        "https://127.0.0.1/player-info",
+        "unsafe public player origins are rejected before requesting an otherwise valid audio response"
+      ],
+      "tests": 34,
+      "skipped": 0
+    },
+    {
+      "name": "cache-no-d-drive",
+      "group": "cache",
+      "file": "desktop/main.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "desktop cache falls back to C drive user data when D drive is absent"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "cache-c-drive-allowed",
+      "group": "cache",
+      "file": "server.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "C drive cache is allowed and actual isolated cache round-trips without D drive"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "netease-expiry-direction",
+      "group": "cache",
+      "file": "server.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "Netease empty info cannot mask VIP or SVIP from another source"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "netease-empty-first-source",
+      "group": "cache",
+      "file": "server.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "Netease empty info cannot mask VIP or SVIP from another source"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "import-preserve-visual-choice",
+      "group": "config",
+      "file": "public/js/modules/08-account/06-original-profile-import.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "visual import replaces only default Remix values and persists the merged settings"
+      ],
+      "tests": 5,
+      "skipped": 0
+    },
+    {
+      "name": "import-preserve-credentials",
+      "group": "config",
+      "file": "desktop/original-profile-import.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "original profile import fills missing files and preserves existing Remix state"
+      ],
+      "tests": 5,
+      "skipped": 0
+    },
+    {
+      "name": "import-secret-filter",
+      "group": "config",
+      "file": "desktop/original-profile-import.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "original profile import fills missing files and preserves existing Remix state"
+      ],
+      "tests": 5,
+      "skipped": 0
+    },
+    {
+      "name": "import-preserve-settings-file",
+      "group": "config",
+      "file": "desktop/original-profile-import.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "original import cannot overwrite existing Remix behavior and playlist files"
+      ],
+      "tests": 5,
+      "skipped": 0
+    }
+  ]
+}
