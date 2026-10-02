@@ -1032,7 +1032,13 @@ Function un.MineradioValidateUninstallDir
   StrCpy $INSTDIR "$0"
 
   System::Call 'kernel32::GetFileAttributesW(w r0) i.r2'
-  IntOp $2 $2 & 0x400
+  ; INVALID_FILE_ATTRIBUTES (-1) has every bit set; leave a missing directory
+  ; to the ownership check below instead of reporting it as a link.
+  ${If} $2 != -1
+    IntOp $2 $2 & 0x400
+  ${Else}
+    StrCpy $2 0
+  ${EndIf}
   ${If} $2 != 0
     MessageBox MB_OK|MB_ICONSTOP "安装目录是目录联接或符号链接，已阻止卸载以避免删除链接目标。"
     SetErrorLevel 2
