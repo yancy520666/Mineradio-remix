@@ -17,15 +17,17 @@ function functionSource(source, name) {
   return source.slice(start, end + 3);
 }
 
-function testAvatarOpensAccountBinding(loggedIn, provider) {
+function testAvatarOpensAccountBinding(order, expected) {
   const calls = [];
   const modal = { id: 'login-modal' };
   const context = vm.createContext({
     document: { getElementById: (id) => id === 'login-modal' ? modal : null },
     loginProvider: 'netease',
     topAccountPillClickSuppressed: false,
-    hasAnyPlatformLogin: () => loggedIn,
-    firstLoggedProvider: () => provider,
+    // The last-used account must not decide which platform opens first.
+    hasAnyPlatformLogin: () => true,
+    firstLoggedProvider: () => 'qishui',
+    accountProviderOrder: () => order,
     normalizeLoginProviderKey: (value) => value,
     openGsapModal: (element) => { assert.equal(element, modal); calls.push('open'); },
     bindLoginWorkflowPointerEvents: () => calls.push('bind'),
@@ -38,10 +40,11 @@ function testAvatarOpensAccountBinding(loggedIn, provider) {
     functionSource(userButtonSource, 'onUserBtnClick'),
   ].join('\n'), context);
   context.onUserBtnClick();
-  assert.equal(context.loginProvider, loggedIn ? provider : 'netease');
+  assert.equal(context.loginProvider, expected);
   assert.deepEqual(calls, ['open', 'bind', 'drawer', 'provider', 'edges']);
 }
 
-testAvatarOpensAccountBinding(false, 'qq');
-testAvatarOpensAccountBinding(true, 'qq');
+testAvatarOpensAccountBinding(['netease', 'qq', 'kugou', 'qishui'], 'netease');
+testAvatarOpensAccountBinding(['kugou', 'netease', 'qq', 'qishui'], 'kugou');
+testAvatarOpensAccountBinding([], 'netease');
 console.log('OK login-entry-direct');

@@ -75,7 +75,9 @@ function onUserBtnClick() {
     topAccountPillClickSuppressed = false;
     return;
   }
-  showLoginModal({ provider: hasAnyPlatformLogin() ? firstLoggedProvider() : loginProvider, source: 'top-account' });
+  // Open the platform at the top of the left-hand list, following the user's
+  // own ordering, rather than whichever account happened to be used last.
+  showLoginModal({ provider: accountProviderOrder()[0] || 'netease', source: 'top-account' });
 }
 var ACCOUNT_PROVIDER_KEYS = ['netease', 'qq', 'kugou', 'qishui'];
 var ACCOUNT_PROVIDER_ORDER_STORE_KEY = 'mineradio-account-provider-order-v1';
