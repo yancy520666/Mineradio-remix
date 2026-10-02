@@ -112,19 +112,21 @@ test('the shared badge retains QQ pending and verified ordinary account states',
   assert.doesNotMatch(ordinary, /待同步/);
 });
 
-async function qrRoute(data, status = { loggedIn: true, webSession: true }) {
+async function qrRoute(data, status = { loggedIn: true, webSession: true }, duringStatus = () => {}) {
   const source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const start = source.indexOf("  if (pn === '/api/qishui/login/check')");
   const end = source.indexOf("  if (pn === '/api/qishui/status'", start);
   assert(start > 0 && end > start);
   let response;
   let saved = 0;
+  const loginSessionGeneration = { qishui: 0 };
   const context = vm.createContext({
     pn: '/api/qishui/login/check', url: new URL('http://localhost/api/qishui/login/check?token=fixture-token'), res: {},
     qishuiQrLogin: { checkQrConnect: async () => ({ data }), getStatus: () => ({ loggedIn: true }), getCookie: () => 'sessionid=fixture' },
     qishuiCookieHasLogin: () => true,
     saveQishuiCookie: () => { saved++; },
-    handleQishuiStatus: async () => status,
+    loginSessionGeneration,
+    handleQishuiStatus: async () => { duringStatus(loginSessionGeneration); return status; },
     sendJSON: (_, value) => { response = value; },
     console: { error() {} },
   });
@@ -153,6 +155,14 @@ test('only a newly confirmed and valid QR session is saved', async () => {
   const pending = await qrRoute(data, { loggedIn: false, webSession: false, stale: true });
   assert.equal(pending.response.status, 'verifying');
   assert.equal(pending.saved, 0);
+});
+
+test('a Qishui QR confirmation that resolves after logout is not saved', async () => {
+  const data = { status: '3', error_code: 0, confirmed: true };
+  const raced = await qrRoute(data, { loggedIn: true, webSession: true }, generation => { generation.qishui += 1; });
+  assert.equal(raced.saved, 0);
+  assert.equal(raced.response.status, 'cancelled');
+  assert.equal(raced.response.loggedIn, false);
 });
 
 test('a rejected fresh session stops the QR poll and displays a rescan action', async () => {

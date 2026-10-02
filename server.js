@@ -359,7 +359,16 @@ function refreshQQConfiguredCookieStore(force) {
 }
 refreshConfiguredCookieStores(true);
 
+// Bumped on logout/credential reset. A QR check that awaited the network
+// across a logout must not write its late cookie back.
+const loginSessionGeneration = { netease: 0, qq: 0, kugou: 0, qishui: 0 };
+function bumpLoginSessionGeneration(provider) {
+  if (provider) loginSessionGeneration[provider] += 1;
+  else Object.keys(loginSessionGeneration).forEach((key) => { loginSessionGeneration[key] += 1; });
+}
+
 function clearAllRuntimeLoginCredentials(reason) {
+  bumpLoginSessionGeneration();
   userCookie = '';
   qqCookie = '';
   kugouCookie = '';
@@ -5241,10 +5250,15 @@ const server = http.createServer(async (req, res) => {
         }, 400);
         return;
       }
+      const generation = loginSessionGeneration.qishui;
       const result = await qishuiQrLogin.checkQrConnect(token);
       const data = result && result.data || {};
       const errorCode = Number(data.error_code || 0);
       const bridgeStatus = qishuiQrLogin.getStatus();
+      if (generation !== loginSessionGeneration.qishui) {
+        sendJSON(res, { provider: 'qishui', ok: false, loggedIn: false, status: 'cancelled', error: 'QISHUI_LOGIN_SUPERSEDED' }, 409);
+        return;
+      }
       if (data.confirmed === true && errorCode === 0 && bridgeStatus.loggedIn) {
         const cookie = qishuiQrLogin.getCookie();
         if (!qishuiCookieHasLogin(cookie)) throw new Error('QISHUI_QR_SESSION_COOKIE_MISSING');
@@ -5255,6 +5269,10 @@ const server = http.createServer(async (req, res) => {
         }
         if (status.loggedIn !== true) {
           sendJSON(res, { ...status, ok: false, status: 'verifying' });
+          return;
+        }
+        if (generation !== loginSessionGeneration.qishui) {
+          sendJSON(res, { provider: 'qishui', ok: false, loggedIn: false, status: 'cancelled', error: 'QISHUI_LOGIN_SUPERSEDED' }, 409);
           return;
         }
         saveQishuiCookie(cookie);
@@ -5312,6 +5330,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/qishui/logout') {
     try {
+      bumpLoginSessionGeneration('qishui');
       await qishuiQrLogin.clear();
       saveQishuiCookie('');
       sendJSON(res, { ...clearQishuiAccessToken(), webSession: false, cookieReady: false, configured: getQishuiStatus('').configured, loggedIn: getQishuiStatus('').loggedIn });
@@ -5569,6 +5588,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/kugou/logout') {
+    bumpLoginSessionGeneration('kugou');
     saveKugouCookie('');
     sendJSON(res, { provider: 'kugou', loggedIn: false, ok: true });
     return;
@@ -5726,6 +5746,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qq/logout') {
+    bumpLoginSessionGeneration('qq');
     saveQQCookie('');
     sendJSON(res, { provider: 'qq', ok: true, loggedIn: false });
     return;
@@ -6111,6 +6132,7 @@ const server = http.createServer(async (req, res) => {
   if (pn === '/api/login/qr/check') {
     try {
       const key = url.searchParams.get('key');
+      const generation = loginSessionGeneration.netease;
       let r = await login_qr_check({ key, noCookie: true, timestamp: Date.now() });
       let body = r.body || {};
       let code = Number(body.code || r.code);
@@ -6133,6 +6155,10 @@ const server = http.createServer(async (req, res) => {
       }
       // 803 = 授权成功, 802 = 已扫待确认, 801 = 等待扫码, 800 = 二维码过期
       if (code === 803) {
+        if (generation !== loginSessionGeneration.netease) {
+          sendJSON(res, { code, loggedIn: false, status: 'cancelled', error: 'NETEASE_LOGIN_SUPERSEDED' }, 409);
+          return;
+        }
         if (cookie) saveCookie(cookie);
         let info = await getLoginInfo();
         if (!info.loggedIn) {
@@ -6172,6 +6198,7 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 登出 ----------
   if (pn === '/api/logout') {
+    bumpLoginSessionGeneration('netease');
     try { await logout({ cookie: userCookie }); } catch (e) {}
     saveCookie('');
     sendJSON(res, { ok: true });
