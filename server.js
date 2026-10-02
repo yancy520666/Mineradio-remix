@@ -58,6 +58,7 @@ const http = require('http');
 const https = require('https');
 const fs   = require('fs');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const tls = require('tls');
 const { createCookieStore } = require('./cookie-storage');
@@ -127,7 +128,7 @@ const DEFAULT_COOKIE_FILE = path.join(__dirname, '.cookie');
 const DEFAULT_QQ_COOKIE_FILE = path.join(__dirname, '.qq-cookie');
 const DEFAULT_KUGOU_COOKIE_FILE = path.join(__dirname, '.kugou-cookie');
 const DEFAULT_QISHUI_COOKIE_FILE = path.join(__dirname, '.qishui-cookie');
-const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || 'D:\\MineradioCache\\beatmaps';
+const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || path.join(os.homedir(), '.cache', 'Mineradio', 'beatmaps');
 const CUEFIELD_FEEDBACK_FILE = process.env.CUEFIELD_FEEDBACK_FILE || path.join(__dirname, 'data', 'cuefield-feedback.jsonl');
 const LISTEN_SYNC_JOURNAL_FILE = process.env.MINERADIO_LISTEN_SYNC_FILE || path.join(__dirname, 'data', 'listen-sync-journal.json');
 const LISTEN_SYNC_JOURNAL_LIMIT = 600;
@@ -144,7 +145,7 @@ const UPDATE_FALLBACK_NOTES = [
 ];
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-const WEATHER_IP_LOCATION_URL = 'http://ip-api.com/json/';
+const WEATHER_IP_LOCATION_URL = 'https://ipwho.is/';
 const WEATHER_DEFAULT_LOCATION = {
   name: '上海',
   country: 'China',
@@ -699,15 +700,15 @@ function beatCacheRootInfo() {
   const dir = path.resolve(BEATMAP_CACHE_DIR);
   const root = path.parse(dir).root;
   const drive = root ? root.replace(/[\\\/]+$/, '').toUpperCase() : '';
-  const allowed = !!root && !/^C:$/i.test(drive);
+  const allowed = !!root;
   const available = allowed && fs.existsSync(root);
   return { dir, root, drive, allowed, available };
 }
 function ensureBeatMapCacheDir() {
   const info = beatCacheRootInfo();
   if (!info.allowed) {
-    const err = new Error('BEAT_CACHE_ON_C_DRIVE_DISABLED');
-    err.code = 'BEAT_CACHE_ON_C_DRIVE_DISABLED';
+    const err = new Error('BEAT_CACHE_INVALID_DIRECTORY');
+    err.code = 'BEAT_CACHE_INVALID_DIRECTORY';
     err.info = info;
     throw err;
   }
@@ -2008,23 +2009,27 @@ async function fetchOpenMeteoWeather(params) {
 
 async function fetchIpWeatherLocation() {
   const u = new URL(WEATHER_IP_LOCATION_URL);
-  u.searchParams.set('fields', 'status,message,country,regionName,city,lat,lon,timezone,query');
+  u.searchParams.set('fields', 'success,message,country,region,city,latitude,longitude,timezone,ip');
   u.searchParams.set('lang', 'zh-CN');
   const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
-  if (!body || body.status !== 'success' || !Number.isFinite(Number(body.lat)) || !Number.isFinite(Number(body.lon))) {
+  const latitude = body && body.latitude;
+  const longitude = body && body.longitude;
+  if (!body || body.success !== true || latitude == null || longitude == null
+      || latitude === '' || longitude === '' || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))
+      || Math.abs(Number(latitude)) > 90 || Math.abs(Number(longitude)) > 180) {
     const err = new Error(body && body.message || 'IP_LOCATION_FAILED');
     err.body = body;
     throw err;
   }
   return {
-    provider: 'ip-api',
+    provider: 'ipwho.is',
     city: body.city || WEATHER_DEFAULT_LOCATION.name,
-    region: body.regionName || '',
+    region: body.region || '',
     country: body.country || '',
-    latitude: Number(body.lat),
-    longitude: Number(body.lon),
-    timezone: body.timezone || 'auto',
-    ip: body.query || '',
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    timezone: typeof body.timezone === 'string' ? body.timezone : (body.timezone && body.timezone.id || 'auto'),
+    ip: body.ip || '',
   };
 }
 
@@ -4274,43 +4279,14 @@ function firstPositiveNumberFrom(objects, keys) {
   }
   return 0;
 }
-function collectStringValues(value, out, depth) {
-  if (depth > 4 || value == null) return out;
-  if (typeof value === 'string') {
-    if (value) out.push(value);
-    return out;
-  }
-  if (Array.isArray(value)) {
-    value.forEach(item => collectStringValues(item, out, depth + 1));
-    return out;
-  }
-  if (typeof value === 'object') {
-    Object.keys(value).forEach(key => collectStringValues(value[key], out, depth + 1));
-  }
-  return out;
-}
-function collectVipStringValues(value, out, depth) {
-  if (depth > 4 || value == null) return out;
-  if (Array.isArray(value)) {
-    value.forEach(item => collectVipStringValues(item, out, depth + 1));
-    return out;
-  }
-  if (typeof value !== 'object') return out;
-  Object.keys(value).forEach(key => {
-    const child = value[key];
-    if (/vip|svip|member|associator|privilege|right|level|package|label|title|type/i.test(key)) {
-      collectStringValues(child, out, depth + 1);
-    } else if (child && typeof child === 'object') {
-      collectVipStringValues(child, out, depth + 1);
-    }
-  });
-  return out;
-}
 const neteaseVipInfoCache = new Map();
 function activeNeteaseVipPackage(pkg) {
   if (!pkg || typeof pkg !== 'object') return false;
-  const expire = Number(pkg.expireTime || pkg.expire_time || pkg.expire || pkg.endTime || 0) || 0;
-  if (expire && expire < Date.now()) return false;
+  const rawExpire = pkg.expireTime ?? pkg.expire_time ?? pkg.expire ?? pkg.endTime;
+  let expire = Number(rawExpire || 0);
+  if (!Number.isFinite(expire) || expire < 0) return false;
+  if (expire > 0 && expire < 1e12) expire *= 1000;
+  if (expire && expire <= Date.now()) return false;
   return firstPositiveNumberFrom([pkg], ['vipLevel', 'vip_level', 'level', 'vipType', 'vip_type', 'vipCode', 'vip_code', 'status']) > 0;
 }
 async function fetchNeteaseVipInfo(userId) {
@@ -4337,32 +4313,21 @@ function normalizeNeteaseVip(profile, account, extra) {
   profile = profile || {};
   account = account || {};
   extra = extra || {};
-  const vipInfo = profile.vipInfo || profile.vipinfo || account.vipInfo || account.vipinfo || extra.vipInfo || extra.vipinfo || {};
-  const vipExtra = extra.vipExtra || extra.vip_info || extra.vipInfoV2 || {};
-  const vipData = vipExtra.data || vipExtra;
-  const objects = [account, profile, vipInfo, extra, vipData];
-  const vipType = firstPositiveNumberFrom(objects, [
-    'vipType', 'vip_type', 'viptype', 'musicVipType', 'music_vip_type',
-    'musicVipLevel', 'music_vip_level', 'redVipLevel', 'red_vip_level',
-    'blackVipLevel', 'black_vip_level', 'luxuryVipLevel', 'luxury_vip_level',
-  ]);
-  const text = collectVipStringValues({ account, profile, vipInfo, extra, vipData }, [], 0).join(' ').toLowerCase();
-  const redplus = vipData.redplus || vipData.redPlus || vipInfo.redplus || vipInfo.redPlus || extra.redplus || extra.redPlus;
-  const associator = vipData.associator || vipInfo.associator || extra.associator;
-  const musicPackage = vipData.musicPackage || vipData.music_package || vipInfo.musicPackage || vipInfo.music_package || extra.musicPackage || extra.music_package;
+  const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
+  const vipInfos = [profile.vipInfo, profile.vipinfo, account.vipInfo, account.vipinfo, extra.vipInfo, extra.vipinfo].filter(isObject);
+  const vipExtras = [extra.vipExtra, extra.vip_info, extra.vipInfoV2].filter(isObject);
+  const vipData = vipExtras.flatMap(value => isObject(value.data) ? [value, value.data] : [value]);
+  const objects = [profile, account, ...vipInfos, extra, ...vipData];
+  const vipType = firstPositiveNumberFrom(objects, ['vipType', 'vip_type', 'viptype']);
+  const activePackage = keys => objects.some(obj => keys.some(key => activeNeteaseVipPackage(obj[key])));
   const svipType = firstPositiveNumberFrom(objects, [
     'svipType', 'svip_type', 'superVipLevel', 'super_vip_level', 'superVipType', 'super_vip_type',
   ]);
-  const svipFlag = objects.some(obj => obj && (
-    obj.isSvip === true || obj.is_svip === true || obj.svip === true ||
-    Number(obj.isSvip || obj.is_svip || obj.svip || obj.svipType || obj.svip_type || obj.superVipLevel || obj.super_vip_level || 0) > 0
-  )) || /svip|supervip|super_vip|黑胶svip|超级会员/.test(text);
-  const vipFlag = objects.some(obj => obj && (
-    obj.isVip === true || obj.is_vip === true || obj.vip === true ||
-    Number(obj.isVip || obj.is_vip || obj.vip || obj.vipFlag || obj.vipflag || 0) > 0
-  )) || /vip|黑胶|会员/.test(text);
-  const svipResolved = svipFlag || svipType > 0 || activeNeteaseVipPackage(redplus);
-  const vipResolved = vipFlag || activeNeteaseVipPackage(associator) || activeNeteaseVipPackage(musicPackage);
+  const explicitFlag = keys => objects.some(obj => keys.some(key => obj[key] === true || Number(obj[key]) > 0));
+  const svipFlag = explicitFlag(['isSvip', 'is_svip', 'svip']);
+  const vipFlag = explicitFlag(['isVip', 'is_vip', 'vip', 'vipFlag', 'vipflag']);
+  const svipResolved = svipFlag || svipType > 0 || activePackage(['redplus', 'redPlus']);
+  const vipResolved = vipFlag || activePackage(['associator', 'musicPackage', 'music_package']);
   const isSvip = svipResolved;
   const isVip = isSvip || vipResolved || vipType > 0;
   const vipLevel = isSvip ? 'svip' : (isVip ? 'vip' : 'none');
@@ -4747,7 +4712,7 @@ const server = http.createServer(async (req, res) => {
       enabled: info.allowed && info.available,
       dir: info.dir,
       drive: info.drive,
-      reason: !info.allowed ? 'C_DRIVE_DISABLED' : (!info.available ? 'TARGET_DRIVE_UNAVAILABLE' : ''),
+      reason: !info.allowed ? 'INVALID_DIRECTORY' : (!info.available ? 'TARGET_DRIVE_UNAVAILABLE' : ''),
       mode: info.allowed && info.available ? 'disk' : 'memory-only',
     });
     return;
