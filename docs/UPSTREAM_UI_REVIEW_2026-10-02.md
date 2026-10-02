@@ -15,6 +15,8 @@
 
 ## 本次定向结果
 
+本日后续汽水专项已加入 PC 元数据失败后的 SEO 播放回退，按实际音频时长区分全曲与试听，保留登录失效和音质权限检查。真实登录态验证普通样本约 240 秒全曲、VIP 标记样本约 60 秒试听，音频代理可读取；详见 [汽水播放验证](./QISHUI_PLAYBACK_VALIDATION.md)。上表汽水项描述的是此次补修前的基准状态。
+
 首轮 `node --test tests/bottom-controls-hover.test.js tests/playback-checkpoint.test.js tests/pre-release-startup-memory.test.js tests/gesture-camera-permission.test.js tests/playback-start-stall.test.js tests/playback-source-fallback-transaction.test.js`：18 项通过。控制条追加 DIY 提前返回路径的检查后，该专项再次通过；检查点追加损坏主文件修复边界后，检查点专项 9 项再次通过。
 
 - 控制条：模拟漏掉 mouseleave 后移动到外部，悬停标志变为 false；进入控制条 / 手柄保持 true；DIY 面板提前返回、离窗、失焦和页面隐藏均能清理。
