@@ -820,7 +820,7 @@ Function MineradioWelcomeShow
   ${EndIf}
 
   SetCtlColors $MineradioWelcomePage "111217" "FFFFFF"
-  CreateFont $MineradioHeroFont "Microsoft YaHei UI" 24 700
+  CreateFont $MineradioHeroFont "Microsoft YaHei UI" 21 700
   CreateFont $MineradioTitleFont "Microsoft YaHei UI" 11 700
   CreateFont $MineradioBodyFont "Microsoft YaHei UI" 9 400
   CreateFont $MineradioSmallFont "Microsoft YaHei UI" 8 400
@@ -830,7 +830,7 @@ Function MineradioWelcomeShow
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
   SetCtlColors $0 "3257F7" "FFFFFF"
 
-  ${NSD_CreateLabel} 22u 42u 226u 30u "${MINERADIO_INSTALL_TITLE}"
+  ${NSD_CreateLabel} 22u 42u 238u 30u "${MINERADIO_INSTALL_TITLE}"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioHeroFont 1
   SetCtlColors $0 "111217" "FFFFFF"
