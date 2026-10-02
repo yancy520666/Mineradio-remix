@@ -138,6 +138,10 @@ const UPDATE_CONFIG = readUpdateConfig(APP_PACKAGE);
 const qishuiAudioDecryptor = new TrackDecryptor();
 const qishuiAudioDecryptCache = new Map();
 const QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES = 96 * 1024 * 1024;
+const qishuiAudioDecryptInflight = new Map();
+// Well above a long hi-res FLAC track; stops a hostile or broken upstream
+// from growing the in-memory buffer without limit.
+const QISHUI_AUDIO_ENCRYPTED_MAX_BYTES = 256 * 1024 * 1024;
 let qishuiAudioDecryptCacheBytes = 0;
 const UPDATE_FALLBACK_NOTES = [
   '请在 Mineradio Remix 发布页查看更新内容。',
@@ -2859,6 +2863,8 @@ function qishuiAudioCacheKey(cleanUrl, auth) {
 
 function rememberQishuiDecryptedAudio(key, payload) {
   if (!payload || !Buffer.isBuffer(payload.buffer)) return;
+  const previous = qishuiAudioDecryptCache.get(key);
+  if (previous && Buffer.isBuffer(previous.buffer)) qishuiAudioDecryptCacheBytes -= previous.buffer.length;
   qishuiAudioDecryptCache.set(key, Object.assign({ at: Date.now() }, payload));
   qishuiAudioDecryptCacheBytes += payload.buffer.length;
   while (qishuiAudioDecryptCacheBytes > QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES && qishuiAudioDecryptCache.size > 1) {
@@ -2878,17 +2884,55 @@ async function getQishuiDecryptedAudio(audioUrl) {
     cached.at = Date.now();
     return cached;
   }
-  const up = await fetchPublicResource(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, '') });
-  if (!up.ok) throw new Error('Qishui encrypted audio fetch failed: HTTP ' + up.status);
-  const encryptedBuffer = Buffer.from(await up.arrayBuffer());
-  const result = qishuiAudioDecryptor.decrypt({ encryptedBuffer, spadeA: parsed.auth });
-  const payload = {
-    buffer: result.buffer,
-    contentType: result.extension === '.flac' ? 'audio/flac' : 'audio/mp4',
-    extension: result.extension,
-  };
-  rememberQishuiDecryptedAudio(key, payload);
-  return payload;
+  // The media element opens several Range requests at once; share one
+  // download/decrypt per track instead of buffering the file N times.
+  const inflight = qishuiAudioDecryptInflight.get(key);
+  if (inflight) return inflight;
+  const task = (async () => {
+    const up = await fetchPublicResource(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, '') });
+    if (!up.ok) {
+      if (up.body) await up.body.cancel().catch(() => {});
+      throw new Error('Qishui encrypted audio fetch failed: HTTP ' + up.status);
+    }
+    const encryptedBuffer = await readBoundedResponseBuffer(up, QISHUI_AUDIO_ENCRYPTED_MAX_BYTES);
+    const result = qishuiAudioDecryptor.decrypt({ encryptedBuffer, spadeA: parsed.auth });
+    const payload = {
+      buffer: result.buffer,
+      contentType: result.extension === '.flac' ? 'audio/flac' : 'audio/mp4',
+      extension: result.extension,
+    };
+    rememberQishuiDecryptedAudio(key, payload);
+    return payload;
+  })();
+  qishuiAudioDecryptInflight.set(key, task);
+  try {
+    return await task;
+  } finally {
+    if (qishuiAudioDecryptInflight.get(key) === task) qishuiAudioDecryptInflight.delete(key);
+  }
+}
+
+async function readBoundedResponseBuffer(response, maxBytes) {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    if (response.body) await response.body.cancel().catch(() => {});
+    throw Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE' });
+  }
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const c = await readStreamChunkWithTimeout(reader, 12000);
+    if (c.done) break;
+    total += c.value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch (_) {}
+      throw Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE' });
+    }
+    chunks.push(Buffer.from(c.value.buffer, c.value.byteOffset, c.value.byteLength));
+  }
+  return Buffer.concat(chunks, total);
 }
 
 function sendAudioBuffer(res, buffer, contentType, range) {
