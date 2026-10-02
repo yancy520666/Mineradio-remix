@@ -6,6 +6,10 @@ const net = require('net');
 const http = require('http');
 const https = require('https');
 const { Readable } = require('stream');
+const { resolveMusicDns } = require('./music-dns');
+const MUSIC_DNS_HOSTS = ['music.126.net', 'music.163.com', 'qqmusic.qq.com', 'qqmusic.gtimg.cn', 'y.gtimg.cn', 'qlogo.cn', 'kugou.com', 'kugoucdn.com', 'kgimg.com'];
+function isMusicDnsHost(host) { return MUSIC_DNS_HOSTS.some(domain => host === domain || host.endsWith('.' + domain)); }
+function isFakeIpAddress(address) { return net.isIPv4(address) && /^198\.(18|19)\./.test(address); }
 const SAFE_COVER_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp']);
 const blockedV4 = new net.BlockList();
 for (const [address, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3]]) blockedV4.addSubnet(address, prefix);
@@ -36,7 +40,7 @@ function isTrustedLocalApiRequest(req) {
   } catch (_) { return false; }
 }
 function proxyError(code) { return Object.assign(new Error(code), { code }); }
-async function resolvePublicTarget(value, lookup = dns.lookup) {
+async function resolvePublicTarget(value, lookup = dns.lookup, musicLookup = resolveMusicDns) {
   let url;
   try { url = new URL(value); } catch (_) { throw proxyError('INVALID_PROXY_URL'); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw proxyError('INVALID_PROXY_URL');
@@ -45,6 +49,12 @@ async function resolvePublicTarget(value, lookup = dns.lookup) {
   let addresses;
   try { addresses = net.isIP(host) ? [{ address: host, family: net.isIP(host) }] : await lookup(host, { all: true, verbatim: true }); }
   catch (_) { throw proxyError('PROXY_DNS_FAILED'); }
+  if (addresses.length && addresses.some(item => isFakeIpAddress(item.address))
+      && addresses.every(item => isFakeIpAddress(item.address) || !isBlockedIpAddress(item.address))
+      && !net.isIP(host) && isMusicDnsHost(host) && process.env.MINERADIO_MUSIC_DOH !== '0') {
+    try { addresses = await musicLookup(host); }
+    catch (_) { throw proxyError('PROXY_DNS_FAILED'); }
+  }
   if (!addresses.length || addresses.some(item => isBlockedIpAddress(item.address))) throw proxyError('UNSAFE_PROXY_URL');
   // Validate every DNS result before choosing one; never fall back to a fresh,
   // unchecked lookup. Prefer IPv4 but retain IPv6 for networks that need it.
