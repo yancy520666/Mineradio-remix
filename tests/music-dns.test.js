@@ -60,7 +60,9 @@ test('DoH coalesces queries, honors CNAME TTL and retries after expiration', asy
   assert.equal(calls, 1); assert.equal(values[0][0].address, '8.8.8.8');
   values[0][0].address = '127.0.0.1';
   assert.equal((await resolve('music.example'))[0].address, '8.8.8.8');
-  clock = 1001; await resolve('music.example'); assert.equal(calls, 2);
+  assert.equal(calls, 1, 'an unexpired cached address must not issue another DNS request');
+  clock = 1000; await resolve('music.example'); assert.equal(calls, 2, 'TTL expires at its exact boundary');
+  clock = 1001; await resolve('music.example'); assert.equal(calls, 2, 'freshly renewed cache remains usable');
 });
 
 test('DoH validates question and responses, uses second bootstrap and does not cache failure', async () => {

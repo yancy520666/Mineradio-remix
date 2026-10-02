@@ -158,3 +158,35 @@ test('successful PC playback keeps its existing source and never calls public fa
   assert.equal(result.source, 'qishui-pc-track-v2');
   assert.equal(result.trial, false);
 });
+
+test('unsafe public player origins are rejected before requesting an otherwise valid audio response', async t => {
+  const targets = [
+    'https://attacker.invalid/player-info',
+    'https://vod-luna.douyin.com.attacker.invalid/player-info',
+    'http://vod-luna.douyin.com/player-info',
+    'https://fixture:secret@vod-luna.douyin.com/player-info',
+    'https://vod-luna.douyin.com:444/player-info',
+    'https://127.0.0.1/player-info',
+  ];
+  for (const playerUrl of targets) {
+    await t.test(playerUrl, async child => {
+      qishui._test.clearQishuiRuntimeCaches();
+      let playerRequests = 0;
+      mockRequests(child, (url, options) => {
+        if (url.pathname === '/player-info') {
+          playerRequests++;
+          // The hostile endpoint would return usable audio. The mock itself
+          // must not enforce the production URL boundary or mask its removal.
+          return { body: { Result: { Data: { PlayInfoList: [{
+            MainPlayUrl: audioUrl, Duration: 239.8, Format: 'm4a', Bitrate: 128000,
+          }] } } } };
+        }
+        return fixtures(url, options, { playerUrl });
+      });
+      const result = await qishui.handleQishuiSongUrl({ id: 'fixture' }, cookie);
+      assert.equal(result.playable, false);
+      assert.equal(result.url, '');
+      assert.equal(playerRequests, 0, 'unsafe VOD URL must be rejected before any request');
+    });
+  }
+});

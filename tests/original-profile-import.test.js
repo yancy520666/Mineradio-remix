@@ -48,6 +48,32 @@ test('damaged JSON is skipped and a source symlink cannot be copied', (t) => {
   assert.equal(fs.existsSync(path.join(remixPath, 'desktop-behavior.json')), false);
 });
 
+test('original import cannot overwrite existing Remix behavior and playlist files', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-import-preserve-'));
+  t.after(() => {
+    assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const originalPath = path.join(root, 'Original');
+  const remixPath = path.join(root, 'Remix');
+  fs.mkdirSync(originalPath); fs.mkdirSync(remixPath);
+  const existing = {
+    'desktop-behavior.json': '{"closeBehavior":"exit"}',
+    'built-in-playlists.json': '{"playlists":[{"id":"remix-existing"}]}',
+  };
+  for (const [name, content] of Object.entries(existing)) {
+    fs.writeFileSync(path.join(originalPath, name), '{"origin":"old-profile"}');
+    fs.writeFileSync(path.join(remixPath, name), content);
+  }
+  const result = createOriginalProfileImporter({ originalPath, remixPath }).importFiles();
+  assert.equal(result.ok, true);
+  assert.equal(result.importedSettings, 0);
+  for (const [name, content] of Object.entries(existing)) {
+    assert.equal(fs.readFileSync(path.join(remixPath, name), 'utf8'), content, name + ' must retain the Remix choice');
+    assert.equal(fs.readFileSync(path.join(originalPath, name), 'utf8'), '{"origin":"old-profile"}');
+  }
+});
+
 test('visual import replaces only default Remix values and persists the merged settings', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'public/js/modules/08-account/06-original-profile-import.js'), 'utf8');
   const start = source.indexOf('function mergeOriginalVisualSettings(');
