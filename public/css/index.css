@@ -13143,6 +13143,23 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   border-color: rgba(255, 255, 255, .15)
 }
 
+.fx-toggle .fx-effect-label {
+  white-space: normal;
+}
+
+.fx-effect-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, .48);
+}
+
+.fx-toggle.effect-inapplicable {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .fx-toggle.on {
   color: var(--fc-accent);
   border-color: rgba(0, 245, 212, .34);

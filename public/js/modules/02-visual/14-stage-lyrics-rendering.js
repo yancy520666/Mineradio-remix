@@ -2125,6 +2125,8 @@ function updateStageLyrics3D(dt) {
   var editPreview = typeof lyricFxEditActive === 'function' && lyricFxEditActive();
   var lyricGlowStrength = fx.lyricGlow && !editPreview ? Math.min(0.85, Math.max(0, fx.lyricGlowStrength)) : 0;
   var glowDrive = Math.min(1.7, Math.max(0, lyricGlowStrength / 0.50));
+  var lyricSparkStrength = lyricParticleGlowStrength(editPreview);
+  var sparkDrive = Math.min(1.7, lyricSparkStrength / 0.50);
   var glowBreath = lyricGlowStrength > 0 ? (0.5 + 0.5 * Math.sin(t * 1.05)) : 0;
   var musicBloom = Math.max(lyricSunEnergy, beatPulse * 0.10);
   var beatGlowRaw = fx.lyricGlowBeat && lyricGlowStrength > 0
@@ -2500,7 +2502,7 @@ function updateStageLyrics3D(dt) {
         data.glowMat.color.copy(lyricStageGlowThreeColor(stageLyrics.palette, '#9cffdf', 0.36)).lerp(lyricSunHotColor, warmth);
       }
       if (data.sparkMat) {
-        var sparkTarget = lyricGlowStrength > 0 && fx.lyricGlowParticles && !shelfDetailOpen ? Math.min(0.42, (0.10 + solar * 0.14 + stageLyrics.beatGlow * 0.10) * Math.min(1.6, glowDrive)) : 0;
+        var sparkTarget = lyricSparkStrength > 0 && !shelfDetailOpen ? Math.min(0.42, (0.10 + solar * 0.14 + stageLyrics.beatGlow * 0.10) * Math.min(1.6, sparkDrive)) : 0;
         var sparkOpacity = getLyricSparkOpacity(data);
         sparkOpacity += (sparkTarget - sparkOpacity) * (sparkTarget > sparkOpacity ? 0.13 : (shelfDetailOpen ? 0.22 : 0.075));
         setLyricSparkOpacity(data, sparkOpacity);
@@ -2610,7 +2612,7 @@ function updateStageLyrics3D(dt) {
     if (data.textMat && data.textMat.uniforms.uSolar) data.textMat.uniforms.uSolar.value *= shelfDetailOpen ? 0.72 : 0.86;
     if (data.glowMat) data.glowMat.opacity = (!data.suppressStaticGlow && lyricGlowStrength > 0) ? (shelfDetailOpen ? Math.min(shelfDetailLyricProfile.glowCap * 0.40, opacity * 0.05 * lyricGlowStrength) : opacity * 0.08 * lyricGlowStrength) : 0;
     if (data.sparkMat) {
-      var outgoingSpark = lyricGlowStrength > 0 && fx.lyricGlowParticles && !shelfDetailOpen ? Math.max(opacity * 0.24 * lyricGlowStrength, (1 - a) * 0.18 * lyricGlowStrength) : 0;
+      var outgoingSpark = lyricSparkStrength > 0 && !shelfDetailOpen ? Math.max(opacity * 0.24 * lyricSparkStrength, (1 - a) * 0.18 * lyricSparkStrength) : 0;
       setLyricSparkOpacity(data, outgoingSpark);
       setLyricSparkSize(data, 0.046 + (1 - a) * 0.020);
     }
