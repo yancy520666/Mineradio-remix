@@ -247,7 +247,7 @@ function showSourceFallbackNotice(title, body, options) {
       existingCard.querySelector('.source-fallback-title').textContent = title || '自动换源';
       existingCard.querySelector('.source-fallback-body').textContent = body || '';
       clearTimeout(existingCard._mineradioNoticeTimer);
-      existingCard._mineradioNoticeTimer = setTimeout(function () { removeSourceFallbackCard(existingCard); }, 5600);
+      existingCard._mineradioNoticeTimer = options.persist ? 0 : setTimeout(function () { removeSourceFallbackCard(existingCard); }, 5600);
       return;
     }
     var card = document.createElement('div');
@@ -273,7 +273,7 @@ function showSourceFallbackNotice(title, body, options) {
     stack.insertBefore(card, stack.firstChild || null);
     while (stack.children.length > 4) removeSourceFallbackCard(stack.lastElementChild);
     requestAnimationFrame(function () { card.classList.add('show'); });
-    card._mineradioNoticeTimer = setTimeout(function () { removeSourceFallbackCard(card); }, 5600);
+    card._mineradioNoticeTimer = options.persist ? 0 : setTimeout(function () { removeSourceFallbackCard(card); }, 5600);
     return;
   }
   var notice = document.getElementById('source-fallback-notice');
@@ -285,6 +285,13 @@ function showSourceFallbackNotice(title, body, options) {
   notice.classList.add('show');
   if (sourceFallbackNoticeTimer) clearTimeout(sourceFallbackNoticeTimer);
   sourceFallbackNoticeTimer = setTimeout(closeSourceFallbackNotice, 5000);
+}
+function dismissSourceFallbackNotice(coalesceKey) {
+  var stack = document.getElementById('source-fallback-stack');
+  if (!stack || !coalesceKey) return;
+  Array.prototype.slice.call(stack.children || []).forEach(function (card) {
+    if (card._mineradioNoticeKey === coalesceKey) removeSourceFallbackCard(card);
+  });
 }
 function normalizeMatchText(text) {
   return String(text || '').toLowerCase()
@@ -760,6 +767,261 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
     }
   }
   return await skipFailedQueueItem(idx, token, '没有找到可播放的已登录平台版本，正在播放下一首。', skipOpts);
+}
+// Qishui's public source may return only a preview even for VIP accounts.
+// Before playing that preview, look for the same recording on another
+// signed-in platform that returns the full track; otherwise keep the preview.
+var QISHUI_TRIAL_UPGRADE_BUDGET_MS = 6000;
+var QISHUI_TRIAL_UPGRADE_MISS_TTL_MS = 10 * 60 * 1000;
+var QISHUI_FULL_SOURCE_MEMORY_TTL_MS = 30 * 60 * 1000;
+var QISHUI_PROGRESS_DELAY_MS = 600;
+var QISHUI_PROGRESS_MAX_MS = 20000;
+var qishuiTrialUpgradeMisses = Object.create(null);
+var qishuiFullSourceMemory = Object.create(null);
+var qishuiFullSourcePrefetch = null;
+var qishuiPlaybackProgress = null;
+
+function songDurationSecondsForMatch(song) {
+  var raw = Number(song && (song.duration || song.durationMs || song.dt)) || 0;
+  if (raw <= 0) return 0;
+  // NetEase / QQ / Kugou report milliseconds, Qishui seconds.
+  return raw > 10000 ? raw / 1000 : raw;
+}
+function qishuiTrialUpgradeDurationMatches(expectedSec, candidateSec) {
+  if (!expectedSec || !candidateSec) return false;
+  return Math.abs(expectedSec - candidateSec) <= Math.max(6, expectedSec * 0.03);
+}
+function playbackDataIsFullTrack(data) {
+  return !!(data && data.url && !data.trial && !data.freeTrialInfo);
+}
+function qishuiTrialUpgradeWithinBudget(promise, deadline) {
+  var remaining = deadline - Date.now();
+  if (remaining <= 0) return Promise.resolve(sourceFallbackBudgetTimeoutResult);
+  return new Promise(function (resolve) {
+    var timer = setTimeout(function () { resolve(sourceFallbackBudgetTimeoutResult); }, remaining);
+    Promise.resolve(promise).then(function (value) {
+      clearTimeout(timer);
+      resolve(value);
+    }, function () {
+      clearTimeout(timer);
+      resolve(null);
+    });
+  });
+}
+function qishuiFullSourceKey(song) {
+  return song ? sourceFallbackRecoveryContentKey(song) : '';
+}
+function qishuiSongLooksPaid(song) {
+  if (!song) return false;
+  return !!(Number(song.fee) === 1 || song.vipRequired || song.needVip || song.onlyVipPlayable || song.only_vip_playable || song.trial);
+}
+
+// --- Progress card: only appears when the wait is noticeable. ---
+function qishuiProgressKey(token) { return 'qishui-progress-' + token; }
+function beginQishuiPlaybackProgress(song, token, opts) {
+  endQishuiPlaybackProgress(null);
+  if (opts && opts.startupAutoplay) return;
+  var progress = {
+    token: token,
+    shown: false,
+    title: '正在获取汽水音源',
+    body: '《' + ((song && (song.name || song.title)) || '当前歌曲') + '》正在连接汽水音乐…',
+    timer: 0,
+    expireTimer: 0
+  };
+  progress.timer = setTimeout(function () {
+    progress.timer = 0;
+    if (qishuiPlaybackProgress !== progress || progress.token !== trackSwitchToken) return;
+    progress.shown = true;
+    showSourceFallbackNotice(progress.title, progress.body, { coalesceKey: qishuiProgressKey(token), persist: true });
+  }, QISHUI_PROGRESS_DELAY_MS);
+  // Safety net: an unexpected exception must not leave a persistent card.
+  progress.expireTimer = setTimeout(function () { endQishuiPlaybackProgress(token); }, QISHUI_PROGRESS_MAX_MS);
+  qishuiPlaybackProgress = progress;
+}
+function updateQishuiPlaybackProgress(token, title, body) {
+  var progress = qishuiPlaybackProgress;
+  if (!progress || progress.token !== token) return;
+  progress.title = title;
+  progress.body = body;
+  if (progress.shown) showSourceFallbackNotice(title, body, { coalesceKey: qishuiProgressKey(token), persist: true });
+}
+function endQishuiPlaybackProgress(token, title, body, opts) {
+  var progress = qishuiPlaybackProgress;
+  if (!progress || (token != null && progress.token !== token)) return false;
+  qishuiPlaybackProgress = null;
+  if (progress.timer) clearTimeout(progress.timer);
+  if (progress.expireTimer) clearTimeout(progress.expireTimer);
+  var key = qishuiProgressKey(progress.token);
+  if (title && (progress.shown || !(opts && opts.onlyIfShown))) {
+    showSourceFallbackNotice(title, body, { coalesceKey: key });
+  } else if (progress.shown) {
+    dismissSourceFallbackNotice(key);
+  }
+  return progress.shown;
+}
+
+// --- Lookup: shared by the parallel prefetch and the post-trial path. ---
+async function findQishuiFullSourceCandidate(song, expectedSec, providers, deadline, stillWanted) {
+  stillWanted = stillWanted || function () { return true; };
+  for (var i = 0; i < providers.length; i++) {
+    var provider = providers[i];
+    if (Date.now() >= deadline || !stillWanted()) return null;
+    var candidate = await qishuiTrialUpgradeWithinBudget(searchAlternatePlatformSong(song, provider, null), deadline);
+    if (!stillWanted()) return null;
+    if (!candidate || candidate === sourceFallbackBudgetTimeoutResult) continue;
+    if (!qishuiTrialUpgradeDurationMatches(expectedSec, songDurationSecondsForMatch(candidate))) continue;
+    var data = await qishuiTrialUpgradeWithinBudget(resolveAlbumGaplessPlaybackData(candidate), deadline);
+    if (data === sourceFallbackBudgetTimeoutResult || !playbackDataIsFullTrack(data)) continue;
+    return { provider: provider, candidate: candidate, data: data, resolvedAt: Date.now() };
+  }
+  return null;
+}
+// Paid Qishui songs almost always come back as previews today, so start
+// looking on other platforms while the Qishui request is still running.
+function startQishuiFullSourcePrefetch(song, opts) {
+  if (!song || (opts && (opts.fallbackDepth > 0 || opts.qishuiTrialUpgradeTried))) return;
+  if (!qishuiSongLooksPaid(song) || typeof resolveAlbumGaplessPlaybackData !== 'function') return;
+  var expectedSec = songDurationSecondsForMatch(song);
+  var providers = alternatePlaybackProviders(song);
+  if (!expectedSec || !providers.length) return;
+  var key = qishuiFullSourceKey(song);
+  var missKey = key + '|' + providers.join(',');
+  if (qishuiTrialUpgradeMisses[missKey] && Date.now() - qishuiTrialUpgradeMisses[missKey] < QISHUI_TRIAL_UPGRADE_MISS_TTL_MS) return;
+  if (qishuiFullSourcePrefetch && qishuiFullSourcePrefetch.key === key && Date.now() - qishuiFullSourcePrefetch.startedAt < QISHUI_TRIAL_UPGRADE_BUDGET_MS) return;
+  var deadline = Date.now() + QISHUI_TRIAL_UPGRADE_BUDGET_MS + 4000;
+  qishuiFullSourcePrefetch = {
+    key: key,
+    providers: providers.join(','),
+    expectedSec: expectedSec,
+    startedAt: Date.now(),
+    promise: findQishuiFullSourceCandidate(song, expectedSec, providers, deadline, function () {
+      // Stop once the user has moved on to another song.
+      return qishuiFullSourceKey(playQueue[currentIdx]) === key;
+    }).catch(function () { return null; })
+  };
+}
+function takeQishuiFullSourcePrefetch(song, expectedSec, providers) {
+  var prefetch = qishuiFullSourcePrefetch;
+  if (!prefetch || prefetch.key !== qishuiFullSourceKey(song) || prefetch.providers !== providers.join(',')) return null;
+  if (!qishuiTrialUpgradeDurationMatches(expectedSec, prefetch.expectedSec)) return null;
+  qishuiFullSourcePrefetch = null;
+  return prefetch.promise;
+}
+function rememberQishuiFullSource(song, found, expectedSec) {
+  var key = qishuiFullSourceKey(song);
+  if (!key || !found) return;
+  qishuiFullSourceMemory[key] = { provider: found.provider, candidate: found.candidate, expectedSec: expectedSec, at: Date.now() };
+}
+function qishuiRememberedFullSource(song) {
+  var entry = qishuiFullSourceMemory[qishuiFullSourceKey(song)];
+  if (!entry) return null;
+  if (Date.now() - entry.at > QISHUI_FULL_SOURCE_MEMORY_TTL_MS || !sourceFallbackProviderReady(entry.provider)) {
+    delete qishuiFullSourceMemory[qishuiFullSourceKey(song)];
+    return null;
+  }
+  return entry;
+}
+function forgetQishuiFullSource(song) {
+  delete qishuiFullSourceMemory[qishuiFullSourceKey(song)];
+}
+
+async function playQishuiFullSourceCandidate(found, song, idx, token, opts) {
+  var originalSong = playQueue[idx];
+  var candidate = cloneSong(found.candidate);
+  candidate.autoFallbackFrom = 'qishui';
+  var committedCandidate = hydrateCustomCover(candidate);
+  playQueue[idx] = committedCandidate;
+  safeRenderQueuePanel('qishui-trial-upgrade', { scrollCurrent: miniQueueOpen });
+  safeShelfRebuild('qishui-trial-upgrade');
+  var upgradeOpts = {
+    fallbackDepth: 1,
+    startupAutoplay: !!opts.startupAutoplay,
+    preserveHomeState: !!opts.preserveHomeState,
+    suppressPlayFailureNotice: true,
+    preResolvedPlaybackData: found.data,
+    fallbackOriginalSong: originalSong,
+    fallbackCandidateSong: committedCandidate,
+    qqQualityTried: ['hires', 'lossless', 'exhigh', 'standard']
+  };
+  if (opts.resumeAt != null) upgradeOpts.resumeAt = opts.resumeAt;
+  var upgradePromise = playQueueAt(idx, upgradeOpts);
+  var upgradeToken = trackSwitchToken;
+  var upgraded = await upgradePromise;
+  if (upgradeToken !== trackSwitchToken) return { superseded: true };
+  if (upgraded === true) return { started: true };
+  restoreSourceFallbackQueueItem(idx, originalSong, committedCandidate, upgradeToken);
+  return { started: false, originalSong: originalSong };
+}
+
+async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
+  opts = opts || {};
+  if (opts.fallbackDepth > 0 || opts.qishuiTrialUpgradeTried) return null;
+  if (!song || !data || !data.trial || normalizePlaybackProvider(songProviderKey(song)) !== 'qishui') return null;
+  var providers = alternatePlaybackProviders(song);
+  if (!providers.length) { endQishuiPlaybackProgress(token); return null; }
+  var expectedSec = Number(data.fullDuration) || songDurationSecondsForMatch(song);
+  if (!expectedSec) { endQishuiPlaybackProgress(token); return null; }
+  var songTitle = song.name || song.title || '当前歌曲';
+  var remembered = !!data.remembered;
+  var found = null;
+  if (remembered) {
+    // Same song matched recently: only the playback URL has to be fetched again.
+    var entry = qishuiRememberedFullSource(song);
+    if (entry) {
+      updateQishuiPlaybackProgress(token, '正在载入完整版本',
+        '《' + songTitle + '》使用上次在 ' + sourceFallbackProviderTitle(entry.provider) + ' 找到的完整版本…');
+      var refreshed = await qishuiTrialUpgradeWithinBudget(resolveAlbumGaplessPlaybackData(entry.candidate), Date.now() + QISHUI_TRIAL_UPGRADE_BUDGET_MS);
+      if (token !== trackSwitchToken) return false;
+      if (playbackDataIsFullTrack(refreshed) && refreshed !== sourceFallbackBudgetTimeoutResult) {
+        found = { provider: entry.provider, candidate: entry.candidate, data: refreshed };
+      }
+    }
+    if (!found) { forgetQishuiFullSource(song); return null; }
+  } else {
+    var missKey = qishuiFullSourceKey(song) + '|' + providers.join(',');
+    if (qishuiTrialUpgradeMisses[missKey] && Date.now() - qishuiTrialUpgradeMisses[missKey] < QISHUI_TRIAL_UPGRADE_MISS_TTL_MS) {
+      endQishuiPlaybackProgress(token);
+      return null;
+    }
+    updateQishuiPlaybackProgress(token, '正在查找完整版本',
+      '《' + songTitle + '》在汽水音乐只有试听片段，正在从 ' + providers.map(sourceFallbackProviderTitle).join('、') + ' 查找完整版本…');
+    var deadline = Date.now() + QISHUI_TRIAL_UPGRADE_BUDGET_MS;
+    var prefetched = takeQishuiFullSourcePrefetch(song, expectedSec, providers);
+    found = prefetched ? await qishuiTrialUpgradeWithinBudget(prefetched, deadline) : null;
+    if (token !== trackSwitchToken) return false;
+    if (found === sourceFallbackBudgetTimeoutResult) found = null;
+    if (found && Date.now() - found.resolvedAt > 60000) found = null;
+    if (!found && !prefetched) {
+      found = await findQishuiFullSourceCandidate(song, expectedSec, providers, deadline, function () { return token === trackSwitchToken; });
+      if (token !== trackSwitchToken) return false;
+    }
+    if (!found) {
+      qishuiTrialUpgradeMisses[missKey] = Date.now();
+      endQishuiPlaybackProgress(token, '未找到完整版本', '《' + songTitle + '》将播放汽水音乐的试听片段。', { onlyIfShown: true });
+      return null;
+    }
+  }
+  var targetLabel = sourceFallbackProviderTitle(found.provider);
+  updateQishuiPlaybackProgress(token, '正在切换到完整版本', '已在 ' + targetLabel + ' 找到《' + songTitle + '》的完整版本，正在载入…');
+  var outcome = await playQishuiFullSourceCandidate(found, song, idx, token, opts);
+  if (outcome.superseded) { endQishuiPlaybackProgress(token); return false; }
+  if (outcome.started) {
+    rememberQishuiFullSource(song, found, expectedSec);
+    var finalTitle = '已切换到完整版本';
+    var finalBody = '《' + songTitle + '》在汽水音乐只有试听片段，已改用 ' + targetLabel + ' 的完整版本播放。';
+    if (!endQishuiPlaybackProgress(token, finalTitle, finalBody) && !opts.startupAutoplay) {
+      showSourceFallbackNotice(finalTitle, finalBody);
+    }
+    return true;
+  }
+  // The candidate failed to start; the nested attempt restored the queue
+  // item. Play the original Qishui preview without searching again.
+  forgetQishuiFullSource(song);
+  endQishuiPlaybackProgress(token);
+  if (currentIdx !== idx || sourceFallbackSongKey(playQueue[idx]) !== sourceFallbackSongKey(outcome.originalSong)) return false;
+  var previewStarted = await playQueueAt(idx, Object.assign({}, opts, { qishuiTrialUpgradeTried: true }));
+  return previewStarted === true;
 }
 function handlePlaybackUnavailable(song, data) {
   hideLoading();
