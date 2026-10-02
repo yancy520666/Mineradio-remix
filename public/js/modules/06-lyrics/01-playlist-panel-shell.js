@@ -171,8 +171,6 @@ function applyPlaylistPanelPinState(openPanel) {
     btn.classList.toggle('active', !!playlistPanelPinned);
     btn.title = playlistPanelPinned ? '取消常开歌单' : '常开歌单';
   }
-  var sub = document.getElementById('playlist-panel-sub');
-  if (sub) sub.textContent = playlistPanelPinned ? 'QUEUE · 已常开' : 'QUEUE · 鼠标移开自动隐藏';
 }
 function setPlaylistPanelPinned(on, silent) {
   playlistPanelPinned = !!on;
