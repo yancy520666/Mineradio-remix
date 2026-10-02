@@ -21,14 +21,17 @@
     return result.id || result.mid || result.hash || result.spotifyId || result.localKey || result.name || result.title ? result : null;
   }
   function normalize(value) {
-    if (!value || value.version !== 1 || !Number.isFinite(value.savedAt) || value.savedAt <= 0 || value.savedAt > Date.now() + 60000) return null;
+    if (!value || value.version !== 1 || !Number.isFinite(value.savedAt) || value.savedAt <= 0) return null;
+    // A checkpoint written before the system clock was set back must not be
+    // discarded at the next start; treat its timestamp as now instead.
+    var savedAt = Math.min(value.savedAt, Date.now());
     if (!Number.isFinite(value.currentTime) || value.currentTime < 0 || !Number.isFinite(value.duration) || value.duration < 0) return null;
     if (!Array.isArray(value.queue) || value.queue.length > 120 || !Number.isInteger(value.currentIdx) || value.currentIdx < -1 || value.currentIdx > 1000000) return null;
     var current = song(value.current);
     if (!current) return null;
     var queue = value.queue.map(song).filter(Boolean);
     var duration = Math.min(value.duration, 31536000);
-    var result = { version: 1, savedAt: value.savedAt, reason: String(value.reason || '').slice(0, 64),
+    var result = { version: 1, savedAt: savedAt, reason: String(value.reason || '').slice(0, 64),
       currentIdx: value.currentIdx < 0 ? -1 : Math.min(value.currentIdx, Math.max(0, queue.length - 1)), currentTime: Math.min(value.currentTime, duration > 0 ? duration : 31536000),
       duration: duration, playing: value.playing === true, current: current, queue: queue };
     return new TextEncoder().encode(JSON.stringify(result)).length <= 524288 ? result : null;

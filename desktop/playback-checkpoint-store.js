@@ -15,8 +15,9 @@ function createPlaybackCheckpointStore(directory, options = {}) {
     } catch (_) { return null; }
   }
   function read() {
-    const candidates = [readFile(file), readFile(backup)].filter(Boolean);
-    return candidates.sort((a, b) => b.savedAt - a.savedAt)[0] || null;
+    // The backup is always written before the primary, so a valid primary is
+    // the latest write even if the system clock was set back in between.
+    return readFile(file) || readFile(backup);
   }
   let committed = read();
   const initialPrimary = readFile(file);
@@ -35,7 +36,10 @@ function createPlaybackCheckpointStore(directory, options = {}) {
     const payload = normalize(value);
     if (!payload) return Promise.resolve({ ok: false, error: 'INVALID_PLAYBACK_CHECKPOINT' });
     const job = pending.then(async () => {
-      if (payload.savedAt <= latestAcceptedAt) return { ok: true, skipped: true };
+      // Only a slightly older task is a late write to drop. A jump far back
+      // means the system clock was set back; keep saving progress after it.
+      const clockSetBack = latestAcceptedAt - payload.savedAt > 60000;
+      if (payload.savedAt <= latestAcceptedAt && !clockSetBack) return { ok: true, skipped: true };
       // Timestamp/reason-only changes do not require another durable write.
       // Keep an in-memory ordering watermark so an older task cannot rewind us.
       if (primaryReady && committed && content(payload) === content(committed)) {

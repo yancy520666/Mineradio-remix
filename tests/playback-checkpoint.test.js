@@ -135,3 +135,14 @@ test('busy IPC coalesces pending saves and shutdown can await the complete chain
   acknowledgements[1]({ ok: true }); await pending;
   assert.equal(c.playbackCheckpointPending, null);
 });
+
+test('a system clock set back keeps saving progress and does not discard the last checkpoint', async t => {
+  const directory = fixture(t), store = createPlaybackCheckpointStore(directory), now = Date.now();
+  assert.equal((await store.save({ ...snapshot(40), savedAt: now })).ok, true);
+  const rolledBack = await store.save({ ...snapshot(55), savedAt: now - 3600000 });
+  assert.equal(rolledBack.skipped, undefined, 'an hour back is a clock change, not a late write');
+  assert.equal(createPlaybackCheckpointStore(directory).read().currentTime, 55);
+  assert.equal((await store.save({ ...snapshot(56), savedAt: now - 3600000 - 2000 })).skipped, true, 'a genuinely late write is still dropped');
+  const future = normalize({ ...snapshot(70), savedAt: now + 3600000 });
+  assert.ok(future && future.savedAt <= Date.now(), 'a checkpoint written before the clock moved back is kept');
+});
