@@ -10,6 +10,10 @@ const { extractKugouAuth } = require('../kugou-api');
 
 const root = path.resolve(__dirname, '..');
 const main = fs.readFileSync(path.join(root, 'desktop/main.js'), 'utf8');
+const revealSource = main.slice(
+  main.indexOf('function revealLoginWindowWhenReady('),
+  main.indexOf('// music.163.com/#/login renders the QR itself'),
+);
 const openSource = main.slice(
   main.indexOf('async function openKugouMusicLoginWindow('),
   main.indexOf('async function clearKugouMusicLoginSession('),
@@ -37,6 +41,7 @@ function loginHarness(initialCookie) {
     async loadURL(url) { this.url = url; }
     isDestroyed() { return this.destroyed; }
     show() {}
+    focus() {}
     close() {
       if (this.destroyed) return;
       this.destroyed = true;
@@ -60,8 +65,9 @@ function loginHarness(initialCookie) {
     setInterval: (callback) => { state.intervals.add(callback); return callback; },
     clearInterval: (callback) => state.intervals.delete(callback),
     setTimeout,
+    clearTimeout,
   });
-  vm.runInContext(openSource, context);
+  vm.runInContext(revealSource + openSource, context);
   return { state, open: context.openKugouMusicLoginWindow };
 }
 

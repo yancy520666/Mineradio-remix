@@ -1380,7 +1380,7 @@ async function openNeteaseWebLogin() {
 
   neteaseWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '已打开网易云窗口，请在官方页面扫码登录…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = '正在打开网易云官方登录页，二维码加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
     var result = await api.openNeteaseMusicLogin();
     if (!result || !result.ok || !result.cookie) {
@@ -1485,7 +1485,7 @@ async function openKugouWebLogin() {
 
   kugouWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '已打开酷狗音乐窗口，请完成官方登录…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = '正在打开酷狗音乐官方登录页，加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
     var result = await api.openKugouMusicLogin({ forceReauth: true });
     if (!result || !result.ok || !result.cookie) {
