@@ -148,10 +148,13 @@ test('a failed player-info resolution retries immediately and cached audio canno
 test('playback settles under a wall-clock deadline even when DNS or the response never emits an event', async t => {
   const originalRequest = https.request;
   const originalTimer = global.setTimeout;
+  const originalNow = Date.now;
+  let clock = originalNow();
+  Date.now = () => clock;
   const deadlines = [];
   global.setTimeout = (callback, delay, ...args) => {
     deadlines.push(delay);
-    return originalTimer(callback, 5, ...args);
+    return originalTimer(() => { clock += delay; callback(...args); }, 5);
   };
   https.request = () => {
     const request = new EventEmitter();
@@ -160,11 +163,12 @@ test('playback settles under a wall-clock deadline even when DNS or the response
     request.destroy = error => request.emit('error', error);
     return request;
   };
-  t.after(() => { https.request = originalRequest; global.setTimeout = originalTimer; });
+  t.after(() => { https.request = originalRequest; global.setTimeout = originalTimer; Date.now = originalNow; });
   const result = await qishui.handleQishuiSongUrl({ id: 'never-connects' }, cookie);
   assert.equal(result.playable, false);
   assert.equal(result.stale, true);
-  assert.deepEqual(deadlines, [3000, 3000, 2500]);
+  assert.deepEqual(deadlines, [3000, 3000, 2500, 5500]);
+  assert(deadlines.reduce((sum, delay) => sum + delay, 0) <= 14000, 'fallback must fit the renderer playback deadline');
   assert.doesNotMatch(result.message, /Invalid JSON/);
 });
 

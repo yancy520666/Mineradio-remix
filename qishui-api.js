@@ -3152,12 +3152,12 @@ function extractQishuiLyrics(payload) {
   return found;
 }
 
-async function fetchQishuiSeoTrack(trackId) {
+async function fetchQishuiSeoTrack(trackId, opts) {
   return requestJson(urlWithParams('https://beta-luna.douyin.com/luna/h5/seo_track', {
     track_id: trackId,
     device_platform: 'web',
   }), {
-    timeoutMs: 8000,
+    timeoutMs: opts && opts.timeoutMs || 8000,
     headers: {
       'Accept': 'application/json,text/plain,*/*',
       'User-Agent': QISHUI_WEB_UA,
@@ -3283,11 +3283,11 @@ async function fetchQishuiPcTrackV2(trackId, cookieText) {
   });
 }
 
-async function fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership) {
+async function fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership, opts) {
   playerInfoUrl = normalizeText(playerInfoUrl);
   if (!/^https?:\/\//i.test(playerInfoUrl)) return null;
   const json = await requestJson(playerInfoUrl, {
-    timeoutMs: 3000,
+    timeoutMs: opts && opts.timeoutMs || 3000,
     headers: qishuiHeadersWithCookie({
       'Accept': 'application/json,text/plain,*/*',
       'User-Agent': QISHUI_WEB_UA,
@@ -3372,6 +3372,52 @@ function qishuiUrlWithAuth(url, auth) {
   return url + '#auth=' + encodeURIComponent(auth);
 }
 
+async function resolveQishuiSeoPlayback(id, cookie, membership, requestedQuality, timeoutBudgetMs) {
+  const tier = qishuiMembershipTier(membership);
+  const cacheKey = 'public-seo|' + qishuiCookieFingerprint(cookie) + '|' + tier + '|' + id + '|' + requestedQuality;
+  return qishuiPlaybackCache.wrap(cacheKey, 60 * 1000, async () => {
+    const deadline = Date.now() + timeoutBudgetMs;
+    function requestTimeout(maximum) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error('QISHUI_PUBLIC_PLAYBACK_TIMEOUT');
+      return Math.min(maximum, remaining);
+    }
+    const payload = await fetchQishuiSeoTrack(id, { timeoutMs: requestTimeout(8000) });
+    const track = payload && payload.seo_track && payload.seo_track.track;
+    if (!track || String(track.id) !== id) throw new Error('QISHUI_PUBLIC_TRACK_MISMATCH');
+    const player = payload.track_player || {};
+    const playerUrl = new URL(player.url_player_info || '');
+    // The public fallback never sends account cookies to the VOD service.
+    if (playerUrl.protocol !== 'https:' || playerUrl.hostname !== 'vod-luna.douyin.com'
+      || playerUrl.username || playerUrl.password || (playerUrl.port && playerUrl.port !== '443')) {
+      throw new Error('QISHUI_PUBLIC_PLAYER_URL_REJECTED');
+    }
+    const stream = await fetchQishuiPlayerInfo(playerUrl.href, '', membership, { timeoutMs: requestTimeout(3000) });
+    if (!qishuiStreamAllowedForMembership(stream, membership)) throw new Error('QISHUI_PUBLIC_AUDIO_UNAVAILABLE');
+    const duration = Number(stream && stream.duration) || 0;
+    const fullDuration = qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0);
+    // Preview metadata can say 30 seconds while VOD supplies a full track.
+    // Use the actual selected audio's duration; never assume an unknown length is full.
+    if (!stream || duration <= 0 || fullDuration <= 0) throw new Error('QISHUI_PUBLIC_AUDIO_DURATION_UNKNOWN');
+    const trial = duration + 2 < fullDuration;
+    const level = qishuiPlaybackLevel(stream.quality, stream.format, stream.bitrate);
+    return {
+      provider: 'qishui', playbackMode: 'direct-url', source: 'qishui-seo',
+      url: qishuiUrlWithAuth(stream.url, stream.auth), playable: true, trial,
+      loggedIn: !!membership.sessionValidated, playbackKeyReady: true,
+      membershipKnown: !!membership.membershipKnown,
+      vipType: membership.vipType || 0, vipLevel: membership.vipLevel || 'unknown',
+      isVip: !!membership.isVip, isSvip: !!membership.isSvip,
+      vipLabel: membership.vipLabel || '未知会员状态',
+      level, quality: normalizeText(stream.quality || stream.format || level),
+      requiredTier: qishuiStreamRequiredTier(stream),
+      br: qishuiBitrateForUi(stream.bitrate), size: Number(stream.size) || 0,
+      duration, fullDuration, requestedQuality, encrypted: !!stream.auth,
+      message: trial ? '汽水公开音源仅提供约 ' + duration + ' 秒试听；当前账号会员权益不会改变该片段长度。' : '',
+    };
+  });
+}
+
 async function handleQishuiSongUrl(opts, cookieText) {
   opts = opts && typeof opts === 'object' ? opts : { id: opts };
   const id = normalizeText(opts.id || opts.trackId || opts.track_id || '');
@@ -3384,6 +3430,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
     });
   }
   const requestedQuality = normalizeText(opts.quality || '');
+  const startedAt = Date.now();
   let payload;
   try {
     payload = await fetchQishuiPcTrackV2(id, cookie);
@@ -3397,17 +3444,25 @@ async function handleQishuiSongUrl(opts, cookieText) {
         error: 'QISHUI_SESSION_EXPIRED', membershipKnown: false, vipLevel: 'unknown',
       });
     }
-    return qishuiUnavailable('Qishui did not return track playback metadata: ' + (err && err.message || String(err)), 'source_unavailable', {
+    let fallbackError;
+    try {
+      return await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
+        Math.max(0, 14000 - (Date.now() - startedAt)));
+    } catch (seoError) {
+      fallbackError = seoError && seoError.message || String(seoError);
+    }
+    return qishuiUnavailable('汽水 PC 播放接口及公开音源暂时不可用，请稍后重试。', 'source_unavailable', {
       loggedIn: !!checked.sessionValidated,
       stale: !checked.sessionValidated,
       playbackKeyReady: false,
-      membershipKnown: false,
-      vipType: 0,
-      vipLevel: 'unknown',
-      isVip: false,
-      isSvip: false,
-      vipLabel: '未知会员状态',
+      membershipKnown: !!checked.membershipKnown,
+      vipType: checked.vipType || 0,
+      vipLevel: checked.vipLevel || 'unknown',
+      isVip: !!checked.isVip,
+      isSvip: !!checked.isSvip,
+      vipLabel: checked.vipLabel || '未知会员状态',
       rawError: err && err.message || String(err),
+      fallbackError,
     });
   }
   let membership = qishuiPlaybackMembershipFromPayload(payload);
