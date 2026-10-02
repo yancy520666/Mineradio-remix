@@ -1105,12 +1105,12 @@
         <div class="queue-head">
           <div>
             <div class="fx-title">歌单 / 队列</div>
-            <div class="fx-sub">QUEUE · 鼠标移开自动隐藏</div>
+            <div id="playlist-panel-sub" class="fx-sub">QUEUE · 鼠标移开自动隐藏</div>
           </div>
           <div class="queue-head-act">
             <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn queue-head-icon-btn"
               onclick="togglePlaylistPanelPinned()" title="常开歌单" aria-label="常开歌单"><svg viewBox="0 0 24 24" width="16"
-                height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+                height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
                 stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 17v5" />
                 <path class="pin-head"
@@ -1118,16 +1118,17 @@
               </svg></button>
             <button class="fx-mini-btn ghost queue-head-icon-btn" onclick="shuffleQueue()" title="随机打乱队列"
               aria-label="随机打乱队列"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m18 14 4 4-4 4" />
-                <path d="m18 2 4 4-4 4" />
-                <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-7.6a4 4 0 0 1 3.3-1.7H22" />
-                <path d="M2 6h1.972a4 4 0 0 1 3.289 1.722l.807 1.183" />
-                <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 3h5v5" />
+                <path d="M4 20 21 3" />
+                <path d="M21 16v5h-5" />
+                <path d="M15 15l6 6" />
+                <path d="M4 4l5 5" />
               </svg></button>
           </div>
         </div>
-        <div class="panel-tabs">
+        <div class="panel-tabs has-indicator">
+          <span class="panel-tab-indicator" aria-hidden="true"></span>
           <button id="tab-queue" class="panel-tab active" onclick="switchPlaylistTab('queue')">当前队列</button>
           <button id="tab-pl" class="panel-tab" onclick="switchPlaylistTab('playlists')">我的歌单</button>
           <button id="tab-podcast" class="panel-tab" onclick="switchPlaylistTab('podcasts')">我的播客</button>
@@ -1135,13 +1136,18 @@
       </div>
       <div id="queue-pane">
         <div class="queue-toolbar">
-          <div id="play-mode-chip" class="queue-chip">顺序循环</div>
-          <div style="display:flex;gap:6px">
-            <button class="fx-mini-btn ghost" onclick="cyclePlayMode()"
-              style="height:26px;padding:0 10px;font-size:11px">切换模式</button>
-            <button class="fx-mini-btn ghost" onclick="clearQueue()"
-              style="height:26px;padding:0 10px;font-size:11px">清空</button>
-          </div>
+          <button id="play-mode-chip" class="queue-chip queue-mode-btn" type="button" onclick="cyclePlayMode()"
+            title="切换播放模式" aria-label="切换播放模式"><svg id="queue-mode-icon" viewBox="0 0 24 24" width="14" height="14"
+              fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true"></svg><span id="queue-mode-label">顺序循环</span></button>
+          <button id="queue-clear-btn" class="fx-mini-btn ghost queue-tool-icon-btn" type="button" onclick="requestClearQueue()"
+            title="清空队列" aria-label="清空队列"><svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7h16" />
+              <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              <path d="M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7" />
+              <path d="M10.5 11v5M13.5 11v5" />
+            </svg></button>
         </div>
         <div id="queue-list" class="queue-list"></div>
       </div>

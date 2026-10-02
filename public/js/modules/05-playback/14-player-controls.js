@@ -651,6 +651,8 @@ function setPlayIcon(p) {
   document.getElementById('play-icon').innerHTML = p
     ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
     : '<path d="M8 5v14l11-7z"/>';
+  // Lets the queue's now-playing bars move only while audio actually plays.
+  document.body.classList.toggle('audio-playing', !!p);
 }
 function shuffleArrayInPlace(items) {
   for (var i = items.length - 1; i > 0; i--) {
@@ -722,6 +724,33 @@ function shuffleQueue() {
   reorderQueueForShufflePlaybackOrder(currentIdx, { reason: 'shuffle-queue' });
   showToast('队列已随机');
 }
+// The queue clear button asks for a second click instead of clearing at once.
+var queueClearConfirmTimer = null;
+function resetQueueClearConfirm() {
+  if (queueClearConfirmTimer) { clearTimeout(queueClearConfirmTimer); queueClearConfirmTimer = null; }
+  var btn = document.getElementById('queue-clear-btn');
+  if (!btn) return;
+  btn.classList.remove('confirming');
+  btn.title = '清空队列';
+  btn.setAttribute('aria-label', '清空队列');
+}
+function requestClearQueue() {
+  var btn = document.getElementById('queue-clear-btn');
+  if (!playQueue.length) { resetQueueClearConfirm(); return; }
+  if (btn && btn.classList.contains('confirming')) {
+    resetQueueClearConfirm();
+    clearQueue();
+    showToast('队列已清空');
+    return;
+  }
+  if (btn) {
+    btn.classList.add('confirming');
+    btn.title = '再次点击清空队列';
+    btn.setAttribute('aria-label', '再次点击清空队列');
+  }
+  showToast('再次点击即可清空当前队列');
+  queueClearConfirmTimer = setTimeout(resetQueueClearConfirm, 3000);
+}
 function clearQueue() {
   if (typeof cancelPlaylistQueueHydration === 'function') cancelPlaylistQueueHydration('clear-queue');
   playQueue = []; currentIdx = -1;
@@ -765,7 +794,13 @@ function updatePlayModeButton(animate) {
   var chip = document.getElementById('play-mode-chip');
   var btn = document.getElementById('play-mode-btn');
   var icon = document.getElementById('play-mode-icon');
-  if (chip) chip.textContent = label;
+  // The queue panel's mode button reuses the control bar's mode glyphs.
+  var chipLabel = document.getElementById('queue-mode-label');
+  var chipIcon = document.getElementById('queue-mode-icon');
+  if (chipLabel) chipLabel.textContent = label;
+  else if (chip) chip.textContent = label;
+  if (chipIcon) chipIcon.innerHTML = playModeIconMarkup(playMode);
+  if (chip) chip.classList.toggle('active', playMode !== 'loop');
   if (btn) {
     btn.dataset.mode = playMode;
     btn.title = label;
