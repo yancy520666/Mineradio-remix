@@ -955,13 +955,28 @@ Function un.MineradioInstallDirLooksOwned
   ClearErrors
   FileOpen $2 "$0\${MINERADIO_INSTALL_MARKER}" r
   IfErrors owned_marker_done
-  FileRead $2 $3
+  ; customInstall writes a title line before the appId line, so scan the
+  ; (small, bounded) file instead of trusting only its first line.
+  Push $4
+  StrCpy $4 0
+  owned_marker_line:
+    IntOp $4 $4 + 1
+    ${If} $4 > 8
+      Goto owned_marker_lines_done
+    ${EndIf}
+    ClearErrors
+    FileRead $2 $3
+    IfErrors owned_marker_lines_done
+    ${If} $3 == "appId=${MINERADIO_MARKER_APP_ID}"
+    ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\r$\n"
+    ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\n"
+      StrCpy $1 "1"
+      Goto owned_marker_lines_done
+    ${EndIf}
+    Goto owned_marker_line
+  owned_marker_lines_done:
   FileClose $2
-  ${If} $3 == "appId=${MINERADIO_MARKER_APP_ID}"
-  ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\r$\n"
-  ${OrIf} $3 == "appId=${MINERADIO_MARKER_APP_ID}$\n"
-    StrCpy $1 "1"
-  ${EndIf}
+  Pop $4
   owned_marker_done:
   Pop $3
   Pop $2
@@ -1063,14 +1078,6 @@ Function un.MineradioRemoveOwnedTree
   Push $3
   Push $4
   System::Call 'kernel32::GetFileAttributesW(w r0) i.r4'
-  ; Opt-in trace for the CI installer check; silent for normal uninstalls.
-  ReadEnvStr $1 MINERADIO_UNINSTALL_TRACE
-  ${If} $1 == "1"
-    FileOpen $2 "$TEMP\mineradio-uninstall-trace.log" a
-    FileSeek $2 0 END
-    FileWrite $2 "tree $0 attrs=$4$\r$\n"
-    FileClose $2
-  ${EndIf}
   ${If} $4 == -1
     Goto owned_tree_done
   ${EndIf}
@@ -1093,19 +1100,7 @@ Function un.MineradioRemoveOwnedTree
         Push "$3"
         Call un.MineradioRemoveOwnedTree
       ${Else}
-        ClearErrors
         Delete "$3"
-        ${If} ${Errors}
-          ReadEnvStr $4 MINERADIO_UNINSTALL_TRACE
-          ${If} $4 == "1"
-            Push $0
-            FileOpen $0 "$TEMP\mineradio-uninstall-trace.log" a
-            FileSeek $0 0 END
-            FileWrite $0 "delete-failed $3$\r$\n"
-            FileClose $0
-            Pop $0
-          ${EndIf}
-        ${EndIf}
       ${EndIf}
     ${EndIf}
     FindNext $1 $2
@@ -1124,13 +1119,6 @@ FunctionEnd
 Function un.MineradioRemoveInstalledFiles
   Call un.MineradioValidateUninstallDir
   SetOutPath $TEMP
-  ReadEnvStr $0 MINERADIO_UNINSTALL_TRACE
-  ${If} $0 == "1"
-    FileOpen $0 "$TEMP\mineradio-uninstall-trace.log" a
-    FileSeek $0 0 END
-    FileWrite $0 "remove-start instdir=$INSTDIR$\r$\n"
-    FileClose $0
-  ${EndIf}
 
   Delete "$INSTDIR\${PRODUCT_FILENAME}.exe"
   Delete "$INSTDIR\Uninstall ${PRODUCT_FILENAME}.exe"
