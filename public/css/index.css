@@ -7619,7 +7619,9 @@ body.login-guide-active #login-guide-canvas {
 }
 
 .dual-login-modal {
-  width: fit-content;
+  /* Fixed width: fit-content let the collapsed drawer's text (longer for
+     NetEase/Qishui) widen the whole panel when switching platforms. */
+  width: min(720px, calc(100vw - 44px));
   min-width: min(610px, calc(100vw - 44px));
   max-width: min(720px, calc(100vw - 44px));
   max-height: calc(100vh - 42px);
