@@ -62,7 +62,11 @@ function createCookieStore(filePath, options) {
 
   function warn(message, error) {
     if (!logger || typeof logger.warn !== 'function') return;
-    logger.warn(`[CookieStorage] ${label}: ${message}${error && error.message ? ` (${error.message})` : ''}`);
+    // Backend error messages can echo their input. Keep operation diagnostics
+    // and known filesystem codes without logging credential-bearing messages.
+    const code = error && error.code;
+    const suffix = /^(ENOENT|EACCES|EPERM|ENOSPC|EBUSY|EIO|EROFS|EMFILE|ENFILE)$/.test(code || '') ? ` (${code})` : '';
+    logger.warn(`[CookieStorage] ${label}: ${message}${suffix}`);
   }
 
   function write(value) {

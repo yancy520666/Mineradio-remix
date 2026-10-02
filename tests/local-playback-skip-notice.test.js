@@ -4,6 +4,39 @@ const { test } = require('node:test');
 const vm = require('node:vm');
 const { loadFunctions } = require('./helpers/classic-functions');
 
+test('known offline entries do not exhaust the playback failure budget before an available song', async () => {
+  for (const allOffline of [false, true]) {
+    let terminal = 0, visited = 0;
+    const queue = Array.from({ length: 41 }, (_, i) => ({ type: 'local', localFileId: String(i), name: 'fixture-' + i }));
+    const c = vm.createContext({
+      trackSwitchToken: 1, playQueue: queue,
+      window: { desktopWindow: { resolveLocalMusicTrack: async () => ({ localMissing: true }) } },
+      showSourceFallbackNotice() {}, settleSourceFallbackTerminal: () => { terminal++; return false; },
+    });
+    loadFunctions(c, 'public/js/modules/05-playback/13-playback-start-audio.js', ['skipUnavailableLocalQueueSong', 'playLocalQueueSong']);
+    c.playQueueAt = async (index, opts) => {
+      visited++;
+      if (!allOffline && index === 40) return true;
+      c.trackSwitchToken++;
+      return c.playLocalQueueSong(queue[index], index, c.trackSwitchToken, false, opts, 0);
+    };
+    const result = await c.playLocalQueueSong(queue[0], 0, 1, false, {}, 0);
+    assert.equal(result, !allOffline);
+    assert.equal(terminal, allOffline ? 1 : 0);
+    assert.equal(visited, 40, 'scan at most one queue cycle, including over 12 offline entries');
+  }
+});
+
+test('actual local read failures still stop at twelve attempts', async () => {
+  let terminal = 0;
+  const c = vm.createContext({ trackSwitchToken: 1, playQueue: Array.from({ length: 41 }, () => ({ name: 'fixture' })),
+    showSourceFallbackNotice() {}, settleSourceFallbackTerminal: () => { terminal++; return false; } });
+  loadFunctions(c, 'public/js/modules/05-playback/13-playback-start-audio.js', ['skipUnavailableLocalQueueSong']);
+  c.playQueueAt = (index, opts) => c.skipUnavailableLocalQueueSong(c.playQueue[index], index, 1, 'decode failed', opts);
+  assert.equal(await c.skipUnavailableLocalQueueSong(c.playQueue[0], 0, 1, 'decode failed', {}), false);
+  assert.equal(terminal, 1);
+});
+
 test('offline skips name the song, coalesce notices and terminate instead of cycling', async () => {
   const notices = [], attempts = [];
   let terminal = 0;

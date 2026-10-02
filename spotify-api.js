@@ -202,7 +202,8 @@ function readStoredSpotifyToken() {
       authorizedAt: Number(raw.authorizedAt || raw.authorized_at || 0) || 0,
     };
   } catch (err) {
-    console.warn('[SpotifyToken] ignored invalid token file:', file, err.message);
+    // JSON parse errors can include fragments of the credential input.
+    console.warn('[SpotifyToken] ignored invalid token file:', file, err && err.name === 'SyntaxError' ? 'INVALID_JSON' : 'READ_FAILED');
     return { file, accessToken: '', refreshToken: '', expiresAt: 0, invalid: true };
   }
 }

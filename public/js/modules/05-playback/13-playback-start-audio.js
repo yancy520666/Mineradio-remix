@@ -894,16 +894,18 @@ function applyLocalTrackLyricOnDemand(song, token) {
   }).catch(function () { });
 }
 
-function skipUnavailableLocalQueueSong(song, idx, token, reason, opts) {
+function skipUnavailableLocalQueueSong(song, idx, token, reason, opts, knownOffline) {
   if (token !== trackSwitchToken) return false;
-  var skipped = (Number(opts.localMissingChecked) || 0) + 1;
+  var failed = (Number(opts.localMissingChecked) || 0) + (knownOffline ? 0 : 1);
+  var offline = (Number(opts.localOfflineChecked) || 0) + (knownOffline ? 1 : 0);
+  var skipped = failed + offline;
   var noticeKey = opts.localSkipNoticeKey || 'local-skip-' + token;
   var limit = Math.min(playQueue.length, 12);
-  var exhausted = skipped >= limit;
+  var exhausted = skipped >= playQueue.length || failed >= limit;
   showSourceFallbackNotice(exhausted ? '本地播放已停止' : '已跳过本地歌曲' + (skipped > 1 ? '（连续 ' + skipped + ' 首）' : ''),
     '《' + (song && (song.name || song.title) || '本地音乐') + '》：' + reason + (exhausted ? '。请连接磁盘、重新导入文件或选择其他歌曲。' : '，正在播放下一首。'), { coalesceKey: noticeKey });
   if (exhausted) return settleSourceFallbackTerminal(idx, token, '', { silent: true });
-  return playQueueAt((idx + 1) % playQueue.length, Object.assign({}, opts, { localMissingChecked: skipped, localSkipNoticeKey: noticeKey, skipShuffleOrder: true, manual: false, resumeAt: 0 }));
+  return playQueueAt((idx + 1) % playQueue.length, Object.assign({}, opts, { localMissingChecked: failed, localOfflineChecked: offline, localSkipNoticeKey: noticeKey, skipShuffleOrder: true, manual: false, resumeAt: 0 }));
 }
 
 function handleLocalPlaybackReadFailure(media) {
@@ -927,12 +929,12 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
     if (token !== trackSwitchToken) return false;
     if (!resolved || resolved.localMissing) {
       song.localMissing = true;
-      return skipUnavailableLocalQueueSong(song, idx, token, '文件暂时离线或已移动', opts);
+      return skipUnavailableLocalQueueSong(song, idx, token, '文件暂时离线或已移动', opts, true);
     }
     Object.assign(song, resolved);
   }
   if (!song.localUrl) {
-    return skipUnavailableLocalQueueSong(song, idx, token, '本地播放地址已失效', opts);
+    return skipUnavailableLocalQueueSong(song, idx, token, '本地播放地址已失效', opts, true);
   }
   currentLocalSong = song;
   playQueue[idx] = song;
