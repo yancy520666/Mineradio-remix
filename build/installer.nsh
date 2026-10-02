@@ -1063,6 +1063,14 @@ Function un.MineradioRemoveOwnedTree
   Push $3
   Push $4
   System::Call 'kernel32::GetFileAttributesW(w r0) i.r4'
+  ; Opt-in trace for the CI installer check; silent for normal uninstalls.
+  ReadEnvStr $1 MINERADIO_UNINSTALL_TRACE
+  ${If} $1 == "1"
+    FileOpen $2 "$TEMP\mineradio-uninstall-trace.log" a
+    FileSeek $2 0 END
+    FileWrite $2 "tree $0 attrs=$4$\r$\n"
+    FileClose $2
+  ${EndIf}
   ${If} $4 == -1
     Goto owned_tree_done
   ${EndIf}
@@ -1085,7 +1093,19 @@ Function un.MineradioRemoveOwnedTree
         Push "$3"
         Call un.MineradioRemoveOwnedTree
       ${Else}
+        ClearErrors
         Delete "$3"
+        ${If} ${Errors}
+          ReadEnvStr $4 MINERADIO_UNINSTALL_TRACE
+          ${If} $4 == "1"
+            Push $0
+            FileOpen $0 "$TEMP\mineradio-uninstall-trace.log" a
+            FileSeek $0 0 END
+            FileWrite $0 "delete-failed $3$\r$\n"
+            FileClose $0
+            Pop $0
+          ${EndIf}
+        ${EndIf}
       ${EndIf}
     ${EndIf}
     FindNext $1 $2
@@ -1104,6 +1124,13 @@ FunctionEnd
 Function un.MineradioRemoveInstalledFiles
   Call un.MineradioValidateUninstallDir
   SetOutPath $TEMP
+  ReadEnvStr $0 MINERADIO_UNINSTALL_TRACE
+  ${If} $0 == "1"
+    FileOpen $0 "$TEMP\mineradio-uninstall-trace.log" a
+    FileSeek $0 0 END
+    FileWrite $0 "remove-start instdir=$INSTDIR$\r$\n"
+    FileClose $0
+  ${EndIf}
 
   Delete "$INSTDIR\${PRODUCT_FILENAME}.exe"
   Delete "$INSTDIR\Uninstall ${PRODUCT_FILENAME}.exe"
