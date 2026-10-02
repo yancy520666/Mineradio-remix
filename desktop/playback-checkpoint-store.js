@@ -19,6 +19,11 @@ function createPlaybackCheckpointStore(directory, options = {}) {
     return candidates.sort((a, b) => b.savedAt - a.savedAt)[0] || null;
   }
   let committed = read();
+  const initialPrimary = readFile(file);
+  let primaryReady = !!(initialPrimary && committed && initialPrimary.savedAt === committed.savedAt
+    && content(initialPrimary) === content(committed));
+  let latestAcceptedAt = committed ? committed.savedAt : 0;
+  function content(payload) { return JSON.stringify({ ...payload, savedAt: 0, reason: '' }); }
   async function durableReplace(target, payload) {
     const temporary = target + '.tmp';
     const handle = await io.open(temporary, 'w', 0o600);
@@ -30,12 +35,20 @@ function createPlaybackCheckpointStore(directory, options = {}) {
     const payload = normalize(value);
     if (!payload) return Promise.resolve({ ok: false, error: 'INVALID_PLAYBACK_CHECKPOINT' });
     const job = pending.then(async () => {
-      if (committed && payload.savedAt <= committed.savedAt) return { ok: true, skipped: true };
+      if (payload.savedAt <= latestAcceptedAt) return { ok: true, skipped: true };
+      // Timestamp/reason-only changes do not require another durable write.
+      // Keep an in-memory ordering watermark so an older task cannot rewind us.
+      if (primaryReady && committed && content(payload) === content(committed)) {
+        latestAcceptedAt = payload.savedAt;
+        return { ok: true, skipped: true, savedAt: committed.savedAt };
+      }
       try {
         await io.mkdir(directory, { recursive: true });
         if (committed) await durableReplace(backup, committed);
         await durableReplace(file, payload);
         committed = payload;
+        primaryReady = true;
+        latestAcceptedAt = payload.savedAt;
         return { ok: true, savedAt: payload.savedAt };
       } catch (error) { return { ok: false, error: error.code || 'CHECKPOINT_SAVE_FAILED' }; }
     });
