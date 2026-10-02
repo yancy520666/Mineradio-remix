@@ -222,7 +222,12 @@ function updateControlsAutoHideFromPointer(x, y) {
   var rect = bar.getBoundingClientRect();
   var handle = document.getElementById('bottom-handle');
   var hr = handle ? handle.getBoundingClientRect() : null;
-  controlsHovering = (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
+  // Popovers (volume, quality, lyric timing) are bar descendants drawn above
+  // its rectangle; the browser hover state covers them, the rect does not.
+  // A held slider drag may wander outside the popover entirely.
+  var overBarChild = !!(bar._controlsPointerHeld || (typeof bar.matches === 'function' && bar.matches(':hover')));
+  controlsHovering = overBarChild
+    || (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
     || !!(hr && x >= hr.left && x <= hr.right && y >= hr.top && y <= hr.bottom);
   if (!controlsAutoHide) { setControlsHidden(false); return; }
   if (diyPlayerMode) {
@@ -244,7 +249,7 @@ function updateControlsAutoHideFromPointer(x, y) {
   var miniRect = mini ? mini.getBoundingClientRect() : null;
   var overMini = miniQueueOpen && miniRect && x >= miniRect.left - 16 && x <= miniRect.right + 16 && y >= miniRect.top - 16 && y <= miniRect.bottom + 16;
   if (overHandle) wakeBottomHandle();
-  if (overBar || overMini || overHandle) revealBottomControls(overHandle ? 900 : 520);
+  if (overBarChild || overBar || overMini || overHandle) revealBottomControls(overHandle ? 900 : 520);
   else scheduleControlsHide(70);
 }
 
@@ -284,14 +289,23 @@ function applyControlsAutoHidePreference() {
     if (controlsHideTimer) { clearTimeout(controlsHideTimer); controlsHideTimer = null; }
   }
   function leaveControls() {
+    if (bar._controlsPointerHeld) return;
     controlsHovering = false;
     scheduleControlsHide(70);
     wakeBottomHandle(900);
   }
+  function releaseControlsPointer() {
+    if (!bar._controlsPointerHeld) return;
+    bar._controlsPointerHeld = false;
+    if (!(typeof bar.matches === 'function' && bar.matches(':hover'))) leaveControls();
+  }
   bar.addEventListener('mouseenter', enterControls);
   bar.addEventListener('mouseleave', leaveControls);
+  bar.addEventListener('pointerdown', function () { bar._controlsPointerHeld = true; enterControls(); });
+  window.addEventListener('pointerup', releaseControlsPointer, true);
+  window.addEventListener('pointercancel', releaseControlsPointer, true);
   document.addEventListener('mouseleave', leaveControls);
-  window.addEventListener('blur', leaveControls);
+  window.addEventListener('blur', function () { bar._controlsPointerHeld = false; leaveControls(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) leaveControls(); });
   if (handle) {
     handle.addEventListener('mouseenter', function () {
