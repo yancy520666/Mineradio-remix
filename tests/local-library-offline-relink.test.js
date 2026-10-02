@@ -41,3 +41,49 @@ test('version 1 index and capability token remain readable without destructive m
   assert.equal(library.listTracksSync().tracks[0].localFileId, id); assert.equal(library.mediaToken, token);
   assert.equal(fs.readFileSync(library.indexPath, 'utf8'), original);
 });
+
+test('a stale alternate path holding different audio becomes a new song, not the moved one', async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-alternate-hijack-'));
+  try {
+    const music = path.join(temp, 'music'); fs.mkdirSync(path.join(music, 'moved'), { recursive: true });
+    const p1 = path.join(music, 'song.mp3'), p2 = path.join(music, 'moved', 'song.mp3');
+    const library = new LocalMusicLibrary({ userDataPath: temp, parseMetadata: async file => ({ common: { title: fs.readFileSync(file, 'utf8').slice(0, 6) } }) });
+    fs.writeFileSync(p1, 'SONG-A audio bytes');
+    const a = (await library.importFiles([p1])).tracks[0].localKey;
+    fs.renameSync(p1, p2);
+    await library.importFiles([p2]);
+    fs.writeFileSync(p1, 'SONG-B different bytes');
+    await library.importFiles([p1]);
+    const byId = new Map((await library.listTracks()).tracks.map(t => [t.localKey, t.name]));
+    assert.equal(byId.get(a), 'SONG-A', 'playlists referencing the moved song keep playing it');
+    assert.equal(byId.size, 2);
+    assert.ok(!(library.records.get(a).alternatePaths || []).some(file => path.resolve(file) === path.resolve(p1)), 'the moved song no longer falls back to the reused path');
+    // Re-tagging the primary file in place still updates the same record.
+    fs.writeFileSync(p2, 'SONG-A retagged bytes');
+    await library.importFiles([p2]);
+    assert.equal(new Map((await library.listTracks()).tracks.map(t => [t.localKey, t.name])).get(a), 'SONG-A');
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test('a replaced file at an old location is not played under the moved song', async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-alternate-size-'));
+  try {
+    const music = path.join(temp, 'music'); fs.mkdirSync(path.join(music, 'moved'), { recursive: true });
+    const p1 = path.join(music, 'song.mp3'), p2 = path.join(music, 'moved', 'song.mp3');
+    const library = new LocalMusicLibrary({ userDataPath: temp, parseMetadata: async () => ({ common: { title: 'A' } }) });
+    fs.writeFileSync(p1, 'SONG-A audio bytes');
+    const a = (await library.importFiles([p1])).tracks[0].localKey;
+    fs.renameSync(p1, p2);
+    await library.importFiles([p2]);
+    fs.writeFileSync(p1, 'another recording, different length');
+    fs.rmSync(p2);
+    const listed = await library.listTracks();
+    assert.equal(listed.tracks.some(t => t.localKey === a), false, 'shown as offline instead of resolving to the replaced file');
+    fs.writeFileSync(p1, 'SONG-A audio bytes');
+    assert.equal((await library.listTracks()).tracks.some(t => t.localKey === a), true, 'the same content at the old location still works');
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});

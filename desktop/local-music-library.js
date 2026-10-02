@@ -84,9 +84,24 @@ function localFileId(filePath) {
   return crypto.createHash('sha256').update(normalizedPathIdentity(filePath)).digest('hex').slice(0, 24);
 }
 
+// Alternates hold the same content as the primary, so their size must match
+// the size recorded at import. A replaced file at an old location is skipped
+// instead of being played under this song's name.
+function recordedAudioSize(record) {
+  const size = parseInt(String(record && record.revision || '').split('-')[1] || '', 36);
+  return Number.isFinite(size) && size > 0 ? size : 0;
+}
+
+function audioCandidateUsable(record, file, stat, isPrimary) {
+  if (!stat || !stat.isFile()) return false;
+  const expected = recordedAudioSize(record);
+  return isPrimary || !expected || stat.size === expected;
+}
+
 function availableAudioPath(record) {
-  for (const file of [record.audioPath, ...(record.alternatePaths || [])]) {
-    try { if (fs.statSync(file).isFile()) return file; } catch (_) {}
+  const files = [record.audioPath, ...(record.alternatePaths || [])];
+  for (let index = 0; index < files.length; index += 1) {
+    try { if (audioCandidateUsable(record, files[index], fs.statSync(files[index]), index === 0)) return files[index]; } catch (_) {}
   }
   return '';
 }
@@ -406,8 +421,11 @@ class LocalMusicLibrary {
       const record = this.records.get(this.order[index]);
       if (record) {
         let available = '';
-        for (const file of [record.audioPath, ...(record.alternatePaths || [])]) {
-          try { if ((await fs.promises.stat(file)).isFile()) { available = file; break; } } catch (_) {}
+        const files = [record.audioPath, ...(record.alternatePaths || [])];
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+          try {
+            if (audioCandidateUsable(record, files[fileIndex], await fs.promises.stat(files[fileIndex]), fileIndex === 0)) { available = files[fileIndex]; break; }
+          } catch (_) {}
         }
         if (available) tracks.push(this.serializeRecord(record, available));
         else missing++;
@@ -499,12 +517,18 @@ class LocalMusicLibrary {
       throw error;
     }
     const identity = normalizedPathIdentity(entry.path);
-    const previous = existingPaths ? existingPaths.get(identity) : this.records.get(localFileId(entry.path));
-    let id = previous ? previous.id : localFileId(entry.path);
-    if (!previous && this.records.has(id)) id = crypto.randomBytes(12).toString('hex');
     const fingerprint = await audioFingerprint(entry.path);
     const afterHash = await fs.promises.stat(entry.path);
     if (afterHash.size !== stat.size || afterHash.mtimeMs !== stat.mtimeMs) throw new Error('LOCAL_AUDIO_CHANGED_DURING_IMPORT');
+    let previous = existingPaths ? existingPaths.get(identity) : this.records.get(localFileId(entry.path));
+    // A path keeps its record when it is that record's primary file (e.g. a
+    // re-tagged song) or still holds the same content. A stale alternate
+    // location that now holds different audio is a new song, never a reason
+    // to overwrite the moved recording that other playlists still reference.
+    if (previous && normalizedPathIdentity(previous.audioPath) !== identity
+      && previous.fingerprint && previous.fingerprint !== fingerprint) previous = null;
+    let id = previous ? previous.id : localFileId(entry.path);
+    if (!previous && this.records.has(id)) id = crypto.randomBytes(12).toString('hex');
     let metadata = {};
     let metadataError = '';
     try {
@@ -618,6 +642,17 @@ class LocalMusicLibrary {
           if (!record.coverPath && existing.coverPath) { record.coverPath = existing.coverPath; record.coverMime = existing.coverMime; }
           // Keep the canonical ID so built-in playlists/history survive a move.
           if (existing.coverPath && existing.coverPath !== record.coverPath) cleanupAfterCommit.add(existing.coverPath);
+        }
+        // This path now belongs to another record: stop the old record from
+        // falling back to it. Copy before editing so a failed commit leaves
+        // the live records untouched.
+        const pathIdentity = normalizedPathIdentity(record.audioPath);
+        const formerOwner = existingPaths.get(pathIdentity);
+        const ownerRecord = formerOwner && formerOwner.id !== record.id ? nextRecords.get(formerOwner.id) : null;
+        if (ownerRecord && (ownerRecord.alternatePaths || []).some(file => normalizedPathIdentity(file) === pathIdentity)) {
+          nextRecords.set(ownerRecord.id, Object.assign({}, ownerRecord, {
+            alternatePaths: ownerRecord.alternatePaths.filter(file => normalizedPathIdentity(file) !== pathIdentity),
+          }));
         }
         const prior = nextRecords.get(record.id);
         if (prior && prior.fingerprint && prior.fingerprint !== record.fingerprint && fingerprints.get(prior.fingerprint) === prior.id) fingerprints.delete(prior.fingerprint);
