@@ -1108,16 +1108,23 @@
             <div class="fx-sub">QUEUE · 鼠标移开自动隐藏</div>
           </div>
           <div class="queue-head-act">
-            <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn"
-              onclick="togglePlaylistPanelPinned()" title="常开歌单" aria-label="常开歌单"><svg viewBox="0 0 24 24" width="15"
-                height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M14 4l6 6" />
-                <path d="M5 15l4 4" />
-                <path d="M14 4l-2 5-4 4-3 2 4 4 2-3 4-4 5-2z" />
-                <path d="M9 19l-4 4" />
+            <button id="playlist-pin-btn" class="fx-mini-btn ghost playlist-pin-btn queue-head-icon-btn"
+              onclick="togglePlaylistPanelPinned()" title="常开歌单" aria-label="常开歌单"><svg viewBox="0 0 24 24" width="16"
+                height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+                stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 17v5" />
+                <path class="pin-head"
+                  d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
               </svg></button>
-            <button class="fx-mini-btn ghost" onclick="shuffleQueue()">随机</button>
+            <button class="fx-mini-btn ghost queue-head-icon-btn" onclick="shuffleQueue()" title="随机打乱队列"
+              aria-label="随机打乱队列"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m18 14 4 4-4 4" />
+                <path d="m18 2 4 4-4 4" />
+                <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-7.6a4 4 0 0 1 3.3-1.7H22" />
+                <path d="M2 6h1.972a4 4 0 0 1 3.289 1.722l.807 1.183" />
+                <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+              </svg></button>
           </div>
         </div>
         <div class="panel-tabs">

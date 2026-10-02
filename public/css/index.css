@@ -14028,7 +14028,7 @@ html:fullscreen body.desktop-shell #playlist-panel {
 .queue-head-act {
   display: flex;
   align-items: center;
-  gap: 6px
+  gap: 8px
 }
 
 .playlist-pin-btn {
@@ -14036,6 +14036,52 @@ html:fullscreen body.desktop-shell #playlist-panel {
   min-width: 30px;
   flex: 0 0 auto;
   padding: 0
+}
+
+/* Header actions: equal square icon buttons instead of an icon next to a
+   cramped text button. */
+#playlist-panel .queue-head-icon-btn {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease
+}
+
+#playlist-panel .queue-head-icon-btn:hover {
+  transform: translateY(-1px)
+}
+
+#playlist-panel .queue-head-icon-btn:active {
+  transform: translateY(0) scale(.96)
+}
+
+#playlist-panel .queue-head-icon-btn svg {
+  display: block;
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1)
+}
+
+/* Unpinned: the pin leans, as if not pressed in. Pinned: upright, head filled. */
+#playlist-panel .playlist-pin-btn svg {
+  transform: rotate(38deg)
+}
+
+#playlist-panel .playlist-pin-btn.active svg {
+  transform: rotate(0deg)
+}
+
+#playlist-panel .playlist-pin-btn .pin-head {
+  fill: currentColor;
+  fill-opacity: 0;
+  transition: fill-opacity .24s ease
+}
+
+#playlist-panel .playlist-pin-btn.active .pin-head {
+  fill-opacity: .32
 }
 
 .playlist-pin-btn.active {
