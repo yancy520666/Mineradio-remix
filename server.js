@@ -63,6 +63,7 @@ const crypto = require('crypto');
 const tls = require('tls');
 const { createCookieStore } = require('./cookie-storage');
 const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
+const { createSpillRelay, cleanupStaleSpillFiles, defaultSpillDirectory } = require('./audio-spill-relay');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -139,6 +140,8 @@ const qishuiAudioDecryptor = new TrackDecryptor();
 const qishuiAudioDecryptCache = new Map();
 const QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES = 96 * 1024 * 1024;
 const qishuiAudioDecryptInflight = new Map();
+const AUDIO_SPILL_DIR = defaultSpillDirectory();
+cleanupStaleSpillFiles(AUDIO_SPILL_DIR);
 // Well above a long hi-res FLAC track; stops a hostile or broken upstream
 // from growing the in-memory buffer without limit.
 const QISHUI_AUDIO_ENCRYPTED_MAX_BYTES = 256 * 1024 * 1024;
@@ -6694,6 +6697,9 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(up.status, out);
       if (!up.body) { res.end(); return; }
       const reader = up.body.getReader();
+      // Upstream is still read as fast as before; only bytes the player has
+      // not taken yet are capped in memory and spill to a temp file.
+      const relay = createSpillRelay(res, { directory: AUDIO_SPILL_DIR });
       let clientClosed = false;
       const closeReader = () => {
         clientClosed = true;
@@ -6704,16 +6710,19 @@ const server = http.createServer(async (req, res) => {
         while (!clientClosed) {
           const c = await readStreamChunkWithTimeout(reader, 12000);
           if (c.done) break;
-          res.write(c.value);
+          await relay.push(c.value);
         }
+      } catch (error) {
+        relay.abort();
+        throw error;
       } finally {
         res.removeListener('close', closeReader);
         if (clientClosed) {
           try { await reader.cancel(); } catch (_) {}
         }
       }
-      if (clientClosed) return;
-      res.end();
+      if (clientClosed) { relay.abort(); return; }
+      await relay.end();
     } catch (err) {
       console.error('[Audio]', err && (err.code || err.name || err.message || 'AUDIO_PROXY_FAILED'));
       if (res.headersSent) {
