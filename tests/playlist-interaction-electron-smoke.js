@@ -28,6 +28,7 @@ if (!process.argv.includes('--child')) {
   // Fixtures intentionally leave production background throttling enabled.
   app.on('browser-window-created', (_event, win) => win.webContents.session.webRequest.onBeforeRequest({ urls: ['https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'] }, (_details, callback) => callback({ cancel: true })));
   require('../desktop/main');
+  require('./helpers/electron-frames').keepTestWindowFramesRunning(app);
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   app.whenReady().then(async () => {
     const deadline = Date.now() + 25000;
