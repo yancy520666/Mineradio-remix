@@ -2549,6 +2549,52 @@ async function readKugouLoginCookieHeader(cookieSession) {
   return buildCookieHeaderFor(cookies, isKugouCookieDomain, KUGOU_LOGIN_COOKIE_PRIORITY);
 }
 
+// Official login pages paint a blank white document seconds before their QR
+// is usable. Show the window when the page is ready (or after a fallback, so
+// a slow or failed load is still visible) instead of on the first paint.
+function revealLoginWindowWhenReady(win, options) {
+  options = options || {};
+  let revealed = false;
+  const show = typeof options.show === 'function' ? options.show : () => { win.show(); win.focus(); };
+  const reveal = () => {
+    if (revealed || !win || win.isDestroyed()) return;
+    revealed = true;
+    clearTimeout(fallbackTimer);
+    show();
+  };
+  const fallbackTimer = setTimeout(reveal, options.fallbackMs || 8000);
+  if (fallbackTimer && typeof fallbackTimer.unref === 'function') fallbackTimer.unref();
+  win.once('closed', () => clearTimeout(fallbackTimer));
+  win.webContents.on('did-fail-load', (_event, code, _desc, _url, isMainFrame) => {
+    if (isMainFrame && code !== -3) reveal();
+  });
+  return reveal;
+}
+
+// music.163.com/#/login renders the QR itself; only click a login entry if
+// the QR has not appeared after a while, and never toggle it repeatedly.
+function neteaseLoginPageScript(clickLogin) {
+  return `((clickLogin) => {
+  const docs = [document];
+  document.querySelectorAll('iframe').forEach((frame) => {
+    try { if (frame.contentDocument) docs.push(frame.contentDocument); } catch (_) {}
+  });
+  const visible = (node) => { const r = node.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  let qr = false;
+  let loginButton = null;
+  for (const doc of docs) {
+    for (const node of doc.querySelectorAll('a, button, span, div, p')) {
+      if (!visible(node)) continue;
+      const text = (node.textContent || '').trim();
+      if (text.length < 24 && /扫码登录/.test(text)) qr = true;
+      if (!loginButton && /^(登录|立即登录)$/.test(text)) loginButton = node;
+    }
+  }
+  if (clickLogin && !qr && loginButton) loginButton.click();
+  return { qr, login: !!loginButton };
+})(${clickLogin ? 'true' : 'false'})`;
+}
+
 async function openNeteaseMusicLoginWindow(owner) {
   const cookieSession = session.fromPartition(NETEASE_LOGIN_PARTITION);
   const initialCookie = await readNeteaseLoginCookieHeader(cookieSession);
@@ -2608,30 +2654,24 @@ async function openNeteaseMusicLoginWindow(owner) {
       return { action: 'deny' };
     });
 
-    loginWindow.webContents.on('did-finish-load', () => {
-      checkCookies();
-      loginWindow.webContents.executeJavaScript(`
-        setTimeout(() => {
-          const docs = [document];
-          document.querySelectorAll('iframe').forEach((frame) => {
-            try { if (frame.contentDocument) docs.push(frame.contentDocument); } catch (_) {}
-          });
-          for (const doc of docs) {
-            const nodes = Array.from(doc.querySelectorAll('a, button, span, div'));
-            const loginNode = nodes.find((node) => {
-              const text = (node.textContent || '').trim();
-              if (!/登录|立即登录/.test(text)) return false;
-              const rect = node.getBoundingClientRect();
-              return rect.width > 0 && rect.height > 0;
-            });
-            if (loginNode) { loginNode.click(); return true; }
-          }
-          return false;
-        }, 900);
-      `, true).catch(() => {});
-    });
+    const revealLoginWindow = revealLoginWindowWhenReady(loginWindow);
+    let qrWatch = 0;
+    const waitForLoginQr = async () => {
+      const watch = ++qrWatch;
+      for (let attempt = 0; attempt < 16; attempt += 1) {
+        if (settled || watch !== qrWatch || loginWindow.isDestroyed()) return;
+        const clickLogin = attempt === 4 || attempt === 8;
+        // webContents.executeJavaScript waits for the page to stop loading,
+        // which music.163.com rarely does quickly; the frame API runs now.
+        const state = await loginWindow.webContents.mainFrame.executeJavaScript(neteaseLoginPageScript(clickLogin), true).catch(() => null);
+        if (state && state.qr) { revealLoginWindow(); return; }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 500));
+      }
+      revealLoginWindow();
+    };
 
-    loginWindow.on('ready-to-show', () => loginWindow.show());
+    loginWindow.webContents.on('dom-ready', waitForLoginQr);
+    loginWindow.webContents.on('did-finish-load', checkCookies);
     loginWindow.on('closed', async () => {
       if (settled) return;
       if (pollTimer) clearInterval(pollTimer);
@@ -2836,6 +2876,8 @@ async function openQQMusicLoginWindow(owner, options) {
       if (!isRoot) win.webContents.on('did-finish-load', checkCookies);
     };
     installQQLoginWindowHandlers(loginWindow, true);
+    // Show once the page has content rather than on the blank first paint.
+    loginWindow.webContents.on('dom-ready', showLoginWindow);
 
     loginWindow.webContents.on('did-finish-load', () => {
       checkCookies();
@@ -2854,7 +2896,6 @@ async function openQQMusicLoginWindow(owner, options) {
       `, true).catch(() => {});
     });
 
-    loginWindow.on('ready-to-show', showLoginWindow);
     loginWindow.on('closed', async () => {
       if (settled) return;
       settled = true;
@@ -2956,6 +2997,9 @@ async function openKugouMusicLoginWindow(owner, options) {
       return { action: 'deny' };
     });
 
+    const revealLoginWindow = revealLoginWindowWhenReady(loginWindow);
+    // Content is usable at DOM ready; full load can stall on page resources.
+    loginWindow.webContents.on('dom-ready', revealLoginWindow);
     loginWindow.webContents.on('did-finish-load', () => {
       checkCookies();
       loginWindow.webContents.executeJavaScript(`
@@ -2971,8 +3015,6 @@ async function openKugouMusicLoginWindow(owner, options) {
         }, 700);
       `, true).catch(() => {});
     });
-
-    loginWindow.on('ready-to-show', () => loginWindow.show());
     loginWindow.on('closed', async () => {
       if (settled) return;
       if (pollTimer) clearInterval(pollTimer);
