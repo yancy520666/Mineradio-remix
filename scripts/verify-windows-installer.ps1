@@ -91,7 +91,19 @@ if (-not $uninstaller.WaitForExit(120000)) { throw 'Uninstaller timed out.' }
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
 while (((Test-Path -LiteralPath (Join-Path $target '.mineradio-remix-install-root')) -or @(Find-Install).Count -ne 0) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 200 }
 foreach ($name in @('resources', 'locales', 'swiftshader', 'MineradioRemix.exe', '.mineradio-remix-install-root')) {
-  if (Test-Path -LiteralPath (Join-Path $target $name)) { throw "Owned file left by uninstaller: $name" }
+  $leftover = Join-Path $target $name
+  if (Test-Path -LiteralPath $leftover) {
+    # Evidence for the failure: what remains and whether anything still runs
+    # from the installation (a lingering process keeps files locked).
+    Write-Output "UNINSTALL_LEFTOVER_ROOT: $name"
+    Get-ChildItem -LiteralPath $leftover -Recurse -Force -ErrorAction SilentlyContinue | Select-Object -First 40 | ForEach-Object {
+      Write-Output ("UNINSTALL_LEFTOVER: {0} attrs={1}" -f $_.FullName.Substring($target.Length), $_.Attributes)
+    }
+    Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($target, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object {
+      Write-Output ("UNINSTALL_RUNNING: {0} {1}" -f $_.ProcessId, $_.ExecutablePath)
+    }
+    throw "Owned file left by uninstaller: $name"
+  }
 }
 if (@(Find-Install).Count -ne 0) { throw 'Uninstall registry entry was left behind.' }
 foreach ($directory in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
