@@ -8636,6 +8636,58 @@ body.login-guide-active #login-guide-canvas {
   margin: 0
 }
 
+/* No QR yet: Chromium draws a grey placeholder frame for an img without
+   src, so hide the img and paint the same white card on the shell. */
+.qr-shell #qr-img:not([src]) {
+  visibility: hidden
+}
+
+.qr-shell:not(.web-login-preview):has(> #qr-img:not([src]))::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .32), 0 0 0 1px rgba(244, 210, 138, .18);
+  pointer-events: none
+}
+
+.login-auth-drawer .qr-shell:not(.web-login-preview):has(> #qr-img:not([src]))::before {
+  border-radius: 10px
+}
+
+/* QR is being generated: keep the white card, spin over it. */
+.qr-shell.qr-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, .10);
+  border-top-color: rgba(176, 132, 52, .9);
+  animation: qr-loading-spin .8s linear infinite;
+  pointer-events: none
+}
+
+.qr-shell.web-login-preview.qr-loading::after {
+  display: none
+}
+
+@keyframes qr-loading-spin {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-shell.qr-loading::after {
+    animation-duration: 2.4s
+  }
+}
+
 .qr-shell.web-login-preview {
   display: flex;
   align-items: center;
