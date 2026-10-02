@@ -58,8 +58,8 @@ if (!process.argv.includes('--child')) {
     while (Date.now() < deadline && !await win.webContents.executeJavaScript('splashReadyToEnter')) await sleep(100);
     const entry = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, duration: getComputedStyle(el).animationDuration, age: performance.now() - splashStartedAt, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState}))}; })()');
     assert(entry.ready, 'entry must be available without waiting for the entire logo');
-    assert.equal(entry.duration, '5.2s', 'logo must preserve upstream speed');
-    if (entry.age < 5000) assert(entry.animations.some(a => a.playState === 'running'), 'logo should continue after entry becomes available');
+    assert.equal(entry.duration, '3.75s', 'logo keeps the 0.72x intro pace');
+    if (entry.age < 3600) assert(entry.animations.some(a => a.playState === 'running'), 'logo should continue after entry becomes available');
     await sleep(Math.max(0, 5400 - entry.age));
     // CSS and the script clock start with the page, as in upstream.
     while (Date.now() < deadline && !await win.webContents.executeJavaScript('document.querySelector(".splash-word-radio").getAnimations().every(a => a.playState === "finished")')) await sleep(100);
