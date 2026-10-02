@@ -1040,7 +1040,7 @@ Function un.MineradioValidateUninstallDir
   Call un.MineradioNormalizeInstallDir
   Pop $1
   ${If} $0 != $1
-    MessageBox MB_OK|MB_ICONSTOP "当前卸载路径不是 Mineradio 专属目录，已阻止卸载以避免误删其它文件。$\r$\n$\r$\n当前路径：$INSTDIR$\r$\n安全路径应为：$0"
+    MessageBox MB_OK|MB_ICONSTOP "当前卸载路径不是 Mineradio 专属目录，已阻止卸载以避免误删其它文件。$\r$\n$\r$\n当前路径：$INSTDIR$\r$\n安全路径应为：$0" /SD IDOK
     SetErrorLevel 2
     Quit
   ${EndIf}
@@ -1055,7 +1055,7 @@ Function un.MineradioValidateUninstallDir
     StrCpy $2 0
   ${EndIf}
   ${If} $2 != 0
-    MessageBox MB_OK|MB_ICONSTOP "安装目录是目录联接或符号链接，已阻止卸载以避免删除链接目标。"
+    MessageBox MB_OK|MB_ICONSTOP "安装目录是目录联接或符号链接，已阻止卸载以避免删除链接目标。" /SD IDOK
     SetErrorLevel 2
     Quit
   ${EndIf}
@@ -1064,7 +1064,7 @@ Function un.MineradioValidateUninstallDir
   Call un.MineradioInstallDirLooksOwned
   Pop $0
   ${If} $0 != "1"
-    MessageBox MB_OK|MB_ICONSTOP "无法确认当前目录属于 Mineradio，已阻止卸载以避免误删其它文件。$\r$\n$\r$\n当前路径：$INSTDIR"
+    MessageBox MB_OK|MB_ICONSTOP "无法确认当前目录属于 Mineradio，已阻止卸载以避免误删其它文件。$\r$\n$\r$\n当前路径：$INSTDIR" /SD IDOK
     SetErrorLevel 2
     Quit
   ${EndIf}
