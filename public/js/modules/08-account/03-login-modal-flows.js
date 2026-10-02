@@ -198,8 +198,28 @@ function selectLoginProviderNode(provider) {
   }
   provider = normalizeLoginProviderKey(provider);
   setLoginProvider(provider, true);
-  setLoginAuthDrawerOpen(hasLoginWorkflowConnection(provider) || loginWorkflowPendingProvider === provider);
+  var drawerOpen = hasLoginWorkflowConnection(provider) || loginWorkflowPendingProvider === provider;
+  setLoginAuthDrawerOpen(drawerOpen);
   updateLoginProviderUi();
+  // Selecting an already-connected QR provider opens the drawer directly;
+  // start the QR there too instead of leaving an empty card.
+  if (drawerOpen) ensureLoginInlineQr();
+}
+function loginProviderUsesInlineQr(provider) {
+  if (provider === 'qishui') return true;
+  if (provider !== 'netease') return false;
+  return !(window.desktopWindow && typeof window.desktopWindow.openNeteaseMusicLogin === 'function');
+}
+function ensureLoginInlineQr() {
+  if (!loginProviderUsesInlineQr(loginProvider) || loginWorkflowActiveMode() !== 'official') return;
+  var img = document.getElementById('qr-img');
+  if (qrKey && img && img.getAttribute('src') && img.getAttribute('data-qr-provider') === loginProvider) {
+    // Closing the drawer stops polling; resume it for the QR still on screen.
+    startQrPoll();
+    return;
+  }
+  if (loginProvider === 'qishui') openQishuiWebLogin();
+  else refreshQr();
 }
 function connectLoginProviderToMr(provider) {
   provider = normalizeLoginProviderKey(provider);
@@ -1037,6 +1057,35 @@ function updateLoginProviderUi() {
   }
   updateLoginNodeGraphUi();
 }
+// An empty src resolves to the page URL and renders a broken-image icon.
+// Remove the attribute instead and show a spinner until the QR has decoded.
+function setLoginQrLoading(loading) {
+  var shell = document.getElementById('qr-shell');
+  if (shell) shell.classList.toggle('qr-loading', !!loading);
+}
+function clearLoginQrImage(img) {
+  img = img || document.getElementById('qr-img');
+  if (!img) return;
+  img.onload = null;
+  img.onerror = null;
+  img.removeAttribute('src');
+  img.removeAttribute('data-qr-provider');
+  img.alt = '';
+  setLoginQrLoading(false);
+}
+function showLoginQrImage(img, src, alt) {
+  img = img || document.getElementById('qr-img');
+  if (!img) { setLoginQrLoading(false); return; }
+  img.onload = function () { if (img.getAttribute('src') === src) setLoginQrLoading(false); };
+  img.onerror = function () {
+    if (img.getAttribute('src') !== src) return;
+    clearLoginQrImage(img);
+    setLoginQrLoading(false);
+  };
+  img.alt = alt || '';
+  img.setAttribute('data-qr-provider', loginProvider);
+  img.src = src;
+}
 async function refreshQr() {
   stopQrPoll();
   updateLoginProviderUi();
@@ -1046,7 +1095,7 @@ async function refreshQr() {
     qrKey = null;
     var spotifyStatus = document.getElementById('qr-status');
     var spotifyImg = document.getElementById('qr-img');
-    if (spotifyImg) spotifyImg.src = '';
+    clearLoginQrImage(spotifyImg);
     var spotifyInfo = await refreshSpotifyLoginStatus();
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     updateLoginProviderUi();
@@ -1060,8 +1109,9 @@ async function refreshQr() {
     qrKey = null;
     var qishuiStatus = document.getElementById('qr-status');
     var qishuiImg = document.getElementById('qr-img');
-    if (qishuiImg) qishuiImg.src = '';
+    clearLoginQrImage(qishuiImg);
     qishuiOAuthBusy = true;
+    setLoginQrLoading(true);
     updateLoginProviderUi();
     try {
       var qishuiQr = await apiJson('/api/qishui/login/qrcode?t=' + Date.now());
@@ -1070,10 +1120,7 @@ async function refreshQr() {
         throw new Error((qishuiQr && (qishuiQr.message || qishuiQr.error)) || '生成汽水音乐二维码失败');
       }
       qrKey = qishuiQr.token;
-      if (qishuiImg) {
-        qishuiImg.src = qishuiQr.qrcode;
-        qishuiImg.alt = '汽水音乐登录二维码';
-      }
+      showLoginQrImage(qishuiImg, qishuiQr.qrcode, '汽水音乐登录二维码');
       if (qishuiStatus) {
         qishuiStatus.textContent = '请使用抖音 App 扫码并确认登录';
         qishuiStatus.className = '';
@@ -1081,6 +1128,7 @@ async function refreshQr() {
       startQrPoll();
     } catch (e) {
       if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
+      setLoginQrLoading(false);
       if (qishuiStatus) {
         qishuiStatus.textContent = '出错: ' + (e && e.message ? e.message : e);
         qishuiStatus.className = 'fail';
@@ -1099,7 +1147,7 @@ async function refreshQr() {
     qrKey = null;
     var qqStatus = document.getElementById('qr-status');
     var qqImg = document.getElementById('qr-img');
-    if (qqImg) qqImg.src = '';
+    clearLoginQrImage(qqImg);
     var info = await refreshQQVipStatusNow('login-panel');
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (qqStatus) {
@@ -1112,7 +1160,7 @@ async function refreshQr() {
     qrKey = null;
     var kugouStatus = document.getElementById('qr-status');
     var kugouImg = document.getElementById('qr-img');
-    if (kugouImg) kugouImg.src = '';
+    clearLoginQrImage(kugouImg);
     var kugouInfo = await refreshKugouLoginStatus();
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (kugouStatus) {
@@ -1125,13 +1173,16 @@ async function refreshQr() {
     qrKey = null;
     var neImg = document.getElementById('qr-img');
     var neStatus = document.getElementById('qr-status');
-    if (neImg) neImg.src = '';
+    clearLoginQrImage(neImg);
     if (neStatus) {
       neStatus.textContent = loginStatus.loggedIn ? ('已保存网易云会话 · ' + (loginStatus.nickname || '')) : '点击“网页登录”打开网易云官方窗口';
       neStatus.className = 'preview';
     }
     return;
   }
+  var neQrImg = document.getElementById('qr-img');
+  clearLoginQrImage(neQrImg);
+  setLoginQrLoading(true);
   try {
     var k = await apiJson('/api/login/qr/key');
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
@@ -1140,11 +1191,12 @@ async function refreshQr() {
     var q = await apiJson('/api/login/qr/create?key=' + encodeURIComponent(qrKey));
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (!q.img) throw new Error('生成二维码失败');
-    document.getElementById('qr-img').src = q.img;
+    showLoginQrImage(neQrImg, q.img, '网易云音乐登录二维码');
     document.getElementById('qr-status').textContent = '请使用网易云音乐 App 扫码';
     startQrPoll();
   } catch (e) {
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
+    setLoginQrLoading(false);
     document.getElementById('qr-status').textContent = '出错: ' + e.message;
     document.getElementById('qr-status').className = 'fail';
   }
@@ -1205,6 +1257,8 @@ async function pollQishuiQr(generation) {
     var qrStatus = String(result && result.status || 'waiting');
     if (code === 2 || qrStatus === 'expired' || qrStatus === 'reauth_required' || result && result.reauthRequired) {
       stopQrPoll();
+      // A dead QR must be regenerated, not resumed, when the drawer reopens.
+      qrKey = null;
       if (statusEl) {
         statusEl.textContent = result && result.reauthRequired ? '登录状态已失效，请刷新二维码后重新扫码' : '二维码已过期，请刷新';
         statusEl.className = 'fail';
@@ -1568,7 +1622,7 @@ async function checkQr() {
   try {
     var r = await apiJson('/api/login/qr/check?key=' + encodeURIComponent(qrKey));
     var $st = document.getElementById('qr-status');
-    if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; stopQrPoll(); }
+    if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; stopQrPoll(); qrKey = null; }
     else if (r.code === 801) { $st.textContent = '请在 App 中扫码'; $st.className = ''; }
     else if (r.code === 802) { $st.textContent = '已扫码, 请在手机确认…'; $st.className = 'scan'; }
     else if (r.code === 803 && (r.loggedIn || r.hasCookie)) {
