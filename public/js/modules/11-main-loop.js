@@ -682,7 +682,7 @@ function animate() {
       scene: scene,
       fx: fx,
       time: uniforms.uTime.value,
-      audio: { bass: bass, mid: mid, treble: treble, beat: beatPulse, energy: audioEnergy }
+      audio: sonicAudioFrame || { bass: bass, mid: mid, treble: treble, beat: beatPulse, energy: audioEnergy }
     });
   }
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.sonic-workshop', sonicWorkshopPerfStart);
