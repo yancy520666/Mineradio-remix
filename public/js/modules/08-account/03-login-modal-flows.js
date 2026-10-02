@@ -515,7 +515,10 @@ function selectLoginMode(mode) {
   }
   setManualCookieOpenForProvider(loginProvider, mode === 'cookie');
   updateLoginProviderUi();
-  setLoginAuthDrawerOpen(hasLoginWorkflowConnection(loginProvider) || loginWorkflowPendingProvider === loginProvider);
+  var drawerOpen = hasLoginWorkflowConnection(loginProvider) || loginWorkflowPendingProvider === loginProvider;
+  setLoginAuthDrawerOpen(drawerOpen);
+  // The MR "扫码" mode button opens the same drawer as selecting the node.
+  if (drawerOpen) ensureLoginInlineQr();
 }
 function startSelectedLoginConnection() {
   if (!hasLoginWorkflowConnection(loginProvider) && loginWorkflowPendingProvider !== loginProvider) {

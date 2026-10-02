@@ -90,8 +90,11 @@ function drawerFixture(overrides) {
     openQishuiWebLogin() { calls.push('generate-qishui'); },
     refreshQr() { calls.push('generate-netease'); },
     startQrPoll() { calls.push('resume-poll'); },
+    loginProviderSupportsCookieMode: p => p !== 'qishui',
+    setManualCookieOpenForProvider() {},
+    showToast() {},
   }, overrides || {}));
-  loadFunctions(ctx, 'public/js/modules/08-account/03-login-modal-flows.js', ['selectLoginProviderNode', 'loginProviderUsesInlineQr', 'ensureLoginInlineQr']);
+  loadFunctions(ctx, 'public/js/modules/08-account/03-login-modal-flows.js', ['selectLoginProviderNode', 'selectLoginMode', 'loginProviderUsesInlineQr', 'ensureLoginInlineQr']);
   return { ctx, calls, attrs };
 }
 
@@ -132,4 +135,10 @@ test('web-window providers, cookie mode and an unconnected node do not generate 
   const closed = drawerFixture({ hasLoginWorkflowConnection: () => false });
   closed.ctx.selectLoginProviderNode('qishui');
   assert.deepEqual(closed.calls, ['drawer:false']);
+});
+
+test('the MR scan-mode button also generates the QR for a connected Qishui node', () => {
+  const { ctx, calls } = drawerFixture();
+  ctx.selectLoginMode('official');
+  assert.deepEqual(calls, ['drawer:true', 'generate-qishui']);
 });
