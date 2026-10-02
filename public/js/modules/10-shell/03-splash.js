@@ -674,9 +674,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   armSplashSoundFallback();
   prewarmHomeWallpaperPreview();
+  // An early click is a request to skip, not a click to ignore. Only the
+  // first moments are guarded so the shortcut's double-click cannot skip.
+  var splashEarlyEnterGuardMs = 250;
+  var splashEnterRequested = false;
   function requestSplashEnter() {
     playMineradioIntroSound();
-    if (splashReadyToEnter) dismissSplash();
+    if (splashReadyToEnter) { dismissSplash(); return; }
+    if (splashEnterRequested) return;
+    splashEnterRequested = true;
+    var wait = Math.max(0, splashEarlyEnterGuardMs - (performance.now() - splashStartedAt));
+    setTimeout(function () {
+      if (splashTimer) { clearTimeout(splashTimer); splashTimer = null; }
+      dismissSplash();
+    }, wait);
   }
   s.addEventListener('click', requestSplashEnter);
   document.addEventListener('keydown', function (e) {
