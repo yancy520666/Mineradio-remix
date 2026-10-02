@@ -40,6 +40,17 @@ test('corrupt main file and interrupted temporary write fall back to valid backu
   fs.writeFileSync(path.join(directory, 'playback-checkpoint.json.tmp'), '{partial');
   assert.equal(createPlaybackCheckpointStore(directory).read().currentTime, 10);
 });
+test('duplicate-content optimization still repairs a corrupt primary after backup recovery', async t => {
+  const directory = fixture(t), now = Date.now();
+  const store = createPlaybackCheckpointStore(directory);
+  await store.save(snapshot(10, now - 100)); await store.save(snapshot(20, now));
+  const file = path.join(directory, 'playback-checkpoint.json');
+  fs.writeFileSync(file, '{broken');
+  const recovered = createPlaybackCheckpointStore(directory);
+  const result = await recovered.save(snapshot(10, now + 1));
+  assert.equal(result.skipped, undefined);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).currentTime, 10);
+});
 test('out-of-order submissions cannot overwrite progress, failed writes preserve last valid file', async t => {
   const directory = fixture(t), store = createPlaybackCheckpointStore(directory), now = Date.now();
   await Promise.all([store.save(snapshot(70, now)), store.save(snapshot(12, now - 1))]);
@@ -51,6 +62,26 @@ test('out-of-order submissions cannot overwrite progress, failed writes preserve
   assert.equal(createPlaybackCheckpointStore(directory).read().currentTime, 70);
   assert.equal((await store.save({ ...snapshot(), currentTime: NaN })).ok, false);
   assert.equal(normalize({ ...snapshot(), currentTime: 200 }).currentTime, 100);
+});
+test('unchanged checkpoints skip fsync but preserve ordering and important state changes', async t => {
+  const directory = fixture(t), now = Date.now();
+  let syncs = 0;
+  const io = Object.create(fs.promises);
+  io.open = async (...args) => {
+    const handle = await fs.promises.open(...args);
+    const original = handle.sync.bind(handle);
+    handle.sync = async () => { syncs++; return original(); };
+    return handle;
+  };
+  const store = createPlaybackCheckpointStore(directory, { io });
+  await store.save(snapshot(42, now)); assert.equal(syncs, 1);
+  for (let i = 1; i <= 4; i++) assert.equal((await store.save({ ...snapshot(42, now + i), reason: 'timeupdate' })).skipped, true);
+  assert.equal(syncs, 1, 'identical progress cannot rewrite main and backup');
+  await store.save(snapshot(10, now + 3)); assert.equal(store.read().currentTime, 42);
+  await store.save(snapshot(43, now + 5)); assert.equal(syncs, 3);
+  await store.save({ ...snapshot(43, now + 6), playing: false }); assert.equal(syncs, 5);
+  const changed = { ...snapshot(43, now + 7), current: { id: 72, name: 'Next' } };
+  await store.save(changed); assert.equal(syncs, 7); assert.equal(store.read().current.id, 72);
 });
 test('browser snapshots remain compatible and newest valid source wins', () => {
   const now = Date.now(), local = snapshot(20, now), disk = snapshot(50, now + 1);
