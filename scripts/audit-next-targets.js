@@ -1,0 +1,63 @@
+'use strict';
+// Only new behavioral boundaries; no repeat of the previous 31 mutants.
+const render = 'public/js/modules/02-visual/15-ripples-cover-depth.js';
+const bridge = 'public/vendor/sonic-workshop/mineradio-bridge.html';
+const camera = 'desktop/main.js';
+const updater = 'desktop/remix-updater.js';
+module.exports = {
+  equivalentMutations: {
+    'camera-microphone': 'Electron mediaType is video/audio/unknown and mediaTypes contains video/audio (locked electron.d.ts:9415,22735). After removing this guard, the following non-video scalar and non-video array guards still reject every audio or mixed request within that API contract. No production change is needed.',
+  },
+  groups: {
+    ownership: { files: ['installer-cleanup.test.js'] },
+    boundaries: { files: ['next-critical-boundaries.test.js'] },
+    offline: { files: ['local-playback-skip-notice.test.js'] },
+    focus: { files: ['foreground-recovery-work.test.js'] },
+    palette: { files: ['sonic-cover-palette-timing.test.js'] },
+    updater: { files: ['remix-updater.test.js', 'remix-updater-download.test.js'] },
+    packaging: { files: ['packaging-runtime-files.test.js'] },
+    preferences: { files: ['original-profile-import.test.js'], pattern: 'preference consumers reject' },
+    trial: { files: ['qishui-seo-playback.test.js'], pattern: 'short full songs' },
+    media: { files: ['system-media-session.test.js'] },
+    workflow: { files: ['workflow-release-boundary.test.js'] },
+  },
+  extraFiles: ['build/installer.nsh', bridge, 'electron-builder.internal-beta.json', '.github/workflows/ci.yml', '.github/workflows/release-windows.yml',
+    ...require('node:fs').readdirSync('qishui-auth-v6').filter(name => require('node:fs').statSync('qishui-auth-v6/' + name).isFile()).map(name => 'qishui-auth-v6/' + name)],
+  mutations: [
+    ['uninstall-follow-junction', 'ownership', 'build/installer.nsh', 'IntOp $4 $4 & 0x400', 'IntOp $4 $4 & 0'],
+    ['uninstall-wrong-owner', 'ownership', 'build/installer.nsh', '${If} $3 == "appId=${MINERADIO_MARKER_APP_ID}"', '${If} $3 != "appId=${MINERADIO_MARKER_APP_ID}"'],
+    ['credential-nonatomic-copy', 'boundaries', 'cookie-storage.js', 'fs.renameSync(temporaryPath, filePath);', 'fs.copyFileSync(temporaryPath, filePath);'],
+    ['credential-error-leak', 'boundaries', 'cookie-storage.js', '${message}${suffix}', '${message}${error && error.message}'],
+    ['spotify-json-token-leak', 'boundaries', 'spotify-api.js', "err && err.name === 'SyntaxError' ? 'INVALID_JSON' : 'READ_FAILED'", 'err.message'],
+    ['public-proxy-account-cookie', 'boundaries', 'server.js', "const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/' };", "const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/', Cookie: qishuiCookie };"],
+    ['local-cover-link-escape', 'boundaries', 'desktop/local-music-library.js', 'if (!isPathInside(fs.realpathSync(this.coverDirectory), resolvedCover)) return null;', 'if (false) return null;'],
+    ['local-forged-capability', 'boundaries', 'desktop/local-music-library.js', "url.searchParams.get('cap') !== this.mediaToken", 'false'],
+    ['camera-microphone', 'boundaries', camera, "    if (mediaType.includes('audio') || mediaTypes.some((value) => value.includes('audio'))) return false;", 'if (false) return false;'],
+    ['camera-subframe', 'boundaries', camera, 'if (details && details.isMainFrame === false) return false;\n    const mediaType', 'if (false) return false;\n    const mediaType'],
+    ['camera-remote-origin', 'boundaries', camera, 'if (!isTrustedMainDocumentUrl(origin) || !isTrustedMainDocumentUrl(grant.origin)) return false;', 'if (false) return false;'],
+    ['camera-expiry', 'boundaries', camera, 'if (!grant || Date.now() > grant.expiresAt)', 'if (!grant || Date.now() < grant.expiresAt)'],
+    ['ipc-subframe-grant', 'boundaries', camera, 'if (event.senderFrame && event.senderFrame.parent) return false;', 'if (false) return false;'],
+    ['playlist-prototype-keys', 'boundaries', 'desktop/built-in-playlist-library.js', "if (key === '__proto__' || key === 'prototype' || key === 'constructor') return;", 'if (false) return;'],
+    ['offline-counts-as-failure', 'offline', 'public/js/modules/05-playback/13-playback-start-audio.js', '(knownOffline ? 0 : 1)', '1'],
+    ['offline-extra-cycle', 'offline', 'public/js/modules/05-playback/13-playback-start-audio.js', 'skipped >= playQueue.length', 'skipped > playQueue.length'],
+    ['focus-viewport-burst', 'focus', render, 'if (!focusOnly && typeof scheduleMainRendererViewportRefresh', 'if (typeof scheduleMainRendererViewportRefresh'],
+    ['focus-long-boost', 'focus', render, 'focusOnly ? 160 : 1100', '1100'],
+    ['palette-waits-for-depth', 'palette', render, 'if (fx.preset === 8) {\n    var paletteCanvas', 'if (fx.preset === 9) {\n    var paletteCanvas'],
+    ['palette-double-transition', 'palette', render, 'if (!paletteReady) updateLyricPaletteFromCover(cv);', 'updateLyricPaletteFromCover(cv);'],
+    ['theme-obsolete-timer', 'palette', bridge, 'themeTransitionTarget === targetKey', 'false'],
+    ['theme-slow-transition', 'palette', bridge, 'var THEME_TRANSITION_MS = 800;', 'var THEME_TRANSITION_MS = 1280;'],
+    ['updater-late-progress', 'updater', updater, "if (!downloadPromise || state.status !== 'downloading') return;", 'if (false) return;'],
+    ['updater-unconfirmed-event', 'updater', updater, "if (!downloadPromise || state.status !== 'downloading' || !info || info.version !== state.version) return;", "if (!info || info.version !== state.version) return;"],
+    ['updater-wrong-version', 'updater', updater, '|| info.version !== state.version', ''],
+    ['updater-empty-result', 'updater', updater, 'if (!Array.isArray(files) || !files.length)', 'if (false)'],
+    ['updater-install-before-ready', 'updater', updater, "if (!enabled || state.status !== 'downloaded')", 'if (!enabled)'],
+    ['updater-downgrade', 'updater', updater, 'updater.allowDowngrade = false;', 'updater.allowDowngrade = true;'],
+    ['package-missing-runtime', 'packaging', 'electron-builder.internal-beta.json', '    "cookie-storage.js",\n', ''],
+    ['preferences-wrong-type-or-length', 'preferences', 'public/js/modules/08-account/06-original-profile-import.js', "typeof preferences[key] !== 'string' || preferences[key].length > 16384", 'false'],
+    ['trial-duration-tolerance', 'trial', 'qishui-api.js', 'const trial = duration + 2 < fullDuration;', 'const trial = duration < fullDuration;'],
+    ['media-failed-artwork-retains-old-song', 'media', 'public/js/modules/05-playback/14a-system-media-session.js', 'session.metadata = new MediaMetadata({ title: title, artist: artist, album: album });', 'void 0;'],
+    ['workflow-write-build-token', 'workflow', '.github/workflows/release-windows.yml', '  contents: read\n', '  contents: write\n'],
+    ['workflow-ungated-publish', 'workflow', '.github/workflows/release-windows.yml', "    if: github.event_name == 'push' || inputs.prepare_draft", '    if: true'],
+    ['workflow-public-release', 'workflow', '.github/workflows/release-windows.yml', '          draft: true', '          draft: false'],
+  ],
+};

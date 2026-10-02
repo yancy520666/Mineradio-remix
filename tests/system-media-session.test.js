@@ -15,7 +15,7 @@ test('media actions are idempotent and follow the live audio owner through hando
   let plays = 0, pauses = 0, next = 0, previous = 0;
   const context = vm.createContext({
     navigator: { mediaSession: session }, window: { addEventListener() {} }, Date, console,
-    MediaMetadata: class { constructor(values) { Object.assign(this, values); } },
+    MediaMetadata: class { constructor(values) { if (values.artwork && values.artwork[0]?.src === 'invalid:fixture') throw new Error('fixture artwork rejected'); Object.assign(this, values); } },
     audio: first, playQueue: [{ name: '第一首', artist: '歌手', album: '专辑' }], currentIdx: 0, currentLocalSong: null,
     progressDragState: { active: false },
     togglePlay: () => { if (context.audio.paused) { plays++; context.audio.paused = false; } else { pauses++; context.audio.paused = true; } },
@@ -25,6 +25,7 @@ test('media actions are idempotent and follow the live audio owner through hando
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/js/modules/05-playback/14a-system-media-session.js'), 'utf8'), context);
   context.bindSystemMediaAudio(first); assert.equal(session.metadata.title, '第一首');
+  const stalePlaying = events.get(first).playing;
   actions.play(); actions.play(); assert.equal(plays, 1);
   actions.pause(); actions.pause(); assert.equal(pauses, 1);
   actions.nexttrack(); actions.previoustrack(); assert.equal(next, 1); assert.equal(previous, 1);
@@ -33,6 +34,13 @@ test('media actions are idempotent and follow the live audio owner through hando
   context.audio = second; context.playQueue[0] = { name: '第二首', artist: '新歌手' };
   context.bindSystemMediaAudio(second); assert.equal(Object.keys(events.get(first)).length, 0, 'old owner cannot overwrite the session');
   second.paused = false; events.get(second).playing(); assert.equal(session.playbackState, 'playing'); assert.equal(session.metadata.title, '第二首');
+  stalePlaying(); assert.equal(session.metadata.title, '第二首');
+  for (let i = 0; i < 20; i++) context.bindSystemMediaAudio(second);
+  assert.equal(context.systemMediaSessionListeners.length, 11);
+  context.playQueue[0] = { name: '无效封面', cover: 'invalid:fixture' };
+  context.updateSystemMediaSession(); assert.equal(session.metadata.title, '无效封面');
+  context.playQueue[0] = { name: '没有封面' }; context.updateSystemMediaSession();
+  assert.equal(session.metadata.title, '没有封面'); assert.equal(session.metadata.artwork.length, 0);
   second.duration = Infinity; context.updateSystemMediaPosition(true); assert.equal(positions.at(-1), undefined);
   context.clearSystemMediaSession(); assert.equal(session.metadata, null); assert.equal(session.playbackState, 'none'); assert(Object.values(actions).every(fn => fn === null));
 });

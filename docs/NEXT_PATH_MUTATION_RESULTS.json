@@ -1,0 +1,592 @@
+{
+  "baselineCommit": "c3241016e078285668fe6360b988d1d02075ae4f",
+  "sourceHashes": {
+    "build/installer.nsh": "7642d9afe80f3ba2bb163409f4029b3e3615176d5f90030b7e3057c285f1a9e7",
+    "cookie-storage.js": "0a13f3163d713f4e5033a7f1e9ce070c5c44ffc5d0737e97caaab064151c0511",
+    "spotify-api.js": "25a11732db023bf8228545dbc133afbb74fb83f16d392d81ac9e43026523f06d",
+    "server.js": "2cc77a0cc315861a1010694d06603f6e45b6e8007a9aed52586d271f92c23d59",
+    "desktop/local-music-library.js": "79b5c9db413e564715f7eebc5120c804400df1f962c49d4bccdf2378ed26ff79",
+    "desktop/main.js": "0d4638c114ca470ec1ca517387c7ec06480e74b5a3611a2e4fa0947f8033e23c",
+    "desktop/built-in-playlist-library.js": "ccd72fabcfb6bb637405df216685c4cdb59a9de97735092b9f0ed108e4edbcb2",
+    "public/js/modules/05-playback/13-playback-start-audio.js": "25f4343d352ac228a0e8c561f177fd0781c045a82dd2465ea45f9ebe282da887",
+    "public/js/modules/02-visual/15-ripples-cover-depth.js": "49715012ed4be8a4541e29f39ad6e8905a99d69777f055172322f8c74f0060a9",
+    "public/vendor/sonic-workshop/mineradio-bridge.html": "e934b5b2e34f685dbdc80228468f61a3e439c73e42380118ddccc8c056f06ee1",
+    "desktop/remix-updater.js": "719dddaabd0d924872f2f48ac40c15514d35be41187e6adfbd98ef42e7acdeb2",
+    "electron-builder.internal-beta.json": "ab2438032a6d56df85eb5c90b6d9021c3bae57b6389cd16f8efdab25c932d468",
+    "public/js/modules/08-account/06-original-profile-import.js": "d4c2a3dc8fe984136faf3a197b91ac782ea46c936d11ef83f955414316ebaa95",
+    "qishui-api.js": "be695ce39c8fcbf0d9cbb3d7151fa4ca2b8a9b1a8b11971db334457060dd23cf",
+    "public/js/modules/05-playback/14a-system-media-session.js": "81b1ae62b257ec8f45d2be3a9340e76a5d47ca67fadb558071ea5fb8651ec250",
+    ".github/workflows/release-windows.yml": "aec2164be039c006d528338db42f2561f5c6e690b81838e8fc67231ca99a47ae",
+    "tests/installer-cleanup.test.js": "7364a12ee89fe02b8b8b5ba61dce2e252bb6193e0eb657fc1e0eeafebbd6686f",
+    "tests/next-critical-boundaries.test.js": "9e2b374b040157daefbec9f5ebca62eaf63db18ab225bd2c1109b2249a92d454",
+    "tests/local-playback-skip-notice.test.js": "a73ac9923fffd0d54d16b17eb8ac118ad01a6df73c8073155c61511785978b28",
+    "tests/foreground-recovery-work.test.js": "612ec849815293e6005415673453516ca9b1ef9eb7b86cfeaff6ab3e2f2e0b44",
+    "tests/sonic-cover-palette-timing.test.js": "7e8f06af0d533fc215dd661b960bcbc42c168e986c4dec758521f3bd16bb1546",
+    "tests/remix-updater.test.js": "4084ce963cd5538a4df90aedbf618be6e944a990177042a3b806de705ae3a0d2",
+    "tests/remix-updater-download.test.js": "4d1d56208389e62ab9ab2201c11161317bfb1958e0f1e8a74b412bc53d134480",
+    "tests/packaging-runtime-files.test.js": "72ec0f1a38a643143d50de574f849bbd3869739c059552929a9c5c1727bafadb",
+    "tests/original-profile-import.test.js": "034fd66e016450745d128c2764dc5b554b97bef436399f32fdf64485c7585d04",
+    "tests/qishui-seo-playback.test.js": "3cdcf2a68cc9f09c6b871aab6439ec3c46f6a8fdd69204cc420361d7e75ff947",
+    "tests/system-media-session.test.js": "9c85764a9d1087161b515100ce60b6de198ee8f8832e6b38e29f13ae322ffc31",
+    "tests/workflow-release-boundary.test.js": "96fec97c48d8746ea3d9f14d49e42f9190c348ffc90426bc0ed794036752067f",
+    "node_modules/builder-util-runtime/out/httpExecutor.js": "13050c5e047556326a2a17bc991dcf1e0f58b20409e0476486a6fd0ed6c577f6"
+  },
+  "baseline": {
+    "ownership": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    },
+    "boundaries": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 8,
+      "skipped": 0
+    },
+    "offline": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 4,
+      "skipped": 0
+    },
+    "focus": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    },
+    "palette": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 3,
+      "skipped": 0
+    },
+    "updater": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 7,
+      "skipped": 0
+    },
+    "packaging": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    },
+    "preferences": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    },
+    "trial": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 5,
+      "skipped": 0
+    },
+    "media": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    },
+    "workflow": {
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 1,
+      "skipped": 0
+    }
+  },
+  "mutations": [
+    {
+      "name": "uninstall-follow-junction",
+      "group": "ownership",
+      "file": "build/installer.nsh",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\installer-cleanup.test.js"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "uninstall-wrong-owner",
+      "group": "ownership",
+      "file": "build/installer.nsh",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "tests\\\\installer-cleanup.test.js"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "credential-nonatomic-copy",
+      "group": "boundaries",
+      "file": "cookie-storage.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "credential encryption and atomic replacement failures preserve the last encrypted account"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "credential-error-leak",
+      "group": "boundaries",
+      "file": "cookie-storage.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "credential error diagnostics never echo the account value returned by a failing backend"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "spotify-json-token-leak",
+      "group": "boundaries",
+      "file": "spotify-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "a damaged Spotify token file cannot expose its contents through a JSON error message"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "public-proxy-account-cookie",
+      "group": "boundaries",
+      "file": "server.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "public audio proxy headers retain Range without sending account credentials"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "local-cover-link-escape",
+      "group": "boundaries",
+      "file": "desktop/local-music-library.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "local media rejects forged capabilities and malformed ranges; cover links cannot serve outside the cover cache"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "local-forged-capability",
+      "group": "boundaries",
+      "file": "desktop/local-music-library.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "local media rejects forged capabilities and malformed ranges; cover links cannot serve outside the cover cache"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "camera-microphone",
+      "group": "boundaries",
+      "file": "desktop/main.js",
+      "status": "equivalent",
+      "exit": 0,
+      "invalid": false,
+      "failedTests": [],
+      "tests": 8,
+      "skipped": 0,
+      "equivalentReason": "Electron mediaType is video/audio/unknown and mediaTypes contains video/audio (locked electron.d.ts:9415,22735). After removing this guard, the following non-video scalar and non-video array guards still reject every audio or mixed request within that API contract. No production change is needed."
+    },
+    {
+      "name": "camera-subframe",
+      "group": "boundaries",
+      "file": "desktop/main.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "camera-remote-origin",
+      "group": "boundaries",
+      "file": "desktop/main.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "camera-expiry",
+      "group": "boundaries",
+      "file": "desktop/main.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "ipc-subframe-grant",
+      "group": "boundaries",
+      "file": "desktop/main.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases",
+        "update IPC handlers reject remote windows and subframes before invoking native operations"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "playlist-prototype-keys",
+      "group": "boundaries",
+      "file": "desktop/built-in-playlist-library.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "playlist normalization bounds hostile values and drops prototype keys through persistence"
+      ],
+      "tests": 8,
+      "skipped": 0
+    },
+    {
+      "name": "offline-counts-as-failure",
+      "group": "offline",
+      "file": "public/js/modules/05-playback/13-playback-start-audio.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "known offline entries do not exhaust the playback failure budget before an available song",
+        "offline skips name the song, coalesce notices and terminate instead of cycling"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "offline-extra-cycle",
+      "group": "offline",
+      "file": "public/js/modules/05-playback/13-playback-start-audio.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "known offline entries do not exhaust the playback failure budget before an available song"
+      ],
+      "tests": 4,
+      "skipped": 0
+    },
+    {
+      "name": "focus-viewport-burst",
+      "group": "focus",
+      "file": "public/js/modules/02-visual/15-ripples-cover-depth.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "visible focus changes keep lyric recovery without scheduling viewport bursts or long boosts"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "focus-long-boost",
+      "group": "focus",
+      "file": "public/js/modules/02-visual/15-ripples-cover-depth.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "visible focus changes keep lyric recovery without scheduling viewport bursts or long boosts"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "palette-waits-for-depth",
+      "group": "palette",
+      "file": "public/js/modules/02-visual/15-ripples-cover-depth.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "Sonic cover palette is available before deferred depth work, using a bounded image read"
+      ],
+      "tests": 3,
+      "skipped": 0
+    },
+    {
+      "name": "palette-double-transition",
+      "group": "palette",
+      "file": "public/js/modules/02-visual/15-ripples-cover-depth.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "Sonic cover palette is available before deferred depth work, using a bounded image read"
+      ],
+      "tests": 3,
+      "skipped": 0
+    },
+    {
+      "name": "theme-obsolete-timer",
+      "group": "palette",
+      "file": "public/vendor/sonic-workshop/mineradio-bridge.html",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "bridge gradually finishes a theme, ignores repeated targets, and cancels an obsolete transition"
+      ],
+      "tests": 3,
+      "skipped": 0
+    },
+    {
+      "name": "theme-slow-transition",
+      "group": "palette",
+      "file": "public/vendor/sonic-workshop/mineradio-bridge.html",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "bridge gradually finishes a theme, ignores repeated targets, and cancels an obsolete transition"
+      ],
+      "tests": 3,
+      "skipped": 0
+    },
+    {
+      "name": "updater-late-progress",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "late progress and downloaded events cannot revive a failed download or bypass user confirmation"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "updater-unconfirmed-event",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "late progress and downloaded events cannot revive a failed download or bypass user confirmation"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "updater-wrong-version",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "duplicate checks and confirmations use one native operation, and wrong-version events cannot mark readiness"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "updater-empty-result",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "an empty download result without a verified completion event is not an installable update"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "updater-install-before-ready",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes",
+        "download waits for user action, tracks progress and installs only when ready",
+        "checksum or network failure is reported without claiming a downloaded update",
+        "late progress and downloaded events cannot revive a failed download or bypass user confirmation",
+        "an empty download result without a verified completion event is not an installable update",
+        "duplicate checks and confirmations use one native operation, and wrong-version events cannot mark readiness"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "updater-downgrade",
+      "group": "updater",
+      "file": "desktop/remix-updater.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes"
+      ],
+      "tests": 7,
+      "skipped": 0
+    },
+    {
+      "name": "package-missing-runtime",
+      "group": "packaging",
+      "file": "electron-builder.internal-beta.json",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "both package file lists include the local runtime dependency closure and authentication assets"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "preferences-wrong-type-or-length",
+      "group": "preferences",
+      "file": "public/js/modules/08-account/06-original-profile-import.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "preference consumers reject hostile keys, oversized strings and wrong types without changing current settings"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "trial-duration-tolerance",
+      "group": "trial",
+      "file": "qishui-api.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "32000/30",
+        "short full songs are not trials, while 30-second excerpts and the duration tolerance are respected"
+      ],
+      "tests": 5,
+      "skipped": 0
+    },
+    {
+      "name": "media-failed-artwork-retains-old-song",
+      "group": "media",
+      "file": "public/js/modules/05-playback/14a-system-media-session.js",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "media actions are idempotent and follow the live audio owner through handoff"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "workflow-write-build-token",
+      "group": "workflow",
+      "file": ".github/workflows/release-windows.yml",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "CI and release actions are pinned; only the gated publisher has write permission"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "workflow-ungated-publish",
+      "group": "workflow",
+      "file": ".github/workflows/release-windows.yml",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "CI and release actions are pinned; only the gated publisher has write permission"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "workflow-public-release",
+      "group": "workflow",
+      "file": ".github/workflows/release-windows.yml",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "CI and release actions are pinned; only the gated publisher has write permission"
+      ],
+      "tests": 1,
+      "skipped": 0
+    },
+    {
+      "name": "dependency-sha512-comparison",
+      "group": "updater",
+      "file": "node_modules/builder-util-runtime/out/httpExecutor.js",
+      "mode": "RAM only",
+      "status": "killed",
+      "exit": 1,
+      "invalid": false,
+      "failedTests": [
+        "actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes"
+      ],
+      "tests": 1,
+      "skipped": 0,
+      "detail": "TAP version 13\n# Subtest: actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes\nnot ok 1 - actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes\n  ---\n  duration_ms: 31.7743\n  type: 'test'\n  location: <isolated-copy>\\\\tests\\\\remix-updater-download.test.js:28:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    corrupt must not be installable\n    + actual - expected\n    \n    + 'downloaded'\n    - 'error'\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: 'error'\n  actual: 'downloaded'\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (<isolated-copy>\\tests\\remix-updater-download.test.js:92:16)\n    async Test.run (node:internal/test_runner/test:1054:7)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 130.2787\n"
+    }
+  ]
+}

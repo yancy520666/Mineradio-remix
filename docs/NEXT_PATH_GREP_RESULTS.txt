@@ -1,0 +1,204 @@
+native-prompt: 0 review candidate(s)
+tls-bypass: 0 review candidate(s)
+fixed-drive: 3 review candidate(s)
+plaintext-sensitive: 0 review candidate(s)
+literal-credential: 0 review candidate(s)
+credential-log: 18 review candidate(s)
+native-dialog: 1 review candidate(s)
+dynamic-execution: 0 review candidate(s)
+window-security: 1 review candidate(s)
+delete-entry: 15 review candidate(s)
+{
+  "findings": [
+    {
+      "rule": "fixed-drive",
+      "file": "desktop/wallpaper-engine-library.js",
+      "line": 349
+    },
+    {
+      "rule": "fixed-drive",
+      "file": "desktop/wallpaper-engine-library.js",
+      "line": 350
+    },
+    {
+      "rule": "fixed-drive",
+      "file": "desktop/main.js",
+      "line": 297
+    },
+    {
+      "rule": "credential-log",
+      "file": "spotify-api.js",
+      "line": 206
+    },
+    {
+      "rule": "credential-log",
+      "file": "spotify-api.js",
+      "line": 253
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 4045
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 5565
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 5722
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 6059
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 6131
+    },
+    {
+      "rule": "credential-log",
+      "file": "server.js",
+      "line": 6672
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 2598
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 2798
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 2946
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5229
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5237
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5245
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5253
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5261
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/main.js",
+      "line": 5287
+    },
+    {
+      "rule": "credential-log",
+      "file": "desktop/wallpaper-engine-runtime.js",
+      "line": 3339
+    },
+    {
+      "rule": "native-dialog",
+      "file": "public/js/modules/06-lyrics/00-built-in-playlists.js",
+      "line": 174
+    },
+    {
+      "rule": "window-security",
+      "file": "qishui-auth-v6.js",
+      "line": 264
+    },
+    {
+      "rule": "delete-entry",
+      "file": "spotify-api.js",
+      "line": 251
+    },
+    {
+      "rule": "delete-entry",
+      "file": "qishui-api.js",
+      "line": 481
+    },
+    {
+      "rule": "delete-entry",
+      "file": "cookie-storage.js",
+      "line": 49
+    },
+    {
+      "rule": "delete-entry",
+      "file": "cookie-storage.js",
+      "line": 75
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/app-memory.js",
+      "line": 35
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/built-in-playlist-library.js",
+      "line": 200
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/original-profile-preferences.js",
+      "line": 76
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/local-music-library.js",
+      "line": 122
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/desktop-native-icon-layer-runtime.js",
+      "line": 1073
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/desktop-native-icon-layer-runtime.js",
+      "line": 1146
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/main.js",
+      "line": 5174
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/main.js",
+      "line": 5196
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/main.js",
+      "line": 5209
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/main.js",
+      "line": 5284
+    },
+    {
+      "rule": "delete-entry",
+      "file": "desktop/system-memory.js",
+      "line": 181
+    }
+  ]
+}
