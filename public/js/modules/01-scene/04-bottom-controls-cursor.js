@@ -219,6 +219,11 @@ function updateControlsAutoHideFromPointer(x, y) {
   if (isBottomControlsSuppressedForShelf()) return;
   var bar = document.getElementById('bottom-bar');
   if (!bar || !bar.classList.contains('visible')) return;
+  var rect = bar.getBoundingClientRect();
+  var handle = document.getElementById('bottom-handle');
+  var hr = handle ? handle.getBoundingClientRect() : null;
+  controlsHovering = (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
+    || !!(hr && x >= hr.left && x <= hr.right && y >= hr.top && y <= hr.bottom);
   if (!controlsAutoHide) { setControlsHidden(false); return; }
   if (diyPlayerMode) {
     var fxPanel = document.getElementById('fx-panel');
@@ -233,9 +238,6 @@ function updateControlsAutoHideFromPointer(x, y) {
     }
   }
   controlsLastMoveAt = performance.now();
-  var rect = bar.getBoundingClientRect();
-  var handle = document.getElementById('bottom-handle');
-  var hr = handle ? handle.getBoundingClientRect() : null;
   var overHandle = hr && x >= hr.left - 18 && x <= hr.right + 18 && y >= hr.top - 12 && y <= hr.bottom + 14;
   var overBar = x >= rect.left - 18 && x <= rect.right + 18 && y >= rect.top - 18 && y <= rect.bottom + 14;
   var mini = document.getElementById('mini-queue-popover');
@@ -288,6 +290,9 @@ function applyControlsAutoHidePreference() {
   }
   bar.addEventListener('mouseenter', enterControls);
   bar.addEventListener('mouseleave', leaveControls);
+  document.addEventListener('mouseleave', leaveControls);
+  window.addEventListener('blur', leaveControls);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) leaveControls(); });
   if (handle) {
     handle.addEventListener('mouseenter', function () {
       controlsHovering = true;
