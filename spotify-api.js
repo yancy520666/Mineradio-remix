@@ -3,6 +3,7 @@
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
+const { createCookieStore } = require('./cookie-storage');
 
 const SPOTIFY_ACCOUNTS_BASE = (process.env.SPOTIFY_ACCOUNTS_BASE || 'https://accounts.spotify.com').replace(/\/+$/, '');
 const SPOTIFY_API_BASE = (process.env.SPOTIFY_API_BASE || 'https://api.spotify.com/v1').replace(/\/+$/, '');
@@ -190,7 +191,11 @@ function readStoredSpotifyToken() {
   const file = getSpotifyTokenFile();
   try {
     if (!file || !fs.existsSync(file)) return { file, accessToken: '', refreshToken: '', expiresAt: 0 };
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+    // Same protection as platform cookies: system-encrypted at rest; a legacy
+    // plaintext file (older Remix or the original app) is migrated on read.
+    const text = createCookieStore(file, { label: 'spotify-token' }).read();
+    if (!text) return { file, accessToken: '', refreshToken: '', expiresAt: 0 };
+    const raw = JSON.parse(text.replace(/^\uFEFF/, ''));
     return {
       file,
       accessToken: normalizeText(raw.accessToken || raw.access_token),
@@ -234,7 +239,7 @@ function saveSpotifyOAuthToken(payload) {
     err.code = 'SPOTIFY_TOKEN_MISSING';
     throw err;
   }
-  writeJsonFile(getSpotifyTokenFile(), saved);
+  createCookieStore(getSpotifyTokenFile(), { label: 'spotify-token' }).write(JSON.stringify(saved));
   spotifyProfileCache = { value: null, at: 0, promise: null };
   return {
     provider: 'spotify',
