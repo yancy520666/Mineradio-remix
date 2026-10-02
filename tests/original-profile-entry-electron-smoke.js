@@ -27,6 +27,10 @@ for (const name of ['.cookie', '.qq-cookie', '.kugou-cookie', '.qishui-cookie', 
   assert(!fs.existsSync(path.join(__dirname, '..', name)), 'legacy workspace credentials must be absent in this isolated check');
 }
 require('../desktop/main');
+require('./helpers/electron-frames').keepTestWindowFramesRunning(app);
+// Like the playlist smoke: an unreachable font CDN keeps the page "loading"
+// until the request times out, which could outlast this smoke's deadline.
+app.on('browser-window-created', (_event, win) => win.webContents.session.webRequest.onBeforeRequest({ urls: ['https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'] }, (_details, callback) => callback({ cancel: true })));
 let restarted = false;
 ipcMain.removeHandler('mineradio-restart-app');
 ipcMain.handle('mineradio-restart-app', () => { restarted = true; return { ok: true }; });
