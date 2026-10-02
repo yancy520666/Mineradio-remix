@@ -1,8 +1,10 @@
 # 外部修复建议核对
 
-日期：2026-10-02。核对基准：Remix `a74c9f5`。使用当前源码、上游 PR 正文及补丁、官方服务文档；没有重新审计全部 98 个 PR，也没有在真实代理环境复现。本次只更新文档，下面的待修项尚未实现。
+日期：2026-10-02。修复前核对基准：Remix `a74c9f5`。使用当时源码、上游 PR 正文及补丁、官方服务文档；没有重新审计全部 98 个 PR，也没有在真实代理环境复现。以下保留原始核对证据。
 
-## 核心结论
+后续实施状态：fake-IP 兼容、C 盘节奏缓存、VIP 来源归一化与 HTTPS 定位已在源码修复，验证见 [NETWORK_COMPATIBILITY_VALIDATION.md](./NETWORK_COMPATIBILITY_VALIDATION.md)。尚未打包或更新 Draft；代码签名、控制条离窗体验及可选功能仍未计入本次修复。
+
+## 修复前核心结论
 
 | 建议 | 当前证据与结论 | 处理建议 |
 | --- | --- | --- |
@@ -29,7 +31,7 @@ fake-IP 行为依据：[Mihomo 官方 DNS 配置](https://wiki.metacubex.one/con
 
 均衡器、酷我及跨平台系列按功能路线决定，不与本轮兼容性修复打包。现有安全、节奏内存、本地曲库及媒体控制的移植出处见 [THIRD_PARTY_PORTS.md](./THIRD_PARTY_PORTS.md)；“已吸收”也可能是独立改写，不能等同于完整合并某个 PR。本次不把外部报告的整份 PR 清单认证为全部已验证。
 
-## 本次定向检查
+## 修复前定向检查
 
 直接运行当前函数，不启动服务、不写用户配置：
 
@@ -38,4 +40,4 @@ fake-IP 行为依据：[Mihomo 官方 DNS 配置](https://wiki.metacubex.one/con
 - VIP 夹具：账户 `vipInfo.vipType=11` 独立存在时判为 VIP；加上 `profile.vipInfo={}` 后变为无 VIP。仅 `musicVipLevel=1` 时得到 `vipType=1`、VIP，而非 SVIP。夹具证明字段混用与漏读，不代表所有真实账号响应都有问题。
 - 更新流程核对了安装版启用条件、renderer 的原生分支、IPC 和 `desktop/remix-updater.js`，没有只依赖旧网页更新测试作结论。
 
-未运行整套回归、真实代理测试或安装包测试。下一轮优先解决 C 盘缓存与 fake-IP 兼容，再补 VIP 与 HTTPS 定位；每项使用对应的定向验证，视觉体验由用户验收。
+核对时未运行整套回归、真实代理测试或安装包测试。当时建议优先解决 C 盘缓存与 fake-IP 兼容，再补 VIP 与 HTTPS 定位；后续实际实施结果见本文开头的验证链接。

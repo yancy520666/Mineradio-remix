@@ -33,4 +33,8 @@ Windows 桌面运行时，四个平台的登录 Cookie、汽水 Token 和汽水�
 
 ## 第三方平台
 
+天气 IP 定位接口通过 HTTPS 请求 `ipwho.is` 获取城市级粗略位置，用于天气查询；服务方会看到请求来源 IP。当前主页没有自动调用该定位接口，不会因此在每次启动时新增定位请求。[服务说明](https://ipwhois.io/documentation)。
+
+系统 DNS 将已知音乐或封面域名解析为 fake-IP 时，媒体代理可向阿里公共 DNS 的 HTTPS 接口请求该域名的真实地址。此请求只包含域名和 DNS 查询类型，不包含音乐账号、Cookie、歌曲 URL 路径或播放历史；DNS 服务方仍会看到请求来源 IP。结果有有限的 TTL 缓存。设置 `MINERADIO_MUSIC_DOH=0` 可关闭此兼容路径。[阿里公共 DNS](https://www.alidns.com/)。
+
 用户通过网易云音乐、QQ 音乐等第三方平台登录时，应遵守对应平台的用户协议。Mineradio 不提供绕过付费、绕过会员、破解音质或重新分发音乐内容的能力。
