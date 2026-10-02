@@ -57,6 +57,11 @@ function silverBlueLyricPalette() {
     glow: 'rgba(138,190,255,0.26)',
   };
 }
+function lyricParticleGlowStrength(editPreview) {
+  if (editPreview || !fx || !fx.lyricGlowParticles) return 0;
+  // The particle switch is independent of lyric halos; retain the user's gain.
+  return clampRange(Number(fx.lyricGlowStrength) || 0, 0, 0.85);
+}
 function setLyricSparkOpacity(data, value) {
   if (!data || !data.sparkMat) return;
   value = clampRange(Number(value) || 0, 0, 1);

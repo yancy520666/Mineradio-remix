@@ -95,6 +95,7 @@
     'js/modules/07-fx/03-wallpaper-engine-library.js',
     'js/modules/07-fx/03-cover-picker-fonts.js',
     'js/modules/07-fx/04-preset-grid-uniforms.js',
+    'js/modules/07-fx/04a-effect-scope.js',
     'js/modules/07-fx/05-fx-panel-performance.js',
     'js/modules/07-fx/06-hotkeys.js',
     'js/modules/07-fx/06a-slider-preview.js',

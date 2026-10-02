@@ -365,6 +365,7 @@ function updateFxInputs() {
   if (lyricCameraLockToggle) lyricCameraLockToggle.classList.toggle('on', fx.lyricCameraLock);
   document.getElementById('t-bloom').classList.toggle('on', fx.bloom);
   document.getElementById('t-edge').classList.toggle('on', fx.edge);
+  updateVisualEffectScopeControls();
   var desktopLyricsToggle = document.getElementById('t-desktopLyrics');
   if (desktopLyricsToggle) desktopLyricsToggle.classList.toggle('on', fx.desktopLyrics);
   var desktopLyricsClickToggle = document.getElementById('t-desktopLyricsClickThrough');
