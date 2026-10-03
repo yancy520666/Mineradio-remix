@@ -284,6 +284,34 @@ function commentTimeLabel(ms) {
     return '';
   }
 }
+// Netease writes emoticons as "[爱心]"; its web player draws them from this
+// table on its own CDN. The newer 多多 stickers (e.g. [多多调皮]) have no public
+// image, so their names sit in a quiet chip.
+function neteaseEmojiId(name) {
+  var table = {
+    '大笑': 86, '可爱': 85, '憨笑': 359, '色': 95, '亲亲': 363, '惊恐': 96, '流泪': 356, '亲': 362, '呆': 352, '哀伤': 342,
+    '呲牙': 343, '吐舌': 348, '撇嘴': 353, '怒': 361, '奸笑': 341, '汗': 97, '痛苦': 346, '惶恐': 354, '生病': 350, '口罩': 351,
+    '大哭': 357, '晕': 355, '发怒': 115, '开心': 360, '鬼脸': 94, '皱眉': 87, '流感': 358, '爱心': 33, '心碎': 34, '钟情': 303,
+    '星星': 309, '生气': 314, '便便': 89, '强': 13, '弱': 372, '拜': 14, '牵手': 379, '跳舞': 380, '禁止': 374, '这边': 262,
+    '爱意': 106, '示爱': 376, '嘴唇': 367, '狗': 81, '猫': 78, '猪': 100, '兔子': 459, '小鸡': 450, '公鸡': 461, '幽灵': 116,
+    '圣诞': 411, '外星': 101, '钻石': 52, '礼物': 107, '男孩': 0, '女孩': 1, '蛋糕': 337, '18': 186, '圈': 312, '叉': 313
+  };
+  return Object.prototype.hasOwnProperty.call(table, name) ? table[name] : null;
+}
+function commentContentHtml(text) {
+  var html = escHtml(text || '');
+  var owner = detailCommentsState;
+  if (!owner || owner.config.provider !== 'netease') return html;
+  return html.replace(/\[([^\[\]<>&]{1,8})\]/g, function (code, name) {
+    var id = neteaseEmojiId(name);
+    if (id !== null) {
+      return '<img class="comment-emoji" src="https://s1.music.126.net/style/web2/emt/emoji_' + id +
+        '.png" alt="' + code + '" title="' + name + '" loading="lazy" referrerpolicy="no-referrer">';
+    }
+    // Only the 多多 sticker family is shown as a chip; other bracketed text such as [Live] stays as written.
+    return /^多多/.test(name) ? '<span class="comment-emoji-text">' + name + '</span>' : code;
+  });
+}
 function commentCountLabel(value) {
   var n = Math.max(0, Number(value) || 0);
   if (n >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '亿';
@@ -332,7 +360,7 @@ function renderDetailComments(comments) {
     return '<div class="comment-item' + (replies ? '' : ' is-compact') + '">' +
       (avatar ? '<img class="comment-avatar" src="' + escHtml(avatar) + '" alt="" loading="lazy">' : '<div class="comment-avatar"></div>') +
       '<div class="comment-main">' + commentHeadHtml(c) +
-      '<div class="comment-text">' + escHtml(c.content || '') + '</div>' +
+      '<div class="comment-text">' + commentContentHtml(c.content) + '</div>' +
       (replies || '<div class="comment-actions"><span></span>' + like + '</div>') + '</div>' +
       '</div>';
   }).join('');

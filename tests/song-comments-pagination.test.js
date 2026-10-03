@@ -30,7 +30,7 @@ function renderer() {
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
     ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal',
-      'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'bindDetailCommentLikes',
+      'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml', 'bindDetailCommentLikes',
       'detailCommentsSortable']);
   return { ctx, requests, list, button, label, hotList, normalList, hotSection, normalSection, empty };
 }
@@ -281,4 +281,20 @@ test('a comment without replies keeps its heart on the text row; one with replie
   assert.match(quiet, /^ is-compact"/);
   assert.match(busy, /^">/);
   assert.match(busy, /toggle/);
+});
+
+test('Netease emoticon codes become their CDN images; 多多 stickers become chips; other text stays', () => {
+  const { ctx } = renderer();
+  ctx.escHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  ctx.detailCommentsState = { config: { provider: 'netease' } };
+  const html = ctx.commentContentHtml('朋友[爱心][强] [多多调皮] [Live] <img src=x onerror=alert(1)>[色]');
+  const cdn = 'https://s1.music.126.net/style/web2/emt/emoji_';
+  assert(html.startsWith('朋友<img class="comment-emoji" src="' + cdn + '33.png" alt="[爱心]"'));
+  assert(html.includes(cdn + '13.png'));
+  assert(html.includes('<span class="comment-emoji-text">多多调皮</span>'));
+  assert(html.includes(' [Live] '), 'ordinary bracketed text is left alone');
+  assert(html.includes('&lt;img src=x onerror=alert(1)&gt;<img class="comment-emoji" src="' + cdn + '95.png"'));
+  assert(!html.includes('<img src=x'));
+  ctx.detailCommentsState = { config: { provider: 'qq' } };
+  assert.equal(ctx.commentContentHtml('朋友[爱心]'), '朋友[爱心]', 'other platforms keep their own text');
 });

@@ -25,7 +25,7 @@ function renderer(provider) {
   loadFunctions(ctx, 'public/js/modules/05-playback/06a-comment-replies.js',
     ['detailReplyControlsHtml', 'detailReplyRegion', 'updateDetailReplyControls', 'toggleDetailReplies', 'renderDetailReplyItems', 'loadMoreDetailReplies']);
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
-    ['commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml']);
+    ['commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml']);
   ctx.detailReplyControlsHtml({ id: 'parent', replyCount: 25, replyResource: '100', user: { nickname: '听众' } });
   return { ctx, requests, toggle, panel, status, more, list };
 }
