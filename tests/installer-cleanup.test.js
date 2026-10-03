@@ -33,12 +33,25 @@ async function main() {
       fs.mkdirSync(path.join(target, dir, 'nested'), { recursive: true });
       fs.writeFileSync(path.join(target, dir, 'nested', 'payload'), 'owned payload');
     }
+    // Updater cache: installer copy, blockmap, a pending download, and a file it does not own.
+    const updaterCache = path.join(fixture, 'mineradio-remix-updater');
+    function seedUpdaterCache() {
+      fs.mkdirSync(path.join(updaterCache, 'pending', 'nested'), { recursive: true });
+      fs.writeFileSync(path.join(updaterCache, 'installer.exe'), 'cached installer');
+      fs.writeFileSync(path.join(updaterCache, 'current.blockmap'), 'blockmap');
+      fs.writeFileSync(path.join(updaterCache, 'pending', 'nested', 'payload'), 'pending download');
+    }
+    seedUpdaterCache();
+    fs.writeFileSync(path.join(updaterCache, 'unknown.txt'), 'not ours');
     const junction = path.join(target, 'resources', 'external-junction');
     fs.symlinkSync(music, junction, 'junction');
     assert(fs.lstatSync(junction).isSymbolicLink());
     const source = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
     const functions = source.match(/^Function un\.[\s\S]*?^FunctionEnd/gm);
     assert(functions && functions.length >= 5);
+    // The real removal entry point, including its update guard.
+    const removeFilesMacro = source.match(/^!macro customRemoveFiles[\s\S]*?^!macroend/m);
+    assert(removeFilesMacro);
     const script = path.join(fixture, 'cleanup.nsi');
     fs.writeFileSync(script, `\uFEFFUnicode true
 !include LogicLib.nsh
@@ -47,6 +60,14 @@ async function main() {
 !define MINERADIO_INSTALL_MARKER ".mineradio-remix-install-root"
 !define MINERADIO_MARKER_APP_ID "com.mineradio.remix"
 !define PRODUCT_FILENAME "MineradioRemix"
+!define APP_INSTALLER_STORE_FILE "mineradio-remix-updater\\installer.exe"
+!define MINERADIO_UPDATER_CACHE_ROOT "${fixture}"
+Var installMode
+Var MineradioTestUpdated
+!macro _isUpdated _a _b _t _f
+  StrCmp $MineradioTestUpdated "1" \`\${_t}\` \`\${_f}\`
+!macroend
+!define isUpdated \`"" isUpdated ""\`
 Name "Mineradio cleanup fixture"
 OutFile "${path.join(fixture, 'setup.exe')}"
 InstallDir "${target}"
@@ -58,7 +79,11 @@ Section
   WriteUninstaller "$INSTDIR\\Uninstall MineradioRemix.exe"
 SectionEnd
 ${functions.join('\n')}
+${removeFilesMacro[0]}
 Section "Uninstall"
+  StrCpy $MineradioTestUpdated "0"
+  IfFileExists "${path.join(fixture, 'updated.flag')}" 0 +2
+    StrCpy $MineradioTestUpdated "1"
   FileOpen $0 "$INSTDIR\\.mineradio-remix-install-root" w
   FileWrite $0 "Mineradio install root$\\r$\\n"
   FileWrite $0 "appId=com.mineradio.remix-other$\\r$\\n"
@@ -77,7 +102,9 @@ Section "Uninstall"
   FileWrite $0 "Mineradio install root$\\r$\\n"
   FileWrite $0 "appId=com.mineradio.remix$\\r$\\n"
   FileClose $0
-  Call un.MineradioRemoveInstalledFiles
+  !insertmacro customRemoveFiles
+  FileOpen $0 "${path.join(fixture, 'uninstall-done.txt')}" w
+  FileClose $0
 SectionEnd
 `);
     function run(file, args) {
@@ -89,12 +116,17 @@ SectionEnd
     run(path.join(fixture, 'setup.exe'), ['/S']);
     run(path.join(target, 'Uninstall MineradioRemix.exe'), ['/S']);
     const end = Date.now() + 10000;
+    const done = path.join(fixture, 'uninstall-done.txt');
+    async function waitForUninstall() {
+      const end = Date.now() + 10000;
+      while (!fs.existsSync(done) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 25));
+      assert(fs.existsSync(done), 'uninstaller did not finish');
+      fs.unlinkSync(done);
+    }
     const ownershipResult = path.join(fixture, 'ownership-result.txt');
     while (!fs.existsSync(ownershipResult) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 25));
     assert.equal(fs.readFileSync(ownershipResult, 'utf8'), '0', 'a different app ID cannot claim this installation');
-    while (fs.existsSync(path.join(target, '.mineradio-remix-install-root')) && Date.now() < end) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    await waitForUninstall();
     for (const entry of ['resources', 'locales', 'swiftshader', 'MineradioRemix.exe', '.mineradio-remix-install-root']) {
       assert.equal(fs.existsSync(path.join(target, entry)), false, `uninstaller left owned item: ${entry}`);
     }
@@ -103,6 +135,20 @@ SectionEnd
     for (const directory of [original, similar, music]) {
       assert.equal(fs.readFileSync(path.join(directory, 'preserve.txt'), 'utf8'), 'preserve outside installation');
     }
+    for (const entry of ['installer.exe', 'current.blockmap', 'pending']) {
+      assert.equal(fs.existsSync(path.join(updaterCache, entry)), false, `uninstall left updater cache item: ${entry}`);
+    }
+    assert.equal(fs.readFileSync(path.join(updaterCache, 'unknown.txt'), 'utf8'), 'not ours', 'unknown files in the updater cache are kept');
+    // During an update the new installer runs from pending\ and needs the cache afterwards.
+    seedUpdaterCache();
+    fs.writeFileSync(path.join(fixture, 'updated.flag'), '');
+    run(path.join(fixture, 'setup.exe'), ['/S']);
+    run(path.join(target, 'Uninstall MineradioRemix.exe'), ['/S']);
+    await waitForUninstall();
+    for (const entry of ['installer.exe', 'current.blockmap', path.join('pending', 'nested', 'payload')]) {
+      assert.equal(fs.existsSync(path.join(updaterCache, entry)), true, `update removed updater cache item: ${entry}`);
+    }
+    console.log('OK native NSIS keeps the updater cache during updates and removes it on uninstall');
     console.log('OK native NSIS removes nested application resources and marker; preserves unrelated files');
   } finally {
     const resolved = path.resolve(fixture);
