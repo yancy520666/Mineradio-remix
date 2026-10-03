@@ -2,7 +2,9 @@
 
 当前公开版本：**2.3.1**（2026-10-03 发布），Windows x64。构建流程只创建草稿，公开发布由维护者决定。
 
-本次准备：**2.4.0 Draft**，标签 `v2.4.0`，安装包 `Mineradio-Remix-2.4.0-Setup.exe`，正文为 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)。升级验证基线为公开版本 **2.3.1**。
+本次草稿：**2.4.0 Draft 已生成**，标签 `v2.4.0`，安装包 `Mineradio-Remix-2.4.0-Setup.exe`，正文为 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)。升级验证基线为公开版本 **2.3.1**。
+
+[发布流程 37139672519](https://github.com/yancy520666/Mineradio-remix/actions/runs/37139672519) 在提交 `39b436cebc5d4b2ecceb29e997b9d71834e11acf` 完成测试、构建与安装／升级／重启／卸载验证；[草稿](https://github.com/yancy520666/Mineradio-remix/releases/tag/untagged-856641bc0b8320b78fb8) 的四项资产已重新下载，SHA-256 与 GitHub 资产摘要一致，更新清单的版本及 SHA-512 一致。后续 README／交接记录变更不替换这次已验证的安装包。
 
 ## 源码与版本
 
