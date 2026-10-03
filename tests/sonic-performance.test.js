@@ -22,6 +22,7 @@ test('opt-in budgets preserve legacy defaults and stay below the saved quality',
 test('ultra is the original wallpaper and default vsync leaves the renderer uncapped', () => {
   const ultra = policy.profile('ultra', true, 0);
   assert.equal(ultra.fps, 0);
+  assert.equal(ultra.floatingCount, 100, 'ultra keeps the full user-selectable block range');
   assert.equal(policy.pixelRatio(ultra, 3840, 2160, 2), policy.pixelRatio(null, 3840, 2160, 2));
   assert.equal(policy.targetFps('vsync', ultra, 144), 144);
   assert.equal(policy.fpsLimit('vsync', null, 100), 0);
@@ -85,6 +86,7 @@ function controller(storage = new Map()) {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/sonic-performance.js'), 'utf8'), context);
   tick();
   return { api: window.MineradioSonicPerformance, window, node, tick, storage,
+    runTicks: ms => { for (let elapsed = 0; elapsed < ms; elapsed += 500) { time += 500; tick(); } },
     focus: value => { focused = value; }, hide: value => { doc.hidden = value; }, advance: ms => { time += ms; },
     emit: (data, source = frameWindow) => events.message({ source, origin: 'http://localhost', data }) };
 }
@@ -112,9 +114,38 @@ test('render interruption times out, recovers, and leaves the selected wallpaper
   assert.equal(c.node('sonic-performance-notice').hidden, false);
   c.hide(true); c.advance(30000); c.tick();
   assert.equal(c.api.snapshot().health[8].state, 'lost', 'hidden time does not count toward the timeout');
-  c.hide(false); c.tick(); c.advance(16000); c.tick();
+  c.hide(false); c.tick(); c.runTicks(16500);
   assert.equal(c.api.snapshot().health[8].state, 'failed');
   assert.equal(c.window.fx.preset, 8);
   c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready' });
   assert.equal(c.node('sonic-performance-notice').hidden, true);
+});
+
+test('suspended background timers do not cause an immediate failure on resume', () => {
+  const c = controller();
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'lost' });
+  c.runTicks(5000);
+  c.hide(true); c.advance(30000); // No tick while the renderer is suspended.
+  c.hide(false); c.tick();
+  assert.equal(c.api.snapshot().health[8].state, 'lost');
+  c.runTicks(14000);
+  assert.equal(c.api.snapshot().health[8].state, 'lost');
+  c.runTicks(2000);
+  assert.equal(c.api.snapshot().health[8].state, 'failed');
+});
+
+test('missing successful draws fail even after ready; current draws recover and old frames cannot', () => {
+  const c = controller(), draw = { type: 'mineradio-sonic-performance-draw' };
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready' });
+  c.runTicks(17000);
+  assert.equal(c.api.snapshot().health[8].state, 'failed');
+  c.emit(draw, {});
+  assert.equal(c.api.snapshot().health[8].state, 'failed');
+  c.emit(draw);
+  assert.equal(c.api.snapshot().health[8].state, 'ready');
+  c.focus(false); c.runTicks(20000);
+  assert.equal(c.api.snapshot().health[8].state, 'ready', 'occluded/unfocused frame suspension is not a render failure');
+  c.focus(true); c.tick();
+  for (let i = 0; i < 20; i++) { c.runTicks(1000); c.emit(draw); }
+  assert.equal(c.api.snapshot().health[8].state, 'ready');
 });
