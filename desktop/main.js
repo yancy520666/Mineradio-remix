@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, protocol, desktopCapturer, powerMonitor } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, protocol, desktopCapturer, powerMonitor } = require('electron');
 const net = require('net');
 const http = require('http');
 const path = require('path');
@@ -5752,6 +5752,65 @@ async function loadMainWindowWithRetry(win) {
   throw error;
 }
 
+// The startup shell is a file:// page and the player is served from 127.0.0.1, so
+// navigating one into the other swaps renderer processes, and Chromium paints the
+// new process white until the player's first frame (about 0.6 s). Show the shell in
+// its own view above the main webContents instead, and drop it once the player has
+// painted underneath.
+function createStartupShellOverlay(win, shellFile) {
+  let view = null;
+  let removed = false;
+  const syncBounds = () => {
+    if (!view || win.isDestroyed()) return;
+    const [width, height] = win.getContentSize();
+    view.setBounds({ x: 0, y: 0, width, height });
+  };
+  const remove = () => {
+    if (removed) return;
+    removed = true;
+    if (!win.isDestroyed()) {
+      win.off('resize', syncBounds);
+      try { win.contentView.removeChildView(view); } catch (_) {}
+      if (win.isFocused()) win.webContents.focus();
+    }
+    try { if (!view.webContents.isDestroyed()) view.webContents.close(); } catch (_) {}
+    view = null;
+  };
+  try {
+    view = new WebContentsView({ webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    view.setBackgroundColor('#00000000');
+    win.contentView.addChildView(view);
+    syncBounds();
+    win.on('resize', syncBounds);
+    win.once('closed', remove);
+    view.webContents.once('did-finish-load', () => {
+      if (!removed && !win.isDestroyed()) showMainWindowSafely(win, 'startup-shell');
+    });
+    view.webContents.loadFile(shellFile).catch((error) => {
+      if (!/ERR_ABORTED|ERR_FAILED/i.test(String(error && error.message || error))) {
+        console.warn('[StartupWindow] startup shell skipped:', error.message || error);
+      }
+      remove();
+    });
+  } catch (error) {
+    console.warn('[StartupWindow] startup shell overlay unavailable:', error.message || error);
+    if (view) remove();
+    return null;
+  }
+  return {
+    remove,
+    // Two animation frames after navigation means the player has produced a frame;
+    // the timeout keeps a busy or failed renderer from leaving the shell on top.
+    removeAfterMainPaint() {
+      if (removed || win.isDestroyed()) return remove();
+      const painted = win.webContents.mainFrame
+        .executeJavaScript('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))')
+        .catch(() => false);
+      Promise.race([painted, startupDelay(1500)]).then(remove, remove);
+    },
+  };
+}
+
 async function createWindowOnce() {
   htmlFullscreenActive = false;
   windowFullscreenActive = false;
@@ -6079,20 +6138,20 @@ async function createWindowOnce() {
   });
 
   const startupShell = path.join(__dirname, 'startup.html');
-  if (fs.existsSync(startupShell)) {
-    win.loadFile(startupShell).catch((error) => {
-      if (!/ERR_ABORTED|ERR_FAILED/i.test(String(error && error.message || error))) {
-        console.warn('[StartupWindow] startup shell skipped:', error.message || error);
-      }
-    });
-  }
+  const startupOverlay = fs.existsSync(startupShell) ? createStartupShellOverlay(win, startupShell) : null;
 
-  await ensureLocalServerStarted();
-  await loadMainWindowWithRetry(win);
+  try {
+    await ensureLocalServerStarted();
+    await loadMainWindowWithRetry(win);
+  } catch (error) {
+    if (startupOverlay) startupOverlay.remove();
+    throw error;
+  }
   if (win.isDestroyed()) throw new Error('Main BrowserWindow was destroyed after navigation');
   startupCompleted = true;
   startMainWindowVisibilityGuard(win);
   showMainWindowSafely(win, 'navigation-complete');
+  if (startupOverlay) startupOverlay.removeAfterMainPaint();
   writeStartupState('ready', { readyAt: Date.now(), port: mainServerPort || Number(process.env.PORT) || 3000 });
   const qaExitMs = Math.max(0, Math.min(10000, Number(process.env.MINERADIO_STARTUP_QA_EXIT_MS) || 0));
   if (qaExitMs) {

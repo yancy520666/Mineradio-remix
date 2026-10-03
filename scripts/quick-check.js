@@ -2776,8 +2776,16 @@ async function checkProviderAuthCookiePathGuard() {
   if (!/if \(mainWindow === win\)[\s\S]{0,120}mainWindow = null/.test(mainText) || !/win\.on\('closed'/.test(mainText)) {
     fail('BrowserWindow event closures must only clear the same local window instance');
   }
-  if (!fs.existsSync(path.join(appRoot, 'desktop', 'startup.html')) || !/win\.loadFile\(startupShell\)/.test(mainText)) {
+  if (!fs.existsSync(path.join(appRoot, 'desktop', 'startup.html')) || !/createStartupShellOverlay\(win, startupShell\)/.test(mainText) || !/view\.webContents\.loadFile\(shellFile\)/.test(mainText)) {
     fail('A lightweight packaged startup shell must remain available while the local server is preparing');
+  }
+  // Navigating the main webContents from the file:// shell to the player swaps renderer
+  // processes and paints white; the shell stays in its own view until the player paints.
+  if (/win\.loadFile\(startupShell\)/.test(mainText)
+    || !/startupOverlay\.removeAfterMainPaint\(\)/.test(mainText)
+    || !/requestAnimationFrame\(\(\) => requestAnimationFrame/.test(mainText)
+    || !/if \(startupOverlay\) startupOverlay\.remove\(\);\s*throw error;/.test(mainText)) {
+    fail('The startup shell must cover the player until its first paint and be removed on failure, not be navigated away from');
   }
   const singleInstanceBranch = mainText.indexOf('if (!gotSingleInstanceLock)');
   const startupStateCall = "writeStartupState('module-loaded'";
