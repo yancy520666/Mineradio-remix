@@ -24,6 +24,8 @@ function renderer(provider) {
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06a-comment-replies.js',
     ['detailReplyControlsHtml', 'detailReplyRegion', 'updateDetailReplyControls', 'toggleDetailReplies', 'renderDetailReplyItems', 'loadMoreDetailReplies']);
+  loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
+    ['commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml']);
   ctx.detailReplyControlsHtml({ id: 'parent', replyCount: 25, replyResource: '100', user: { nickname: '听众' } });
   return { ctx, requests, toggle, panel, status, more, list };
 }
@@ -86,9 +88,14 @@ test('reply content is escaped and only positive known counts create expanders',
   assert.match(html, /&lt;author&gt;/);
   assert.match(html, /&lt;target&gt;/);
   assert.match(html, /&quot; onerror=&quot;/);
+  // Author and time head the reply; the like count sits in the heart control after the text.
   const meta = ctx.renderDetailReplyItems([{ ...reply('b'), likedCount: 12, time: 100 }]);
-  assert.match(meta, /回复者 · 12 赞 · 10月3日/);
+  assert.match(meta, /<span class="comment-author">回复者<\/span><span class="comment-time">10月3日<\/span>/);
+  assert.match(meta, /comment-reply-text">回复 b<\/div><div class="comment-actions">[\s\S]*class="comment-like"[\s\S]*comment-like-count">12</);
   assert(!meta.includes('<strong>'));
+  // Badge images must be platform HTTPS URLs; anything else is dropped.
+  assert.match(ctx.renderDetailReplyItems([{ ...reply('v'), vip: { icon: 'https://y.qq.com/svip8.png', level: 0 } }]), /<img src="https:\/\/y\.qq\.com\/svip8\.png"/);
+  assert.doesNotMatch(ctx.renderDetailReplyItems([{ ...reply('w'), vip: { icon: 'javascript:alert(1)', level: 3 } }]), /javascript:/);
 });
 
 test('QQ reply requests preserve ranking and sequence cursors and reject unavailable responses', async () => {

@@ -19,9 +19,10 @@ async function probe(live) {
   if (live) {
     for (const [provider, endpoint] of [['netease', '/api/song/comments?id=186016&limit=30'], ['qq', '/api/qq/song/comments?id=97773&limit=30'],
       ['kugou', '/api/kugou/song/comments?id=302362878&limit=30']]) {
-      const first = await apiJson(endpoint + '&offset=0', { timeoutMs: 25000 });
+      const byOffset = provider === 'kugou';
+      const first = await apiJson(endpoint + (byOffset ? '&offset=0' : '&cursor='), { timeoutMs: 25000 });
       check(!first.error && first.comments && first.comments.length > 0, provider + ' public comments unavailable');
-      const next = await apiJson(endpoint + '&offset=30', { timeoutMs: 25000 });
+      const next = await apiJson(endpoint + (byOffset ? '&offset=30' : '&cursor=' + encodeURIComponent(first.nextCursor || '')), { timeoutMs: 25000 });
       check(!next.error && next.comments.every(c => !c.isHot), provider + ' later pages repeat hot comments');
       liveResults.push({ provider, hot: first.comments.filter(c => c.isHot).length,
         normal: first.comments.filter(c => !c.isHot).length, next: next.comments.length });
@@ -74,7 +75,8 @@ async function probe(live) {
     if (!url.includes('/comments?')) return {};
     const parsed = new URL(url, location.origin);
     const provider = parsed.pathname.includes('/qq/') ? 'qq' : parsed.pathname.includes('/kugou/') ? 'kugou' : parsed.pathname.includes('/qishui/') ? 'qishui' : 'netease';
-    const offset = provider === 'qishui' ? Number(parsed.searchParams.get('cursor')) || 0 : Number(parsed.searchParams.get('offset'));
+    // Kugou pages by offset; the other platforms by cursor.
+    const offset = provider === 'kugou' ? Number(parsed.searchParams.get('offset')) : Number(parsed.searchParams.get('cursor')) || 0;
     requests.push({ provider, offset });
     await pause(20);
     if (failNext) { failNext = false; throw new Error('offline fixture'); }
@@ -195,8 +197,8 @@ async function probe(live) {
   await pause(150);
   const activeRegion = replyToggle.closest('.comment-replies');
   const parentItem = activeRegion.closest('.comment-item');
-  const mainMetaStyle = getComputedStyle(parentItem.querySelector('.comment-main > .comment-meta'));
-  const replyMetaStyle = getComputedStyle(activeRegion.querySelector('.comment-reply-meta'));
+  const mainMetaStyle = getComputedStyle(parentItem.querySelector('.comment-main > .comment-head .comment-author'));
+  const replyMetaStyle = getComputedStyle(activeRegion.querySelector('.comment-reply-copy .comment-author'));
   const mainTextStyle = getComputedStyle(parentItem.querySelector('.comment-text'));
   const replyTextStyle = getComputedStyle(activeRegion.querySelector('.comment-reply-text'));
   check(parseFloat(replyMetaStyle.fontSize) < parseFloat(mainMetaStyle.fontSize)
@@ -204,8 +206,9 @@ async function probe(live) {
   const opacity = color => Number(color.match(/, ([\d.]+)\)$/)[1]);
   check(opacity(replyMetaStyle.color) < opacity(mainMetaStyle.color)
     && opacity(replyTextStyle.color) < opacity(mainTextStyle.color), 'Replies must be dimmer than the main comment');
-  check(!activeRegion.querySelector('.comment-reply-meta strong')
-    && activeRegion.querySelector('.comment-reply-meta').textContent.includes(' · 12 赞 · '), 'Reply metadata must preserve the parent order and normal weight');
+  check(!activeRegion.querySelector('.comment-reply-copy strong')
+    && activeRegion.querySelector('.comment-reply-copy .comment-time')
+    && activeRegion.querySelector('.comment-reply-copy .comment-like-count').textContent === '12', 'Replies keep author and time on top and the like count in the heart control');
   const toggleStyle = getComputedStyle(replyToggle);
   check(toggleStyle.backgroundColor === 'rgba(0, 0, 0, 0)' && toggleStyle.borderTopWidth === '0px', 'Reply toggle must be a lightweight text link');
   check(getComputedStyle(activeRegion.querySelector('[data-reply-action="load"]')).backgroundColor

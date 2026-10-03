@@ -1,4 +1,5 @@
-function detailReplyControlsHtml(comment) {
+// The reply toggle shares the comment's bottom row with its like control.
+function detailReplyControlsHtml(comment, likeHtml) {
   var owner = detailCommentsState;
   var count = Number(comment.replyCount);
   if (!owner || comment.id == null || String(comment.id) === '' || !Number.isFinite(count) || count <= 0) return '';
@@ -7,9 +8,10 @@ function detailReplyControlsHtml(comment) {
   owner.threads[key] = { id: id, parentId: String(comment.id), resource: comment.replyResource || '',
     total: count, loaded: false, open: false, loading: false, hasMore: true, error: false, errorMessage: '',
     count: 0, offset: 0, cursor: '', seen: Object.create(null) };
-  var label = count + ' 条回复 ›';
-  return '<div class="comment-replies" data-reply-key="' + escHtml(key) + '">' +
+  var label = commentCountLabel(count) + ' 条回复 ›';
+  return '<div class="comment-replies" data-reply-key="' + escHtml(key) + '"><div class="comment-actions">' +
     '<button type="button" class="comment-replies-toggle" data-reply-action="toggle" aria-expanded="false" aria-controls="' + id + '">' + label + '</button>' +
+    (likeHtml || '') + '</div>' +
     '<div id="' + id + '" class="comment-replies-panel" hidden role="region" aria-label="' + escHtml((comment.user && comment.user.nickname || '这条评论') + '的回复') + '">' +
     '<div class="comment-replies-list"></div><div class="comment-replies-footer">' +
     '<span class="comment-replies-status" role="status" aria-live="polite"></span>' +
@@ -38,7 +40,7 @@ function detailReplyRegion(thread) {
 function updateDetailReplyControls(thread, region) {
   if (!region) return;
   var toggle = region.querySelector('.comment-replies-toggle');
-  toggle.textContent = thread.open ? '收起回复' : thread.total + ' 条回复 ›';
+  toggle.textContent = thread.open ? '收起回复' : commentCountLabel(thread.total) + ' 条回复 ›';
   toggle.setAttribute('aria-expanded', thread.open ? 'true' : 'false');
   region.querySelector('.comment-replies-panel').hidden = !thread.open;
   var status = region.querySelector('.comment-replies-status');
@@ -66,11 +68,10 @@ function renderDetailReplyItems(comments) {
     return '<div class="comment-reply-item">' + (avatar
       ? '<img class="comment-reply-avatar" src="' + avatar + '" alt="" loading="lazy">'
       : '<span class="comment-reply-avatar" aria-hidden="true"></span>') +
-      '<div class="comment-reply-copy"><div class="comment-meta comment-reply-meta">' + escHtml(user.nickname || '音乐用户') +
-      (comment.likedCount ? ' · ' + escHtml(String(comment.likedCount)) + ' 赞' : '') +
-      (comment.time ? ' · ' + escHtml(commentTimeLabel(comment.time)) : '') + '</div>' +
-      (comment.replyTo ? '<div class="comment-reply-to">回复 ' + escHtml(comment.replyTo) + '</div>' : '') +
-      '<div class="comment-reply-text">' + escHtml(comment.content || '') + '</div></div></div>';
+      '<div class="comment-reply-copy">' + commentHeadHtml(comment) +
+      '<div class="comment-reply-text">' + (comment.replyTo ? '<span class="comment-reply-to">回复 ' + escHtml(comment.replyTo) + '：</span>' : '') +
+      escHtml(comment.content || '') + '</div>' +
+      '<div class="comment-actions"><span></span>' + commentLikeHtml(comment) + '</div></div></div>';
   }).join('');
 }
 

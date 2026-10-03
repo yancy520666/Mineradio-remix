@@ -20,7 +20,6 @@ const {
   logout,
   user_account,
   user_playlist,
-  comment_music,
   album,
   artist_detail,
   artist_top_song,
@@ -93,7 +92,8 @@ const {
   kugouAudioReferer,
 } = require('./kugou-api');
 const { handleKugouComments, handleKugouDailyRecommendations, handleKugouReplies } = require('./kugou-community-api');
-const { mapNeteaseComment, handleNeteaseReplies, handleQQReplies } = require('./comment-replies-api');
+const { handleNeteaseReplies, handleQQReplies } = require('./comment-replies-api');
+const { handleNeteaseCommentPage, handleQQCommentPage } = require('./comment-list-api');
 const {
   getQishuiStatus,
   handleQishuiStatus,
@@ -3778,36 +3778,7 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
   };
 }
 
-function mapQQComment(raw) {
-  raw = raw || {};
-  const user = raw.user || raw.uin || {};
-  const nickname = raw.nick || raw.nickname || raw.encrypt_uin || user.nick || user.nickname || user.name || 'QQ 音乐用户';
-  const avatar = raw.avatarurl || raw.avatar || user.avatarurl || user.avatar || '';
-  const timeRaw = Number(raw.time || raw.commenttime || raw.createTime || 0) || 0;
-  return {
-    id: raw.commentid || raw.commentId || raw.id || '',
-    content: raw.rootcommentcontent || raw.content || raw.comment || '',
-    likedCount: Number(raw.praisenum || raw.praise_num || raw.likedCount || 0) || 0,
-    replyCount: raw.replyCount == null && raw.reply_cnt == null ? null : Math.max(0, Number(raw.replyCount || raw.reply_cnt) || 0),
-    time: timeRaw && timeRaw < 10000000000 ? timeRaw * 1000 : timeRaw,
-    user: {
-      id: raw.encrypt_uin || raw.uin || user.uin || '',
-      nickname,
-      avatar,
-    },
-  };
-}
-
-function songCommentPage(hotList, normalList, limit, offset, total, more) {
-  const normal = Array.isArray(normalList) ? normalList : [];
-  const hot = offset === 0 && Array.isArray(hotList) ? hotList : [];
-  const nextOffset = offset + limit;
-  const hasMore = normal.length > 0 && (typeof more === 'boolean' ? more : (total > 0 ? nextOffset < total : normal.length >= limit));
-  const nextBefore = normal.length ? Number(normal[normal.length - 1].time) || 0 : 0;
-  return { raw: hot.concat(normal), nextOffset, nextBefore, hasMore, hot: hot.length > 0, hotCount: hot.length };
-}
-
-async function handleQQSongComments(id, mid, limit, offset) {
+async function handleQQSongComments(id, mid, limit, cursor) {
   let topid = String(id || '').replace(/\D/g, '');
   if (!topid && mid) {
     try {
@@ -3818,38 +3789,7 @@ async function handleQQSongComments(id, mid, limit, offset) {
     }
   }
   if (!topid) return { provider: 'qq', error: 'Missing QQ song id', comments: [] };
-  const page = Math.max(0, Math.floor((offset || 0) / Math.max(1, limit || 20)));
-  const uin = qqCookieUin() || '0';
-  const body = await qqGetJSON('https://c.y.qq.com/base/fcgi-bin/fcg_global_comment_h5.fcg', {
-    g_tk: '5381',
-    loginUin: uin,
-    hostUin: '0',
-    format: 'json',
-    inCharset: 'utf8',
-    outCharset: 'utf-8',
-    notice: '0',
-    platform: 'yqq.json',
-    needNewCode: '0',
-    cid: '205360772',
-    reqtype: '2',
-    biztype: '1',
-    topid,
-    cmd: '8',
-    needmusiccrit: '0',
-    pagenum: String(page),
-    pagesize: String(limit || 20),
-  }, { headers: { Referer: 'https://y.qq.com/n/ryqq/songDetail/' + encodeURIComponent(mid || topid) } });
-  if (!body || (body.code != null && Number(body.code) !== 0) || !body.comment) {
-    throw new Error('QQ_COMMENTS_UNAVAILABLE');
-  }
-  const hotList = body && body.hot_comment && body.hot_comment.commentlist;
-  const normalList = body && body.comment && body.comment.commentlist;
-  const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || 0;
-  const pageData = songCommentPage(hotList, normalList, limit, offset, total);
-  const comments = pageData.raw.map((raw, index) => ({
-    ...mapQQComment(raw), isHot: index < pageData.hotCount,
-  })).filter(c => c.content);
-  return { provider: 'qq', id: topid, total, comments, nextOffset: pageData.nextOffset, hasMore: pageData.hasMore, hot: pageData.hot };
+  return handleQQCommentPage(topid, limit, cursor, qqMusicRequest);
 }
 
 function decodeHtmlEntities(text) {
@@ -5887,8 +5827,9 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id') || url.searchParams.get('qqId') || '';
       const mid = url.searchParams.get('mid') || url.searchParams.get('songmid') || '';
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
-      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-      const data = await handleQQSongComments(id, mid, limit, offset);
+      const cursor = url.searchParams.get('cursor') || '';
+      if (cursor.length > 256) { sendJSON(res, { provider: 'qq', error: 'Invalid comment cursor', comments: [] }, 400); return; }
+      const data = await handleQQSongComments(id, mid, limit, cursor);
       sendJSON(res, data);
     } catch (err) {
       console.error('[QQSongComments]', err);
@@ -6552,15 +6493,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
-      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const cursor = url.searchParams.get('cursor') || '';
       if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
-      const before = Math.max(0, parseInt(url.searchParams.get('before') || '0', 10) || 0);
-      const r = await comment_music({ id, limit, offset: before ? 0 : offset, before, cookie: userCookie, timestamp: Date.now() });
-      const body = r.body || r || {};
-      const pageData = songCommentPage(body.hotComments, body.comments, limit, offset, Number(body.total) || 0, body.more);
-      const comments = pageData.raw.map((c, index) => ({ ...mapNeteaseComment(c), isHot: index < pageData.hotCount })).filter(c => c.content);
-      sendJSON(res, { id, total: body.total || 0, comments, nextOffset: pageData.nextOffset,
-        nextBefore: pageData.nextBefore, hasMore: pageData.hasMore, hot: pageData.hot, body });
+      if (cursor.length > 256) { sendJSON(res, { error: 'Invalid comment cursor', comments: [] }, 400); return; }
+      sendJSON(res, await handleNeteaseCommentPage(id, userCookie, limit, cursor));
     } catch (err) {
       console.error('[SongComments]', err);
       sendJSON(res, { error: err.message, comments: [] }, 500);

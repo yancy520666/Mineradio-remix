@@ -21,7 +21,7 @@ function renderer() {
     '.detail-comments-more-list': normalList, '.detail-comments-footer button': button,
     '.detail-comments-count': label };
   const target = { set innerHTML(value) { hotList.innerHTML = ''; normalList.innerHTML = ''; },
-    querySelector: selector => selectors[selector] };
+    dataset: {}, addEventListener() {}, querySelector: selector => selectors[selector] };
   const ctx = vm.createContext({
     document: { getElementById: () => target }, trackDetailSeq: 1, detailCommentsState: null,
     songProviderKey: song => song.provider, escHtml: String, bindTrackDetailScrollers() {},
@@ -29,18 +29,20 @@ function renderer() {
     closeGsapModal(_modal, done) { done(); }, detailCommentSong: null, detailCommentSubmitBusy: false,
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
-    ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal']);
+    ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal',
+      'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'bindDetailCommentLikes']);
   return { ctx, requests, list, button, label, hotList, normalList, hotSection, normalSection, empty };
 }
 
-test('offset comments retain the first normal page, deduplicate, retry and ignore stale responses', async () => {
+test('comment pages retain the first normal page, deduplicate, retry and ignore stale responses', async () => {
   for (const provider of ['netease', 'qq', 'kugou']) {
+    const byOffset = provider === 'kugou';
     const { ctx, requests, list, button } = renderer();
     const initial = ctx.loadDetailComments({ id: 'song-a', mixSongId: '123', provider }, 1);
     await ctx.loadMoreDetailComments();
     assert.equal(requests.length, 1, 'duplicate clicks cannot request another page');
-    assert.match(requests[0].url, /limit=30&offset=0$/);
-    requests[0].resolve({ comments: [{ ...comment(500), isHot: true }, ...batch(0), comment(500)], hasMore: true, nextOffset: 30 });
+    assert.match(requests[0].url, byOffset ? /limit=30&offset=0$/ : /limit=30&cursor=$/);
+    requests[0].resolve({ comments: [{ ...comment(500), isHot: true }, ...batch(0), comment(500)], hasMore: true, nextOffset: 30, nextCursor: 'c1' });
     await initial;
     assert.equal(ctx.detailCommentsState.count, 31);
     assert.match(list.innerHTML, /Comment 0</);
@@ -49,13 +51,14 @@ test('offset comments retain the first normal page, deduplicate, retry and ignor
     const failed = ctx.loadMoreDetailComments();
     requests[1].reject(new Error('offline'));
     await failed;
-    assert.equal(ctx.detailCommentsState.offset, 30);
+    if (byOffset) assert.equal(ctx.detailCommentsState.offset, 30);
+    else assert.equal(ctx.detailCommentsState.cursor, 'c1');
     assert.equal(ctx.detailCommentsState.count, 31);
     assert.equal(button.disabled, false);
     assert.match(button.textContent, /重试/);
     const retry = ctx.loadMoreDetailComments();
     assert.equal(requests[2].url, requests[1].url);
-    requests[2].resolve({ comments: [comment(29), ...batch(30)], hasMore: false, nextOffset: 60 });
+    requests[2].resolve({ comments: [comment(29), ...batch(30)], hasMore: false, nextOffset: 60, nextCursor: '' });
     await retry;
     assert.equal(ctx.detailCommentsState.count, 61);
     assert.equal(button.hidden, true);
@@ -75,9 +78,10 @@ test('offset comments retain the first normal page, deduplicate, retry and ignor
   }
 });
 
-test('Qishui advances encoded cursors and stops when the server repeats a cursor', async () => {
+test('cursor platforms advance encoded cursors and stop when the server repeats a cursor', async () => {
+  for (const provider of ['netease', 'qq', 'qishui']) {
   const { ctx, requests, button } = renderer();
-  const first = ctx.loadDetailComments({ id: 'song', provider: 'qishui' }, 1);
+  const first = ctx.loadDetailComments({ id: '123', qqId: '123', provider }, 1);
   requests[0].resolve({ comments: batch(0), nextCursor: 'next/+?', hasMore: true });
   await first;
   const next = ctx.loadMoreDetailComments();
@@ -88,6 +92,7 @@ test('Qishui advances encoded cursors and stops when the server repeats a cursor
   assert.equal(button.hidden, true);
   await ctx.loadMoreDetailComments();
   assert.equal(requests.length, 2);
+  }
 });
 
 test('a completed comment submission cannot reset another song\'s loaded comments or draft', async () => {
@@ -111,42 +116,69 @@ test('a completed comment submission cannot reset another song\'s loaded comment
   assert.equal(notices.length, 0);
 });
 
-test('backend keeps hot and normal first pages while offsets count only the normal page', async () => {
-  const queries = [];
-  const ctx = vm.createContext({
-    qqCookieUin: () => '0', mapQQComment: c => c,
-    qqGetJSON: async (_url, params) => {
-      queries.push(params);
-      return { hot_comment: { commentlist: [comment(500)] },
-        comment: { commentlist: batch(Number(params.pagenum) * 30), commenttotal: 60 } };
+function listBackend(extra) {
+  const ctx = vm.createContext({ HOT_PAGE_SIZE: 10, ...extra });
+  loadFunctions(ctx, 'comment-list-api.js', ['readCursor', 'handleNeteaseCommentPage', 'qqVip', 'mapQQListComment', 'handleQQCommentPage']);
+  return ctx;
+}
+const neteaseRaw = id => ({ commentId: id, content: 'Comment ' + id, likedCount: 5, replyCount: 3 });
+
+test('Netease lists hot comments once, then pages newest comments by cursor with reply counts', async () => {
+  const calls = [];
+  const ctx = listBackend({
+    mapNeteaseComment: c => ({ id: String(c.commentId), content: c.content, replyCount: c.replyCount, likedCount: c.likedCount }),
+    comment_new: async options => {
+      calls.push(options);
+      const hot = options.sortType === 2;
+      return { body: { code: 200, data: { comments: hot ? [neteaseRaw('h')] : [neteaseRaw('n' + options.pageNo)],
+        hasMore: true, cursor: hot ? 'normalHot#1' : String(1000 - options.pageNo), totalCount: 99 } } };
     },
   });
-  loadFunctions(ctx, 'server.js', ['songCommentPage', 'handleQQSongComments']);
-  const first = await ctx.handleQQSongComments('123', '', 30, 0);
-  assert.equal(first.comments.length, 31);
-  assert.equal(first.comments[1].id, 0);
-  assert.equal(first.comments[0].isHot, true);
-  assert.equal(first.comments[1].isHot, false);
-  assert.equal(first.nextOffset, 30);
-  assert.equal(first.hasMore, true);
-  const next = await ctx.handleQQSongComments('123', '', 30, first.nextOffset);
-  assert.equal(next.comments[0].id, 30);
-  assert.equal(next.comments.length, 30);
+  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '');
+  assert.deepEqual(calls.map(c => [c.sortType, c.pageNo]), [[2, 1], [3, 1]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(first.comments.map(c => [c.id, c.isHot, c.replyCount]))), [['h', true, 3], ['n1', false, 3]]);
+  assert.equal(first.nextCursor, JSON.stringify({ p: 2, c: '999' }));
+  const next = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor);
+  assert.deepEqual(calls.slice(2).map(c => [c.sortType, c.pageNo, c.cursor]), [[3, 2, '999']]);
   assert(next.comments.every(c => c.isHot === false));
-  assert.equal(next.hasMore, false);
-  assert.equal(queries[1].pagenum, '1');
-  // Netease's explicit end marker wins even when its total has changed.
-  assert.equal(ctx.songCommentPage([], batch(0), 30, 0, 3000, false).hasMore, false);
-  assert.equal(ctx.songCommentPage([], [], 30, 30, 3000, true).hasMore, false);
+  for (const bad of ['{"p":2,"c":"9;1"}', 'nope', '{"p":0,"c":"1"}']) {
+    await assert.rejects(ctx.handleNeteaseCommentPage('186016', '', 30, bad), /Invalid comment cursor/);
+  }
+});
+
+test('QQ lists hot and newest comments with reply counts, badges and a sequence cursor', async () => {
+  const payloads = [];
+  const raw = (id, seq) => ({ CmId: id, Content: 'Comment ' + id, PraiseNum: 7, IsPraised: 1, ReplyCnt: 165, PubTime: 10, SeqNo: seq,
+    VipIcon: 'http://y.qq.com/mediastyle/lv-icon/v10/vip/1x/svip8.png', Nick: 'L', EncryptUin: 'u' });
+  const ctx = listBackend({ safeVipIcon: value => String(value).replace('http:', 'https:') });
+  const request = async payload => {
+    payloads.push(payload);
+    const page = payload.latest.param.PageNum;
+    const result = { latest: { code: 0, data: { CommentList: { Comments: [raw('n' + page, '50' + page)], HasMore: 1, Total: 9 } } } };
+    if (payload.hot) result.hot = { code: 0, data: { CommentList: { Comments: [raw('h', '1')], HasMore: 1 } } };
+    return result;
+  };
+  const first = await ctx.handleQQCommentPage('97773', 30, '', request);
+  assert.equal(payloads[0].latest.param.PageSize, 25, 'the service rejects pages above 25');
+  assert.deepEqual(JSON.parse(JSON.stringify(first.comments.map(c => [c.id, c.isHot, c.replyCount, c.liked]))),
+    [['h', true, 165, true], ['n0', false, 165, true]]);
+  assert.match(first.comments[0].vip.icon, /^https:/);
+  const next = await ctx.handleQQCommentPage('97773', 30, first.nextCursor, request);
+  assert.equal(payloads[1].hot, undefined);
+  assert.equal(payloads[1].latest.param.LastCommentSeqNo, '500');
+  assert.equal(payloads[1].latest.param.PageNum, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(next.comments.map(c => c.id))), ['n1']);
+  await assert.rejects(ctx.handleQQCommentPage('97773', 30, '', async () => ({ latest: { code: 10000 } })), /QQ_COMMENTS_UNAVAILABLE/);
 });
 
 test('QQ supports a saved MID and reports upstream failures instead of showing no comments', async () => {
   const { ctx } = renderer();
   assert.match(ctx.detailCommentsConfig({ provider: 'qq', qqMid: 'saved-mid' }).readUrl, /mid=saved-mid/);
   assert.match(ctx.detailCommentsConfig({ provider: 'qq', id: 123 }).readUrl, /id=123/);
-  const backend = vm.createContext({ qqCookieUin: () => '0', qqGetJSON: async () => ({ code: 1000 }) });
+  const backend = vm.createContext({ qqMusicRequest: async () => ({}),
+    handleQQCommentPage: async () => { throw new Error('QQ_COMMENTS_UNAVAILABLE'); } });
   loadFunctions(backend, 'server.js', ['handleQQSongComments']);
-  await assert.rejects(backend.handleQQSongComments('123', '', 30, 0), /QQ_COMMENTS_UNAVAILABLE/);
+  await assert.rejects(backend.handleQQSongComments('123', '', 30, ''), /QQ_COMMENTS_UNAVAILABLE/);
   assert.match(ctx.detailCommentsConfig({ provider: 'kugou', mixSongId: 'encrypted', albumAudioId: '123' }).readUrl, /id=123/);
   assert.equal(ctx.detailCommentsConfig({ provider: 'kugou', id: 'only-hash' }), null);
 });
@@ -155,7 +187,7 @@ test('hot comments have their own section and later pages append only to more co
   const { ctx, requests, hotList, normalList, hotSection, normalSection } = renderer();
   const first = ctx.loadDetailComments({ id: 'song', provider: 'netease' }, 1);
   requests[0].resolve({ comments: [{ ...comment('hot'), isHot: true }, comment('hot'), comment('normal')],
-    hasMore: true, nextOffset: 30 });
+    hasMore: true, nextCursor: 'c1' });
   await first;
   assert.equal(hotSection.hidden, false);
   assert.equal(normalSection.hidden, false);
@@ -165,7 +197,7 @@ test('hot comments have their own section and later pages append only to more co
   assert.doesNotMatch(normalList.innerHTML, /Comment hot</);
   const savedHot = hotList.innerHTML;
   const next = ctx.loadMoreDetailComments();
-  requests[1].resolve({ comments: [comment('later')], hasMore: false, nextOffset: 60 });
+  requests[1].resolve({ comments: [comment('later')], hasMore: false, nextCursor: '' });
   await next;
   assert.equal(hotList.innerHTML, savedHot);
   assert.match(normalList.innerHTML, /Comment later</);
@@ -186,49 +218,21 @@ test('Qishui respects explicit end flags and stops empty or non-advancing pages'
   assert.equal(ctx.qishuiCommentHasMore({ has_more: true }, {}, 'a', '', 30), false);
 });
 
-test('Netease switches to decreasing time cursors after 5000 comments', async () => {
-  const { ctx, requests } = renderer();
-  const initial = ctx.loadDetailComments({ id: 'song', provider: 'netease' }, 1);
-  requests[0].resolve({ comments: batch(0), nextOffset: 30, nextBefore: 2000, hasMore: true });
-  await initial;
-  ctx.detailCommentsState.offset = 4980;
-  const boundary = ctx.loadMoreDetailComments();
-  assert.doesNotMatch(requests[1].url, /before=/);
-  requests[1].resolve({ comments: batch(30), nextOffset: 5010, nextBefore: 1900, hasMore: true });
-  await boundary;
-  const deep = ctx.loadMoreDetailComments();
-  assert.match(requests[2].url, /offset=5010&before=1900$/);
-  requests[2].resolve({ comments: batch(60), nextOffset: 5040, nextBefore: 1800, hasMore: true });
-  await deep;
-  const repeated = ctx.loadMoreDetailComments();
-  requests[3].resolve({ comments: batch(60), nextOffset: 5070, nextBefore: 1800, hasMore: true });
-  await repeated;
-  assert.equal(ctx.detailCommentsState.hasMore, false);
-  assert.equal(ctx.detailCommentsState.count, 90);
-});
-
-test('Netease HTTP route forwards before with upstream offset zero and retains local progress', async () => {
-  const calls = [], responses = [];
+test('Netease HTTP route forwards the cursor and rejects oversized ones', async () => {
   const source = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
   const start = source.indexOf("  if (pn === '/api/song/comments') {");
   const end = source.indexOf("  if (pn === '/api/song/comments/like')", start);
-  const ctx = vm.createContext({
-    pn: '/api/song/comments', req: { method: 'GET' }, res: {}, userCookie: '',
-    url: new URL('http://localhost/api/song/comments?id=song&limit=30&offset=5010&before=1900'),
-    sendJSON: (_, payload) => responses.push(payload), console,
-    comment_music: async options => {
-      calls.push(options);
-      return { body: { more: true, total: 9000, hotComments: [{ commentId: 'hot', content: 'hot' }],
-        comments: [{ commentId: 'deep', content: 'deep', time: 1800 }] } };
-    },
-  });
-  loadFunctions(ctx, 'server.js', ['songCommentPage']);
-  loadFunctions(ctx, 'comment-replies-api.js', ['mapNeteaseComment']);
-  await vm.runInContext('(async () => {' + source.slice(start, end) + '})()', ctx);
-  assert.equal(calls[0].offset, 0);
-  assert.equal(calls[0].before, 1900);
-  assert.equal(responses[0].nextOffset, 5040);
-  assert.equal(responses[0].nextBefore, 1800);
-  assert.equal(responses[0].comments.length, 1);
-  assert.equal(responses[0].comments[0].isHot, false);
+  for (const [cursor, expectCall] of [['{"p":2,"c":"999"}', true], ['x'.repeat(300), false]]) {
+    const calls = [], responses = [];
+    const ctx = vm.createContext({
+      pn: '/api/song/comments', req: { method: 'GET' }, res: {}, userCookie: 'c', console,
+      url: new URL('http://localhost/api/song/comments?id=song&limit=30&cursor=' + encodeURIComponent(cursor)),
+      sendJSON: (_, payload, status) => responses.push({ payload, status }),
+      handleNeteaseCommentPage: async (...args) => { calls.push(args); return { comments: [] }; },
+    });
+    await vm.runInContext('(async () => {' + source.slice(start, end) + '})()', ctx);
+    assert.equal(calls.length, expectCall ? 1 : 0);
+    if (expectCall) assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['song', 'c', 30, cursor]);
+    else assert.equal(responses[0].status, 400);
+  }
 });

@@ -18611,6 +18611,96 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
   #song-comments .comment-replies-panel { padding-left: 4px; }
 }
 
+/* Comment head: author, member badge, time. Bottom row: replies left, like right.
+   Liked uses the player's heart colour (#ff7a90), badges its icon gold. */
+#song-comments .comment-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  line-height: 18px;
+}
+#song-comments .comment-author {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, .62);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#song-comments .comment-vip { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; }
+#song-comments .comment-vip img { display: block; width: auto; height: 14px; }
+#song-comments .comment-vip-level {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(244, 210, 138, .14);
+  color: #f4d28a;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+}
+#song-comments .comment-time { flex: 0 0 auto; color: rgba(255, 255, 255, .32); font-size: 10.5px; }
+#song-comments .comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+  margin-top: 4px;
+}
+#song-comments .comment-like {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, .42);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  transition: color .18s ease, background-color .18s ease;
+}
+#song-comments button.comment-like { cursor: pointer; }
+#song-comments button.comment-like:hover { background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .78); }
+#song-comments button.comment-like:focus-visible { outline: 2px solid rgba(var(--fc-accent-rgb), .9); outline-offset: 2px; }
+#song-comments button.comment-like:disabled { cursor: wait; }
+#song-comments .comment-like svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1);
+}
+#song-comments .comment-like.is-liked { color: #ff7a90; }
+#song-comments .comment-like.is-liked svg { fill: currentColor; filter: drop-shadow(0 0 6px rgba(255, 122, 144, .38)); }
+#song-comments button.comment-like.is-liked svg { transform: scale(1.08); }
+#song-comments .comment-replies { margin-top: 0; }
+#song-comments .comment-reply-text .comment-reply-to { margin: 0; color: rgba(255, 255, 255, .42); font-size: inherit; }
+/* A reply's heart sits beside its last line instead of on a row of its own. */
+#song-comments .comment-reply-copy {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: end;
+}
+#song-comments .comment-reply-copy .comment-head { grid-column: 1 / -1; }
+#song-comments .comment-reply-copy .comment-author { color: rgba(255, 255, 255, .5); font-size: 10.5px; }
+#song-comments .comment-reply-copy .comment-actions { min-height: 0; margin: 0; }
+#song-comments .comment-reply-copy .comment-actions > span:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  #song-comments .comment-like,
+  #song-comments .comment-like svg { transition: none; }
+}
+
 /* Keep quick cards inside the dashboard's clipped glass surface on hover. */
 #empty-home .home-quick-grid > .home-card,
 #empty-home .home-quick-grid > .home-card:hover {
