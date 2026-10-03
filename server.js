@@ -3801,6 +3801,14 @@ function mapQQComment(raw) {
   };
 }
 
+function songCommentPage(hotList, normalList, limit, offset, total, more) {
+  const normal = Array.isArray(normalList) ? normalList : [];
+  const hot = offset === 0 && Array.isArray(hotList) ? hotList : [];
+  const nextOffset = offset + limit;
+  const hasMore = normal.length > 0 && (typeof more === 'boolean' ? more : (total > 0 ? nextOffset < total : normal.length >= limit));
+  return { raw: hot.concat(normal), nextOffset, hasMore, hot: hot.length > 0 };
+}
+
 async function handleQQSongComments(id, mid, limit, offset) {
   let topid = String(id || '').replace(/\D/g, '');
   if (!topid && mid) {
@@ -3835,10 +3843,10 @@ async function handleQQSongComments(id, mid, limit, offset) {
   }, { headers: { Referer: 'https://y.qq.com/n/ryqq/songDetail/' + encodeURIComponent(mid || topid) } });
   const hotList = body && body.hot_comment && body.hot_comment.commentlist;
   const normalList = body && body.comment && body.comment.commentlist;
-  const raw = (offset === 0 && Array.isArray(hotList) && hotList.length) ? hotList : (normalList || []);
-  const comments = (raw || []).map(mapQQComment).filter(c => c.content);
-  const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || comments.length;
-  return { provider: 'qq', id: topid, total, comments, hot: !!(offset === 0 && Array.isArray(hotList) && hotList.length) };
+  const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || 0;
+  const pageData = songCommentPage(hotList, normalList, limit, offset, total);
+  const comments = pageData.raw.map(mapQQComment).filter(c => c.content);
+  return { provider: 'qq', id: topid, total, comments, nextOffset: pageData.nextOffset, hasMore: pageData.hasMore, hot: pageData.hot };
 }
 
 function decodeHtmlEntities(text) {
@@ -6500,15 +6508,15 @@ const server = http.createServer(async (req, res) => {
       if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
       const r = await comment_music({ id, limit, offset, cookie: userCookie, timestamp: Date.now() });
       const body = r.body || r || {};
-      const raw = body.hotComments && offset === 0 ? body.hotComments : (body.comments || []);
-      const comments = (raw || []).map(c => ({
+      const pageData = songCommentPage(body.hotComments, body.comments, limit, offset, Number(body.total) || 0, body.more);
+      const comments = pageData.raw.map(c => ({
         id: c.commentId,
         content: c.content || '',
         likedCount: c.likedCount || 0,
         time: c.time || 0,
         user: c.user ? { id: c.user.userId, nickname: c.user.nickname || '', avatar: c.user.avatarUrl || '' } : null,
       })).filter(c => c.content);
-      sendJSON(res, { id, total: body.total || 0, comments, hot: !!(body.hotComments && offset === 0), body });
+      sendJSON(res, { id, total: body.total || 0, comments, nextOffset: pageData.nextOffset, hasMore: pageData.hasMore, hot: pageData.hot, body });
     } catch (err) {
       console.error('[SongComments]', err);
       sendJSON(res, { error: err.message, comments: [] }, 500);

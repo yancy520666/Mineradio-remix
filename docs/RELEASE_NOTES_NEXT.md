@@ -98,6 +98,8 @@
 
 ## 2.3.1 之后的改动（下个版本）
 
+- 歌曲详情评论从固定一次请求 18 条改为每页 30 条和“加载更多”。网易云、QQ 首页同时保留热门与第一页普通评论，偏移量只按普通评论分页，避免直接跳过第一页；汽水沿接口游标继续读取。前端按评论 ID 去重，失败保留现有内容与位置并支持重试；加载时禁用按钮，关闭或切换详情时忽略旧请求，重复游标终止继续加载。旧歌曲发送评论的响应也不会刷新新歌曲或清掉新输入。`tests/song-comments-pagination.test.js` 定向回归及源码检查通过；隔离 Electron 使用模拟接口验证三种平台的追加、去重、失败重试和末页终止，未使用真实账号联机测试。改动只进入后续源码，不替换已公开的 2.3.1 安装包。
+
 - 卸载时清理更新缓存：每次安装都会把安装包复制到 `%LOCALAPPDATA%\<updaterCacheDirName>\installer.exe`（Remix 为 `mineradio-remix-updater`，约 112 MB），electron-updater 在同目录保留 `current.blockmap` 和 `pending\`；electron-builder 默认的卸载程序不处理这个目录，卸载后会一直留下。现在 `customRemoveFiles` 在真正卸载时删除这三项，目录为空时一并移除。目录名取自 electron-builder 的 `APP_INSTALLER_STORE_FILE`，内测包同样适用。只删已知文件，不递归删除目录，也不跟随目录联接，其他文件保留。升级时旧版卸载程序以更新模式运行，此时新安装包正从 `pending\` 运行，`installer.exe` 也要留给下次差量更新，因此跳过。`isUpdated` 与 `$installMode` 在 `installer.nsh` 被包含之后才定义，所以判断写在宏里而不是函数里（写在函数里正式打包会编译失败）。`tests/installer-cleanup.test.js` 用原生 NSIS 覆盖卸载删除与升级保留两种情况。此清理随新版本的卸载程序生效：现有 2.3.1 安装卸载时仍使用 2.3.1 自带的卸载程序。
 
 - 启动白屏：启动壳 `desktop/startup.html` 是 `file://` 页面，播放器由 `http://127.0.0.1` 提供，原来主窗口从启动壳导航到播放器时跨源切换渲染进程（实测 PID 改变），Chromium 只对同源导航保留上一页画面，新进程画出第一帧前合成器填白，白屏约 0.2–0.6 秒；在页面最前加透明背景无效。现在启动壳放在独立的透明 `WebContentsView` 中覆盖主窗口，加载完成即显示窗口，仍早于本地服务就绪；主 `webContents` 直接加载播放器，导航完成后等两个动画帧（最长 1.5 秒）再移除覆盖层；启动失败时同样移除。用独立进程从屏幕取样对比（每约 15 ms）：原版 3 次启动都出现约 0.2 秒白屏，修复后 3 次均为 0，窗口出现时间不变。`quick-check` 改为检查覆盖层写法，禁止回到 `win.loadFile(startupShell)`。

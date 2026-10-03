@@ -18497,3 +18497,27 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
     display: none !important
   }
 }
+
+/* Song detail: paged comments. */
+#song-comments .detail-comments-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0 4px;
+  color: rgba(255, 255, 255, .5);
+  font-size: 12px;
+}
+
+#song-comments .detail-comments-footer button {
+  padding: 8px 14px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .34);
+  border-radius: 12px;
+  background: rgba(var(--fc-accent-rgb), .14);
+  color: rgba(255, 255, 255, .88);
+  font: inherit;
+  cursor: pointer;
+}
+
+#song-comments .detail-comments-footer button:disabled { opacity: .5; cursor: wait; }
+#song-comments .detail-comments-footer button[hidden] { display: none !important; }
