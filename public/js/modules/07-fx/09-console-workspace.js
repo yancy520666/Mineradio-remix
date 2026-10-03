@@ -266,6 +266,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false)
       ] },
       { key: 'performance', title: '性能与后台', hint: '画质档位、后台渲染和直播保持', items: [
+        fxConsoleItem('sonic-performance-controls', '音域回响性能优先', '核显 自适应 掉帧 壁纸 流畅', false),
         fxConsoleItem('performance-quality-seg', '画质档位', '低配 中 高 超高 渲染质量'),
         fxConsoleItem('foreground-fps-seg', '前台帧率上限', 'FPS 跟随屏幕 垂直同步 VSync 高刷 节能 45 60 75 90 120'),
         fxConsoleItem('t-lyricLiveViewportFit', '歌词实时边界', '逐帧 投影 长歌词 屏幕余量 性能'),

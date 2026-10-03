@@ -85,6 +85,10 @@ function getAdaptiveRenderFps(now) {
   if (isDeepBackgroundMode()) return 1;
   var mode = (typeof normalizeForegroundFpsMode === 'function') ? normalizeForegroundFpsMode(fx && fx.foregroundFpsMode) : 'adaptive';
   var fixedFps = (typeof foregroundFixedFpsForMode === 'function') ? foregroundFixedFpsForMode(mode) : null;
+  if (fx && Number(fx.preset) === 7 && window.MineradioSonicPerformance) {
+    var sonicBudget = MineradioSonicPerformance.profile();
+    if (sonicBudget) return Math.min(fixedFps || sonicBudget.fps, sonicBudget.fps);
+  }
   if (fixedFps !== null) return fixedFps;
   if (RENDER_VISIBLE_VSYNC) return 0;
   var cadence = resolveAdaptiveRenderCadence(now, mode);
@@ -704,6 +708,7 @@ function animate() {
 
   var rendererPerfStart = performance.now();
   renderer.render(scene, camera);
+  if (window.MineradioSonicPerformance) MineradioSonicPerformance.stageFrame();
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('renderer.render', rendererPerfStart);
   var frameCostMs = performance.now() - framePerfStart;
   if (typeof sampleAdaptiveFrameCost === 'function') {

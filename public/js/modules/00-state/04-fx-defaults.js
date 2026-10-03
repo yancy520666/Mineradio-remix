@@ -203,7 +203,7 @@ var fxDefaults = {
 function normalizeForegroundFpsMode(value) {
   var mode = String(value || '').trim().toLowerCase();
   if (mode === 'vsync' || mode === 'adaptive') return mode;
-  if (/^(45|60|75|90|120)$/.test(mode)) return mode;
+  if (/^(30|45|60|75|90|120)$/.test(mode)) return mode;
   return fxDefaults.foregroundFpsMode || 'vsync';
 }
 function foregroundFixedFpsForMode(mode) {

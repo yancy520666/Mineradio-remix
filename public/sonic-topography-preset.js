@@ -220,17 +220,19 @@
   }
 
   function deriveTerrainGridSettings(fx) {
+    var budget = global.MineradioSonicPerformance && global.MineradioSonicPerformance.profile();
     var density = sonicNumber(fx, 'sonicGroundDensity', DEFAULT_TERRAIN_DENSITY, 0, 100);
     var raw = TERRAIN_MIN_GRID_SIZE + ((TERRAIN_MAX_GRID_SIZE - TERRAIN_MIN_GRID_SIZE) * density) / 100;
     var cap = QUALITY_GRID_CAP[(fx && fx.performanceQuality) || 'balanced'] || QUALITY_GRID_CAP.balanced;
     var gridSize = clamp(Math.round(raw / 4) * 4, TERRAIN_MIN_GRID_SIZE, cap);
+    if (budget) gridSize = Math.min(gridSize, budget.gridSize);
     var spacing = TERRAIN_BASE_SIZE / gridSize;
     return {
       gridSize: gridSize,
       spacing: spacing,
       boxWidth: spacing * (0.9 / 1.05),
       instanceCount: gridSize * gridSize,
-      floatingCount: floatingBlockCountForFx(fx)
+      floatingCount: Math.min(floatingBlockCountForFx(fx), budget ? budget.floatingCount : FLOATING_BLOCK_MAX_COUNT)
     };
   }
 
