@@ -2267,7 +2267,6 @@ body.simple-mode #search-results {
 }
 
 body.simple-mode #quality-control,
-body.simple-mode #controls-hide-btn,
 body.simple-mode .fullscreen-toggle-btn {
   display: none !important
 }
@@ -18420,4 +18419,45 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 
 #update-modal .update-notes-link:hover span {
   transform: translateX(2px)
+}
+
+/* Bottom-bar auto-hide toggle: the playlist panel's pin, shown in both simple
+   and DIY mode. Leaning = auto-hide, upright with a filled head = always shown. */
+#bottom-bar #controls-hide-btn svg {
+  display: block;
+  transform: rotate(38deg);
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1)
+}
+
+#bottom-bar #controls-hide-btn .pin-head {
+  fill: currentColor;
+  fill-opacity: 0;
+  transition: fill-opacity .24s ease
+}
+
+#bottom-bar #controls-hide-btn.pinned {
+  color: #fff;
+  background: rgba(var(--fc-accent-rgb), .12);
+  box-shadow: inset 0 0 0 1px rgba(var(--fc-accent-rgb), .34)
+}
+
+#bottom-bar #controls-hide-btn.pinned svg {
+  transform: rotate(0deg)
+}
+
+#bottom-bar #controls-hide-btn.pinned .pin-head {
+  fill-opacity: .32
+}
+
+@media (max-width:720px) {
+  body.simple-mode #controls-hide-btn {
+    display: none !important
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bottom-bar #controls-hide-btn svg,
+  #bottom-bar #controls-hide-btn .pin-head {
+    transition: none
+  }
 }

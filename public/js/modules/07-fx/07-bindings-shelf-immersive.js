@@ -626,8 +626,7 @@ function resetShelfAccentColor() {
 }
 
 function syncControlsAutoHideButton() {
-  var btn = document.getElementById('controls-hide-btn');
-  if (btn) btn.classList.toggle('active', controlsAutoHide);
+  if (typeof updateControlsAutoHideButton === 'function') updateControlsAutoHideButton();
   if (!controlsAutoHide && controlsHideTimer) {
     clearTimeout(controlsHideTimer);
     controlsHideTimer = null;
