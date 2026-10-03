@@ -9,6 +9,8 @@
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #000; }
     </style>
+    <script src="../../sonic-performance-policy.js"></script>
+    <script src="mineradio-performance.js"></script>
     <script>
       (function () {
         var mediaCallbacks = [];
@@ -58,6 +60,10 @@
           controllerX: 2,
           controllerY: 3
         };
+
+        if (window.__mineradioWorkshopPerformance) {
+          defaultProperties.gridSize = window.__mineradioWorkshopPerformance.initialGrid;
+        }
 
         function clamp01(value) {
           value = Number(value);
@@ -330,6 +336,7 @@
         };
 
         window.addEventListener('message', function (event) {
+          if (event.source !== parent || event.origin !== location.origin) return;
           var data = event.data || {};
           if (data.type === 'mineradio-sonic-workshop-audio') window.__mineradioApplyAudio(data.samples);
           if (data.type === 'mineradio-sonic-workshop-media') window.__mineradioApplyMedia(data.media);
