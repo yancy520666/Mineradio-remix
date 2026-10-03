@@ -1047,6 +1047,12 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   const uint DWM_TNP_SOURCECLIENTAREAONLY = 0x00000010;
   const uint SWP_NOACTIVATE = 0x0010;
   const uint SWP_SHOWWINDOW = 0x0040;
+  const uint SWP_NOSIZE = 0x0001;
+  const uint SWP_NOMOVE = 0x0002;
+  const uint SWP_NOZORDER = 0x0004;
+  const uint SWP_ASYNCWINDOWPOS = 0x4000;
+  const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+  const uint GW_HWNDPREV = 3;
   const int WM_NCHITTEST = 0x0084;
   const int HTTRANSPARENT = -1;
   const uint GA_ROOT = 2;
@@ -1070,6 +1076,9 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   [DllImport("user32.dll")]
   static extern bool IsWindow(IntPtr hWnd);
 
+  [DllImport("user32.dll")]
+  static extern bool IsWindowVisible(IntPtr hWnd);
+
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   static extern int GetWindowTextW(IntPtr hWnd, StringBuilder text, int maxCount);
 
@@ -1082,6 +1091,19 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   [DllImport("user32.dll", SetLastError = true)]
   static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter,
     int x, int y, int width, int height, uint flags);
+
+  delegate void WinEventCallback(IntPtr hook, uint eventType, IntPtr window,
+    int objectId, int childId, uint eventThread, uint eventTime);
+
+  [DllImport("user32.dll")]
+  static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr module,
+    WinEventCallback callback, uint processId, uint threadId, uint flags);
+
+  [DllImport("user32.dll")]
+  static extern bool UnhookWinEvent(IntPtr hook);
+
+  [DllImport("user32.dll")]
+  static extern IntPtr GetWindow(IntPtr window, uint command);
 
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter,
@@ -1131,7 +1153,13 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   readonly int windowCornerRadius;
   bool desktopIconLayeringEnabled;
   readonly System.Windows.Forms.Timer followTimer;
+  readonly WinEventCallback hostLocationCallback;
+  GCHandle hostLocationCallbackRoot;
+  IntPtr hostLocationHook = IntPtr.Zero;
+  bool hostFollowQueued = false;
   IntPtr thumbnail = IntPtr.Zero;
+  DWM_THUMBNAIL_PROPERTIES lastThumbnailProperties;
+  bool thumbnailPropertiesApplied = false;
   int consecutiveFollowFailures = 0;
   IntPtr desktopIconHost = IntPtr.Zero;
   int visualOpacity = 255;
@@ -1159,22 +1187,69 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     StartPosition = FormStartPosition.Manual;
     BackColor = Color.Black;
     Text = "Mineradio WE DWM Surface";
+    hostLocationCallback = OnHostLocationChanged;
     followTimer = new System.Windows.Forms.Timer();
+    // Movement is event-driven. This low-rate timer only repairs external WE
+    // region/position resets and handles missed events or a failed hook setup.
     followTimer.Interval = 60;
-    followTimer.Tick += delegate {
-      try { FollowHost(); }
-      catch (Exception error) {
-        Console.Error.WriteLine(error.Message);
-        Console.Error.Flush();
-        bool identityValid = IsWindow(hostWindow) && IsWindow(sourceWindow)
-          && String.Equals(WindowTitle(sourceWindow), sourceTitle, StringComparison.Ordinal);
-        consecutiveFollowFailures += 1;
-        // Explorer reparenting and DPI changes can make one FollowHost tick
-        // fail transiently. Keep the one DWM helper alive for a short bounded
-        // window; invalid HWND/title identity still closes immediately.
-        if (!identityValid || consecutiveFollowFailures >= 8) Close();
+    followTimer.Tick += delegate { TryFollowHost(); };
+  }
+
+  void TryFollowHost() {
+    if (IsDisposed || Disposing) return;
+    try { FollowHost(); }
+    catch (Exception error) {
+      Console.Error.WriteLine(error.Message);
+      Console.Error.Flush();
+      bool identityValid = IsWindow(hostWindow) && IsWindow(sourceWindow)
+        && String.Equals(WindowTitle(sourceWindow), sourceTitle, StringComparison.Ordinal);
+      consecutiveFollowFailures += 1;
+      // Explorer reparenting and DPI changes can make one FollowHost tick
+      // fail transiently. Keep the one DWM helper alive for a short bounded
+      // window; invalid HWND/title identity still closes immediately.
+      if (!identityValid || consecutiveFollowFailures >= 8) Close();
+    }
+  }
+
+  void StartHostFollow() {
+    if (hostLocationHook == IntPtr.Zero) {
+      uint hostProcessId;
+      uint hostThreadId = GetWindowThreadProcessId(hostWindow, out hostProcessId);
+      if (hostThreadId != 0 && hostProcessId != 0) {
+        hostLocationCallbackRoot = GCHandle.Alloc(hostLocationCallback);
+        // OUTOFCONTEXT (0): callbacks run on this helper's message loop, even
+        // while Electron is inside Windows' modal window-drag loop.
+        hostLocationHook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+          IntPtr.Zero, hostLocationCallback, hostProcessId, hostThreadId, 0);
+        if (hostLocationHook == IntPtr.Zero) hostLocationCallbackRoot.Free();
       }
-    };
+    }
+    followTimer.Start();
+  }
+
+  void StopHostFollow() {
+    followTimer.Stop();
+    if (hostLocationHook != IntPtr.Zero) {
+      UnhookWinEvent(hostLocationHook);
+      hostLocationHook = IntPtr.Zero;
+    }
+    if (hostLocationCallbackRoot.IsAllocated) hostLocationCallbackRoot.Free();
+    hostFollowQueued = false;
+  }
+
+  void OnHostLocationChanged(IntPtr hook, uint eventType, IntPtr window,
+      int objectId, int childId, uint eventThread, uint eventTime) {
+    if (window != hostWindow || objectId != 0 || childId != 0
+        || IsDisposed || Disposing || !IsHandleCreated || hostFollowQueued) return;
+    // Coalesce queued locations and read the newest bounds, rather than replay
+    // stale positions. Posting also prevents native-event callback reentrancy.
+    hostFollowQueued = true;
+    try {
+      BeginInvoke(new Action(delegate() {
+        hostFollowQueued = false;
+        if (hostLocationHook != IntPtr.Zero) TryFollowHost();
+      }));
+    } catch (InvalidOperationException) { hostFollowQueued = false; }
   }
 
   protected override bool ShowWithoutActivation { get { return true; } }
@@ -1190,7 +1265,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   protected override void OnShown(EventArgs eventArgs) {
     base.OnShown(eventArgs);
     FollowHost();
-    followTimer.Start();
+    StartHostFollow();
     Thread inputThread = new Thread(delegate() {
       try {
         string line;
@@ -1264,12 +1339,20 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   }
 
   protected override void OnFormClosed(FormClosedEventArgs eventArgs) {
-    followTimer.Stop();
+    StopHostFollow();
     if (thumbnail != IntPtr.Zero) {
       DwmUnregisterThumbnail(thumbnail);
       thumbnail = IntPtr.Zero;
     }
     base.OnFormClosed(eventArgs);
+  }
+
+  protected override void Dispose(bool disposing) {
+    if (disposing) {
+      StopHostFollow();
+      followTimer.Dispose();
+    }
+    base.Dispose(disposing);
   }
 
   static IntPtr ParseSourceHandle(string sourceId) {
@@ -1401,6 +1484,26 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     } catch { }
   }
 
+  static void AlignWindow(IntPtr window, IntPtr insertAfter, RECT target, bool asynchronous) {
+    RECT current;
+    if (!GetWindowRect(window, out current)) throw new Win32Exception(Marshal.GetLastWin32Error());
+    bool samePosition = current.Left == target.Left && current.Top == target.Top;
+    bool sameSize = current.Right - current.Left == target.Right - target.Left
+      && current.Bottom - current.Top == target.Bottom - target.Top;
+    bool sameOrder = GetWindow(window, GW_HWNDPREV) == insertAfter;
+    if (samePosition && sameSize && sameOrder && IsWindowVisible(window)) return;
+    uint flags = SWP_NOACTIVATE | SWP_SHOWWINDOW;
+    if (samePosition) flags |= SWP_NOMOVE;
+    if (sameSize) flags |= SWP_NOSIZE;
+    if (sameOrder) flags |= SWP_NOZORDER;
+    // A busy WE render thread must not stall the surface following Electron.
+    if (asynchronous) flags |= SWP_ASYNCWINDOWPOS;
+    if (!SetWindowPos(window, insertAfter, target.Left, target.Top,
+        target.Right - target.Left, target.Bottom - target.Top, flags)) {
+      throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
+  }
+
   void FollowHost() {
     if (!IsWindow(hostWindow) || !IsWindow(sourceWindow)) {
       Close();
@@ -1434,17 +1537,13 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     IntPtr hostLayer = hostRoot != IntPtr.Zero && hostRoot != hostWindow ? hostRoot : hostWindow;
     IntPtr surfaceInsertAfter = iconHost != IntPtr.Zero ? iconHost : hostLayer;
     if (thumbnail != IntPtr.Zero) {
-      if (!SetWindowPos(Handle, surfaceInsertAfter, hostRect.Left, hostRect.Top, width, height,
-          SWP_NOACTIVATE | SWP_SHOWWINDOW)) throw new Win32Exception(Marshal.GetLastWin32Error());
-      if (!SetWindowPos(sourceWindow, Handle, hostRect.Left, hostRect.Top, width, height,
-          SWP_NOACTIVATE | SWP_SHOWWINDOW)) throw new Win32Exception(Marshal.GetLastWin32Error());
+      AlignWindow(Handle, surfaceInsertAfter, hostRect, false);
+      AlignWindow(sourceWindow, Handle, hostRect, true);
     } else {
       // Until WGC has primed the SVG sampler, show the real source above the
       // empty DWM destination so startup never flashes a black base frame.
-      if (!SetWindowPos(sourceWindow, surfaceInsertAfter, hostRect.Left, hostRect.Top, width, height,
-          SWP_NOACTIVATE | SWP_SHOWWINDOW)) throw new Win32Exception(Marshal.GetLastWin32Error());
-      if (!SetWindowPos(Handle, sourceWindow, hostRect.Left, hostRect.Top, width, height,
-          SWP_NOACTIVATE | SWP_SHOWWINDOW)) throw new Win32Exception(Marshal.GetLastWin32Error());
+      AlignWindow(sourceWindow, surfaceInsertAfter, hostRect, true);
+      AlignWindow(Handle, sourceWindow, hostRect, false);
     }
 
     ApplyCornerRegion(Handle, width, height, radius);
@@ -1474,9 +1573,16 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
       properties.opacity = (byte)visualOpacity;
       properties.fVisible = true;
       properties.fSourceClientAreaOnly = true;
-      int result = DwmUpdateThumbnailProperties(thumbnail, ref properties);
-      if (result != 0) {
-        throw new InvalidOperationException("DwmUpdateThumbnailProperties failed: 0x" + result.ToString("X8"));
+      // Moving without resizing leaves the thumbnail's destination unchanged.
+      // Avoid asking DWM to reconfigure the same image on every drag event.
+      if (!thumbnailPropertiesApplied || properties.opacity != lastThumbnailProperties.opacity
+          || !properties.rcDestination.Equals(lastThumbnailProperties.rcDestination)) {
+        int result = DwmUpdateThumbnailProperties(thumbnail, ref properties);
+        if (result != 0) {
+          throw new InvalidOperationException("DwmUpdateThumbnailProperties failed: 0x" + result.ToString("X8"));
+        }
+        lastThumbnailProperties = properties;
+        thumbnailPropertiesApplied = true;
       }
     }
     consecutiveFollowFailures = 0;

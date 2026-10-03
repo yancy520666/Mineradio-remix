@@ -1706,14 +1706,14 @@ async function main() {
     assert(runtimeSourceText.includes('session.dwmDesktopIconLayering === enabled) {')
       && runtimeSourceText.includes('session.dwmSurfaceDesktopIconLayering = enabled;'),
     'a late helper ACK must also repair the desired desktop-icon state used by a later DWM helper restart');
-    assert(runtimeSourceText.includes('SetWindowPos(Handle, surfaceInsertAfter')
-      && runtimeSourceText.includes('SetWindowPos(sourceWindow, Handle'),
+    assert(runtimeSourceText.includes('AlignWindow(Handle, surfaceInsertAfter, hostRect, false)')
+      && runtimeSourceText.includes('AlignWindow(sourceWindow, Handle, hostRect, true)'),
       'the unique DWM surface must remain above its exact Wallpaper Engine source');
-    assert(runtimeSourceText.includes('SetWindowPos(sourceWindow, surfaceInsertAfter')
-      && runtimeSourceText.includes('SetWindowPos(Handle, sourceWindow'),
+    assert(runtimeSourceText.includes('AlignWindow(sourceWindow, surfaceInsertAfter, hostRect, true)')
+      && runtimeSourceText.includes('AlignWindow(Handle, sourceWindow, hostRect, false)'),
       'before thumbnail activation the exact source must remain above the empty DWM destination to prevent a black startup frame');
-    assert(!runtimeSourceText.includes('SetWindowPos(hostWindow'),
-      'the 60ms DWM follow timer must never promote or otherwise reorder the Electron main window');
+    assert(!runtimeSourceText.includes('SetWindowPos(hostWindow') && !runtimeSourceText.includes('AlignWindow(hostWindow'),
+      'DWM following must never promote or otherwise reorder the Electron main window');
     await brokerRuntime.dispose();
 
     const conservativeBrokerCalls = [];
