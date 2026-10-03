@@ -201,6 +201,7 @@ function setPerformanceBackgroundMode(mode, silent) {
 function setPerformanceQualityMode(mode, silent) {
   var next = normalizePerformanceQuality(mode);
   fx.performanceQuality = next;
+  if (window.MineradioSonicPerformance) MineradioSonicPerformance.qualityChanged();
   updatePerformanceControls();
   applyRendererPowerMode();
   saveLyricLayout({ user: true, reason: 'performanceQuality' });
