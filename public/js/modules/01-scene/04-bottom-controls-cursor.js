@@ -256,8 +256,7 @@ function updateControlsAutoHideFromPointer(x, y) {
 function toggleControlsAutoHide() {
   controlsAutoHide = !controlsAutoHide;
   saveBooleanPreference(CONTROLS_AUTO_HIDE_STORE_KEY, controlsAutoHide);
-  var btn = document.getElementById('controls-hide-btn');
-  if (btn) btn.classList.toggle('active', controlsAutoHide);
+  updateControlsAutoHideButton();
   setControlsHidden(false);
   if (controlsAutoHide) {
     scheduleControlsHide(520);
@@ -268,9 +267,21 @@ function toggleControlsAutoHide() {
   }
 }
 
-function applyControlsAutoHidePreference() {
+// Same pin as the playlist panel: upright and filled = always shown,
+// leaning = auto-hide. The cursor is usually over the bar when this is
+// clicked, so the bar itself cannot show the change; the pin has to.
+function updateControlsAutoHideButton() {
   var btn = document.getElementById('controls-hide-btn');
-  if (btn) btn.classList.toggle('active', !!controlsAutoHide);
+  if (!btn) return;
+  var pinned = !controlsAutoHide;
+  btn.classList.toggle('pinned', pinned);
+  btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  btn.setAttribute('aria-label', pinned ? '控制条常显' : '控制条自动隐藏');
+  btn.title = pinned ? '控制条：常显（点击改为自动隐藏）' : '控制条：自动隐藏（点击改为常显）';
+}
+
+function applyControlsAutoHidePreference() {
+  updateControlsAutoHideButton();
   if (!controlsAutoHide && controlsHideTimer) {
     clearTimeout(controlsHideTimer);
     controlsHideTimer = null;
