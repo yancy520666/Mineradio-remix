@@ -28,6 +28,7 @@ var startupRestoreHomePending = false;
 var pendingPlaybackResumeAt = 0;
 var restoredLastPlaybackSnapshot = null;
 var lastPlaybackSnapshotSavedAt = 0;
+var lastPlaybackSnapshotMonotonicAt = null;
 var hotkeySettings = readHotkeySettings();
 var immersiveMode = false;
 var immersiveState = {

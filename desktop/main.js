@@ -5868,7 +5868,16 @@ async function createWindowOnce() {
     win.__mineradioUnresponsiveRecoveryTimer = null;
   });
 
+  // The player is a single document, not a browser history surface.
+  win.on('app-command', (event, command) => {
+    if (command === 'browser-backward' || command === 'browser-forward') event.preventDefault();
+  });
   win.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'BrowserBack' || input.key === 'BrowserForward'
+      || input.alt && !input.control && !input.meta && (input.key === 'ArrowLeft' || input.key === 'ArrowRight')) {
+      event.preventDefault();
+      return;
+    }
     if (isZoomShortcutInput(input)) {
       event.preventDefault();
       resetMainWindowZoom(win);

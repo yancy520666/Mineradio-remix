@@ -38,7 +38,8 @@ function readLastPlaybackSnapshot() {
 }
 function saveLastPlaybackSnapshot(force, reason) {
   var now = Date.now();
-  if (!force && now - lastPlaybackSnapshotSavedAt < 2500) return;
+  var monotonicNow = performance.now();
+  if (!force && lastPlaybackSnapshotMonotonicAt !== null && monotonicNow - lastPlaybackSnapshotMonotonicAt < 2500) return;
   var song = currentCoverSong();
   if (!song) return;
   if (audio && typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audio)) return;
@@ -63,6 +64,7 @@ function saveLastPlaybackSnapshot(force, reason) {
     localStorage.setItem(LAST_PLAYBACK_STORE_KEY, JSON.stringify(payload));
   } catch (e) { }
   lastPlaybackSnapshotSavedAt = payload.savedAt;
+  lastPlaybackSnapshotMonotonicAt = monotonicNow;
   persistPlaybackCheckpoint(payload);
 }
 function applyRestoredPlaybackProgressUi(snapshot) {

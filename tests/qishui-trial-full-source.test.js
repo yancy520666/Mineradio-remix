@@ -186,6 +186,25 @@ test('a remembered match whose URL is no longer full is forgotten and the normal
   assert.equal(ctx.qishuiRememberedFullSource(ctx.playQueue[0]), null);
 });
 
+test('remembered studio audio is not reused for Live versions or changed durations', async () => {
+  const { ctx, calls } = sandbox({ statuses: neteaseLoggedIn, search: () => neteaseMatch,
+    resolve: () => ({ url: 'https://ne.invalid/studio', trial: false }) });
+  const studio = Object.assign({}, qishuiSong);
+  assert.equal(await ctx.tryQishuiTrialFullSourceUpgrade(studio, trialData, 0, 1, {}), true);
+  assert.ok(ctx.qishuiRememberedFullSource(studio), 'the original recording still reuses its match');
+  const live = { ...studio, id: 'live', name: studio.name + ' (Live)', duration: 300 };
+  assert.equal(ctx.qishuiRememberedFullSource(live), null);
+  assert.equal(ctx.qishuiRememberedFullSource({ ...studio, duration: 300 }), null);
+  assert.equal(ctx.qishuiRememberedFullSource({ ...studio, name: studio.name + ' (Live)' }), null, 'version suffix matters even with equal duration');
+  ctx.playQueue[0] = live;
+  const plays = calls.play.length;
+  assert.equal(await ctx.tryQishuiTrialFullSourceUpgrade(live, { ...trialData, fullDuration: 300 }, 0, ctx.trackSwitchToken, {}), null);
+  assert.equal(calls.play.length, plays, 'a mismatched cached recording cannot start');
+  // Defend against a stale/corrupt candidate under an otherwise valid key.
+  ctx.rememberQishuiFullSource(studio, { provider: 'netease', candidate: { ...neteaseMatch.songs[0], duration: 300000 } }, 205);
+  assert.equal(ctx.qishuiRememberedFullSource(studio), null);
+});
+
 test('progress card appears only after a noticeable wait, updates in place and reports the result', async () => {
   const { ctx, notices } = sandbox({
     statuses: neteaseLoggedIn,

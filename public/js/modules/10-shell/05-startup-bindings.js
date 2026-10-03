@@ -32,7 +32,6 @@ var persistedLocalLibraryRestorePromise = Promise.resolve(restorePersistedLocalL
 var builtInPlaylistRestorePromise = typeof refreshBuiltInPlaylists === 'function'
   ? Promise.resolve(refreshBuiltInPlaylists(false))
   : Promise.resolve(false);
-applyStartupStarfieldPreset();
 switchPlaylistTab(queueViewTab, { save: false, animate: false, refresh: false });
 applyPlaylistPanelPinState(false);
 if (fx.floatLayer) createFloatLayer();

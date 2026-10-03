@@ -1,5 +1,14 @@
 const { contextBridge, ipcRenderer, clipboard, webUtils } = require('electron');
 
+// Side buttons can also arrive as DOM mouse events instead of app commands.
+// This preload belongs only to the player, never the official login windows.
+function preventPlayerHistoryMouseNavigation(event) {
+  if (event.button === 3 || event.button === 4) event.preventDefault();
+}
+['mousedown', 'mouseup', 'auxclick'].forEach((type) => {
+  window.addEventListener(type, preventPlayerHistoryMouseNavigation, { capture: true, passive: false });
+});
+
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),

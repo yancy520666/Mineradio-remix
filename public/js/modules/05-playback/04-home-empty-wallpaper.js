@@ -118,15 +118,6 @@ function switchPlaybackVisualToEmily() {
   if (typeof updateRenderPowerClasses === 'function') updateRenderPowerClasses();
   if (typeof recoverVisualsAfterBackground === 'function' && !isDeepBackgroundMode()) recoverVisualsAfterBackground('playback-visual');
 }
-function applyStartupStarfieldPreset() {
-  if (playing || currentIdx >= 0 || hasRestoredPlaybackCandidate()) return;
-  startupVisualPreviewActive = true;
-  if (typeof setPreset === 'function' && fx.preset !== 5) {
-    setPreset(5, { silent: true, preserveCamera: false, skipTransition: true, noSave: true });
-  } else if (typeof syncFxUniforms === 'function') {
-    syncFxUniforms();
-  }
-}
 function updateEmptyHomeVisibility(opts) {
   opts = opts || {};
   var show = shouldShowEmptyHome();
