@@ -323,7 +323,8 @@ function syncUpdatePreviewStateClass() {
     else if (isError) foot.textContent = '无法打开下载页：' + (updatePreviewState.errorReason || '请稍后重试');
     else if (!updatePreviewState.updateAvailable) foot.textContent = '当前版本已是最新。';
     else if (downloadPages.length || updatePreviewState.externalUrl) foot.textContent = '请使用本次公告中的最新网盘链接，旧收藏链接可能不是最新版。软件不会在本地下载或应用补丁。';
-    else foot.textContent = '将在浏览器打开 GitHub 更新页面；软件不会在本地下载或应用补丁。';
+    // Only builds that cannot update themselves (e.g. run from source) reach here.
+    else foot.textContent = '从源码运行的版本不能在软件内更新，请到发布页下载安装包，或拉取最新源码。';
   }
 }
 
