@@ -366,7 +366,9 @@ function applyDiyMode(on, opts) {
 function toggleDiyMode() {
   applyDiyMode(!diyPlayerMode, { save: true, toast: true, animate: true });
   if (visualGuideActive) {
+    // A mode the user picks during the guide is theirs to keep.
     visualGuideState.mode = diyPlayerMode ? 'diy' : 'simple';
-    showVisualGuideStep(0);
+    visualGuideState.diyPreview = false;
+    positionVisualGuideStep();
   }
 }
