@@ -4,6 +4,8 @@
 
 本次待发布草稿：**2.4.1**，标签 `v2.4.1`，安装包 `Mineradio-Remix-2.4.1-Setup.exe`，正文为 [2.4.1 更新说明](./docs/RELEASE_NOTES_v2.4.1.md)。本次验证升级基线保持为公开版本 **2.4.0**，不会替换 2.4.0 的标签或安装包。
 
+[2.4.1 草稿](https://github.com/yancy520666/Mineradio-remix/releases/tag/untagged-e0ca2b39ecc40672fafb)目标源码为 `c440c796e8448c9b321f3698e2dac3d1ea17e21b`。[发布流程 37160015095](https://github.com/yancy520666/Mineradio-remix/actions/runs/37160015095) 已完成单测、源码与完整 Electron 检查、打包，以及安装 2.4.0 → 覆盖升级 2.4.1 → 启动与重启 → 卸载验证。四项草稿资产重新下载后，SHA-256 与 GitHub 摘要及校验清单一致，`latest.yml` 的版本、路径、大小和安装包 SHA-512 一致。安装包 SHA-256：`32791dcccd19e0d442b64bbf793b66a0d02b091a604ebd418f973686e76bb3e3`。草稿尚未公开发布；此记录的后续文档提交不会改变已验证的构建源码。
+
 2.4.0：标签 `v2.4.0` → 提交 `39b436c`，安装包 `Mineradio-Remix-2.4.0-Setup.exe`，正文为 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)，升级验证基线为当时的公开版本 2.3.1。下次发版的升级基线已改为 **2.4.0**。
 
 [发布流程 37139672519](https://github.com/yancy520666/Mineradio-remix/actions/runs/37139672519) 在提交 `39b436cebc5d4b2ecceb29e997b9d71834e11acf` 完成测试、构建与安装／升级／重启／卸载验证；草稿的四项资产重新下载后，SHA-256 与 GitHub 资产摘要一致，更新清单的版本及 SHA-512 一致，随后由维护者公开发布。之后的源码变化不替换已发布的安装包，新修复递增版本。
