@@ -23,14 +23,15 @@ function renderer() {
   const target = { set innerHTML(value) { hotList.innerHTML = ''; normalList.innerHTML = ''; },
     dataset: {}, addEventListener() {}, querySelector: selector => selectors[selector] };
   const ctx = vm.createContext({
-    document: { getElementById: () => target }, trackDetailSeq: 1, detailCommentsState: null,
+    document: { getElementById: () => target }, trackDetailSeq: 1, detailCommentsState: null, detailCommentSort: 'latest',
     songProviderKey: song => song.provider, escHtml: String, bindTrackDetailScrollers() {},
     apiJson: url => new Promise((resolve, reject) => requests.push({ url, resolve, reject })),
     closeGsapModal(_modal, done) { done(); }, detailCommentSong: null, detailCommentSubmitBusy: false,
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
     ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal',
-      'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'bindDetailCommentLikes']);
+      'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'bindDetailCommentLikes',
+      'detailCommentsSortable']);
   return { ctx, requests, list, button, label, hotList, normalList, hotSection, normalSection, empty };
 }
 
@@ -222,17 +223,62 @@ test('Netease HTTP route forwards the cursor and rejects oversized ones', async 
   const source = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
   const start = source.indexOf("  if (pn === '/api/song/comments') {");
   const end = source.indexOf("  if (pn === '/api/song/comments/like')", start);
-  for (const [cursor, expectCall] of [['{"p":2,"c":"999"}', true], ['x'.repeat(300), false]]) {
+  for (const [cursor, expectCall, sort] of [['{"p":2,"c":"999"}', true, ''], ['{"p":2,"c":"normalHot#30"}', true, 'hot'], ['x'.repeat(300), false, '']]) {
     const calls = [], responses = [];
     const ctx = vm.createContext({
       pn: '/api/song/comments', req: { method: 'GET' }, res: {}, userCookie: 'c', console,
-      url: new URL('http://localhost/api/song/comments?id=song&limit=30&cursor=' + encodeURIComponent(cursor)),
+      url: new URL('http://localhost/api/song/comments?id=song&limit=30&cursor=' + encodeURIComponent(cursor) + (sort ? '&sort=' + sort : '')),
       sendJSON: (_, payload, status) => responses.push({ payload, status }),
       handleNeteaseCommentPage: async (...args) => { calls.push(args); return { comments: [] }; },
     });
     await vm.runInContext('(async () => {' + source.slice(start, end) + '})()', ctx);
     assert.equal(calls.length, expectCall ? 1 : 0);
-    if (expectCall) assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['song', 'c', 30, cursor]);
+    if (expectCall) assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['song', 'c', 30, cursor, sort || 'latest']);
     else assert.equal(responses[0].status, 400);
   }
+});
+
+test('the 最新 / 热门 switch reloads by popularity as one section and drops the previous order\'s responses', async () => {
+  const { ctx, requests, hotSection, normalSection, normalList } = renderer();
+  const buttons = ['latest', 'hot'].map(sort => ({ sort, classList: { toggle(name, on) { this[name] = on; } },
+    getAttribute: () => sort, setAttribute(name, value) { this[name] = value; } }));
+  ctx.document.querySelectorAll = () => buttons;
+  loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js', ['setDetailCommentSort', 'renderDetailCommentSort']);
+  const song = { id: '186016', provider: 'netease' };
+  ctx.detailCommentSong = song;
+  const latest = ctx.loadDetailComments(song, 1);
+  assert.doesNotMatch(requests[0].url, /sort=/, 'newest is the default order');
+  const hot = ctx.setDetailCommentSort('hot');
+  assert.match(requests[1].url, /cursor=&sort=hot$/);
+  requests[0].resolve({ comments: [{ ...comment('old-hot'), isHot: true }, comment('old')], hasMore: true, nextCursor: 'old' });
+  requests[1].resolve({ comments: [comment('popular')], hasMore: true, nextCursor: '{"p":2,"c":"normalHot#30"}' });
+  await Promise.all([latest, hot]);
+  assert.match(normalList.innerHTML, /Comment popular</);
+  assert.doesNotMatch(normalList.innerHTML, /Comment old</, 'responses for the previous order are discarded');
+  assert.equal(hotSection.hidden, true);
+  assert.equal(normalSection.heading.textContent, '热门评论 · 1');
+  assert.equal(buttons[1].classList.active, true);
+  assert.equal(buttons[1]['aria-pressed'], 'true');
+  const next = ctx.loadMoreDetailComments();
+  assert.match(requests[2].url, /sort=hot$/, 'later pages keep the order');
+  requests[2].resolve({ comments: [], hasMore: false, nextCursor: '' });
+  await next;
+  // Qishui has a single order: no switch, and requests never ask for one.
+  assert.equal(ctx.renderDetailCommentSort({ provider: 'qishui' }), '');
+  assert.match(ctx.renderDetailCommentSort({ provider: 'kugou' }), /data-comment-sort="hot"/);
+  const qishui = ctx.loadDetailComments({ id: 'q', provider: 'qishui' }, 1);
+  assert.doesNotMatch(requests[3].url, /sort=/);
+  requests[3].resolve({ comments: [], hasMore: false });
+  await qishui;
+});
+
+test('a comment without replies keeps its heart on the text row; one with replies gets the reply row', () => {
+  const { ctx } = renderer();
+  ctx.detailCommentsState = { seq: 1, config: { provider: 'qq' }, threads: Object.create(null), threadIndex: 0 };
+  ctx.detailReplyControlsHtml = (c, like) => c.replyCount > 0 ? '<div class="comment-replies"><div class="comment-actions">toggle' + like + '</div></div>' : '';
+  const html = ctx.renderDetailComments([{ ...comment('quiet'), replyCount: 0 }, { ...comment('busy'), replyCount: 4 }]);
+  const [quiet, busy] = html.split('<div class="comment-item').slice(1);
+  assert.match(quiet, /^ is-compact"/);
+  assert.match(busy, /^">/);
+  assert.match(busy, /toggle/);
 });

@@ -37,6 +37,7 @@ var detailAlbumCollectionState = Object.create(null);
 var detailCommentSong = null;
 var detailCommentSubmitBusy = false;
 var detailCommentsState = null;
+var detailCommentSort = 'latest';
 function normalizeArtistNameForMatch(name) {
   return String(name || '')
     .toLowerCase()
@@ -274,7 +275,11 @@ function commentTimeLabel(ms) {
   var t = Number(ms) || 0;
   if (!t) return '';
   try {
-    return new Date(t).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    // Older comments carry their year; "3月6日" alone reads as this year.
+    var date = new Date(t);
+    var options = date.getFullYear() === new Date().getFullYear()
+      ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' };
+    return date.toLocaleDateString('zh-CN', options);
   } catch (e) {
     return '';
   }
@@ -324,7 +329,7 @@ function renderDetailComments(comments) {
     var avatar = user.avatar ? coverUrlWithSize(user.avatar, 64) : '';
     var like = commentLikeHtml(c);
     var replies = typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c, like) : '';
-    return '<div class="comment-item">' +
+    return '<div class="comment-item' + (replies ? '' : ' is-compact') + '">' +
       (avatar ? '<img class="comment-avatar" src="' + escHtml(avatar) + '" alt="" loading="lazy">' : '<div class="comment-avatar"></div>') +
       '<div class="comment-main">' + commentHeadHtml(c) +
       '<div class="comment-text">' + escHtml(c.content || '') + '</div>' +
@@ -409,6 +414,30 @@ function detailCommentsConfig(song) {
   }
   return null;
 }
+// Qishui has a single order; the other platforms can list by time or popularity.
+function detailCommentsSortable(config) {
+  return !!config && ['netease', 'qq', 'kugou'].indexOf(config.provider) >= 0;
+}
+function renderDetailCommentSort(config) {
+  if (!detailCommentsSortable(config)) return '';
+  return '<div class="detail-comment-sort" role="group" aria-label="评论排序">' +
+    [['latest', '最新'], ['hot', '热门']].map(function (item) {
+      var active = detailCommentSort === item[0];
+      return '<button type="button" data-comment-sort="' + item[0] + '" aria-pressed="' + active + '"' +
+        (active ? ' class="active"' : '') + ' onclick="setDetailCommentSort(\'' + item[0] + '\')">' + item[1] + '</button>';
+    }).join('') + '</div>';
+}
+function setDetailCommentSort(sort) {
+  sort = sort === 'hot' ? 'hot' : 'latest';
+  if (sort === detailCommentSort || !detailCommentSong) return Promise.resolve();
+  detailCommentSort = sort;
+  document.querySelectorAll('.detail-comment-sort [data-comment-sort]').forEach(function (button) {
+    var active = button.getAttribute('data-comment-sort') === sort;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  return loadDetailComments(detailCommentSong, trackDetailSeq);
+}
 function renderDetailCommentComposer(config) {
   if (!config || !config.canWrite) return '';
   return '<div class="detail-comment-compose">' +
@@ -426,7 +455,7 @@ function loadDetailComments(song, seq) {
     return Promise.resolve();
   }
   if (!target) return Promise.resolve();
-  detailCommentsState = { config: config, seq: seq, offset: 0, cursor: '', loading: false,
+  detailCommentsState = { config: config, seq: seq, sort: detailCommentsSortable(config) ? detailCommentSort : 'latest', offset: 0, cursor: '', loading: false,
     hasMore: true, count: 0, hotCount: 0, normalCount: 0, seen: Object.create(null), error: false,
     threads: Object.create(null), threadIndex: 0 };
   target.innerHTML = '<div class="detail-scroll">' +
@@ -461,7 +490,8 @@ function loadMoreDetailComments() {
   updateDetailCommentsFooter(state, target);
   // Kugou pages by offset; the other platforms return an opaque cursor.
   var cursorMode = state.config.provider !== 'kugou';
-  var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset);
+  var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset) +
+    (state.sort === 'hot' ? '&sort=hot' : '');
   return apiJson(url).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
@@ -487,7 +517,7 @@ function loadMoreDetailComments() {
     hotSection.hidden = !state.hotCount;
     normalSection.hidden = !state.normalCount;
     hotSection.querySelector('.detail-comments-heading').textContent = '热门评论 · ' + state.hotCount;
-    var normalTitle = state.hotCount ? '更多评论' : '评论';
+    var normalTitle = state.sort === 'hot' ? '热门评论' : (state.hotCount ? '更多评论' : '评论');
     normalSection.querySelector('.detail-comments-heading').textContent = normalTitle + ' · ' + state.normalCount;
     normalSection.setAttribute('aria-label', normalTitle);
     if (cursorMode) {
@@ -614,6 +644,7 @@ function openTrackDetailModal(type, songOverride) {
   var artists = currentArtistNames(song);
   var seq = ++trackDetailSeq;
   detailCommentsState = null;
+  detailCommentSort = 'latest';
   detailCommentSubmitBusy = false;
   detailCommentSong = song;
   if (type === 'album') {
@@ -784,7 +815,8 @@ function openTrackDetailModal(type, songOverride) {
       (getCustomCoverForSong(song) ? '<span class="detail-chip">自定义封面</span>' : '') +
       (hasCustomLyricForSong(song) ? '<span class="detail-chip">自定义歌词</span>' : '') +
       '</div>' +
-      '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">' + detailCommentTitle + '</div></div>' +
+      '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">' + detailCommentTitle + '</div>' +
+      renderDetailCommentSort(commentConfig) + '</div>' +
       renderDetailCommentComposer(commentConfig) +
       '<div id="song-comments">' + (detailCanLoadComments ? '<div class="detail-loading">正在载入评论...</div>' : '<div class="detail-empty">' + detailEmptyText + '</div>') + '</div></div>';
     if (detailCanLoadComments) {
