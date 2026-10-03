@@ -21,6 +21,7 @@ function serverHarness() {
   const context = vm.createContext({
     URL, AbortController, setTimeout, clearTimeout,
     APP_VERSION: '2.1.0', UPDATE_FALLBACK_NOTES: ['发现新版本'],
+    extractReleaseHighlights: require('../desktop/remix-updater').extractReleaseHighlights,
     UPDATE_CONFIG: { configured: true, provider: 'github', owner: 'fixture', repo: 'fixture' },
   });
   const start = serverSource.indexOf('function normalizeVersion(');
@@ -73,11 +74,29 @@ test('the latest Release body supplies two new pages and the announcement withou
   assert.equal(result.updateAvailable, true);
   assert.deepEqual(JSON.parse(JSON.stringify(result.release.downloadPages)), pages);
   assert.equal(result.release.externalUrl, pages[0].url);
-  assert.equal(result.release.summary, notice);
-  assert.equal(result.release.notes[0], notice);
+  // The renderer picks the headline from updateAvailable; notes are short lead phrases.
+  assert.equal(result.release.summary, '');
+  assert.equal(result.release.notes[0], notice.split('。')[0]);
   assert.equal(result.release.notes.includes('更新内容'), false);
   assert.equal(result.release.asset, null);
   assert.equal(result.release.patch, null);
+});
+
+test('a source build reads only the bold 更新重点 phrases, not the heading or explanations', async () => {
+  const server = serverHarness();
+  // Shape of the published v2.3.1 body.
+  const body = [
+    '## 更新重点', '',
+    '- **队列移除更可靠**：删除当前歌曲会选中下一首，暂停时保持暂停。',
+    '- **本地歌曲防串歌**：备用位置核对完整文件内容。',
+    '- **连续提示不再卡死**：修复多条提示造成卡死的问题。',
+    '- **控制条与启动细节完善**：图钉状态更清楚。', '',
+    '## 播放与本地曲库', '', '- 删除当前歌曲后按队列顺序选中下一首。',
+  ].join('\n');
+  server.fetch = async () => ({ ok: true, json: async () => ({ tag_name: 'v2.3.1', html_url: releaseUrl, body }) });
+  const result = await server.fetchLatestUpdateInfo();
+  assert.deepEqual(JSON.parse(JSON.stringify(result.release.notes)), ['队列移除更可靠', '本地歌曲防串歌', '连续提示不再卡死', '控制条与启动细节完善']);
+  assert.equal(result.release.summary, '');
 });
 
 test('explicit manifest pages replace legacy URL aliases instead of appending a retired third source', () => {
