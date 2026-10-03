@@ -17200,6 +17200,29 @@ body.panel-reordering .mini-queue-item.is-reordering {
   border-radius: 18px
 }
 
+/* Song and artist names fill these cards. Size containment makes the grid row
+   follow min-height only, so a long name can no longer grow the whole row and
+   push the dashboard down; the text is clamped to fit instead. */
+#empty-home .home-grid.home-quick-grid .home-card {
+  contain: strict
+}
+
+#empty-home .home-grid.home-quick-grid .home-card-title,
+#empty-home .home-grid.home-quick-grid .home-card-sub {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2
+}
+
+@media (min-width:761px) and (max-width:1060px) {
+  #empty-home .home-grid.home-quick-grid .home-card-featured .home-card-sub {
+    -webkit-line-clamp: 1
+  }
+}
+
 #empty-home .home-insight-rail {
   grid-column: 2;
   grid-row: 2;
