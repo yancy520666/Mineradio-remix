@@ -18696,6 +18696,47 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #song-comments .comment-reply-copy .comment-author { color: rgba(255, 255, 255, .5); font-size: 10.5px; }
 #song-comments .comment-reply-copy .comment-actions { min-height: 0; margin: 0; }
 #song-comments .comment-reply-copy .comment-actions > span:empty { display: none; }
+/* Without a reply row, a comment's heart sits beside its last line too. */
+#song-comments .comment-item.is-compact .comment-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: end;
+}
+#song-comments .comment-item.is-compact .comment-head { grid-column: 1 / -1; }
+#song-comments .comment-item.is-compact .comment-actions { min-height: 0; margin: 0; }
+#song-comments .comment-item.is-compact .comment-actions > span:empty { display: none; }
+
+/* 最新 / 热门 switch beside the comment section title. */
+#track-detail-modal .detail-comment-sort {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .04);
+}
+#track-detail-modal .detail-comment-sort button {
+  min-width: 44px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, .5);
+  font: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+  transition: color .18s ease, background-color .18s ease;
+}
+#track-detail-modal .detail-comment-sort button:hover { color: rgba(255, 255, 255, .82); }
+#track-detail-modal .detail-comment-sort button.active {
+  background: rgba(var(--fc-accent-rgb), .16);
+  box-shadow: inset 0 0 0 1px rgba(var(--fc-accent-rgb), .32);
+  color: rgba(255, 255, 255, .92);
+}
+#track-detail-modal .detail-comment-sort button:focus-visible { outline: 2px solid rgba(var(--fc-accent-rgb), .9); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   #song-comments .comment-like,
   #song-comments .comment-like svg { transition: none; }

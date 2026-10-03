@@ -28,7 +28,7 @@ function mapKugouComment(raw, isHot) {
   };
 }
 
-async function handleKugouComments(id, cookie, limit = 30, offset = 0) {
+async function handleKugouComments(id, cookie, limit = 30, offset = 0, sort = 'latest') {
   if (!/^\d+$/.test(String(id || ''))) throw new Error('Missing Kugou mixsongid');
   limit = Math.max(1, Math.min(50, Math.floor(Number(limit) || 30)));
   offset = Math.max(0, Math.floor(Number(offset) || 0));
@@ -49,9 +49,11 @@ async function handleKugouComments(id, cookie, limit = 30, offset = 0) {
     commentResources.set(String(id), resource);
   }
   params.childrenid = resource.childrenid;
+  // sort "hot" pages the most-liked list itself instead of newest plus a hot preview.
+  const byHot = sort === 'hot';
   const [json, hotJson] = await Promise.all([
-    kugouGatewayRequest('/mcomment/r/v1/rank/newest', { cookie, method: 'POST', params }),
-    !offset ? kugouGatewayRequest('/mcomment/r/v1/rank/topliked', {
+    kugouGatewayRequest(byHot ? '/mcomment/r/v1/rank/topliked' : '/mcomment/r/v1/rank/newest', { cookie, method: 'POST', params }),
+    !offset && !byHot ? kugouGatewayRequest('/mcomment/r/v1/rank/topliked', {
       cookie, method: 'POST', params: { ...params, p: 1, pagesize: 10 },
     }) : Promise.resolve(null),
   ]);

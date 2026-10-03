@@ -18,9 +18,12 @@ function readCursor(text, platformCursor) {
   return value;
 }
 
-async function handleNeteaseCommentPage(id, cookie, limit, cursorText) {
+// sort "latest" (default): hot comments once, then newest by cursor. sort "hot": one list by popularity.
+async function handleNeteaseCommentPage(id, cookie, limit, cursorText, sort) {
   if (!/^\d+$/.test(String(id || ''))) throw new Error('Missing Netease song id');
-  const cursor = readCursor(cursorText, /^\d{1,20}$/);
+  const byHot = sort === 'hot';
+  const cursorShape = byHot ? /^normalHot#\d{1,7}$/ : /^\d{1,20}$/;
+  const cursor = readCursor(cursorText, cursorShape);
   const pageNo = cursor ? cursor.p : 1;
   const request = (sortType, pageSize, extra) => comment_new({ type: 0, id, sortType, pageNo, pageSize, ...extra,
     cookie, timestamp: Date.now() }).then(result => {
@@ -28,15 +31,14 @@ async function handleNeteaseCommentPage(id, cookie, limit, cursorText) {
     if (Number(body.code) !== 200 || !body.data || !Array.isArray(body.data.comments)) throw new Error('NETEASE_COMMENTS_UNAVAILABLE');
     return body.data;
   });
-  // Hot comments once, on the first page; everything after is newest-first by cursor.
   const [hot, latest] = await Promise.all([
-    cursor ? null : request(2, HOT_PAGE_SIZE, {}),
-    request(3, limit, cursor ? { cursor: cursor.c } : {}),
+    cursor || byHot ? null : request(2, HOT_PAGE_SIZE, {}),
+    request(byHot ? 2 : 3, limit, cursor ? { cursor: cursor.c } : {}),
   ]);
   const comments = (hot ? hot.comments.map(c => ({ ...mapNeteaseComment(c), isHot: true })) : [])
     .concat(latest.comments.map(c => ({ ...mapNeteaseComment(c), isHot: false })))
     .filter(c => c.content);
-  const next = /^\d{1,20}$/.test(String(latest.cursor || '')) ? String(latest.cursor) : '';
+  const next = cursorShape.test(String(latest.cursor || '')) ? String(latest.cursor) : '';
   const hasMore = latest.hasMore === true && latest.comments.length > 0 && !!next && (!cursor || next !== String(cursor.c));
   return { provider: 'netease', id: String(id), total: Number(latest.totalCount) || 0, comments,
     nextCursor: hasMore ? JSON.stringify({ p: pageNo + 1, c: next }) : '', hasMore };
@@ -60,17 +62,21 @@ function mapQQListComment(raw, isHot) {
   };
 }
 
-async function handleQQCommentPage(songId, limit, cursorText, request) {
+async function handleQQCommentPage(songId, limit, cursorText, request, sort) {
   if (!/^\d+$/.test(String(songId || ''))) throw new Error('Missing QQ song id');
   const cursor = readCursor(cursorText, /^\d{0,24}$/);
   const pageNum = cursor ? cursor.p : 0;
   // The service rejects pages larger than 25 (code 10000).
   const pageSize = Math.max(1, Math.min(25, Number(limit) || 20));
   const base = { BizType: 1, BizId: String(songId), PicEnable: 1 };
+  const byHot = sort === 'hot';
   const payload = { comm: { ct: 24, cv: 0 },
-    latest: { module: 'music.globalComment.CommentRead', method: 'GetNewCommentList',
-      param: { ...base, LastCommentSeqNo: cursor ? String(cursor.c) : '', PageNum: pageNum, PageSize: pageSize, FromCommentId: '', WithHot: 0 } } };
-  if (!cursor) {
+    latest: byHot
+      ? { module: 'music.globalComment.CommentRead', method: 'GetHotCommentList',
+        param: { ...base, LastCommentSeqNo: cursor ? String(cursor.c) : '', PageNum: pageNum, PageSize: pageSize, HotType: 1, WithAirborne: 0 } }
+      : { module: 'music.globalComment.CommentRead', method: 'GetNewCommentList',
+        param: { ...base, LastCommentSeqNo: cursor ? String(cursor.c) : '', PageNum: pageNum, PageSize: pageSize, FromCommentId: '', WithHot: 0 } } };
+  if (!cursor && !byHot) {
     payload.hot = { module: 'music.globalComment.CommentRead', method: 'GetHotCommentList',
       param: { ...base, LastCommentSeqNo: '', PageNum: 0, PageSize: HOT_PAGE_SIZE, HotType: 1, WithAirborne: 0 } };
   }
@@ -82,7 +88,7 @@ async function handleQQCommentPage(songId, limit, cursorText, request) {
     return data;
   };
   const latest = list('latest');
-  const hot = cursor ? null : list('hot');
+  const hot = cursor || byHot ? null : list('hot');
   const comments = (hot ? hot.Comments.map(c => mapQQListComment(c, true)) : [])
     .concat(latest.Comments.map(c => mapQQListComment(c, false)))
     .filter(c => c.id && c.content);
