@@ -1,5 +1,21 @@
 # Third-party ports
 
+## Kugou comments and daily recommendation protocol reference
+
+- Reference: [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi), GPL-3.0.
+- Reviewed on 2026-10-03: `module/comment_music.js`, `module/comment_floor.js` and `module/everyday_recommend.js`.
+
+Remix reuses its existing gateway transport and song mapper. Endpoint parameters
+were checked against this reference; hot/newest comment routes and response
+fields were verified through anonymous requests to Kugou. No upstream runtime
+or additional dependency is bundled.
+
+## Nested comment reply protocol references
+
+- Netease: the already installed `NeteaseCloudMusicApi` module `comment_floor` supplies the parent-comment and time-cursor contract.
+- QQ: [official web client common bundle](https://y.qq.com/ryqq/js/common.chunk.ddca9cfefd825f4a733d.js), inspected on 2026-10-03 for `music.globalComment.CommentRead.GetReplyCommentList`, sequence/rank cursors and reply fields. No QQ client code is bundled.
+- Qishui: [LuoYe17/ly-music-source comments adapter](https://github.com/LuoYe17/ly-music-source/blob/main/src/providers/qishui/comments.ts), GPL-3.0, inspected on 2026-10-03 for the PC `/luna/pc/comments/:id/replies` path and nested response records. Remix uses its existing authenticated request transport and mapper; no upstream runtime is bundled. Account-based Qishui replies remain unverified.
+
 ## Upstream reliability and security fixes
 
 - Source: `XxHuberrr/Mineradio-paused`, GPL-3.0-only.
