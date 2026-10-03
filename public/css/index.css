@@ -18928,3 +18928,27 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
     grid-template-areas: "copy badge" "control control";
   }
 }
+
+/* Sonic performance keeps the existing system-panel controls and glass surface. */
+#sonic-performance-controls { min-width: 0; width: 100%; }
+#sonic-performance-controls .fx-toggle { width: 100%; font-family: inherit; font-size: 12px; color: inherit; text-align: left; }
+#sonic-performance-controls .fx-sub { color: #b8c6d6; font-size: 12px; line-height: 1.6; margin: 8px 0 0; }
+#sonic-performance-status { font-variant-numeric: tabular-nums; }
+#sonic-performance-notice {
+  position: fixed; right: 20px; bottom: 108px; z-index: 2600;
+  width: min(380px, calc(100vw - 40px)); box-sizing: border-box;
+  padding: 16px; border: 1px solid rgba(180, 205, 230, .22); border-radius: 14px;
+  background: rgba(20, 28, 40, .96); color: #eaf3fc;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24); font-size: 13px; line-height: 1.6;
+}
+#sonic-performance-notice p { margin: 0; overflow-wrap: anywhere; }
+#sonic-performance-notice .sonic-performance-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#sonic-performance-notice button {
+  min-height: 34px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+  border: 1px solid rgba(180, 205, 230, .28); background: transparent; color: #eaf3fc; font: inherit;
+}
+#sonic-performance-notice #sonic-performance-enable { background: #b8dcff; color: #13253a; border-color: transparent; }
+#sonic-performance-notice button:hover { border-color: #b8dcff; }
+#sonic-performance-notice button:focus-visible, #sonic-performance-toggle:focus-visible { outline: 2px solid #82c4ff; outline-offset: 3px; }
+#sonic-performance-notice[hidden], #sonic-performance-notice [hidden] { display: none !important; }
+#sonic-performance-diagnostics { margin-top: 10px !important; color: #c4d5e8; }

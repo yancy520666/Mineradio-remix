@@ -997,16 +997,25 @@
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
           <div class="fx-section-label">画质档位</div>
-          <div class="fx-seg" id="performance-quality-seg" title="控制可见状态下的渲染像素预算，重启后保留">
+          <div class="fx-seg" id="performance-quality-seg" title="控制渲染像素预算；主动选择后，音域回响·WE 也按档位调整细节，重启后保留">
             <button data-performance-quality="eco">低</button>
             <button data-performance-quality="balanced">中</button>
             <button data-performance-quality="high">高</button>
             <button data-performance-quality="ultra">超高</button>
           </div>
+          <div id="sonic-performance-controls">
+            <button type="button" class="fx-toggle" id="sonic-performance-toggle" aria-pressed="false"
+              aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
+              <span>音域回响性能优先</span><span class="dot" aria-hidden="true"></span>
+            </button>
+            <p class="fx-sub" id="sonic-performance-help">允许降低壁纸细节，优先保持流畅；WE 版同时降低背景分辨率。关闭后恢复原设置。</p>
+            <p class="fx-sub" id="sonic-performance-status" role="status"></p>
+          </div>
           <div class="fx-section-label">前台帧率上限</div>
           <div class="fx-seg foreground-fps-seg" id="foreground-fps-seg" role="group"
             aria-label="前台帧率上限" title="默认跟随屏幕垂直同步；固定档位用于节能或降低负载">
             <button data-foreground-fps="vsync">跟随屏幕</button>
+            <button data-foreground-fps="30">30</button>
             <button data-foreground-fps="45">45</button>
             <button data-foreground-fps="60">60</button>
             <button data-foreground-fps="75">75</button>
@@ -1921,6 +1930,16 @@
   </div>
 
   <script src="js/index-loader.js"></script>
+  <aside id="sonic-performance-notice" hidden aria-label="壁纸性能提示">
+    <p id="sonic-performance-message" role="status"></p>
+    <div class="sonic-performance-actions">
+      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.setEnabled(true)">开启性能优先</button>
+      <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.dismiss()">保持当前</button>
+      <button type="button" id="sonic-performance-retry" onclick="MineradioSonicPerformance.retry()">重试壁纸</button>
+      <button type="button" id="sonic-performance-diagnostics-button" onclick="MineradioSonicPerformance.diagnostics()">查看诊断</button>
+    </div>
+    <p id="sonic-performance-diagnostics" hidden></p>
+  </aside>
 </body>
 
 </html>

@@ -559,6 +559,7 @@
       iframe.style.pointerEvents = 'none';
       iframe.style.userSelect = 'none';
       iframe.style.webkitUserSelect = 'none';
+      if (global.MineradioSonicPerformance) global.MineradioSonicPerformance.beginWorkshop();
       iframe.src = BRIDGE_SRC;
       layer.appendChild(iframe);
     }
@@ -602,6 +603,12 @@
     fx = fx || {};
     var coverHexes = workshopPaletteHexesFromCover();
     var props = Object.assign({}, WORKSHOP_DEFAULT_PROPERTIES);
+    var budget = global.MineradioSonicPerformance && global.MineradioSonicPerformance.profile();
+    if (budget) {
+      props.gridSize = budget.gridSize;
+      props.meteorEnabled = budget.tier >= 2;
+      props.meteorClickEnabled = budget.tier >= 2;
+    }
     props.audioIntensity = clamp(fx.sonicWorkshopAudioIntensity == null ? props.audioIntensity : Number(fx.sonicWorkshopAudioIntensity), 0.3, 2.5);
     props.responseRange = clamp(fx.sonicWorkshopResponseRange == null ? props.responseRange : Number(fx.sonicWorkshopResponseRange), 0.3, 2);
     props.peakColorIntensity = clamp(fx.sonicWorkshopPeakIntensity == null ? props.peakColorIntensity : Number(fx.sonicWorkshopPeakIntensity), 0, 1.4);
