@@ -287,15 +287,16 @@ function renderDetailComments(comments) {
     return '<div class="comment-item">' +
       (avatar ? '<img class="comment-avatar" src="' + avatar + '" alt="">' : '<div class="comment-avatar"></div>') +
       '<div class="comment-main"><div class="comment-meta">' + escHtml(user.nickname || '音乐用户') + (c.likedCount ? (' · ' + c.likedCount + ' 赞') : '') + (c.time ? (' · ' + escHtml(commentTimeLabel(c.time))) : '') + '</div>' +
-      '<div class="comment-text">' + escHtml(c.content || '') + '</div></div>' +
+      '<div class="comment-text">' + escHtml(c.content || '') + '</div>' +
+      (typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c) : '') + '</div>' +
       '</div>';
   }).join('');
 }
 function detailCommentsConfig(song) {
   var provider = songProviderKey(song);
   if (provider === 'qq') {
-    var qqId = song.qqId || '';
-    var qqMid = song.mid || song.songmid || song.id || '';
+    var qqId = song.qqId || (/^\d+$/.test(String(song.id || '')) ? song.id : '');
+    var qqMid = song.mid || song.songmid || song.qqMid || song.id || '';
     return {
       provider: 'qq',
       title: 'QQ 音乐评论',
@@ -303,6 +304,13 @@ function detailCommentsConfig(song) {
       writeUrl: '',
       canWrite: false,
     };
+  }
+  if (provider === 'kugou') {
+    var kugouId = [song.mixSongId, song.albumAudioId, song.album_audio_id, song.providerSongId, song.id]
+      .find(function (value) { return /^\d+$/.test(String(value || '')); });
+    return kugouId ? { provider: 'kugou', title: '酷狗音乐评论',
+      readUrl: '/api/kugou/song/comments?id=' + encodeURIComponent(kugouId) + '&limit=30',
+      writeUrl: '', canWrite: false } : null;
   }
   if (provider === 'qishui') {
     var qishuiId = song.providerSongId || song.trackId || song.id || '';
@@ -344,11 +352,18 @@ function loadDetailComments(song, seq) {
     return Promise.resolve();
   }
   if (!target) return Promise.resolve();
-  detailCommentsState = { config: config, seq: seq, offset: 0, cursor: '', loading: false,
-    hasMore: true, count: 0, seen: Object.create(null), error: false };
-  target.innerHTML = '<div class="detail-scroll"></div><div class="detail-comments-footer">' +
+  detailCommentsState = { config: config, seq: seq, offset: 0, before: 0, cursor: '', loading: false,
+    hasMore: true, count: 0, hotCount: 0, normalCount: 0, seen: Object.create(null), error: false,
+    threads: Object.create(null), threadIndex: 0 };
+  target.innerHTML = '<div class="detail-scroll">' +
+    '<section class="detail-comments-hot" aria-label="热门评论" hidden>' +
+    '<h3 class="detail-comments-heading">热门评论</h3><div class="detail-comments-hot-list"></div></section>' +
+    '<section class="detail-comments-more" aria-label="更多评论" hidden>' +
+    '<h3 class="detail-comments-heading">更多评论</h3><div class="detail-comments-more-list"></div></section>' +
+    '<div class="detail-empty" hidden>暂无评论</div></div><div class="detail-comments-footer">' +
     '<span class="detail-comments-count" aria-live="polite"></span>' +
-    '<button type="button" onclick="loadMoreDetailComments()">加载更多</button></div>';
+    '<button type="button" onclick="loadMoreDetailComments()">加载更多评论</button></div>';
+  if (typeof bindDetailReplyControls === 'function') bindDetailReplyControls(target);
   return loadMoreDetailComments();
 }
 function updateDetailCommentsFooter(state, target) {
@@ -357,9 +372,10 @@ function updateDetailCommentsFooter(state, target) {
   if (button) {
     button.hidden = !state.hasMore;
     button.disabled = state.loading;
-    button.textContent = state.loading ? '正在载入…' : (state.error ? '加载失败，点击重试' : '加载更多');
+    button.textContent = state.loading ? '正在载入…' : (state.error ? '加载失败，点击重试' : '加载更多评论');
   }
-  if (label) label.textContent = state.count ? '已显示 ' + state.count + ' 条评论' : (state.loading ? '正在载入评论…' : '');
+  if (label) label.textContent = state.count ? '已显示 ' + state.count + ' 条评论' + (state.hasMore ? '' : ' · 已到底')
+    : (state.loading ? '正在载入评论…' : (state.error ? '评论加载失败' : ''));
 }
 function loadMoreDetailComments() {
   var state = detailCommentsState;
@@ -370,6 +386,8 @@ function loadMoreDetailComments() {
   updateDetailCommentsFooter(state, target);
   var cursorMode = state.config.provider === 'qishui';
   var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset);
+  var beforeMode = state.config.provider === 'netease' && state.offset >= 5000;
+  if (beforeMode) url += '&before=' + state.before;
   return apiJson(url).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
@@ -382,9 +400,22 @@ function loadMoreDetailComments() {
     });
     var list = target.querySelector('.detail-scroll');
     if (fresh.length) {
-      list.insertAdjacentHTML('beforeend', renderDetailComments(fresh));
+      var hot = fresh.filter(function (c) { return c.isHot === true; });
+      var normal = fresh.filter(function (c) { return c.isHot !== true; });
+      if (hot.length) target.querySelector('.detail-comments-hot-list').insertAdjacentHTML('beforeend', renderDetailComments(hot));
+      if (normal.length) target.querySelector('.detail-comments-more-list').insertAdjacentHTML('beforeend', renderDetailComments(normal));
+      state.hotCount += hot.length;
+      state.normalCount += normal.length;
       state.count += fresh.length;
     }
+    var hotSection = target.querySelector('.detail-comments-hot');
+    var normalSection = target.querySelector('.detail-comments-more');
+    hotSection.hidden = !state.hotCount;
+    normalSection.hidden = !state.normalCount;
+    hotSection.querySelector('.detail-comments-heading').textContent = '热门评论 · ' + state.hotCount;
+    var normalTitle = state.hotCount ? '更多评论' : '评论';
+    normalSection.querySelector('.detail-comments-heading').textContent = normalTitle + ' · ' + state.normalCount;
+    normalSection.setAttribute('aria-label', normalTitle);
     if (cursorMode) {
       var nextCursor = result.nextCursor == null ? '' : String(result.nextCursor);
       state.hasMore = result.hasMore !== false && !!nextCursor && nextCursor !== state.cursor;
@@ -393,8 +424,14 @@ function loadMoreDetailComments() {
       var nextOffset = Number(result.nextOffset);
       state.hasMore = result.hasMore === true && Number.isFinite(nextOffset) && nextOffset > state.offset;
       state.offset = nextOffset;
+      if (state.config.provider === 'netease') {
+        var nextBefore = Number(result.nextBefore) || 0;
+        if (beforeMode && nextBefore >= state.before) state.hasMore = false;
+        state.before = nextBefore;
+        if (state.offset >= 5000 && !nextBefore) state.hasMore = false;
+      }
     }
-    if (!state.count && !state.hasMore) list.innerHTML = '<div class="detail-empty">暂无评论</div>';
+    list.querySelector('.detail-empty').hidden = !!state.count || state.hasMore;
     bindTrackDetailScrollers();
   }).catch(function () {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
