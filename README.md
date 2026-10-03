@@ -1,7 +1,7 @@
 # Mineradio Remix
 
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D6)
-![Version](https://img.shields.io/badge/version-2.3.1-8A2BE2)
+![Version](https://img.shields.io/badge/version-2.4.0--draft-8A2BE2)
 ![License](https://img.shields.io/badge/license-GPL--3.0--only-blue)
 
 **Mineradio Remix** 是一款沉浸式 Windows 桌面音乐播放器，基于已停止维护的 [XxHuberrr/Mineradio-paused](https://github.com/XxHuberrr/Mineradio-paused) **2.2.0** 继续开发。
@@ -17,7 +17,7 @@
 - [功能概览](#功能概览)
 - [下载与安装](#下载与安装)
 - [2.3.1 更新内容](#231-更新内容)
-- [下个版本（开发中）](#下个版本开发中)
+- [2.4.0 草稿更新内容](#240-草稿更新内容)
 - [历史版本](#历史版本)
 - [已知限制](#已知限制)
 - [从源码运行](#从源码运行)
@@ -42,6 +42,8 @@
 ## 下载与安装
 
 当前版本为 **2.3.1**，提供 Windows x64 安装包。
+
+**2.4.0 正在准备 Draft Release，尚未公开发布。** 草稿说明见 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)；下方下载入口仍指向最新公开版本。
 
 1. 在本仓库 [最新 Release](https://github.com/yancy520666/Mineradio-remix/releases/latest) 页面下载 `Mineradio-Remix-2.3.1-Setup.exe`；
 2. 对照同页 `SHA256SUMS.txt` 核对文件；
@@ -80,9 +82,9 @@
 
 ---
 
-## 下个版本（开发中）
+## 2.4.0 草稿更新内容
 
-以下改动已在源码中完成，将随下一个版本发布，现有 2.3.1 安装包不包含。技术细节见 [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md)。
+2.4.0 汇总评论区、酷狗每日推荐、Wallpaper Engine 和首页卡片的改进。以下变化进入本次草稿源码，现有公开的 2.3.1 安装包不包含。完整说明见 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)，技术细节见 [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md)。
 
 - **更新提示更简洁**：从源码运行时，更新弹窗也只列出各项更新的标题，不再把“更新重点”当成第一条，也不再附带整段说明。
 - **主界面卡片尺寸统一**：歌名再长，“继续播放”等卡片也保持原有大小，过长的歌名用省略号收尾，不再把整个主界面往下推。
@@ -269,7 +271,8 @@ npm run build:win
 
 | 文档 | 内容 |
 | --- | --- |
-| [2.3.1 更新说明](./docs/RELEASE_NOTES_v2.3.1.md) | 当前版本 |
+| [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md) | 本次草稿，尚未公开 |
+| [2.3.1 更新说明](./docs/RELEASE_NOTES_v2.3.1.md) | 当前公开版本 |
 | [2.3.0 更新说明](./docs/RELEASE_NOTES_v2.3.0.md) | 上一版本 |
 | [2.2.4 更新说明](./docs/RELEASE_NOTES_v2.2.4.md) | 相对原版的主要改进汇总 |
 | [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md) | 2.3.0 起各项改动的技术细节，末节为下个版本 |

@@ -2,19 +2,21 @@
 
 当前公开版本：**2.3.1**（2026-10-03 发布），Windows x64。构建流程只创建草稿，公开发布由维护者决定。
 
+本次准备：**2.4.0 Draft**，标签 `v2.4.0`，安装包 `Mineradio-Remix-2.4.0-Setup.exe`，正文为 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)。升级验证基线为公开版本 **2.3.1**。
+
 ## 源码与版本
 
 发布前提交并同步所有改动，运行 `npm test`、`npm run check`、`npm run test:electron`。`package.json` 与 lockfile 版本必须一致。已有标签不能移动到新源码；新修复递增版本。
 
 后续已完成的变化先累积在 [docs/RELEASE_NOTES_NEXT.md](./docs/RELEASE_NOTES_NEXT.md)。下次确定新版本号后，将其中实际进入最终构建的变化整理到 `docs/RELEASE_NOTES_v<新版本号>.md`，再构建；发布工作流使用这个版本专属文件作为 Release 正文。不要将源码新修复写成旧安装包已具备，也不要覆盖历史版本说明。交付后再清理已发布的待发布条目。
 
-手动执行 **Build Remix Windows release draft**，填写最终提交 SHA 和新版本标签（如 `v2.3.2`）。`prepare_draft=true` 仍会先完成全部测试、构建与安装验证，只有通过后才上传到草稿。完整构建使用 `--publish never`，上传步骤只能创建 draft。
+手动执行 **Build Remix Windows release draft**，填写最终提交 SHA 和新版本标签（本次 `v2.4.0`）。`prepare_draft=true` 仍会先完成全部测试、构建与安装验证，只有通过后才上传到草稿。完整构建使用 `--publish never`，上传步骤只能创建 draft。
 
 ## 安装与卸载验证
 
 工作流在临时 GitHub-hosted Windows 测试机运行正式安装包：
 
-1. 下载本仓库当前公开版本的安装包（工作流中的升级基线，下次发版前改为 `v2.3.1`）并核对 GitHub 资产 SHA-256，验证用户实际会经历的覆盖升级。
+1. 下载本仓库当前公开版本 `v2.3.1` 的安装包并核对 GitHub 资产 SHA-256，验证用户实际会经历的覆盖升级。
 2. 安装旧版，验证真实窗口的 WebGL 渲染器、模块及 preload 初始化，写入配置并正常退出。
 3. 覆盖安装本次版本，逐文件核对安装后的源码；启动及重启，确认旧配置保留。
 4. 卸载，检查程序资源、卸载注册表项和快捷方式删除，用户文件、相邻文件及测试配置保留。
