@@ -27,6 +27,10 @@
     var savedAt = Math.min(value.savedAt, Date.now());
     if (!Number.isFinite(value.currentTime) || value.currentTime < 0 || !Number.isFinite(value.duration) || value.duration < 0) return null;
     if (!Array.isArray(value.queue) || value.queue.length > 120 || !Number.isInteger(value.currentIdx) || value.currentIdx < -1 || value.currentIdx > 1000000) return null;
+    if (value.current === null && value.queue.length === 0 && value.currentIdx === -1 && value.currentTime === 0 && value.duration === 0 && value.playing === false) {
+      return { version: 1, savedAt: savedAt, reason: String(value.reason || '').slice(0, 64),
+        currentIdx: -1, currentTime: 0, duration: 0, playing: false, current: null, queue: [] };
+    }
     var current = song(value.current);
     if (!current) return null;
     var queue = value.queue.map(song).filter(Boolean);
