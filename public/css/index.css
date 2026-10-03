@@ -18707,3 +18707,11 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
   animation: none !important;
   transform: none !important;
 }
+
+/* Outer shadows overlap in dashboard gaps and get cut into a dark rectangle. */
+#empty-home .home-hero,
+#empty-home .home-card,
+#empty-home .home-insight-card,
+#empty-home .home-discovery-strip {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), inset 0 0 2px 1px rgba(255, 255, 255, .25), inset 0 -18px 42px rgba(0, 0, 0, .16) !important;
+}

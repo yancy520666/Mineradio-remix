@@ -66,6 +66,40 @@ if (!process.argv.includes('--child')) {
       })};
     })()`;
     const results = [];
+    // A flat bright background exposes shadows leaking across the card gaps.
+    const checkGaps = async (layout, background) => {
+      await evaluate(`(() => {
+        fx.backgroundMedia = null; fx.backgroundImage = ''; fx.backgroundGlassOpacity = 0;
+        fx.windowBackgroundOpacity = 1; fx.backgroundOpacity = 1;
+        setCustomBackgroundColor('${background}', true);
+        let backdrop = document.getElementById('qa-flat-backdrop');
+        if (!backdrop) { backdrop = document.createElement('style'); backdrop.id = 'qa-flat-backdrop'; document.head.append(backdrop); }
+        // Remove animated scene pixels so shadow coverage can be measured exactly.
+        backdrop.textContent = '#desktop-window-shell{background:${background}!important} canvas,#custom-bg,#album-bg,#album-bg-next,#wallpaper-engine-layer,#wallpaper-engine-glass-sampler{display:none!important}';
+        return true;
+      })()`);
+      await wait(350);
+      const captured = await win.webContents.capturePage();
+      const bitmap = captured.toBitmap(), imageSize = captured.getSize();
+      const scale = imageSize.height / layout.height;
+      const expected = background.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
+      const samples = [];
+      for (let index = 1; index < layout.cards.length; index++) {
+        const left = layout.cards[index-1].rect, right = layout.cards[index].rect;
+        if (Math.abs(left.y-right.y) > 1) continue;
+        const x = (left.x + left.width + right.x) / 2;
+        for (const fraction of [0.2, 0.5, 0.8]) {
+          const y = right.y + right.height * fraction;
+          const offset = (Math.floor(y*scale)*imageSize.width + Math.floor(x*scale))*4;
+          const pixel = [bitmap[offset+2],bitmap[offset+1],bitmap[offset]];
+          assert(pixel.every((value,i) => Math.abs(value-expected[i]) <= 3),
+            'Card gap darkens the background: '+JSON.stringify({background,x,y,pixel,expected}));
+          samples.push(pixel);
+        }
+      }
+      assert(samples.length > 0, 'No visible card gaps were checked');
+      return {background,samples};
+    };
     for (const size of [[1280,820],[1280,1080],[960,740]]) {
       win.setSize(...size);
       await mouse(1,1); await wait(650);
@@ -86,6 +120,14 @@ if (!process.argv.includes('--child')) {
         results.push({size,index,shift:current.rect.y-card.y,transform:current.transform,hit:current.hit});
         await mouse(1,1); await wait(300);
       }
+      const gaps = [];
+      for (const background of ['#f6f3eb','#13171e']) gaps.push(await checkGaps(before, background));
+      results.push({size,gaps});
+      // Also sample while a card is hovered, after its shadow transition ends.
+      const firstCard = before.cards[0].rect;
+      await mouse(firstCard.x+firstCard.width/2,firstCard.y+firstCard.height/2);
+      await wait(350);
+      results.push({size,hoverGaps:await checkGaps(before,'#f6f3eb')});
       const shotIndex = process.argv.indexOf('--shots');
       if (shotIndex >= 0) {
         const directory = path.resolve(process.argv[shotIndex+1]); fs.mkdirSync(directory,{recursive:true});
