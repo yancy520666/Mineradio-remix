@@ -79,14 +79,40 @@ if (!process.argv.includes('--child')) {
         samples.push({input:i%2===0?'click':'space',paused:audio.paused,busy:playToggleBusy,ms:Math.round(performance.now()-start)});
         await togglePlay();
       }
-      audio.pause(); URL.revokeObjectURL(url);
-      return {centers,nextWorks,removeWorks,samples};
+      audio.pause();
+      // Remove entries through the production handler with real local media.
+      playQueue=Array.from({length:3},(_,i)=>({id:200+i,name:'Removal '+i,artist:'QA',type:'local',localKey:'remove-'+i,localUrl:url}));
+      await playQueueAt(1,{manual:true,skipShuffleOrder:true});
+      const keptMedia=audio,keptSong=playQueue[1];
+      await removeFromQueue(0);
+      const beforeCurrent={sameSong:playQueue[currentIdx]===keptSong,sameMedia:audio===keptMedia,index:currentIdx,paused:audio.paused};
+      // A late metadata event must not write the old song's duration into its successor.
+      playQueue[1].duration=123;audio.onloadedmetadata();
+      const metadataPreserved=playQueue[1].duration===123;
+      const oldToken=trackSwitchToken;
+      await removeFromQueue(0);
+      const currentRemoved={name:playQueue[currentIdx].name,index:currentIdx,paused:audio.paused,newToken:trackSwitchToken>oldToken};
+      playQueue.push({id:203,name:'Removal paused successor',artist:'QA',type:'local',localKey:'remove-3',localUrl:url});
+      await togglePlay();await removeFromQueue(0);
+      const pausedRemoved={name:playQueue[currentIdx].name,paused:audio.paused,playing,src:audio.getAttribute('src')};
+      await togglePlay();const successorResumes=!audio.paused && playbackMediaMatchesCurrentQueueItem(audio);
+      await removeFromQueue(0);
+      if(playbackCheckpointPending) await playbackCheckpointPending;
+      const disk=window.desktopWindow.readPlaybackCheckpointSync();
+      const lastRemoved={length:playQueue.length,index:currentIdx,paused:audio.paused,src:audio.getAttribute('src'),savedEmpty:disk.ok&&disk.payload&&disk.payload.current===null};
+      URL.revokeObjectURL(url);
+      return {centers,nextWorks,removeWorks,samples,beforeCurrent,metadataPreserved,currentRemoved,pausedRemoved,successorResumes,lastRemoved};
     })()`);
     assert(result.centers.length > 0);
     for (const center of result.centers) assert(center.offset.concat(center.ink).every(value => Math.abs(value) < 0.1), JSON.stringify(center));
     assert(result.nextWorks && result.removeWorks);
     for (const sample of result.samples) assert(sample.paused && !sample.busy, JSON.stringify(sample));
-    console.log('QUEUE_PAUSE:' + JSON.stringify({ buttons: result.centers.length, maxCenterOffset: Math.max(...result.centers.flatMap(c => c.offset.concat(c.ink).map(Math.abs))), nextWorks: result.nextWorks, removeWorks: result.removeWorks, focusEventsSimulated: true, samples: result.samples }));
+    assert(result.beforeCurrent.sameSong && result.beforeCurrent.sameMedia && result.beforeCurrent.index===0 && !result.beforeCurrent.paused, JSON.stringify(result.beforeCurrent));
+    assert(result.metadataPreserved, 'late local metadata cannot corrupt the next song duration');
+    assert(result.currentRemoved.name==='Removal 2' && result.currentRemoved.index===0 && !result.currentRemoved.paused && result.currentRemoved.newToken, JSON.stringify(result.currentRemoved));
+    assert(result.pausedRemoved.name==='Removal paused successor' && result.pausedRemoved.paused && !result.pausedRemoved.playing && result.pausedRemoved.src===null && result.successorResumes, JSON.stringify(result.pausedRemoved));
+    assert(result.lastRemoved.length===0 && result.lastRemoved.index===-1 && result.lastRemoved.paused && result.lastRemoved.src===null && result.lastRemoved.savedEmpty, JSON.stringify(result.lastRemoved));
+    console.log('QUEUE_PAUSE:' + JSON.stringify({ buttons: result.centers.length, maxCenterOffset: Math.max(...result.centers.flatMap(c => c.offset.concat(c.ink).map(Math.abs))), nextWorks: result.nextWorks, removeWorks: result.removeWorks, focusEventsSimulated: true, samples: result.samples, beforeCurrent:result.beforeCurrent,metadataPreserved:result.metadataPreserved,currentRemoved:result.currentRemoved,pausedRemoved:result.pausedRemoved,successorResumes:result.successorResumes,lastRemoved:result.lastRemoved }));
     app.exit(0);
   }).catch(error => { console.error(error.stack); app.exit(1); });
 }
