@@ -70,7 +70,7 @@ function renderDetailReplyItems(comments) {
       : '<span class="comment-reply-avatar" aria-hidden="true"></span>') +
       '<div class="comment-reply-copy">' + commentHeadHtml(comment) +
       '<div class="comment-reply-text">' + (comment.replyTo ? '<span class="comment-reply-to">回复 ' + escHtml(comment.replyTo) + '：</span>' : '') +
-      escHtml(comment.content || '') + '</div>' +
+      commentContentHtml(comment.content) + '</div>' +
       '<div class="comment-actions"><span></span>' + commentLikeHtml(comment) + '</div></div></div>';
   }).join('');
 }

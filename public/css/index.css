@@ -18706,6 +18706,25 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #song-comments .comment-item.is-compact .comment-head { grid-column: 1 / -1; }
 #song-comments .comment-item.is-compact .comment-actions { min-height: 0; margin: 0; }
 #song-comments .comment-item.is-compact .comment-actions > span:empty { display: none; }
+/* Netease emoticons sit on the text line at the text's own size. */
+#song-comments .comment-emoji {
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  margin: 0 1px;
+  vertical-align: -.32em;
+}
+#song-comments .comment-emoji-text {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .52);
+  font-size: .86em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
 
 /* 最新 / 热门 switch beside the comment section title. */
 #track-detail-modal .detail-comment-sort {
