@@ -31,7 +31,9 @@ test('switching wallpapers isolates framing and restores each saved project acro
     return context;
   }
   const context = renderer();
+  context.wallpaperEngineHostBoundsPreparing = true;
   context.activateWallpaperEngineItem(ids[0]);
+  assert.equal(context.wallpaperEngineHostBoundsPreparing,false,'a new selection releases the previous window freeze');
   Object.assign(context.wallpaperEngineSelection, { visualPositionX:0.3, visualPositionY:-0.2, visualScale:1.5, visualOpacity:0.7 });
   context.saveWallpaperEngineSelection();
   context.activateWallpaperEngineItem(ids[1]);
