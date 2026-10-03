@@ -43,7 +43,7 @@
 
 当前版本为 **2.3.1**，提供 Windows x64 安装包。
 
-**2.4.0 正在准备 Draft Release，尚未公开发布。** 草稿说明见 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)；下方下载入口仍指向最新公开版本。
+**2.4.0 Draft Release 已生成，尚未公开发布。** 维护者登录后可查看 [2.4.0 草稿](https://github.com/yancy520666/Mineradio-remix/releases/tag/untagged-856641bc0b8320b78fb8)，说明见 [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md)；下方下载入口仍指向最新公开版本。
 
 1. 在本仓库 [最新 Release](https://github.com/yancy520666/Mineradio-remix/releases/latest) 页面下载 `Mineradio-Remix-2.3.1-Setup.exe`；
 2. 对照同页 `SHA256SUMS.txt` 核对文件；
