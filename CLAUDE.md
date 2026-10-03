@@ -46,4 +46,4 @@ npm run test:electron  # 隔离 Electron 冒烟测试
 - 元素设置了 `display` 后 HTML 的 `hidden` 属性失效，需补 `[hidden] { display: none !important }`。
 - 安装标记文件第一行是标题、第二行才是 `appId=`；NSIS 静默模式下 `MessageBox` 不加 `/SD` 会卡住。
 - `img.src = ''` 会请求页面自身并显示“图片损坏”；清空图片用 `removeAttribute('src')`。
-- `playlist-interaction` 冒烟测试仍偶发失败（渲染进程偶尔被卡住约 1 秒，卡片未渲染）；失败时先单独重跑确认，不要据此改业务代码。
+- `playlist-interaction` 已改为等待动画、虚拟列表和稳定采样，测试固定面板时须同时设置 `playlistPanelPinned`，不能只加 CSS 类；可用 `--delay-frame` 复核页面阻塞 1 秒的场景。失败时先看状态和几何断言，不要据此直接改业务代码。

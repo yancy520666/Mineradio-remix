@@ -230,7 +230,7 @@ function ensureSourceFallbackStack() {
   return stack;
 }
 function removeSourceFallbackCard(card) {
-  if (!card) return;
+  if (!card || card.classList.contains('leaving')) return;
   clearTimeout(card._mineradioNoticeTimer);
   card._mineradioNoticeKey = '';
   card.classList.add('leaving');
@@ -271,7 +271,8 @@ function showSourceFallbackNotice(title, body, options) {
     card.appendChild(head);
     card.appendChild(bodyElNew);
     stack.insertBefore(card, stack.firstChild || null);
-    while (stack.children.length > 4) removeSourceFallbackCard(stack.lastElementChild);
+    // Removal waits for the exit animation, so DOM length cannot bound a loop.
+    Array.prototype.slice.call(stack.children, 4).forEach(removeSourceFallbackCard);
     requestAnimationFrame(function () { card.classList.add('show'); });
     card._mineradioNoticeTimer = options.persist ? 0 : setTimeout(function () { removeSourceFallbackCard(card); }, 5600);
     return;

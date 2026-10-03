@@ -86,10 +86,14 @@ function localFileId(filePath) {
 
 // Size is only a quick rejection: equal-size replacements need a full hash.
 const alternateFingerprintCache = new Map();
+// Timestamps only advance per clock tick (2 s on FAT), so quick rewrites can leave an identical stat.
+// Like git's "racy" index entries, files changed shortly before hashing are rehashed every time.
+const ALTERNATE_FINGERPRINT_RACY_MS = 3000;
 function alternateFingerprintKey(file, stat) {
   return JSON.stringify([file, stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs]);
 }
-function cacheAlternateFingerprint(key, fingerprint) {
+function cacheAlternateFingerprint(key, fingerprint, stat, hashedAt) {
+  if (Math.max(Number(stat.mtimeMs) || 0, Number(stat.ctimeMs) || 0) > hashedAt - ALTERNATE_FINGERPRINT_RACY_MS) return fingerprint;
   if (alternateFingerprintCache.size >= 256) alternateFingerprintCache.delete(alternateFingerprintCache.keys().next().value);
   alternateFingerprintCache.set(key, fingerprint);
   return fingerprint;
@@ -107,6 +111,7 @@ function audioCandidateUsable(record, file, stat, isPrimary) {
   const key = alternateFingerprintKey(file, stat);
   let fingerprint = alternateFingerprintCache.get(key);
   if (!fingerprint) {
+    const hashedAt = Date.now();
     const handle = fs.openSync(file, 'r');
     try {
       const hash = crypto.createHash('sha256');
@@ -114,7 +119,7 @@ function audioCandidateUsable(record, file, stat, isPrimary) {
       let count;
       while ((count = fs.readSync(handle, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, count));
       if (alternateFingerprintKey(file, fs.fstatSync(handle)) !== key) return false;
-      fingerprint = cacheAlternateFingerprint(key, hash.digest('hex'));
+      fingerprint = cacheAlternateFingerprint(key, hash.digest('hex'), stat, hashedAt);
     } finally { fs.closeSync(handle); }
   }
   return fingerprint === record.fingerprint;
@@ -128,9 +133,10 @@ async function audioCandidateUsableAsync(record, file, stat, isPrimary) {
   const key = alternateFingerprintKey(file, stat);
   let fingerprint = alternateFingerprintCache.get(key);
   if (!fingerprint) {
+    const hashedAt = Date.now();
     fingerprint = await audioFingerprint(file);
     if (alternateFingerprintKey(file, await fs.promises.stat(file)) !== key) return false;
-    cacheAlternateFingerprint(key, fingerprint);
+    cacheAlternateFingerprint(key, fingerprint, stat, hashedAt);
   }
   return fingerprint === record.fingerprint;
 }
