@@ -80,7 +80,6 @@ const {
   handleKugouSearch,
   handleKugouSongUrl,
   handleKugouLyric,
-  handleKugouGuessLike,
   handleKugouUserPlaylists,
   handleKugouPlaylistTracks,
   handleKugouLikeCheck,
@@ -93,6 +92,8 @@ const {
   extractKugouAuth,
   kugouAudioReferer,
 } = require('./kugou-api');
+const { handleKugouComments, handleKugouDailyRecommendations, handleKugouReplies } = require('./kugou-community-api');
+const { mapNeteaseComment, handleNeteaseReplies, handleQQReplies } = require('./comment-replies-api');
 const {
   getQishuiStatus,
   handleQishuiStatus,
@@ -110,6 +111,7 @@ const {
   handleQishuiSetAlbumCollected,
   handleQishuiReportRecentlyPlayed,
   handleQishuiComments,
+  handleQishuiReplies,
   handleQishuiCreateComment,
   handleQishuiLyric,
   handleQishuiSongUrl,
@@ -3792,6 +3794,7 @@ function mapQQComment(raw) {
     id: raw.commentid || raw.commentId || raw.id || '',
     content: raw.rootcommentcontent || raw.content || raw.comment || '',
     likedCount: Number(raw.praisenum || raw.praise_num || raw.likedCount || 0) || 0,
+    replyCount: raw.replyCount == null && raw.reply_cnt == null ? null : Math.max(0, Number(raw.replyCount || raw.reply_cnt) || 0),
     time: timeRaw && timeRaw < 10000000000 ? timeRaw * 1000 : timeRaw,
     user: {
       id: raw.encrypt_uin || raw.uin || user.uin || '',
@@ -3806,7 +3809,8 @@ function songCommentPage(hotList, normalList, limit, offset, total, more) {
   const hot = offset === 0 && Array.isArray(hotList) ? hotList : [];
   const nextOffset = offset + limit;
   const hasMore = normal.length > 0 && (typeof more === 'boolean' ? more : (total > 0 ? nextOffset < total : normal.length >= limit));
-  return { raw: hot.concat(normal), nextOffset, hasMore, hot: hot.length > 0 };
+  const nextBefore = normal.length ? Number(normal[normal.length - 1].time) || 0 : 0;
+  return { raw: hot.concat(normal), nextOffset, nextBefore, hasMore, hot: hot.length > 0, hotCount: hot.length };
 }
 
 async function handleQQSongComments(id, mid, limit, offset) {
@@ -3841,11 +3845,16 @@ async function handleQQSongComments(id, mid, limit, offset) {
     pagenum: String(page),
     pagesize: String(limit || 20),
   }, { headers: { Referer: 'https://y.qq.com/n/ryqq/songDetail/' + encodeURIComponent(mid || topid) } });
+  if (!body || (body.code != null && Number(body.code) !== 0) || !body.comment) {
+    throw new Error('QQ_COMMENTS_UNAVAILABLE');
+  }
   const hotList = body && body.hot_comment && body.hot_comment.commentlist;
   const normalList = body && body.comment && body.comment.commentlist;
   const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || 0;
   const pageData = songCommentPage(hotList, normalList, limit, offset, total);
-  const comments = pageData.raw.map(mapQQComment).filter(c => c.content);
+  const comments = pageData.raw.map((raw, index) => ({
+    ...mapQQComment(raw), isHot: index < pageData.hotCount,
+  })).filter(c => c.content);
   return { provider: 'qq', id: topid, total, comments, nextOffset: pageData.nextOffset, hasMore: pageData.hasMore, hot: pageData.hot };
 }
 
@@ -4968,8 +4977,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/kugou/recommendations') {
     try {
-      const limit = Math.max(4, Math.min(20, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
-      sendJSON(res, await handleKugouGuessLike(kugouCookie, limit));
+      sendJSON(res, await handleKugouDailyRecommendations(kugouCookie));
     } catch (err) {
       console.error('[KugouRecommendations]', err);
       sendJSON(res, { provider: 'kugou', error: err.message, songs: [] }, 500);
@@ -5593,6 +5601,20 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouSongUrl]', err);
       sendJSON(res, { provider: 'kugou', url: '', playable: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou/song/comments') {
+    if (req.method !== 'GET') { sendJSON(res, { error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    const id = url.searchParams.get('id') || '';
+    if (!/^\d+$/.test(id)) { sendJSON(res, { error: 'Missing Kugou mixsongid', comments: [] }, 400); return; }
+    try {
+      sendJSON(res, await handleKugouComments(id, kugouCookie,
+        url.searchParams.get('limit'), url.searchParams.get('offset')));
+    } catch (err) {
+      console.error('[KugouComments]', err.message);
+      sendJSON(res, { provider: 'kugou', error: err.message, comments: [] }, 500);
     }
     return;
   }
@@ -6481,6 +6503,38 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 歌曲评论 ----------
+  if (pn === '/api/song/comment/replies') {
+    if (req.method !== 'GET') { sendJSON(res, { error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    const provider = url.searchParams.get('provider') || '';
+    const id = url.searchParams.get('id') || '';
+    const parentId = url.searchParams.get('parentId') || '';
+    const resource = url.searchParams.get('resource') || '';
+    const cursor = url.searchParams.get('cursor') || '';
+    const limit = Math.max(1, Math.min(30, parseInt(url.searchParams.get('limit'), 10) || 20));
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset'), 10) || 0);
+    if (!['netease', 'qq', 'kugou', 'qishui'].includes(provider) || !/^[A-Za-z0-9!.*_-]{1,256}$/.test(parentId) || cursor.length > 1024) {
+      sendJSON(res, { error: 'Invalid reply request', comments: [] }, 400); return;
+    }
+    try {
+      let result;
+      if (provider === 'netease') {
+        if (!/^\d+$/.test(id) || !/^\d+$/.test(parentId) || (cursor && !/^\d+$/.test(cursor))) throw new Error('Invalid Netease reply identifiers');
+        result = await handleNeteaseReplies(id, parentId, userCookie, limit, cursor);
+      } else if (provider === 'qq') {
+        result = await handleQQReplies(parentId, limit, cursor, qqMusicRequest);
+      } else if (provider === 'kugou') {
+        result = await handleKugouReplies(id, parentId, resource, kugouCookie, limit, offset);
+      } else {
+        result = await handleQishuiReplies(parentId, { limit, cursor }, qishuiCookie);
+      }
+      sendJSON(res, { provider, ...result });
+    } catch (err) {
+      console.error('[CommentReplies]', provider, err.message);
+      sendJSON(res, { error: err.message, comments: [] }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/song/comments') {
     try {
       const requestBody = req.method === 'POST' ? await readRequestBody(req) : {};
@@ -6506,17 +6560,13 @@ const server = http.createServer(async (req, res) => {
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
       const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
       if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
-      const r = await comment_music({ id, limit, offset, cookie: userCookie, timestamp: Date.now() });
+      const before = Math.max(0, parseInt(url.searchParams.get('before') || '0', 10) || 0);
+      const r = await comment_music({ id, limit, offset: before ? 0 : offset, before, cookie: userCookie, timestamp: Date.now() });
       const body = r.body || r || {};
       const pageData = songCommentPage(body.hotComments, body.comments, limit, offset, Number(body.total) || 0, body.more);
-      const comments = pageData.raw.map(c => ({
-        id: c.commentId,
-        content: c.content || '',
-        likedCount: c.likedCount || 0,
-        time: c.time || 0,
-        user: c.user ? { id: c.user.userId, nickname: c.user.nickname || '', avatar: c.user.avatarUrl || '' } : null,
-      })).filter(c => c.content);
-      sendJSON(res, { id, total: body.total || 0, comments, nextOffset: pageData.nextOffset, hasMore: pageData.hasMore, hot: pageData.hot, body });
+      const comments = pageData.raw.map((c, index) => ({ ...mapNeteaseComment(c), isHot: index < pageData.hotCount })).filter(c => c.content);
+      sendJSON(res, { id, total: body.total || 0, comments, nextOffset: pageData.nextOffset,
+        nextBefore: pageData.nextBefore, hasMore: pageData.hasMore, hot: pageData.hot, body });
     } catch (err) {
       console.error('[SongComments]', err);
       sendJSON(res, { error: err.message, comments: [] }, 500);

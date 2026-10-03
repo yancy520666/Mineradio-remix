@@ -878,7 +878,8 @@ function buildKugouGatewayParams(auth, extra) {
 async function kugouGatewayRequest(path, opts) {
   opts = opts || {};
   const auth = extractKugouAuth(opts.cookie || '');
-  if (!auth.playbackReady) throw new Error('KUGOU_AUTH_REQUIRED');
+  const publicComments = ['/mcomment/v1/cmtlist', '/mcomment/r/v1/rank/topliked', '/mcomment/r/v1/rank/newest', '/mcomment/v1/hot_replylist'];
+  if (!auth.playbackReady && !publicComments.includes(path)) throw new Error('KUGOU_AUTH_REQUIRED');
   const body = opts.body == null ? '' : (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
   const params = buildKugouGatewayParams(auth, opts.params || {});
   if (!opts.skipSignature) params.signature = signatureAndroidParams(params, body);
@@ -2225,6 +2226,8 @@ async function handleKugouGuessLike(cookie, limit) {
 }
 
 module.exports = {
+  kugouGatewayRequest,
+  mapKugouPlaylistTrack,
   handleKugouSearch,
   handleKugouSongUrl,
   handleKugouLyric,

@@ -2997,6 +2997,8 @@ function extractQishuiCommentList(payload) {
 function mapQishuiComment(raw) {
   raw = raw && typeof raw === 'object' ? raw : {};
   const comment = pickObject(raw.comment, raw.comment_info, raw.commentInfo, raw);
+  const quoted = pickObject(comment.reply_to, comment.replyTo);
+  const recipient = pickObject(quoted.user, quoted.user_info);
   const user = pickObject(
     comment.user,
     comment.user_info,
@@ -3012,6 +3014,7 @@ function mapQishuiComment(raw) {
     comment.created_at ||
     comment.createdAt ||
     comment.time ||
+    comment.time_created ||
     raw.create_time ||
     raw.time ||
     0
@@ -3019,7 +3022,9 @@ function mapQishuiComment(raw) {
   return {
     id: normalizeText(comment.id || comment.comment_id || comment.commentId || raw.id || ''),
     content: normalizeLyricBody(comment.text || comment.content || comment.comment_text || comment.commentText || ''),
-    likedCount: Number(comment.like_count || comment.likeCount || comment.digg_count || comment.diggCount || comment.liked_count || 0) || 0,
+    likedCount: Number(comment.count_digged || comment.like_count || comment.likeCount || comment.digg_count || comment.diggCount || comment.liked_count || 0) || 0,
+    replyCount: comment.count_reply == null && comment.reply_count == null && comment.replyCount == null ? null : Math.max(0, Number(comment.count_reply ?? comment.reply_count ?? comment.replyCount) || 0),
+    replyTo: normalizeText(recipient.nickname || ''),
     time: timeRaw && timeRaw < 10000000000 ? timeRaw * 1000 : timeRaw,
     user: {
       id: normalizeText(user.id || user.user_id || user.userId || user.uid || ''),
@@ -3033,6 +3038,13 @@ function mapQishuiComment(raw) {
       ),
     },
   };
+}
+
+function qishuiCommentHasMore(data, root, cursor, nextCursor, count) {
+  if (!count || !nextCursor || nextCursor === cursor) return false;
+  const flag = [data.has_more, data.hasMore, root && root.has_more, root && root.hasMore]
+    .find(value => value != null);
+  return flag == null || flag === true || flag === 1 || flag === '1' || flag === 'true';
 }
 
 async function handleQishuiComments(trackId, opts, cookieText) {
@@ -3070,8 +3082,26 @@ async function handleQishuiComments(trackId, opts, cookieText) {
     total,
     cursor,
     nextCursor,
-    hasMore: !!(data.has_more || data.hasMore || nextCursor),
+    hasMore: qishuiCommentHasMore(data, json, cursor, nextCursor, comments.length),
   };
+}
+
+async function handleQishuiReplies(parentId, opts, cookieText) {
+  if (!/^[A-Za-z0-9_-]+$/.test(String(parentId || ''))) throw new Error('Missing Qishui comment id');
+  const cookie = normalizeQishuiCookieInput(cookieText);
+  if (!qishuiCookieHasLogin(cookie)) return { error: 'QISHUI_COOKIE_REQUIRED', comments: [], hasMore: false };
+  opts = opts || {};
+  const cursor = normalizeText(opts.cursor || '');
+  const json = await qishuiWebRequestJson('/luna/pc/comments/' + encodeURIComponent(parentId) + '/replies', qishuiPcAppParams({
+    cursor, count: Math.max(1, Math.min(30, Number(opts.limit) || 20)), image_strategy: 2,
+  }), cookie, { bases: [QISHUI_WEB_PC_API_BASE], noDefaultParams: true, sessionOnly: true, pcApp: true, timeoutMs: 8500 });
+  const data = json.data || json;
+  if (![data.reply_infos, data.replies, data.comments].some(Array.isArray)) throw new Error('QISHUI_REPLIES_INVALID_RESPONSE');
+  const raw = pickArray(data.reply_infos, data.replies, data.comments);
+  const comments = raw.map(c => mapQishuiComment(c.reply || c)).filter(c => c.content && c.id !== String(parentId));
+  const nextCursor = normalizeText(data.next_cursor || data.cursor || '');
+  return { comments, total: Number(data.count || data.total) || 0, nextCursor,
+    hasMore: qishuiCommentHasMore(data, json, cursor, nextCursor, comments.length) };
 }
 
 async function handleQishuiCreateComment(trackId, text, cookieText) {
@@ -3589,6 +3619,7 @@ module.exports = {
   handleQishuiSetAlbumCollected,
   handleQishuiReportRecentlyPlayed,
   handleQishuiComments,
+  handleQishuiReplies,
   handleQishuiCreateComment,
   handleQishuiLyric,
   handleQishuiSongUrl,
