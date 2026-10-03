@@ -279,18 +279,92 @@ function commentTimeLabel(ms) {
     return '';
   }
 }
+function commentCountLabel(value) {
+  var n = Math.max(0, Number(value) || 0);
+  if (n >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '亿';
+  if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + '万';
+  return String(n);
+}
+// Badge images come from the platform's own hosts (checked on the server).
+function commentVipHtml(vip) {
+  if (!vip) return '';
+  var level = Math.max(0, Number(vip.level) || 0);
+  var icon = /^https:\/\//.test(String(vip.icon || '')) ? String(vip.icon) : '';
+  if (!icon && !level) return '';
+  var title = level ? '会员等级 ' + level : '会员';
+  return '<span class="comment-vip" title="' + title + '">' +
+    (icon ? '<img src="' + escHtml(icon) + '" alt="' + title + '" loading="lazy" referrerpolicy="no-referrer">' : '') +
+    // Platform badges already show the level; the text pill is only a fallback.
+    (level && !icon ? '<span class="comment-vip-level">Lv.' + level + '</span>' : '') + '</span>';
+}
+function commentHeartSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 0 1 6.5 6.5Z"/></svg>';
+}
+function commentLikeHtml(comment) {
+  var owner = detailCommentsState;
+  var count = Math.max(0, Number(comment.likedCount) || 0);
+  var liked = comment.liked === true;
+  var body = commentHeartSvg() + '<span class="comment-like-count">' + (count ? commentCountLabel(count) : '') + '</span>';
+  // Only Netease accepts likes from here; elsewhere the count is shown, not a dead button.
+  if (!owner || owner.config.provider !== 'netease' || comment.id == null || String(comment.id) === '') {
+    return '<span class="comment-like is-static' + (liked ? ' is-liked' : '') + '" aria-label="' + count + ' 赞">' + body + '</span>';
+  }
+  return '<button type="button" class="comment-like' + (liked ? ' is-liked' : '') + '" data-comment-like="' + escHtml(String(comment.id)) +
+    '" data-like-count="' + count + '" aria-pressed="' + liked + '" aria-label="点赞，' + count + ' 赞">' + body + '</button>';
+}
+function commentHeadHtml(comment) {
+  var user = comment.user || {};
+  return '<div class="comment-head"><span class="comment-author">' + escHtml(user.nickname || '音乐用户') + '</span>' +
+    commentVipHtml(comment.vip) + (comment.time ? '<span class="comment-time">' + escHtml(commentTimeLabel(comment.time)) + '</span>' : '') + '</div>';
+}
 function renderDetailComments(comments) {
   if (!comments || !comments.length) return '<div class="detail-empty">暂无评论</div>';
   return comments.map(function (c) {
     var user = c.user || {};
     var avatar = user.avatar ? coverUrlWithSize(user.avatar, 64) : '';
+    var like = commentLikeHtml(c);
+    var replies = typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c, like) : '';
     return '<div class="comment-item">' +
-      (avatar ? '<img class="comment-avatar" src="' + avatar + '" alt="">' : '<div class="comment-avatar"></div>') +
-      '<div class="comment-main"><div class="comment-meta">' + escHtml(user.nickname || '音乐用户') + (c.likedCount ? (' · ' + c.likedCount + ' 赞') : '') + (c.time ? (' · ' + escHtml(commentTimeLabel(c.time))) : '') + '</div>' +
+      (avatar ? '<img class="comment-avatar" src="' + escHtml(avatar) + '" alt="" loading="lazy">' : '<div class="comment-avatar"></div>') +
+      '<div class="comment-main">' + commentHeadHtml(c) +
       '<div class="comment-text">' + escHtml(c.content || '') + '</div>' +
-      (typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c) : '') + '</div>' +
+      (replies || '<div class="comment-actions"><span></span>' + like + '</div>') + '</div>' +
       '</div>';
   }).join('');
+}
+function bindDetailCommentLikes(target) {
+  if (target.dataset.likeBound) return;
+  target.dataset.likeBound = '1';
+  target.addEventListener('click', function (event) {
+    var button = event.target.closest('button[data-comment-like]');
+    if (button && target.contains(button)) toggleDetailCommentLike(button);
+  });
+}
+function setCommentLikeButton(button, liked, count) {
+  button.classList.toggle('is-liked', liked);
+  button.setAttribute('aria-pressed', String(liked));
+  button.setAttribute('aria-label', '点赞，' + count + ' 赞');
+  button.dataset.likeCount = String(count);
+  button.querySelector('.comment-like-count').textContent = count ? commentCountLabel(count) : '';
+}
+function toggleDetailCommentLike(button) {
+  var state = detailCommentsState;
+  if (!state || state.seq !== trackDetailSeq || button.disabled) return Promise.resolve();
+  var wasLiked = button.getAttribute('aria-pressed') === 'true';
+  var count = Math.max(0, Number(button.dataset.likeCount) || 0);
+  setCommentLikeButton(button, !wasLiked, Math.max(0, count + (wasLiked ? -1 : 1)));
+  button.disabled = true;
+  return apiJson('/api/song/comments/like', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: state.config.id, commentId: button.dataset.commentLike, liked: !wasLiked }),
+  }).then(function (result) {
+    if (!result || result.success !== true) throw new Error(result && result.error || 'COMMENT_LIKE_FAILED');
+  }).catch(function (error) {
+    setCommentLikeButton(button, wasLiked, count);
+    if (state === detailCommentsState) showToast(error && error.message === 'LOGIN_REQUIRED' ? '登录网易云后可以点赞' : '点赞没有成功，请稍后重试');
+  }).finally(function () {
+    button.disabled = false;
+  });
 }
 function detailCommentsConfig(song) {
   var provider = songProviderKey(song);
@@ -352,7 +426,7 @@ function loadDetailComments(song, seq) {
     return Promise.resolve();
   }
   if (!target) return Promise.resolve();
-  detailCommentsState = { config: config, seq: seq, offset: 0, before: 0, cursor: '', loading: false,
+  detailCommentsState = { config: config, seq: seq, offset: 0, cursor: '', loading: false,
     hasMore: true, count: 0, hotCount: 0, normalCount: 0, seen: Object.create(null), error: false,
     threads: Object.create(null), threadIndex: 0 };
   target.innerHTML = '<div class="detail-scroll">' +
@@ -364,6 +438,7 @@ function loadDetailComments(song, seq) {
     '<span class="detail-comments-count" aria-live="polite"></span>' +
     '<button type="button" onclick="loadMoreDetailComments()">加载更多评论</button></div>';
   if (typeof bindDetailReplyControls === 'function') bindDetailReplyControls(target);
+  bindDetailCommentLikes(target);
   return loadMoreDetailComments();
 }
 function updateDetailCommentsFooter(state, target) {
@@ -384,10 +459,9 @@ function loadMoreDetailComments() {
   state.loading = true;
   state.error = false;
   updateDetailCommentsFooter(state, target);
-  var cursorMode = state.config.provider === 'qishui';
+  // Kugou pages by offset; the other platforms return an opaque cursor.
+  var cursorMode = state.config.provider !== 'kugou';
   var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset);
-  var beforeMode = state.config.provider === 'netease' && state.offset >= 5000;
-  if (beforeMode) url += '&before=' + state.before;
   return apiJson(url).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
@@ -424,12 +498,6 @@ function loadMoreDetailComments() {
       var nextOffset = Number(result.nextOffset);
       state.hasMore = result.hasMore === true && Number.isFinite(nextOffset) && nextOffset > state.offset;
       state.offset = nextOffset;
-      if (state.config.provider === 'netease') {
-        var nextBefore = Number(result.nextBefore) || 0;
-        if (beforeMode && nextBefore >= state.before) state.hasMore = false;
-        state.before = nextBefore;
-        if (state.offset >= 5000 && !nextBefore) state.hasMore = false;
-      }
     }
     list.querySelector('.detail-empty').hidden = !!state.count || state.hasMore;
     bindTrackDetailScrollers();
