@@ -7,8 +7,10 @@
     if (parent.MineradioSonicPerformance) config = parent.MineradioSonicPerformance.config();
   } catch (_) {}
   var root = null, state = 'loading', rendererName = '', meter = policy.createMeter(), signature = '';
+  var lastDrawReport = 0;
   function send(type, data) { parent.postMessage(Object.assign({ type: type }, data), location.origin); }
   function health(next) {
+    if (state === next) return;
     state = next;
     send('mineradio-sonic-performance-health', { state: next, gpu: rendererName });
   }
@@ -37,10 +39,19 @@
     canvas.addEventListener('webglcontextrestored', function () { meter.reset(performance.now()); health('recovering'); });
     var render = renderer.render;
     renderer.render = function () {
-      var result = render.apply(this, arguments);
+      var result;
+      try { result = render.apply(this, arguments); }
+      catch (error) {
+        if (state !== 'failed' && state !== 'lost') health('failed');
+        throw error;
+      }
       if (!gl.isContextLost()) {
-        if (state !== 'ready') health('ready');
-        var sample = meter.frame(performance.now(), config.target, config.eligible && !document.hidden);
+        var time = performance.now();
+        if (state !== 'ready') { health('ready'); lastDrawReport = time; }
+        else if (time - lastDrawReport >= 1000) {
+          send('mineradio-sonic-performance-draw', {}); lastDrawReport = time;
+        }
+        var sample = meter.frame(time, config.target, config.eligible && !document.hidden);
         if (sample) send('mineradio-sonic-performance-sample', { sample: sample });
       }
       return result;

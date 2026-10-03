@@ -11,13 +11,13 @@
   var active = 0, latest = null, recommendation = false, health = {}, gpu = {};
   var lastConfig = '', stageAttached = false, stageRestore = null;
   var noticeUntil = 0, noticeText = '';
+  var healthClocks = {};
   function now() { return performance.now(); }
   function preset() { return global.fx && [7, 8].indexOf(Number(global.fx.preset)) >= 0 ? Number(global.fx.preset) : 0; }
   function save() { try { localStorage.setItem(key, JSON.stringify(preferences)); } catch (_) {} }
   function eligible() {
     var state = global.desktopRuntimeState;
-    return !document.hidden && document.hasFocus() &&
-      !(state && (state.minimized || state.visible === false || state.focused === false)) &&
+    return visible() && document.hasFocus() && !(state && state.focused === false) &&
       !document.body.classList.contains('splash-active');
   }
   // The WE version follows an explicitly chosen quality tier; the topography
@@ -80,6 +80,8 @@
   function status(which, state, rendererName) {
     if (rendererName) gpu[which] = String(rendererName).slice(0, 240);
     health[which] = { state: state, since: now() };
+    healthClocks[which] = policy.createVisibleClock();
+    healthClocks[which].reset(now());
     if (state === 'ready') meter.reset(now());
     renderUi();
   }
@@ -98,6 +100,7 @@
     attachStage();
     if (global.renderer.getContext().isContextLost()) return;
     if (!health[7] || health[7].state !== 'ready') status(7, 'ready');
+    healthClocks[7].reset(now());
     var c = config();
     // The main scene's own fixed cadence can be slower than the wallpaper target.
     var actualTarget = Math.min(c.target, global.renderPerfState && global.renderPerfState.targetFps || c.target);
@@ -165,14 +168,14 @@
         lastConfig = signature;
         frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: c }, location.origin);
       }
-      if (!health[8]) health[8] = { state: 'loading', since: now() };
+      if (!health[8]) status(8, 'loading');
     }
     if (!c.eligible) meter.reset(now());
     var h = health[active];
-    // A hidden or minimized window draws nothing; only visible time counts toward the timeout.
-    if (h && h.state !== 'ready' && h.state !== 'failed') {
-      if (!visible()) h.since = now();
-      else if (now() - h.since > 15000) h.state = 'failed';
+    // Successful draws reset this clock. Hidden time and suspended timer gaps
+    // never count, including the first tick after a long background pause.
+    if (h && h.state !== 'failed' && healthClocks[active]) {
+      if (healthClocks[active].advance(now(), c.eligible && !c.paused) > 15000) h.state = 'failed';
     }
     renderUi();
   }
@@ -180,6 +183,10 @@
     var frame = document.querySelector('#sonic-workshop-layer iframe');
     if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || preset() !== 8) return;
     var data = event.data || {};
+    if (data.type === 'mineradio-sonic-performance-draw') {
+      if (!health[8] || health[8].state !== 'ready') status(8, 'ready');
+      else healthClocks[8].reset(now());
+    }
     if (data.type === 'mineradio-sonic-performance-sample') sample(data.sample);
     if (data.type === 'mineradio-sonic-performance-health' &&
         ['ready', 'lost', 'recovering', 'failed'].indexOf(data.state) >= 0) status(8, data.state, data.gpu);

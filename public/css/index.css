@@ -18952,3 +18952,6 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #sonic-performance-notice button:focus-visible, #sonic-performance-toggle:focus-visible { outline: 2px solid #82c4ff; outline-offset: 3px; }
 #sonic-performance-notice[hidden], #sonic-performance-notice [hidden] { display: none !important; }
 #sonic-performance-diagnostics { margin-top: 10px !important; color: #c4d5e8; }
+#sonic-performance-notice p, #sonic-performance-status {
+  -webkit-user-select: text; user-select: text; cursor: text;
+}
