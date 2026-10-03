@@ -492,84 +492,63 @@ function showToast(msg) {
   toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
 }
 
+// First-run guide: one tour of the features people look for first. Steps that
+// live in the visual console preview DIY mode without saving it; closing the
+// guide puts the mode, console tab and panels back as they were.
 var visualGuideSteps = [
   {
-    target: 'stage',
-    kicker: '01 / Welcome',
-    title: 'Mineradio 是用来听歌的视觉播放器',
-    body: '它不是单纯歌单页：搜索或导入一首歌后，封面、歌词、粒子和镜头会跟着音乐一起动。'
+    key: 'welcome', center: true,
+    kicker: 'Welcome',
+    title: '欢迎来到 Mineradio Remix',
+    body: '搜一首歌，封面、歌词和粒子会随着音乐一起律动。花一分钟认识几个最常用的地方。',
+    hint: '← → 翻页 · Enter 继续 · Esc 跳过'
   },
   {
-    selector: '#search-box',
-    kicker: '02 / Play',
-    title: '从搜索或导入开始',
-    body: '输入歌名、歌手或关键词即可播放；如果有本地音乐，也可以用导入入口直接放进舞台。'
+    key: 'search', selector: '#search-box', place: 'below',
+    kicker: 'Search',
+    title: '从搜索开始',
+    body: '输入歌名、歌手或专辑就能播放。登录平台账号后，会员曲目和你的歌单也会出现在这里。'
   },
   {
-    selector: '#bottom-bar',
-    kicker: '03 / Control',
-    title: '播放以后看底部控制台',
-    body: '播放、切歌、进度、队列和歌词都集中在底部，先把它当作一个正常播放器使用就可以。'
+    key: 'quality', selector: '#quality-control', fallback: '.control-track', place: 'above', bottom: true,
+    kicker: 'Quality',
+    title: '一键切换音质',
+    body: '歌名旁的小标签是当前音质。点一下，在标准、极高、无损、Hi-Res 之间切换，可选档位以平台和账号权限为准。',
+    hint: '本地歌曲会自动隐藏这个标签'
   },
   {
-    selector: '#user-btn',
-    kicker: '04 / Account',
-    title: '登录只是为了同步你的音乐库',
-    body: '登录后会同步歌单、红心和播客；不登录也可以搜索和播放，不会强制卡住你。'
+    key: 'comments', selector: '.control-track', place: 'above', bottom: true,
+    kicker: 'Comments',
+    title: '点歌名，看评论',
+    body: '歌曲详情里能看全部评论：在“最新 / 热门”之间切换，展开楼中楼回复；登录网易云后还可以点赞。'
   },
   {
-    target: 'shelf',
-    kicker: '05 / Visual',
-    title: '进阶视觉都放在舞台周围',
-    body: '右侧 3D 歌单架和 DIY 玩家模式是进阶入口；先播放一首歌，再慢慢调视觉效果。'
+    key: 'diy', selector: '#diy-mode-btn', place: 'below',
+    kicker: 'DIY Mode',
+    title: 'DIY 玩家模式',
+    body: '打开后会出现视觉控制台、歌单面板和完整的播放控制。接下来带你看两个最常用的设置。'
   },
   {
-    selector: '#diy-mode-btn',
-    kicker: '06 / DIY',
-    title: '高级功能在 DIY 玩家模式',
-    body: '视觉控制台、上传/封面、自定义歌词、音质和更多面板都会在这里展开。'
-  }
-];
-var visualGuideStepsDiy = [
-  {
-    selector: '#diy-mode-btn',
-    kicker: '01 / DIY',
-    title: 'DIY 玩家模式已展开',
-    body: '这里可以随时切回默认模式。DIY 模式会显示完整控制台、上传、视觉面板和高级调参。'
+    key: 'background', selector: '#fx-panel .bg-media-row', console: 'interface', place: 'left',
+    kicker: 'Background',
+    title: '换上你的背景',
+    body: '在“界面 › 背景媒体”里选择图片或 MP4 视频，也可以直接用当前歌曲的封面原图，并按需裁切。'
   },
   {
-    selector: '#search-box',
-    kicker: '02 / Search',
-    title: '搜索源和导入入口会展开',
-    body: '顶部搜索支持更多来源切换，上传歌曲、封面等入口也会在 DIY 模式中显示。'
+    key: 'wallpaper', selector: '#fx-panel .wallpaper-engine-row', console: 'interface', place: 'left',
+    kicker: 'Wallpaper Engine',
+    title: '导入 Wallpaper Engine',
+    body: '点“识别 / 导入”读取本机 Wallpaper Engine 的壁纸，选中即可作为播放器背景，之后还能调透明度和位置。'
   },
   {
-    selector: '#playlist-panel',
-    kicker: '03 / Library',
-    title: '左侧是完整歌单和队列',
-    body: '靠近左侧边缘可以打开歌单/队列面板，在这里管理队列、个人歌单和播客。'
-  },
-  {
-    selector: '#fx-panel',
-    kicker: '04 / Visual Lab',
-    title: '右侧是视觉控制台',
-    body: '靠近右下角或点击视觉按钮，可以调节粒子、歌词、镜头、3D 歌单架和更多视觉参数。'
-  },
-  {
-    selector: '.control-cluster.modes',
-    kicker: '05 / Controls',
-    title: '高级播放控制会补全',
-    body: '播放顺序、收藏、歌词源和更多按钮会在 DIY 模式中完整显示。'
-  },
-  {
-    target: 'shelf',
-    kicker: '06 / Shelf',
-    title: '3D 歌单架支持直接打开',
-    body: '右侧的 3D 歌单架会在靠近时半透明浮现，点击卡片可打开歌单，点卡片里的播放按钮可直接播放整张歌单。'
+    key: 'finish', selector: '#visual-guide-btn', place: 'below',
+    kicker: 'All set',
+    title: '准备好了',
+    body: '右上角的“?”随时可以重新打开这份引导。现在去搜一首喜欢的歌吧。'
   }
 ];
 function activeVisualGuideSteps() {
-  return diyPlayerMode ? visualGuideStepsDiy : visualGuideSteps;
+  return visualGuideSteps;
 }
 function visualGuideWasSeen() {
   return startupGuideWasSeen('visual');
@@ -605,12 +584,17 @@ function startVisualGuide(opts) {
   visualGuideActive = true;
   document.body.classList.add('visual-guide-active');
   visualGuideStep = 0;
+  var fxPanel = document.getElementById('fx-panel');
   visualGuideState = {
     bottomWasVisible: !!(document.getElementById('bottom-bar') && document.getElementById('bottom-bar').classList.contains('visible')),
     searchWasPeek: !!(document.getElementById('search-area') && document.getElementById('search-area').classList.contains('peek')),
-    fxWasPeek: !!(document.getElementById('fx-panel') && document.getElementById('fx-panel').classList.contains('peek')),
+    fxWasPeek: !!(fxPanel && fxPanel.classList.contains('peek')),
+    fxWasOpen: !!(fxPanel && (fxPanel.classList.contains('show') || fxPanel.classList.contains('peek'))),
+    fxTab: typeof fxPanelTab !== 'undefined' ? fxPanelTab : '',
     plWasPeek: !!(document.getElementById('playlist-panel') && document.getElementById('playlist-panel').classList.contains('peek')),
     mode: diyPlayerMode ? 'diy' : 'simple',
+    diyPreview: false,
+    consoleOpened: false,
     manual: !!opts.manual
   };
   var guide = document.getElementById('visual-guide');
@@ -618,87 +602,116 @@ function startVisualGuide(opts) {
     guide.classList.add('show');
     guide.setAttribute('aria-hidden', 'false');
   }
+  renderVisualGuideStepMarks();
   if (!visualGuideResizeBound) {
     visualGuideResizeBound = true;
     window.addEventListener('resize', positionVisualGuideStep);
     window.addEventListener('scroll', positionVisualGuideStep, true);
+    document.addEventListener('keydown', handleVisualGuideKey, true);
   }
   showVisualGuideStep(0);
+}
+function renderVisualGuideStepMarks() {
+  var marks = document.getElementById('visual-guide-steps');
+  if (!marks) return;
+  marks.innerHTML = activeVisualGuideSteps().map(function () { return '<i></i>'; }).join('');
+}
+// Steps 6-7 need the visual console; elsewhere it goes back to how it was.
+function setVisualGuideConsole(tab) {
+  var fxPanel = document.getElementById('fx-panel');
+  if (tab) {
+    if (!diyPlayerMode && typeof applyDiyMode === 'function') {
+      applyDiyMode(true, { save: false });
+      visualGuideState.diyPreview = true;
+    }
+    if (fxPanel && !fxPanel.classList.contains('show')) {
+      toggleFxPanel(true);
+      visualGuideState.consoleOpened = true;
+    }
+    if (typeof setFxPanelTab === 'function' && fxPanelTab !== tab) setFxPanelTab(tab);
+    return;
+  }
+  if (visualGuideState.consoleOpened && fxPanel) {
+    toggleFxPanel(false);
+    visualGuideState.consoleOpened = false;
+  }
+  if (typeof setFxPanelTab === 'function' && visualGuideState.fxTab && fxPanelTab !== visualGuideState.fxTab) setFxPanelTab(visualGuideState.fxTab);
+  if (visualGuideState.diyPreview && typeof applyDiyMode === 'function') {
+    applyDiyMode(visualGuideState.mode === 'diy', { save: false });
+    visualGuideState.diyPreview = false;
+  }
 }
 function prepareVisualGuideStep(step) {
   var search = document.getElementById('search-area');
   var bottom = document.getElementById('bottom-bar');
-  var fxPanel = document.getElementById('fx-panel');
   var playlistPanel = document.getElementById('playlist-panel');
-  if (typeof setShelfGuideCueActive === 'function') setShelfGuideCueActive(step && step.target === 'shelf');
+  if (typeof setShelfGuideCueActive === 'function') setShelfGuideCueActive(false);
+  setVisualGuideConsole(step && step.console || '');
   if (step && step.selector === '#search-box') setPeek(search, true, 'search');
-  if (step && step.selector === '#playlist-panel') setPeek(playlistPanel, true, 'pl');
-  else if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
-  if (step && step.selector === '#fx-panel') setPeek(fxPanel, true, 'fx');
-  else if (fxPanel && !visualGuideState.fxWasPeek) setPeek(fxPanel, false, 'fx');
-  if (step && (step.selector === '#bottom-bar' || step.selector === '#mini-queue-btn' || step.selector === '#immersive-btn' || step.selector === '.control-cluster.modes')) {
+  else if (search && !visualGuideState.searchWasPeek && document.activeElement !== $input) setPeek(search, false, 'search');
+  if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
+  if (step && step.bottom) {
     if (bottom) bottom.classList.add('visible');
-    revealBottomControls(1500);
+    revealBottomControls(2400);
+  }
+  if (step && step.console) {
+    var row = document.querySelector(step.selector);
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 }
 function scheduleVisualGuidePositioning() {
   requestAnimationFrame(positionVisualGuideStep);
-  setTimeout(positionVisualGuideStep, 180);
-  setTimeout(positionVisualGuideStep, 620);
+  setTimeout(positionVisualGuideStep, 200);
+  setTimeout(positionVisualGuideStep, 460);
+  setTimeout(positionVisualGuideStep, 760);
 }
 function showVisualGuideStep(index) {
   var steps = activeVisualGuideSteps();
   visualGuideStep = Math.max(0, Math.min(steps.length - 1, index));
   var step = steps[visualGuideStep];
   prepareVisualGuideStep(step);
-  var title = document.getElementById('visual-guide-title');
-  var body = document.getElementById('visual-guide-body');
-  var kicker = document.getElementById('visual-guide-kicker');
-  var hint = document.getElementById('visual-guide-hint');
+  var guide = document.getElementById('visual-guide');
+  var card = document.getElementById('visual-guide-card');
+  var isLast = visualGuideStep === steps.length - 1;
+  if (guide) guide.setAttribute('data-step', step.key);
+  var marks = document.querySelectorAll('#visual-guide-steps i');
+  Array.prototype.forEach.call(marks, function (mark, i) {
+    mark.classList.toggle('done', i < visualGuideStep);
+    mark.classList.toggle('current', i === visualGuideStep);
+  });
   var progress = document.getElementById('visual-guide-progress');
   var next = document.getElementById('visual-guide-next');
-  if (title) title.textContent = step.title;
-  if (body) body.textContent = step.body;
-  if (kicker) kicker.textContent = step.kicker;
-  if (hint) hint.textContent = visualGuideStep === steps.length - 1 ? '点击空白处完成引导' : '点击空白处也可以继续';
+  var prev = document.getElementById('visual-guide-prev');
   if (progress) progress.textContent = (visualGuideStep + 1) + ' / ' + steps.length;
-  if (next) next.textContent = visualGuideStep === steps.length - 1 ? '完成' : '下一步';
-  scheduleVisualGuidePositioning();
+  if (next) next.textContent = isLast ? '开始使用' : (visualGuideStep === 0 ? '开始' : '下一步');
+  if (prev) prev.hidden = visualGuideStep === 0;
+  // Content cross-fades: out, swap, back in, while the spotlight glides.
+  var apply = function () {
+    var setText = function (id, text) { var el = document.getElementById(id); if (el) el.textContent = text || ''; };
+    setText('visual-guide-index', String(visualGuideStep + 1).padStart(2, '0'));
+    setText('visual-guide-kicker', step.kicker);
+    setText('visual-guide-title', step.title);
+    setText('visual-guide-body', step.body);
+    var hint = document.getElementById('visual-guide-hint');
+    if (hint) { hint.textContent = step.hint || ''; hint.hidden = !step.hint; }
+    if (card) {
+      card.classList.toggle('is-hero', !!step.center);
+      card.classList.remove('is-swapping');
+    }
+    scheduleVisualGuidePositioning();
+  };
+  if (card && card.classList.contains('is-ready')) {
+    card.classList.add('is-swapping');
+    clearTimeout(card._guideSwapTimer);
+    card._guideSwapTimer = setTimeout(apply, 150);
+  } else {
+    if (card) card.classList.add('is-ready');
+    apply();
+  }
 }
 function guideTargetRect(step) {
-  if (step && step.target === 'stage') {
-    var stageW = Math.min(620, Math.max(260, innerWidth - 72));
-    var stageH = Math.min(310, Math.max(178, innerHeight * 0.34));
-    var stageLeft = innerWidth * 0.5 - stageW * 0.5;
-    var stageTop = Math.max(116, innerHeight * 0.32 - stageH * 0.5);
-    return { left: stageLeft, top: stageTop, width: stageW, height: stageH, right: stageLeft + stageW, bottom: stageTop + stageH };
-  }
-  if (step && step.target === 'shelf' && typeof shelfCueRect === 'function') {
-    var shelfRect = shelfCueRect();
-    var shelfLeft = shelfRect.left;
-    var shelfTop = shelfRect.top - 26;
-    var shelfRight = Math.min(innerWidth - 12, shelfRect.right + 18);
-    var shelfBottom = shelfRect.bottom + 26;
-    return { left: shelfLeft, top: shelfTop, width: shelfRight - shelfLeft, height: shelfBottom - shelfTop, right: shelfRight, bottom: shelfBottom };
-  }
-  if (step && step.selector === '#bottom-bar') {
-    var bar = document.getElementById('bottom-bar');
-    var progress = document.getElementById('progress-bar');
-    var controls = document.getElementById('controls');
-    if (bar) {
-      var br = bar.getBoundingClientRect();
-      var left = br.left, top = br.top, right = br.right, bottom = br.bottom;
-      [progress, controls].forEach(function (el) {
-        if (!el) return;
-        var r = el.getBoundingClientRect();
-        if (r.width <= 0 || r.height <= 0) return;
-        left = Math.min(left, r.left);
-        top = Math.min(top, r.top);
-        right = Math.max(right, r.right);
-        bottom = Math.max(bottom, r.bottom);
-      });
-      return { left: left, top: top, width: right - left, height: bottom - top, right: right, bottom: bottom };
-    }
+  if (step && step.center) {
+    return { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0, right: innerWidth / 2, bottom: innerHeight / 2 };
   }
   var isFullscreenDiyStep = !!(step && step.selector === '#diy-mode-btn' && (desktopRuntimeState.fullscreen || desktopFullscreenActive || document.fullscreenElement || document.body.classList.contains('desktop-fullscreen')));
   var useFullscreenDiyTarget = isFullscreenDiyStep && !shouldSuppressFullscreenDiyPeek();
@@ -706,18 +719,38 @@ function guideTargetRect(step) {
     layoutFullscreenDiyZone();
     document.body.classList.add('fullscreen-diy-peek');
   }
-  var target = step && step.selector ? document.querySelector(useFullscreenDiyTarget ? '#fullscreen-diy-btn' : step.selector) : null;
-  if (target) {
+  var selectors = step ? [useFullscreenDiyTarget ? '#fullscreen-diy-btn' : step.selector, step.fallback] : [];
+  for (var i = 0; i < selectors.length; i++) {
+    var target = selectors[i] ? document.querySelector(selectors[i]) : null;
+    if (!target) continue;
     var style = window.getComputedStyle(target);
     var rect = target.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden') return rect;
   }
   if (step && step.selector === '#diy-mode-btn') {
     var fallbackRight = Math.max(116, innerWidth - 26);
-    var fallbackTop = 16;
-    return { left: fallbackRight - 88, top: fallbackTop, width: 88, height: 38, right: fallbackRight, bottom: fallbackTop + 38 };
+    return { left: fallbackRight - 88, top: 16, width: 88, height: 38, right: fallbackRight, bottom: 54 };
   }
   return { left: innerWidth * 0.5 - 120, top: innerHeight * 0.5 - 40, width: 240, height: 80, right: innerWidth * 0.5 + 120, bottom: innerHeight * 0.5 + 40 };
+}
+// Card goes on the preferred side if it fits, otherwise on whichever side has room.
+function visualGuideCardPosition(rect, step, cardW, cardH) {
+  var gap = 18, margin = 16;
+  if (step && step.center) return { left: (innerWidth - cardW) / 2, top: (innerHeight - cardH) / 2 };
+  var spots = {
+    below: { left: rect.left + rect.width / 2 - cardW / 2, top: rect.bottom + gap, fits: rect.bottom + gap + cardH <= innerHeight - margin },
+    above: { left: rect.left + rect.width / 2 - cardW / 2, top: rect.top - gap - cardH, fits: rect.top - gap - cardH >= margin },
+    left: { left: rect.left - gap - cardW, top: rect.top + rect.height / 2 - cardH / 2, fits: rect.left - gap - cardW >= margin },
+    right: { left: rect.right + gap, top: rect.top + rect.height / 2 - cardH / 2, fits: rect.right + gap + cardW <= innerWidth - margin }
+  };
+  var order = [step && step.place || 'below', 'below', 'above', 'left', 'right'];
+  var spot = null;
+  for (var i = 0; i < order.length && !spot; i++) if (spots[order[i]].fits) spot = spots[order[i]];
+  spot = spot || spots.below;
+  return {
+    left: Math.max(margin, Math.min(innerWidth - cardW - margin, spot.left)),
+    top: Math.max(margin, Math.min(innerHeight - cardH - margin, spot.top))
+  };
 }
 function positionVisualGuideStep() {
   if (!visualGuideActive) return;
@@ -727,31 +760,22 @@ function positionVisualGuideStep() {
   if (!guide || !ring || !card) return;
   var step = activeVisualGuideSteps()[visualGuideStep];
   var rect = guideTargetRect(step);
-  ring.classList.toggle('shelf-target', !!(step && step.target === 'shelf'));
-  var pad = step && step.target === 'shelf' ? 14 : (step && step.selector === '#bottom-bar' ? 10 : 8);
-  var left = Math.max(12, rect.left - pad);
-  var top = Math.max(12, rect.top - pad);
-  var width = Math.min(innerWidth - left - 12, rect.width + pad * 2);
-  var height = Math.min(innerHeight - top - 12, rect.height + pad * 2);
+  var pad = step && step.center ? 0 : (step && step.console ? 6 : 9);
+  var left = Math.max(8, rect.left - pad);
+  var top = Math.max(8, rect.top - pad);
+  var width = Math.min(innerWidth - left - 8, rect.width + pad * 2);
+  var height = Math.min(innerHeight - top - 8, rect.height + pad * 2);
+  ring.classList.toggle('is-hidden', !!(step && step.center));
   ring.style.left = left + 'px';
   ring.style.top = top + 'px';
-  ring.style.width = Math.max(44, width) + 'px';
-  ring.style.height = Math.max(38, height) + 'px';
-  ring.style.borderRadius = step && step.target === 'shelf' ? '28px' : ((step && step.selector === '#bottom-bar') ? '20px' : '16px');
-  var scrim = guide.querySelector('.visual-guide-scrim');
-  if (scrim) {
-    scrim.style.setProperty('--gx', ((rect.left + rect.width / 2) / Math.max(1, innerWidth) * 100).toFixed(2) + '%');
-    scrim.style.setProperty('--gy', ((rect.top + rect.height / 2) / Math.max(1, innerHeight) * 100).toFixed(2) + '%');
-  }
-  var cardW = Math.min(326, innerWidth - 32);
-  var cardH = card.offsetHeight || 170;
-  var cardLeft = rect.left + rect.width / 2 - cardW / 2;
-  cardLeft = Math.max(16, Math.min(innerWidth - cardW - 16, cardLeft));
-  var below = rect.bottom + 18;
-  var above = rect.top - cardH - 18;
-  var cardTop = below + cardH < innerHeight - 16 ? below : Math.max(16, above);
-  card.style.left = cardLeft + 'px';
-  card.style.top = cardTop + 'px';
+  ring.style.width = Math.max(step && step.center ? 0 : 44, width) + 'px';
+  ring.style.height = Math.max(step && step.center ? 0 : 34, height) + 'px';
+  ring.style.borderRadius = step && step.console ? '14px' : (height > 70 ? '22px' : '16px');
+  var cardW = card.offsetWidth || 340;
+  var cardH = card.offsetHeight || 190;
+  var spot = visualGuideCardPosition({ left: left, top: top, width: width, height: height, right: left + width, bottom: top + height }, step, cardW, cardH);
+  card.style.left = Math.round(spot.left) + 'px';
+  card.style.top = Math.round(spot.top) + 'px';
 }
 function nextVisualGuideStep() {
   var steps = activeVisualGuideSteps();
@@ -760,6 +784,18 @@ function nextVisualGuideStep() {
     return;
   }
   showVisualGuideStep(visualGuideStep + 1);
+}
+function prevVisualGuideStep() {
+  if (visualGuideStep > 0) showVisualGuideStep(visualGuideStep - 1);
+}
+function handleVisualGuideKey(e) {
+  if (!visualGuideActive || !e) return;
+  if (e.key === 'ArrowRight' || e.key === 'Enter') nextVisualGuideStep();
+  else if (e.key === 'ArrowLeft') prevVisualGuideStep();
+  else if (e.key === 'Escape') closeVisualGuide(true);
+  else return;
+  e.preventDefault();
+  e.stopPropagation();
 }
 function closeVisualGuide(markSeen) {
   var wasAutomatic = visualGuideState && visualGuideState.manual !== true;
@@ -770,6 +806,8 @@ function closeVisualGuide(markSeen) {
     guide.classList.remove('show');
     guide.setAttribute('aria-hidden', 'true');
   }
+  var card = document.getElementById('visual-guide-card');
+  if (card) card.classList.remove('is-ready', 'is-swapping', 'is-hero');
   document.body.classList.remove('visual-guide-active');
   document.body.classList.remove('fullscreen-diy-peek');
   var search = document.getElementById('search-area');
@@ -777,6 +815,7 @@ function closeVisualGuide(markSeen) {
   var fxPanel = document.getElementById('fx-panel');
   var playlistPanel = document.getElementById('playlist-panel');
   if (typeof setShelfGuideCueActive === 'function') setShelfGuideCueActive(false);
+  if (visualGuideState && (visualGuideState.diyPreview || visualGuideState.consoleOpened) && typeof toggleFxPanel === 'function') setVisualGuideConsole('');
   if (search && !visualGuideState.searchWasPeek && document.activeElement !== $input) setPeek(search, false, 'search');
   if (fxPanel && !visualGuideState.fxWasPeek) setPeek(fxPanel, false, 'fx');
   if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
@@ -785,7 +824,7 @@ function closeVisualGuide(markSeen) {
 }
 function handleVisualGuideSurfaceClick(e) {
   if (!visualGuideActive) return;
-  if (e && e.target && e.target.closest && e.target.closest('button')) return;
+  if (e && e.target && e.target.closest && (e.target.closest('button') || e.target.closest('#visual-guide-card'))) return;
   if (e && e.preventDefault) e.preventDefault();
   nextVisualGuideStep();
 }
