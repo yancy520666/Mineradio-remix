@@ -18775,3 +18775,41 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #empty-home .home-discovery-strip {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), inset 0 0 2px 1px rgba(255, 255, 255, .25), inset 0 -18px 42px rgba(0, 0, 0, .16) !important;
 }
+
+/* Editable wallpaper properties share the existing settings drawer. */
+.wallpaper-engine-property-search {
+  width: 100%; min-height: 36px; flex: 0 0 auto; margin-bottom: 12px;
+  padding: 8px 10px; border: 1px solid rgba(160, 206, 242, .23);
+  border-radius: 8px; background: rgba(255, 255, 255, .05); color: #eaf4ff;
+}
+.wallpaper-engine-property-search::placeholder { color: #b2c4d8; }
+.wallpaper-engine-property-row.property-editable {
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 45%);
+  grid-template-areas: "copy badge" "copy control"; flex: 0 0 auto;
+}
+.wallpaper-engine-property-row[hidden],
+.wallpaper-engine-details-actions button[hidden] { display: none !important; }
+.wallpaper-engine-property-copy small { color: #aabed3; font-family: inherit; font-size: 11px; line-height: 1.4; }
+.wallpaper-engine-property-control { grid-area: control; min-width: 0; text-align: right; }
+.wallpaper-engine-property-control :is(input, select, textarea) {
+  max-width: 100%; width: 100%; min-height: 34px; padding: 6px 8px;
+  border: 1px solid rgba(160, 206, 242, .25); border-radius: 7px;
+  background: #17202d; color: #edf5ff; font: inherit; font-size: 12px;
+  caret-color: var(--accent, #7cc7ff);
+}
+.wallpaper-engine-property-control textarea { resize: vertical; min-height: 52px; }
+.wallpaper-engine-property-control input[type="checkbox"] { width: 20px; min-height: 20px; accent-color: var(--accent, #7cc7ff); }
+.wallpaper-engine-property-control input[type="color"] { width: 64px; padding: 3px; cursor: pointer; }
+.wallpaper-engine-property-control select option { background: #17202d; color: #edf5ff; }
+.wallpaper-engine-property-control :is(input, select, textarea, button):focus-visible,
+.wallpaper-engine-property-search:focus-visible { outline: 2px solid var(--accent, #7cc7ff); outline-offset: 2px; }
+.wallpaper-engine-property-control :disabled { opacity: .5; cursor: wait; }
+.wallpaper-engine-details-summary, .wallpaper-engine-details-note { color: #b5c8dd; }
+.wallpaper-engine-details-properties { scrollbar-color: #526880 transparent; }
+@media (max-width: 520px) {
+  .wallpaper-engine-details-panel { width: 100%; padding: 16px; }
+  .wallpaper-engine-property-row.property-editable {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "copy badge" "control control";
+  }
+}
