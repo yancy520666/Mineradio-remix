@@ -3778,7 +3778,7 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
   };
 }
 
-async function handleQQSongComments(id, mid, limit, cursor) {
+async function handleQQSongComments(id, mid, limit, cursor, sort) {
   let topid = String(id || '').replace(/\D/g, '');
   if (!topid && mid) {
     try {
@@ -3789,7 +3789,7 @@ async function handleQQSongComments(id, mid, limit, cursor) {
     }
   }
   if (!topid) return { provider: 'qq', error: 'Missing QQ song id', comments: [] };
-  return handleQQCommentPage(topid, limit, cursor, qqMusicRequest);
+  return handleQQCommentPage(topid, limit, cursor, qqMusicRequest, sort);
 }
 
 function decodeHtmlEntities(text) {
@@ -5545,7 +5545,7 @@ const server = http.createServer(async (req, res) => {
     if (!/^\d+$/.test(id)) { sendJSON(res, { error: 'Missing Kugou mixsongid', comments: [] }, 400); return; }
     try {
       sendJSON(res, await handleKugouComments(id, kugouCookie,
-        url.searchParams.get('limit'), url.searchParams.get('offset')));
+        url.searchParams.get('limit'), url.searchParams.get('offset'), url.searchParams.get('sort') === 'hot' ? 'hot' : 'latest'));
     } catch (err) {
       console.error('[KugouComments]', err.message);
       sendJSON(res, { provider: 'kugou', error: err.message, comments: [] }, 500);
@@ -5829,7 +5829,7 @@ const server = http.createServer(async (req, res) => {
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
       const cursor = url.searchParams.get('cursor') || '';
       if (cursor.length > 256) { sendJSON(res, { provider: 'qq', error: 'Invalid comment cursor', comments: [] }, 400); return; }
-      const data = await handleQQSongComments(id, mid, limit, cursor);
+      const data = await handleQQSongComments(id, mid, limit, cursor, url.searchParams.get('sort') === 'hot' ? 'hot' : 'latest');
       sendJSON(res, data);
     } catch (err) {
       console.error('[QQSongComments]', err);
@@ -6496,7 +6496,7 @@ const server = http.createServer(async (req, res) => {
       const cursor = url.searchParams.get('cursor') || '';
       if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
       if (cursor.length > 256) { sendJSON(res, { error: 'Invalid comment cursor', comments: [] }, 400); return; }
-      sendJSON(res, await handleNeteaseCommentPage(id, userCookie, limit, cursor));
+      sendJSON(res, await handleNeteaseCommentPage(id, userCookie, limit, cursor, url.searchParams.get('sort') === 'hot' ? 'hot' : 'latest'));
     } catch (err) {
       console.error('[SongComments]', err);
       sendJSON(res, { error: err.message, comments: [] }, 500);
