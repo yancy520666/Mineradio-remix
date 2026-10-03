@@ -86,8 +86,8 @@ function getAdaptiveRenderFps(now) {
   var mode = (typeof normalizeForegroundFpsMode === 'function') ? normalizeForegroundFpsMode(fx && fx.foregroundFpsMode) : 'adaptive';
   var fixedFps = (typeof foregroundFixedFpsForMode === 'function') ? foregroundFixedFpsForMode(mode) : null;
   if (fx && Number(fx.preset) === 7 && window.MineradioSonicPerformance) {
-    var sonicBudget = MineradioSonicPerformance.profile();
-    if (sonicBudget) return Math.min(fixedFps || sonicBudget.fps, sonicBudget.fps);
+    var sonicBudget = MineradioSonicPerformance.stageProfile();
+    if (sonicBudget && sonicBudget.fps) return Math.min(fixedFps || sonicBudget.fps, sonicBudget.fps);
   }
   if (fixedFps !== null) return fixedFps;
   if (RENDER_VISIBLE_VSYNC) return 0;
