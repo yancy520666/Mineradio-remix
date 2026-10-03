@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var policy = window.MineradioSonicPerformancePolicy;
-  var config = { profile: null, target: 60, eligible: false, paused: false };
+  var config = { profile: null, target: 60, fpsLimit: 0, eligible: false, paused: false };
   try {
     if (parent.MineradioSonicPerformance) config = parent.MineradioSonicPerformance.config();
   } catch (_) {}
@@ -24,7 +24,7 @@
     if (key === signature) return;
     signature = key; config = next;
     meter.reset(performance.now()); resize();
-    if (window.wallpaperPropertyListener) window.wallpaperPropertyListener.applyGeneralProperties({ fps: config.target });
+    if (window.wallpaperPropertyListener) window.wallpaperPropertyListener.applyGeneralProperties({ fps: config.fpsLimit || 0 });
   }
   window.__mineradioWorkshopCreated = function (value) {
     root = value;
@@ -77,7 +77,10 @@
         event.data.type === 'mineradio-sonic-performance-config') apply(event.data.config);
   });
   window.addEventListener('resize', resize);
-  window.addEventListener('error', function () { health('failed'); });
-  window.addEventListener('unhandledrejection', function () { health('failed'); });
+  // Script errors only mean failure before the first draw; afterwards drawing
+  // itself (and WebGL context events) report health, so stray errors don't flash.
+  function initFailed() { if (state !== 'ready') health('failed'); }
+  window.addEventListener('error', initFailed);
+  window.addEventListener('unhandledrejection', initFailed);
   document.addEventListener('webglcontextcreationerror', function () { health('failed'); }, true);
 })();

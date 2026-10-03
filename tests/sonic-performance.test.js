@@ -19,6 +19,17 @@ test('opt-in budgets preserve legacy defaults and stay below the saved quality',
   assert.equal(policy.targetFps('vsync', p, 144), 30);
 });
 
+test('ultra is the original wallpaper and default vsync leaves the renderer uncapped', () => {
+  const ultra = policy.profile('ultra', true, 0);
+  assert.equal(ultra.fps, 0);
+  assert.equal(policy.pixelRatio(ultra, 3840, 2160, 2), policy.pixelRatio(null, 3840, 2160, 2));
+  assert.equal(policy.targetFps('vsync', ultra, 144), 144);
+  assert.equal(policy.fpsLimit('vsync', null, 100), 0);
+  assert.equal(policy.fpsLimit('vsync', ultra, 144), 0);
+  assert.equal(policy.fpsLimit('45', null, 144), 45);
+  assert.equal(policy.fpsLimit('vsync', policy.profile('eco', true, 0), 144), 30);
+});
+
 function runFrames(meter, start, seconds, fps, target, eligible = true) {
   const samples = [];
   for (let i = 0; i < seconds * fps; i++) {
@@ -61,19 +72,20 @@ function controller(storage = new Map()) {
     return nodes.get(id);
   };
   let tick, time = 20000, focused = true;
+  const doc = { hidden: false, hasFocus: () => focused,
+    body: { classList: { contains: () => false } }, getElementById: node,
+    querySelector: () => ({ contentWindow: frameWindow }) };
   const window = { fx: { preset: 8, performanceQuality: 'eco', foregroundFpsMode: 'vsync' },
     MineradioSonicPerformancePolicy: policy,
     addEventListener: (name, fn) => { events[name] = fn; } };
-  const context = { window, document: { hidden: false, hasFocus: () => focused,
-    body: { classList: { contains: () => false } }, getElementById: node,
-    querySelector: () => ({ contentWindow: frameWindow }) },
+  const context = { window, document: doc,
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     location: { origin: 'http://localhost' }, performance: { now: () => time },
     setInterval: fn => { tick = fn; } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/sonic-performance.js'), 'utf8'), context);
   tick();
   return { api: window.MineradioSonicPerformance, window, node, tick, storage,
-    focus: value => { focused = value; }, advance: ms => { time += ms; },
+    focus: value => { focused = value; }, hide: value => { doc.hidden = value; }, advance: ms => { time += ms; },
     emit: (data, source = frameWindow) => events.message({ source, origin: 'http://localhost', data }) };
 }
 test('keep-current is remembered; opt-in/disable restores the saved visual without writing fx', () => {
@@ -91,13 +103,16 @@ test('keep-current is remembered; opt-in/disable restores the saved visual witho
   assert.equal(reopened.window.fx.performanceQuality, 'eco');
   reopened.api.setEnabled(false); assert.equal(reopened.api.profile(), null);
   reopened.api.qualityChanged(); assert.equal(reopened.api.profile().gridSize, 112);
+  assert.equal(reopened.api.stageProfile(), null, 'quality choice alone leaves the topography stage unchanged');
   assert.equal(controller(c.storage).api.profile().gridSize, 112, 'manual-quality intent survives restart');
 });
 test('render interruption times out, recovers, and leaves the selected wallpaper intact', () => {
   const c = controller();
   c.emit({ type: 'mineradio-sonic-performance-health', state: 'lost' });
   assert.equal(c.node('sonic-performance-notice').hidden, false);
-  c.advance(16000); c.tick();
+  c.hide(true); c.advance(30000); c.tick();
+  assert.equal(c.api.snapshot().health[8].state, 'lost', 'hidden time does not count toward the timeout');
+  c.hide(false); c.tick(); c.advance(16000); c.tick();
   assert.equal(c.api.snapshot().health[8].state, 'failed');
   assert.equal(c.window.fx.preset, 8);
   c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready' });
