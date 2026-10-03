@@ -20,18 +20,28 @@
       !(state && (state.minimized || state.visible === false || state.focused === false)) &&
       !document.body.classList.contains('splash-active');
   }
+  // The WE version follows an explicitly chosen quality tier; the topography
+  // stage keeps its own quality caps unless performance-first is switched on.
   function currentProfile() {
     return policy.profile(global.fx && global.fx.performanceQuality,
       preferences.enabled || preferences.manualQuality, preferences.enabled ? governor.reduction() : 0);
   }
+  function stageProfile() {
+    return preferences.enabled ? currentProfile() : null;
+  }
+  function visible() {
+    var state = global.desktopRuntimeState;
+    return !document.hidden && !(state && (state.minimized || state.visible === false));
+  }
   function config() {
-    var p = currentProfile();
+    var p = preset() === 7 ? stageProfile() : currentProfile();
     var display = typeof global.estimatedDisplayRefreshHz === 'function' ? Math.round(global.estimatedDisplayRefreshHz()) : 60;
     // Whole-Hz fluctuations must not reset the measurement window every frame.
     display = [30, 60, 75, 90, 120, 144, 165, 240].reduce(function (best, hz) {
       return Math.abs(hz - display) < Math.abs(best - display) ? hz : best;
     }, 60);
-    return { profile: p, target: policy.targetFps(global.fx && global.fx.foregroundFpsMode, p, display),
+    var mode = global.fx && global.fx.foregroundFpsMode;
+    return { profile: p, target: policy.targetFps(mode, p, display), fpsLimit: policy.fpsLimit(mode, p, display),
       eligible: eligible(), paused: typeof global.isDeepBackgroundMode === 'function'
         ? global.isDeepBackgroundMode() : !!document.hidden };
   }
@@ -91,7 +101,9 @@
     var c = config();
     // The main scene's own fixed cadence can be slower than the wallpaper target.
     var actualTarget = Math.min(c.target, global.renderPerfState && global.renderPerfState.targetFps || c.target);
-    var result = meter.frame(now(), Math.round(actualTarget), c.eligible);
+    // Adaptive mode lowers its own cadence on purpose, so it is not a frame drop.
+    var adaptive = global.fx && String(global.fx.foregroundFpsMode) === 'adaptive';
+    var result = meter.frame(now(), Math.round(actualTarget), c.eligible && !adaptive);
     if (result) sample(result);
   }
   function retry() {
@@ -108,6 +120,7 @@
     }
     renderUi();
   }
+  function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   function renderUi() {
     var button = document.getElementById('sonic-performance-toggle');
     if (button) {
@@ -117,27 +130,28 @@
     var which = preset(), h = health[which];
     var error = h && ['failed', 'lost', 'recovering'].indexOf(h.state) >= 0;
     var statusEl = document.getElementById('sonic-performance-status');
-    var p = currentProfile();
+    var p = which === 7 ? stageProfile() : currentProfile();
     var detail = !which ? '适用于两款音域回响；导入的 Wallpaper Engine 壁纸独立运行。' :
       (preferences.enabled ? '性能优先已开启' : '性能优先已关闭') + ' · ' +
-      (p ? ['最低', '低', '中', '高', '超高'][p.tier] + '细节' : '原始细节') +
+      (p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
-    if (statusEl) statusEl.textContent = detail;
+    setText(statusEl, detail);
     var banner = document.getElementById('sonic-performance-notice');
     if (!banner) return;
     banner.hidden = !which || !(error || recommendation || noticeUntil > now());
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
       recommendation ? '检测到壁纸持续掉帧。开启性能优先，可降低细节换取流畅度。' : noticeText;
-    document.getElementById('sonic-performance-message').textContent = text;
+    setText(document.getElementById('sonic-performance-message'), text);
     document.getElementById('sonic-performance-enable').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-keep').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-retry').hidden = !error;
     document.getElementById('sonic-performance-diagnostics-button').hidden = !error;
     var diagnostics = document.getElementById('sonic-performance-diagnostics');
     if (!error) diagnostics.hidden = true;
-    diagnostics.textContent = '渲染器：' + (gpu[which] || '未能读取') + '；状态：' + (h ? h.state : 'unknown') +
-      '。WebGL 初始化或恢复失败时，降低画质未必能解决；可检查显卡驱动及系统图形设置。';
+    // Rewriting unchanged text every tick would drop the user's selection.
+    setText(diagnostics, '渲染器：' + (gpu[which] || '未能读取') + '；状态：' + (h ? h.state : 'unknown') +
+      '。WebGL 初始化或恢复失败时，降低画质未必能解决；可检查显卡驱动及系统图形设置。');
   }
   function tick() {
     var next = preset();
@@ -155,7 +169,11 @@
     }
     if (!c.eligible) meter.reset(now());
     var h = health[active];
-    if (h && h.state !== 'ready' && h.state !== 'failed' && now() - h.since > 15000) h.state = 'failed';
+    // A hidden or minimized window draws nothing; only visible time counts toward the timeout.
+    if (h && h.state !== 'ready' && h.state !== 'failed') {
+      if (!visible()) h.since = now();
+      else if (now() - h.since > 15000) h.state = 'failed';
+    }
     renderUi();
   }
   global.addEventListener('message', function (event) {
@@ -167,7 +185,7 @@
         ['ready', 'lost', 'recovering', 'failed'].indexOf(data.state) >= 0) status(8, data.state, data.gpu);
   });
   global.MineradioSonicPerformance = {
-    config: config, profile: currentProfile, stageFrame: stageFrame, retry: retry,
+    config: config, profile: currentProfile, stageProfile: stageProfile, stageFrame: stageFrame, retry: retry,
     beginWorkshop: function () { lastConfig = ''; latest = null; status(8, 'loading'); },
     toggle: function () { setEnabled(!preferences.enabled); }, setEnabled: setEnabled,
     dismiss: dismiss, qualityChanged: qualityChanged, refresh: refresh,

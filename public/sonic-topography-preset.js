@@ -220,7 +220,7 @@
   }
 
   function deriveTerrainGridSettings(fx) {
-    var budget = global.MineradioSonicPerformance && global.MineradioSonicPerformance.profile();
+    var budget = global.MineradioSonicPerformance && global.MineradioSonicPerformance.stageProfile();
     var density = sonicNumber(fx, 'sonicGroundDensity', DEFAULT_TERRAIN_DENSITY, 0, 100);
     var raw = TERRAIN_MIN_GRID_SIZE + ((TERRAIN_MAX_GRID_SIZE - TERRAIN_MIN_GRID_SIZE) * density) / 100;
     var cap = QUALITY_GRID_CAP[(fx && fx.performanceQuality) || 'balanced'] || QUALITY_GRID_CAP.balanced;
