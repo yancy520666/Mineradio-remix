@@ -14,7 +14,7 @@ async function probe() {
     throw new Error(label + ': ' + JSON.stringify({ performance: MineradioSonicPerformance.snapshot(),
       config: MineradioSonicPerformance.config(), windowState: desktopRuntimeState, body: document.body.className }));
   };
-  closeVisualGuide(false);
+  closeVisualGuide(true); markVisualGuideSeen();
   // Automated QA can lose focus to other windows. Only the test's eligibility
   // check is overridden; real frames still come from the real WebGL renderer.
   document.hasFocus = () => true;
@@ -25,6 +25,9 @@ async function probe() {
   await until(() => snapshot()?.state === 'ready', 'bundled workshop renderer did not initialize');
   await wait(500);
   const legacy = snapshot();
+  check(fx.performanceQuality === 'eco' && fx.foregroundFpsMode === 'vsync' &&
+    !MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
+    'first-run quality, frame cadence or opt-in defaults changed');
   check(legacy.config.profile === null && legacy.triangles > 1000000, 'legacy geometry changed');
   MineradioSonicPerformance.setEnabled(true);
   setForegroundFpsMode('30', true);
@@ -62,6 +65,17 @@ async function probe() {
   await wait(1000);
   check(snapshot().config.profile.gridSize === 160, 'manual quality selection was not applied');
 
+  // Non-rendering script errors must not flash a failure, while an actual
+  // drawing exception must show retry even after the first healthy frame.
+  frame().dispatchEvent(new (frame().ErrorEvent)('error', { message: 'QA unrelated script error' }));
+  check(MineradioSonicPerformance.snapshot().health[8].state === 'ready', 'unrelated error changed render health');
+  frame().eval("const qaGl=document.querySelector('canvas').getContext('webgl2');for(const key of ['drawElements','drawElementsInstanced','drawArrays','drawArraysInstanced'])qaGl[key]=function(){throw new Error('QA drawing failure');}");
+  await until(() => MineradioSonicPerformance.snapshot().health[8]?.state === 'failed', 'runtime drawing failure was not reported');
+  MineradioSonicPerformance.diagnostics();
+  check(getComputedStyle(document.getElementById('sonic-performance-diagnostics')).userSelect === 'text', 'diagnostic text cannot be selected');
+  MineradioSonicPerformance.retry();
+  await until(() => snapshot()?.state === 'ready', 'runtime failure retry did not recreate the renderer');
+
   setPerformanceQualityMode('eco', true);
   MineradioSonicPerformance.setEnabled(true);
   setPreset(7);
@@ -74,6 +88,13 @@ async function probe() {
   await until(() => MineradioSonicPerformance.snapshot().health[7]?.state === 'lost', 'stage loss missing');
   MineradioSonicPerformance.retry();
   await until(() => MineradioSonicPerformance.snapshot().health[7]?.state === 'ready', 'stage did not restore after retry');
+
+  setPerformanceQualityMode('ultra', true);
+  fx.sonicGroundFloatingCount = 100;
+  await wait(500);
+  const floating = [];
+  scene.getObjectByName('sonic-topography-root').traverse(object => { if (object.isInstancedMesh) floating.push(object.count); });
+  check(floating.includes(100), 'ultra did not preserve the user-selected 100 floating blocks');
 
   // Fail WebGL creation inside a disposable bundled iframe only. The parent
   // renderer and the real machine's acceleration settings remain untouched.
