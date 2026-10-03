@@ -4,22 +4,29 @@
   var levels = ['eco', 'balanced', 'high', 'ultra'];
   var grids = [80, 112, 160, 224, 320];
   var ratios = [0.7, 0.9, 1.1, 1.35, 2];
-  var budgets = [1300000, 1800000, 2800000, 4000000, 8000000];
+  // The top tier is the original wallpaper: no pixel budget and no extra FPS cap.
+  var budgets = [1300000, 1800000, 2800000, 4000000, Infinity];
   function ceiling(quality) { return Math.max(0, levels.indexOf(quality)) + 1; }
   function profile(quality, managed, reduction) {
     if (!managed) return null;
     var tier = Math.max(0, ceiling(quality) - Math.max(0, reduction || 0));
     return { tier: tier, gridSize: grids[tier], dpr: ratios[tier], pixels: budgets[tier],
-      fps: [30, 30, 45, 60, 60][tier], floatingCount: [8, 20, 40, 60, 80][tier] };
+      fps: [30, 30, 45, 60, 0][tier], floatingCount: [8, 20, 40, 60, 80][tier] };
   }
   function pixelRatio(value, width, height, device) {
-    if (!value) return Math.min(2, Math.max(1, device || 1));
-    return Math.min(device || 1, value.dpr, Math.sqrt(value.pixels / Math.max(1, width * height)));
+    var base = Math.min(2, Math.max(1, device || 1));
+    if (!value) return base;
+    return Math.min(base, value.dpr, Math.sqrt(value.pixels / Math.max(1, width * height)));
   }
   function targetFps(mode, value, displayHz) {
     var display = Math.max(30, Math.min(240, Number(displayHz) || 60));
     var limit = /^(30|45|60|75|90|120)$/.test(String(mode)) ? Number(mode) : display;
-    return Math.min(display, limit, value ? value.fps : display);
+    return Math.min(display, limit, value && value.fps ? value.fps : display);
+  }
+  // Limit handed to the renderer; 0 keeps the original uncapped vsync drawing.
+  function fpsLimit(mode, value, displayHz) {
+    if (!/^(30|45|60|75|90|120)$/.test(String(mode)) && !(value && value.fps)) return 0;
+    return targetFps(mode, value, displayHz);
   }
   function createMeter() {
     var previous = 0, warmUntil = 0, start = 0, frames = 0, target = 0;
@@ -64,7 +71,7 @@
       }
     };
   }
-  var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps,
+  var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps, fpsLimit: fpsLimit,
     createMeter: createMeter, createGovernor: createGovernor };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MineradioSonicPerformancePolicy = api;
