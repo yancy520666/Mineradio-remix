@@ -2266,7 +2266,6 @@ body.simple-mode #search-results {
   max-height: min(420px, calc(100vh - 210px))
 }
 
-body.simple-mode #quality-control,
 body.simple-mode .fullscreen-toggle-btn {
   display: none !important
 }
@@ -18459,5 +18458,18 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
   #bottom-bar #controls-hide-btn svg,
   #bottom-bar #controls-hide-btn .pin-head {
     transition: none
+  }
+}
+
+/* Quality chip next to the song title: shown in simple mode too, hidden for
+   local files (no provider quality to choose) and on narrow windows where
+   the title area is only ~130px wide. */
+#quality-control.quality-control-local {
+  display: none !important
+}
+
+@media (max-width:720px) {
+  body.simple-mode #quality-control {
+    display: none !important
   }
 }

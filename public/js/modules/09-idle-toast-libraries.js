@@ -556,10 +556,10 @@ var visualGuideStepsDiy = [
     body: '靠近右下角或点击视觉按钮，可以调节粒子、歌词、镜头、3D 歌单架和更多视觉参数。'
   },
   {
-    selector: '#quality-control',
+    selector: '.control-cluster.modes',
     kicker: '05 / Controls',
     title: '高级播放控制会补全',
-    body: '音质、播放顺序、收藏、歌词源和更多按钮会在 DIY 模式中完整显示。'
+    body: '播放顺序、收藏、歌词源和更多按钮会在 DIY 模式中完整显示。'
   },
   {
     target: 'shelf',
@@ -636,7 +636,7 @@ function prepareVisualGuideStep(step) {
   else if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
   if (step && step.selector === '#fx-panel') setPeek(fxPanel, true, 'fx');
   else if (fxPanel && !visualGuideState.fxWasPeek) setPeek(fxPanel, false, 'fx');
-  if (step && (step.selector === '#bottom-bar' || step.selector === '#mini-queue-btn' || step.selector === '#immersive-btn' || step.selector === '#quality-control')) {
+  if (step && (step.selector === '#bottom-bar' || step.selector === '#mini-queue-btn' || step.selector === '#immersive-btn' || step.selector === '.control-cluster.modes')) {
     if (bottom) bottom.classList.add('visible');
     revealBottomControls(1500);
   }
