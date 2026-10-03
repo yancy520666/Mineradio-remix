@@ -766,14 +766,61 @@ function clearQueue() {
   updateEmptyHomeVisibility({ forceLoad: false });
 }
 function removeFromQueue(idx) {
-  if (idx < 0 || idx >= playQueue.length) return;
+  if (!Number.isInteger(idx) || idx < 0 || idx >= playQueue.length) return;
+  var removedCurrent = idx === currentIdx;
+  var removedBeforeCurrent = idx < currentIdx;
+  var keepPaused = !!(audio && audio.paused && !audio.ended && audio.__mineradioPlaybackStartedToken === trackSwitchToken);
   playQueue.splice(idx, 1);
-  if (currentIdx >= playQueue.length) currentIdx = playQueue.length - 1;
+  if (idx < currentIdx) currentIdx--;
+  else if (removedCurrent) currentIdx = playQueue.length ? idx % playQueue.length : -1;
+  if (!playQueue.length) {
+    // Invalidate lookups and delayed recovery before releasing the last track.
+    trackSwitchToken++;
+    cancelSourceFallbackRecovery('queue-empty');
+    clearAlbumGaplessPreload('queue-empty');
+    resetCuefieldAutoMix('queue-empty');
+    clearPlaybackResumeWatchdogs();
+    playbackResumeRecovery.serial++;
+    playbackResumeRecovery.pending = false;
+    cancelBeatAnalysisTimer();
+    cancelBeatPrefetchTimer();
+    cancelDjBeatAnalysisTimer();
+    beatMapToken++;
+    djBeatMapToken++;
+    if (localBeatAnalysis.active) cancelLocalBeatAnalysis();
+    finalizeListenSession(false);
+    pauseCurrentAudioForTrackSwitch();
+    if (audio) {
+      audio.__mineradioPlaybackExpected = false;
+      audio.__mineradioQueueItemKey = '';
+      audio.__mineradioTrackSwitchToken = 0;
+      audio.__mineradioPendingResumeAt = 0;
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    playing = false;
+    setPlayIcon(false);
+    hideLoading();
+    clearQueue();
+    saveLastPlaybackSnapshot(true, 'remove-queue-item');
+    forcePlaybackControlsInteractive();
+    return;
+  }
   safeRenderQueuePanel('remove-queue-item');
   safeShelfRebuild('remove-queue-item');
   updateCustomCoverButton();
   updateCustomLyricControls();
   updateEmptyHomeVisibility({ forceLoad: false });
+  // An unresolved invocation captured the old index; restart it at the new one.
+  var shiftedPendingTrack = removedBeforeCurrent && typeof pendingQueuePlaybackToken !== 'undefined'
+    && pendingQueuePlaybackToken === trackSwitchToken;
+  if (removedCurrent || shiftedPendingTrack) {
+    pendingPlaybackResumeAt = 0;
+    restoredLastPlaybackSnapshot = null;
+    return Promise.resolve(playQueueAt(currentIdx, { manual: true, suppressPlayFailureNotice: true, skipShuffleOrder: true, resumeAt: 0, selectOnly: removedCurrent && keepPaused }))
+      .finally(forcePlaybackControlsInteractive);
+  }
+  saveLastPlaybackSnapshot(true, 'remove-queue-item');
 }
 function playModeLabel(mode) {
   return { loop: '顺序循环', shuffle: '随机播放', single: '单曲循环' }[mode] || '顺序循环';

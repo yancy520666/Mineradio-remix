@@ -17,6 +17,19 @@ function snapshot(time = 42, savedAt = Date.now()) {
   const current = { id: 71, name: 'Checkpoint song', provider: 'netease' };
   return { version: 1, savedAt, currentTime: time, duration: 100, currentIdx: 0, playing: true, current, queue: [current] };
 }
+test('an empty queue checkpoint replaces the removed song and survives a fresh store', async t => {
+  const directory = fixture(t), store = createPlaybackCheckpointStore(directory), now = Date.now();
+  await store.save(snapshot(42, now - 100));
+  const empty = { version: 1, savedAt: now, reason: 'remove-queue-item',
+    currentIdx: -1, currentTime: 0, duration: 0, playing: false, current: null, queue: [] };
+  assert.equal((await store.save(empty)).ok, true);
+  assert.deepEqual(createPlaybackCheckpointStore(directory).read(), empty);
+  assert.equal(normalize({ ...empty, queue: [{ id: 71, name: 'old' }] }), null);
+  assert.equal(normalize({ ...empty, playing: true }), null);
+  // A delayed save from before the deletion must not revive the song.
+  await store.save(snapshot(43, now - 1));
+  assert.equal(createPlaybackCheckpointStore(directory).read().current, null);
+});
 test('latest checkpoint survives process death without shutdown handlers', async t => {
   const directory = fixture(t);
   const child = spawn(process.execPath, ['-e', `const {createPlaybackCheckpointStore}=require('./desktop/playback-checkpoint-store');
@@ -110,7 +123,7 @@ test('large queues keep the current track; browser storage failure still saves t
   const source = fs.readFileSync(path.join(__dirname, '../public/js/modules/05-playback/09-queue-snapshot-autoplay.js'), 'utf8');
   const queue = Array.from({ length: 500 }, (_, id) => ({ id: id + 1, name: 'Song ' + id })), saved = [];
   let matches = true;
-  const c = vm.createContext({ audio: { paused: false, ended: false, __mineradioPendingResumeAt: 37.25 }, currentIdx: 350, playQueue: queue,
+  const c = vm.createContext({ audio: { src: 'fixture.wav', paused: false, ended: false, __mineradioPendingResumeAt: 37.25 }, currentIdx: 350, playQueue: queue,
     currentCoverSong: () => queue[350], restoredLastPlaybackSnapshot: null, lastPlaybackSnapshotSavedAt: 0,
     lastPlaybackSnapshotMonotonicAt: null, performance: { now: () => 0 },
     playbackMediaMatchesCurrentQueueItem: () => matches, getPlaybackCurrentSeconds: () => 0, getPlaybackDurationSeconds: () => 120,
