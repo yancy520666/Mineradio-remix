@@ -44,6 +44,11 @@ function playbackQualityOptions(provider) {
   provider = normalizePlaybackProvider(provider);
   return PLAYBACK_QUALITY_OPTIONS[provider] || PLAYBACK_QUALITY_OPTIONS.netease;
 }
+// Local files have no provider quality to pick; songProviderKey would
+// otherwise report them as netease and show a misleading NetEase quality.
+function isLocalQualitySong(song) {
+  return !!(song && (song.type === 'local' || song.source === 'local' || song.provider === 'local' || song.localKey || song.localFileId || song.localUrl));
+}
 function currentPlaybackQualityProvider() {
   var song = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
   return normalizePlaybackProvider(songProviderKey(song));
@@ -235,6 +240,12 @@ function updatePlaybackQualityUi() {
   var label = document.getElementById('quality-btn-label');
   var btn = document.getElementById('quality-btn');
   var list = document.getElementById('quality-option-list');
+  var wrap = document.getElementById('quality-control');
+  var localTrack = isLocalQualitySong(currentSong);
+  if (wrap) {
+    wrap.classList.toggle('quality-control-local', localTrack);
+    if (localTrack) wrap.classList.remove('open');
+  }
   var canUseSvip = provider === 'netease' && hasProviderSvip('netease', loginStatus);
   var displayQuality = provider === 'netease' && effectiveQuality === 'jymaster' && !canUseSvip ? 'hires' : effectiveQuality;
   if (label) label.textContent = playbackQualityShortLabel(displayQuality, provider);
