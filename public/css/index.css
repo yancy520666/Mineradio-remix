@@ -18521,3 +18521,99 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 
 #song-comments .detail-comments-footer button:disabled { opacity: .5; cursor: wait; }
 #song-comments .detail-comments-footer button[hidden] { display: none !important; }
+
+#song-comments [hidden] { display: none !important; }
+
+#song-comments .detail-comments-heading {
+  margin: 0 0 12px;
+  color: rgba(255, 255, 255, .88);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+#song-comments .detail-comments-hot:not([hidden]) + .detail-comments-more {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+
+#song-comments .detail-comments-footer button:focus-visible {
+  outline: 2px solid rgba(var(--fc-accent-rgb), .9);
+  outline-offset: 3px;
+}
+
+#home-platform-recommend-mask .home-platform-recommend-head,
+#home-platform-recommend-mask .home-platform-recommend-tabs,
+#home-platform-recommend-mask .home-platform-recommend-status,
+#home-platform-recommend-mask .home-platform-recommend-actions {
+  flex-shrink: 0;
+}
+
+#song-comments .comment-main,
+#song-comments .comment-reply-copy { min-width: 0; }
+#song-comments .comment-text,
+#song-comments .comment-reply-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+#song-comments .comment-replies { margin-top: 2px; }
+#song-comments .comment-replies button {
+  min-height: 28px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 3px;
+  color: rgba(var(--fc-accent-rgb), .9);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+#song-comments .comment-replies-toggle:hover { color: rgb(var(--fc-accent-rgb)); text-decoration: underline; text-underline-offset: 3px; }
+#song-comments .comment-replies [data-reply-action="load"] {
+  padding: 6px 12px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .34);
+  border-radius: 10px;
+  background: rgba(var(--fc-accent-rgb), .14);
+  color: rgba(255, 255, 255, .88);
+}
+#song-comments .comment-replies [data-reply-action="load"]:hover { background: rgba(var(--fc-accent-rgb), .22); }
+#song-comments .comment-replies button:focus-visible {
+  outline: 2px solid rgba(var(--fc-accent-rgb), .9);
+  outline-offset: 3px;
+}
+#song-comments .comment-replies button:disabled { opacity: .6; cursor: wait; }
+#song-comments .comment-replies-panel {
+  margin-top: 12px;
+  padding: 0 0 0 12px;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+#song-comments .comment-reply-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+#song-comments .comment-reply-avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .12);
+  object-fit: cover;
+}
+#song-comments .comment-reply-meta { color: rgba(255, 255, 255, .36); font-size: 10px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+#song-comments .comment-reply-to { margin-top: 4px; font-size: 10px; color: rgba(255, 255, 255, .36); overflow-wrap: anywhere; }
+#song-comments .comment-reply-text { margin-top: 4px; color: rgba(255, 255, 255, .68); font-size: 11.5px; line-height: 1.65; }
+#song-comments .comment-replies-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding-top: 12px; }
+#song-comments .comment-replies-status { flex: 1 1 150px; color: rgba(255, 255, 255, .5); font-size: 10px; line-height: 1.5; }
+@media (max-width: 1040px) {
+  #song-comments .comment-item { gap: 10px; padding: 12px; }
+  #song-comments .comment-avatar { width: 34px; height: 34px; flex-basis: 34px; }
+  #song-comments .comment-replies-panel { padding-left: 4px; }
+}
+
+/* Keep quick cards inside the dashboard's clipped glass surface on hover. */
+#empty-home .home-quick-grid > .home-card,
+#empty-home .home-quick-grid > .home-card:hover {
+  animation: none !important;
+  transform: none !important;
+}

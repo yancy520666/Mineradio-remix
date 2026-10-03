@@ -874,11 +874,11 @@ function homePlatformRecommendationFeedConfig(source) {
       playlistName: '汽水推荐 Feed',
     },
     kugou: {
-      endpoint: '/api/kugou/recommendations?limit=12',
-      sectionTitle: '推荐 FM',
-      cardLabel: '酷狗推荐 FM',
-      readyText: '来自酷狗 FM 推荐',
-      playlistName: '酷狗推荐 FM',
+      endpoint: '/api/kugou/recommendations',
+      sectionTitle: '每日推荐',
+      cardLabel: '酷狗每日推荐',
+      readyText: '来自酷狗每日推荐',
+      playlistName: '酷狗每日推荐',
     },
   }[source] || null;
 }
@@ -1109,7 +1109,8 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   var config = homePlatformRecommendationFeedConfig(source);
   var feedState = homePlatformRecommendationState.feeds[source];
   if (!config || !feedState || feedState.loading) return;
-  if (feedState.loaded && !force) return;
+  // Daily content and the connected account can change between openings.
+  if (feedState.loaded && !force && source !== 'kugou') return;
   feedState.loading = true;
   feedState.error = '';
   feedState.message = '';
