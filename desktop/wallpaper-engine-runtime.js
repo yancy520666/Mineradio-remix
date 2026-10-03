@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
 const { discoverSteamLibraries: defaultDiscoverSteamLibraries } = require('./wallpaper-engine-library');
+const { readSavedWallpaperProperties } = require('./wallpaper-engine-properties');
 
 const SIGNER_PATTERN = /\bSkutta Software\b/i;
 const MIN_WIDTH = 64;
@@ -1092,6 +1093,9 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   [DllImport("user32.dll")]
   static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
 
+  [DllImport("user32.dll")]
+  static extern uint GetDpiForWindow(IntPtr hWnd);
+
   [DllImport("user32.dll", CharSet = CharSet.Auto)]
   static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
 
@@ -1104,6 +1108,12 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
 
   [DllImport("gdi32.dll")]
   static extern bool DeleteObject(IntPtr handle);
+
+  [DllImport("user32.dll")]
+  static extern int GetWindowRgn(IntPtr hWnd, IntPtr region);
+
+  [DllImport("gdi32.dll")]
+  static extern bool EqualRgn(IntPtr first, IntPtr second);
 
   [DllImport("dwmapi.dll")]
   static extern int DwmRegisterThumbnail(IntPtr destination, IntPtr source, out IntPtr thumbnail);
@@ -1122,9 +1132,6 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   bool desktopIconLayeringEnabled;
   readonly System.Windows.Forms.Timer followTimer;
   IntPtr thumbnail = IntPtr.Zero;
-  int lastWidth = -1;
-  int lastHeight = -1;
-  int lastRadius = -1;
   int consecutiveFollowFailures = 0;
   IntPtr desktopIconHost = IntPtr.Zero;
   int visualOpacity = 255;
@@ -1340,16 +1347,36 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
       if (GetMonitorInfo(monitor, ref info)
           && (RectMatches(hostRect, info.rcMonitor) || RectMatches(hostRect, info.rcWork))) return 0;
     }
-    return windowCornerRadius;
+    // The helper can start maximized (radius 0) and later follow a restored
+    // window without restarting. Resolve the normal CSS radius at the live DPI.
+    uint dpi = GetDpiForWindow(hostWindow);
+    return dpi > 0 ? (int)Math.Round(34 * dpi / 96.0)
+      : (windowCornerRadius > 0 ? windowCornerRadius : 34);
   }
 
   static void ApplyCornerRegion(IntPtr hWnd, int width, int height, int radius) {
     if (radius <= 0) {
-      SetWindowRgn(hWnd, IntPtr.Zero, true);
+      IntPtr emptyRadiusRegion = CreateRoundRectRgn(0, 0, 1, 1, 0, 0);
+      try {
+        if (emptyRadiusRegion != IntPtr.Zero && GetWindowRgn(hWnd, emptyRadiusRegion) > 0) SetWindowRgn(hWnd, IntPtr.Zero, true);
+      } finally {
+        if (emptyRadiusRegion != IntPtr.Zero) DeleteObject(emptyRadiusRegion);
+      }
       return;
     }
     IntPtr region = CreateRoundRectRgn(0, 0, width + 1, height + 1, radius * 2, radius * 2);
     if (region == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+    IntPtr current = CreateRoundRectRgn(0, 0, 1, 1, 0, 0);
+    try {
+      // WE can replace its HWND region while rendering without resizing. Check
+      // the actual region every follow tick; redraw only when it changed.
+      if (current != IntPtr.Zero && GetWindowRgn(hWnd, current) > 0 && EqualRgn(current, region)) {
+        DeleteObject(region);
+        return;
+      }
+    } finally {
+      if (current != IntPtr.Zero) DeleteObject(current);
+    }
     if (SetWindowRgn(hWnd, region, true) == 0) {
       DeleteObject(region);
       throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -1420,13 +1447,8 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
           SWP_NOACTIVATE | SWP_SHOWWINDOW)) throw new Win32Exception(Marshal.GetLastWin32Error());
     }
 
-    if (width != lastWidth || height != lastHeight || radius != lastRadius) {
-      ApplyCornerRegion(Handle, width, height, radius);
-      ApplyCornerRegion(sourceWindow, width, height, radius);
-      lastWidth = width;
-      lastHeight = height;
-      lastRadius = radius;
-    }
+    ApplyCornerRegion(Handle, width, height, radius);
+    ApplyCornerRegion(sourceWindow, width, height, radius);
 
     if (thumbnail != IntPtr.Zero) {
       DWM_THUMBNAIL_PROPERTIES properties = new DWM_THUMBNAIL_PROPERTIES();
@@ -2743,7 +2765,10 @@ class WallpaperEngineRuntime {
       throw runtimeError('WALLPAPER_ENGINE_SILENT_STAGE_FAILED');
     }
     const properties = project.general && project.general.properties;
-    const muteProperties = sanitizeMuteProperties(session.muteProperties);
+    const muteProperties = {
+      ...(session.savedUserProperties && session.savedUserProperties.values),
+      ...sanitizeMuteProperties(session.muteProperties),
+    };
     let stagedPropertyCount = 0;
     if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
       for (const [key, value] of Object.entries(muteProperties)) {
@@ -2914,16 +2939,29 @@ class WallpaperEngineRuntime {
   }
 
   _clearSessionMuteReassertions(session) {
+    if (session && session.userPropertiesTimer) {
+      clearInterval(session.userPropertiesTimer);
+      session.userPropertiesTimer = null;
+    }
     if (!session || !session.muteReassertTimers) return;
     for (const timer of session.muteReassertTimers) clearTimeout(timer);
     session.muteReassertTimers.clear();
   }
 
-  async _applySessionMute(session) {
+  async _applySessionMute(session, onlyIfChanged = false) {
     if (!this._sessionIsCurrent(session) || !session.executable || !session.locationTitle) return false;
     if (session.muteApplyPromise) return session.muteApplyPromise;
     const operation = (async () => {
-      const properties = sanitizeMuteProperties(session.muteProperties);
+      session.savedUserProperties = await readSavedWallpaperProperties(
+        session.executable, session.originalProjectFile, session.originalScenePackage, session.savedUserProperties
+      );
+      if (!this._sessionIsCurrent(session)) return false;
+      const properties = {
+        ...(session.savedUserProperties && session.savedUserProperties.values),
+        ...sanitizeMuteProperties(session.muteProperties),
+      };
+      const propertyJson = JSON.stringify(properties);
+      if (onlyIfChanged && propertyJson === session.appliedPropertyJson) return true;
       await this._runTransientControl(session.executable, [
         '-control',
         'applyProperties',
@@ -2933,6 +2971,7 @@ class WallpaperEngineRuntime {
         session.locationTitle,
       ]);
       if (!this._sessionIsCurrent(session)) return false;
+      session.appliedPropertyJson = propertyJson;
       session.audioMuteCommandCount = Math.max(0, Number(session.audioMuteCommandCount) || 0) + 1;
       session.audioMuteLastAt = this.now();
       // This flag means the unique-location property command was acknowledged.
@@ -2952,6 +2991,11 @@ class WallpaperEngineRuntime {
   _scheduleSessionMuteReassertions(session) {
     this._clearSessionMuteReassertions(session);
     if (!this._sessionIsCurrent(session)) return;
+    session.userPropertiesTimer = setInterval(() => {
+      if (!this._sessionIsCurrent(session)) return;
+      this._applySessionMute(session, true).catch(() => {});
+    }, 2000);
+    session.userPropertiesTimer.unref();
     for (const delay of MUTE_REASSERT_DELAYS_MS) {
       const timer = setTimeout(() => {
         if (session.muteReassertTimers) session.muteReassertTimers.delete(timer);
@@ -3965,6 +4009,9 @@ class WallpaperEngineRuntime {
         throw runtimeError('WALLPAPER_ENGINE_START_SUPERSEDED');
       }
       session.muteProperties = sanitizeMuteProperties(target && target.muteProperties);
+      session.originalProjectFile = projectFile;
+      session.originalScenePackage = scenePackage;
+      session.savedUserProperties = await readSavedWallpaperProperties(session.executable, projectFile, scenePackage);
       startStage = 'prepare-silent-project';
       session.launchFile = projectStat
         ? await this._prepareSilentLaunchFile(session, projectFile, scenePackage)
