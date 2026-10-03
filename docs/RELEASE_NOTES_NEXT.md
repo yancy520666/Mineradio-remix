@@ -98,4 +98,4 @@
 
 ## 2.3.1 之后的改动（下个版本）
 
-暂无。
+- 卸载时清理更新缓存：每次安装都会把安装包复制到 `%LOCALAPPDATA%\<updaterCacheDirName>\installer.exe`（Remix 为 `mineradio-remix-updater`，约 112 MB），electron-updater 在同目录保留 `current.blockmap` 和 `pending\`；electron-builder 默认的卸载程序不处理这个目录，卸载后会一直留下。现在 `customRemoveFiles` 在真正卸载时删除这三项，目录为空时一并移除。目录名取自 electron-builder 的 `APP_INSTALLER_STORE_FILE`，内测包同样适用。只删已知文件，不递归删除目录，也不跟随目录联接，其他文件保留。升级时旧版卸载程序以更新模式运行，此时新安装包正从 `pending\` 运行，`installer.exe` 也要留给下次差量更新，因此跳过。`isUpdated` 与 `$installMode` 在 `installer.nsh` 被包含之后才定义，所以判断写在宏里而不是函数里（写在函数里正式打包会编译失败）。`tests/installer-cleanup.test.js` 用原生 NSIS 覆盖卸载删除与升级保留两种情况。此清理随新版本的卸载程序生效：现有 2.3.1 安装卸载时仍使用 2.3.1 自带的卸载程序。

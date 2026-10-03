@@ -90,6 +90,17 @@
 
 !macro customRemoveFiles
   Call un.MineradioRemoveInstalledFiles
+  ; isUpdated and $installMode are defined after this file is included, so use them here.
+  ${IfNot} ${isUpdated}
+    ; The updater cache is per user, like electron's app data.
+    ${If} $installMode == "all"
+      SetShellVarContext current
+    ${EndIf}
+    Call un.MineradioRemoveUpdaterCache
+    ${If} $installMode == "all"
+      SetShellVarContext all
+    ${EndIf}
+  ${EndIf}
 !macroend
 
 !macro customWelcomePage
@@ -1152,5 +1163,37 @@ Function un.MineradioRemoveInstalledFiles
   Delete "$INSTDIR\${MINERADIO_INSTALL_MARKER}"
 
   RMDir "$INSTDIR"
+FunctionEnd
+
+; Every install copies the installer to %LOCALAPPDATA%\<updaterCacheDirName>\installer.exe
+; for differential updates; electron-updater keeps current.blockmap and pending\ beside it.
+; Remove only those. customRemoveFiles skips this during an update: the new installer is
+; running from pending\ and needs installer.exe afterwards.
+!ifndef MINERADIO_UPDATER_CACHE_ROOT
+  !define MINERADIO_UPDATER_CACHE_ROOT "$LOCALAPPDATA"
+!endif
+Function un.MineradioRemoveUpdaterCache
+  !ifdef APP_INSTALLER_STORE_FILE
+    Push $0
+    Push $1
+    StrCpy $0 "${MINERADIO_UPDATER_CACHE_ROOT}\${APP_INSTALLER_STORE_FILE}"
+    StrCpy $1 $0 "" -14
+    ${If} $1 == "\installer.exe"
+      StrCpy $0 $0 -14
+      System::Call 'kernel32::GetFileAttributesW(w r0) i.r1'
+      ${If} $1 != -1
+        IntOp $1 $1 & 0x400
+        ${If} $1 == 0
+          Delete "$0\installer.exe"
+          Delete "$0\current.blockmap"
+          Push "$0\pending"
+          Call un.MineradioRemoveOwnedTree
+          RMDir "$0"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+    Pop $1
+    Pop $0
+  !endif
 FunctionEnd
 !endif
