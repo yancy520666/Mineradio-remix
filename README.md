@@ -1,7 +1,7 @@
 # Mineradio Remix
 
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D6)
-![Version](https://img.shields.io/badge/version-2.4.0-8A2BE2)
+![Version](https://img.shields.io/badge/version-2.4.1_Draft-8A2BE2)
 ![License](https://img.shields.io/badge/license-GPL--3.0--only-blue)
 
 **Mineradio Remix** 是一款沉浸式 Windows 桌面音乐播放器，基于已停止维护的 [XxHuberrr/Mineradio-paused](https://github.com/XxHuberrr/Mineradio-paused) **2.2.0** 继续开发。
@@ -17,7 +17,7 @@
 - [功能概览](#功能概览)
 - [下载与安装](#下载与安装)
 - [2.4.0 更新内容](#240-更新内容)
-- [下个版本（开发中）](#下个版本开发中)
+- [2.4.1 更新内容（待发布）](#241-更新内容待发布)
 - [历史版本](#历史版本)
 - [已知限制](#已知限制)
 - [从源码运行](#从源码运行)
@@ -83,9 +83,9 @@
 
 ---
 
-## 下个版本（开发中）
+## 2.4.1 更新内容（待发布）
 
-以下改动已在源码中完成，将随下一个版本发布，现有 2.4.0 安装包不包含。技术细节见 [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md)。
+以下改动已合并 main，准备为 2.4.1 草稿，现有公开的 2.4.0 安装包不包含。公开发布由维护者决定，草稿安装包可覆盖升级 2.4.0。完整说明见 [2.4.1 更新说明](./docs/RELEASE_NOTES_v2.4.1.md)，技术细节见 [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md)。
 
 - **Wallpaper Engine 启动更可靠**：修复官方签名被误判、管理员桌面无法启动和连续切换壁纸时卡在加载中的问题；场景壁纸保持原生画质，自动帧率上限 60，减少高刷新率屏幕上的负载。
 - **网页壁纸与软件内设置**：网页类壁纸改由本机 Wallpaper Engine 原生运行；壁纸卡片的齿轮面板可直接修改文字、颜色、开关等属性并一键恢复，原壁纸文件不会被改动。
@@ -291,6 +291,7 @@ npm run build:win
 | 文档 | 内容 |
 | --- | --- |
 | [2.4.0 更新说明](./docs/RELEASE_NOTES_v2.4.0.md) | 当前版本 |
+| [2.4.1 更新说明](./docs/RELEASE_NOTES_v2.4.1.md) | 待发布草稿 |
 | [2.3.1 更新说明](./docs/RELEASE_NOTES_v2.3.1.md) | 上一版本 |
 | [2.3.0 更新说明](./docs/RELEASE_NOTES_v2.3.0.md) | 2.3.0 |
 | [2.2.4 更新说明](./docs/RELEASE_NOTES_v2.2.4.md) | 相对原版的主要改进汇总 |
