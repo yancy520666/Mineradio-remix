@@ -232,7 +232,7 @@ function savePlaybackQualityPreference() {
 }
 function updatePlaybackQualityUi() {
   var provider = currentPlaybackQualityProvider();
-  var currentSong = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
+  var currentSong = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : (typeof currentLocalSong !== 'undefined' ? currentLocalSong : null);
   var currentQuality = getProviderPlaybackQuality(provider);
   var runtimeCapQuality = playbackQualityCapValue(currentSong, provider);
   var effectiveQuality = effectivePlaybackQualityForSong(currentSong, provider, currentQuality);

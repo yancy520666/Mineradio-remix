@@ -18422,8 +18422,9 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 
 /* Bottom-bar auto-hide toggle: the playlist panel's pin, shown in both simple
    and DIY mode. Leaning = auto-hide, upright with a filled head = always shown. */
-#bottom-bar #controls-hide-btn svg {
-  display: block;
+/* GSAP animates the inner SVG; only this wrapper owns the pin's state angle. */
+#bottom-bar #controls-hide-btn .controls-pin-icon {
+  display: flex;
   transform: rotate(38deg);
   transition: transform .24s cubic-bezier(.22, 1, .36, 1)
 }
@@ -18440,7 +18441,7 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
   box-shadow: inset 0 0 0 1px rgba(var(--fc-accent-rgb), .34)
 }
 
-#bottom-bar #controls-hide-btn.pinned svg {
+#bottom-bar #controls-hide-btn.pinned .controls-pin-icon {
   transform: rotate(0deg)
 }
 
@@ -18455,7 +18456,7 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #bottom-bar #controls-hide-btn svg,
+  #bottom-bar #controls-hide-btn .controls-pin-icon,
   #bottom-bar #controls-hide-btn .pin-head {
     transition: none
   }

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Draft version, for example v2.3.0
+        description: Draft version, for example v2.3.1
         required: true
       ref:
         description: Commit SHA to validate and build (manual draft preparation)
@@ -73,10 +73,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $baseline = 'Mineradio-Remix-2.2.4-Setup.exe'
-          gh release download v2.2.4 --repo yancy520666/Mineradio-remix --pattern $baseline --dir verification/baseline
+          $baseline = 'Mineradio-Remix-2.3.0-Setup.exe'
+          gh release download v2.3.0 --repo yancy520666/Mineradio-remix --pattern $baseline --dir verification/baseline
           if ($LASTEXITCODE -ne 0) { throw 'Baseline installer download failed' }
-          $release = gh release view v2.2.4 --repo yancy520666/Mineradio-remix --json assets | ConvertFrom-Json
+          $release = gh release view v2.3.0 --repo yancy520666/Mineradio-remix --json assets | ConvertFrom-Json
           $asset = $release.assets | Where-Object { $_.name -eq $baseline }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath "verification/baseline/$baseline").Hash.ToLowerInvariant()
           if ($asset.digest -ne "sha256:$hash") { throw 'Baseline installer checksum mismatch' }

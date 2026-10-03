@@ -10,7 +10,9 @@ if (!process.argv.includes('--child')) {
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
   try {
     for (const mode of ['first', 'restart']) {
-      const result = spawnSync(require('electron'), [__filename, '--child', profile, mode], { cwd: root, env, encoding: 'utf8', timeout: 45000 });
+      const args = [__filename, '--child', profile, mode];
+      if (process.argv.includes('--delay-frame')) args.push('--delay-frame');
+      const result = spawnSync(require('electron'), args, { cwd: root, env, encoding: 'utf8', timeout: 45000 });
       if (result.status !== 0) throw Error(result.stderr + result.stdout);
       console.log(result.stdout.split('\n').filter(line => line.startsWith('INTERACTION:')).join('\n'));
     }
@@ -57,10 +59,13 @@ if (!process.argv.includes('--child')) {
     if (mode === 'first') {
       const geometry = await win.webContents.executeJavaScript(`(async () => {
         dismissSplash({instant: true});
+        await startupLoginStatusPromise;
         loginStatus.loggedIn = true;
         userPlaylists = Array.from({length: 800}, (_, id) => ({id: id + 1, name: 'Playlist ' + id, provider:'netease', trackCount: 200}));
         playlistCatalogRevision++; queueViewTab = 'playlists';
         const panel = document.getElementById('playlist-panel');
+        playlistPanelPinned=true;
+        panel.classList.remove('playlist-panel-closing');
         panel.classList.add('show', 'pinned');
         document.getElementById('queue-pane').style.display='none';
         document.getElementById('pl-pane').style.display='';
@@ -80,12 +85,31 @@ if (!process.argv.includes('--child')) {
             rowHeight:row && row.offsetHeight,rowMargin:row && getComputedStyle(row).marginBottom, expandedHeight:card && card.offsetHeight, scale:panel.getBoundingClientRect().height/panel.offsetHeight};
         };
         const returnWithTrace=async()=>{
-          const started=performance.now(),trace=[panel.scrollTop],times=[started];
+          const started=performance.now(),trace=[panel.scrollTop];
           animatePlaylistCatalogToTop('netease:401');
-          while(performance.now()-started<750){await new Promise(r=>requestAnimationFrame(r));trace.push(panel.scrollTop);times.push(performance.now());}
+          // Exercise a busy renderer without depending on a fixed animation duration.
+          if (${JSON.stringify(process.argv.includes('--delay-frame'))}) {
+            await new Promise(resolve=>requestAnimationFrame(()=>{
+              const until=performance.now()+1000;
+              while(performance.now()<until) {}
+              resolve();
+            }));
+          }
+          const settled=[];
+          let settledAt=0;
+          while(performance.now()-started<5000){
+            await new Promise(r=>requestAnimationFrame(r));
+            trace.push(panel.scrollTop);
+            if (playlistReturnMotion || playlistPanelVirtualCache.raf || !panel.querySelector('[data-playlist-id="401"]')) {
+              settled.length=0;settledAt=0;continue;
+            }
+            if (!settledAt) settledAt=performance.now();
+            settled.push(panel.scrollTop);
+            if (settled.length>=3 && performance.now()-settledAt>=150) break;
+          }
+          if (settled.length<3 || performance.now()-settledAt<150) throw Error('playlist return did not finish: '+JSON.stringify(measure()));
           const deltas=trace.slice(1).map((top,i)=>top-trace[i]);
           const direction=Math.sign(trace.at(-1)-trace[0]);
-          const settled=trace.filter((_,i)=>times[i]-started>=600);
           return {...measure(),reversePx:Math.max(0,...deltas.map(d=>-direction*d)),
             tailRangePx:Math.max(...settled)-Math.min(...settled),samples:trace.length};
         };
@@ -116,7 +140,24 @@ if (!process.argv.includes('--child')) {
         const button=document.querySelector('.qi-act button');
         const svg=button.querySelector('svg');
         const b=button.getBoundingClientRect(),v=svg.getBoundingClientRect();
-        return {first,narrow,scrolled,narrowScrolled,defaults,iconOffset:[Math.abs((b.left+b.right-v.left-v.right)/2),Math.abs((b.top+b.bottom-v.top-v.bottom)/2)]};
+        // More than four notices must retire old cards without blocking playback.
+        for(let i=0;i<8;i++) showSourceFallbackNotice('Notice '+i,'Fixture',{persist:true,coalesceKey:i===7?'qa-overflow':''});
+        showSourceFallbackNotice('Updated notice','Updated body',{persist:true,coalesceKey:'qa-overflow'});
+        const stack=document.getElementById('source-fallback-stack');
+        const activeNotices=stack.querySelectorAll('.source-fallback-card:not(.leaving)').length;
+        const retiring=stack.lastElementChild;
+        removeSourceFallbackCard(retiring);removeSourceFallbackCard(retiring);
+        const waitForCount=async count=>{
+          const deadline=performance.now()+2000;
+          while(stack.children.length!==count && performance.now()<deadline) await new Promise(r=>setTimeout(r,20));
+          if(stack.children.length!==count) throw Error('notice cleanup did not finish');
+        };
+        await waitForCount(4);
+        const noticeTitles=Array.from(stack.querySelectorAll('.source-fallback-title')).map(el=>el.textContent);
+        dismissSourceFallbackNotice('qa-overflow');dismissSourceFallbackNotice('qa-overflow');
+        await waitForCount(3);
+        closeSourceFallbackNotice();await waitForCount(0);
+        return {first,narrow,scrolled,narrowScrolled,defaults,activeNotices,noticeTitles,iconOffset:[Math.abs((b.left+b.right-v.left-v.right)/2),Math.abs((b.top+b.bottom-v.top-v.bottom)/2)]};
       })()`);
       for (const sample of [geometry.first, geometry.narrow]) {
         assert(sample.card - sample.safe >= 7 && sample.card - sample.safe <= 11, JSON.stringify(geometry));
@@ -125,6 +166,8 @@ if (!process.argv.includes('--child')) {
         assert(sample.tailRangePx <= 1, 'settled scroll must not move again: '+JSON.stringify(sample));
       }
       assert.deepEqual(geometry.defaults, [true, true]);
+      assert.equal(geometry.activeNotices, 4);
+      assert.deepEqual(geometry.noticeTitles, ['Updated notice','Notice 6','Notice 5','Notice 4']);
       for (const sample of [geometry.scrolled, geometry.narrowScrolled]) {
         assert(sample.gap >= 7 && sample.gap <= 11, JSON.stringify(geometry));
         assert(sample.clip !== 'none' && sample.clippedHit, JSON.stringify(geometry));

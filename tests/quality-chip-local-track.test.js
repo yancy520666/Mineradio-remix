@@ -36,4 +36,7 @@ test('quality chip hides for local files and returns for online songs', () => {
   ctx.playQueue = [{ name: 'online', id: 1 }];
   ctx.updatePlaybackQualityUi();
   assert.equal(classes.has('quality-control-local'), false);
+  ctx.playQueue = []; ctx.currentIdx = -1; ctx.currentLocalSong = { type: 'local', localKey: 'restored' };
+  ctx.updatePlaybackQualityUi();
+  assert.equal(classes.has('quality-control-local'), true, 'restored local selection can exist before a queue is hydrated');
 });
