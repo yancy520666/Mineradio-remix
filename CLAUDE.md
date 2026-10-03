@@ -30,7 +30,7 @@ npm run test:electron  # 隔离 Electron 冒烟测试
 
 ## 工作约定
 
-- 新改动写进 `docs/RELEASE_NOTES_NEXT.md` 末尾的“2.3.0 之后的改动”一节；README 中待发布版本的小节同步一句话摘要（目前为“2.3.1 更新内容（草稿）”；2.3.1 公开发布后恢复为“下个版本（开发中）”）。
+- 新改动写进 `docs/RELEASE_NOTES_NEXT.md` 末尾的“2.3.1 之后的改动”一节；README 的“下个版本（开发中）”同步一句话摘要。
 - 面向用户的版本说明 `docs/RELEASE_NOTES_v<版本>.md` 以 `## 更新重点` 开头（每条 `- **短语**：说明`），更新弹窗会只提取这些加粗短语。
 - 发版走 `.claude/skills/mineradio-release`（流程细节在 `RELEASE.md`）。
 - `public/js/modules/` 是按顺序加载的经典脚本（非 React），全局变量共享；新逻辑注意加载顺序与 `typeof fn === 'function'` 防护。
