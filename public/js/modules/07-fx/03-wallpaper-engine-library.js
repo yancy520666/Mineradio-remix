@@ -1,6 +1,7 @@
 var WALLPAPER_ENGINE_SELECTION_STORE_KEY = 'mineradio-wallpaper-engine-selection-v1';
 var WALLPAPER_ENGINE_HIDDEN_STORE_KEY = 'mineradio-wallpaper-engine-hidden-v1';
 var WALLPAPER_ENGINE_FAVORITE_STORE_KEY = 'mineradio-wallpaper-engine-favorites-v1';
+var WALLPAPER_ENGINE_VISUAL_PROFILES_STORE_KEY = 'mineradio-wallpaper-engine-visual-profiles-v1';
 var wallpaperEngineProjects = [];
 var wallpaperEngineLibrarySnapshot = null;
 var wallpaperEngineMediaToken = '';
@@ -169,6 +170,40 @@ function readWallpaperEngineSelection() {
 }
 
 var wallpaperEngineSelection = readWallpaperEngineSelection();
+var wallpaperEngineVisualProfiles = readWallpaperEngineVisualProfiles();
+
+function normalizeWallpaperEngineVisualProfile(value) {
+  value = value && typeof value === 'object' ? value : {};
+  return {
+    visualPositionX: Math.max(-0.5, Math.min(0.5, Number(value.visualPositionX) || 0)),
+    visualPositionY: Math.max(-0.5, Math.min(0.5, Number(value.visualPositionY) || 0)),
+    visualScale: Math.max(1, Math.min(1.6, Number(value.visualScale) || 1.08))
+  };
+}
+
+function readWallpaperEngineVisualProfiles() {
+  var profiles = Object.create(null);
+  try {
+    var raw = JSON.parse(localStorage.getItem(WALLPAPER_ENGINE_VISUAL_PROFILES_STORE_KEY) || '{}');
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return profiles;
+    Object.keys(raw).slice(-100).forEach(function (id) {
+      if (/^[a-f0-9]{24}$/i.test(id)) profiles[id] = normalizeWallpaperEngineVisualProfile(raw[id]);
+    });
+  } catch (e) { }
+  return profiles;
+}
+
+function rememberWallpaperEngineVisualProfile() {
+  var id = String(wallpaperEngineSelection.id || '');
+  if (!/^[a-f0-9]{24}$/i.test(id)) return;
+  // Move the updated project to the end; keep local storage bounded.
+  delete wallpaperEngineVisualProfiles[id];
+  wallpaperEngineVisualProfiles[id] = normalizeWallpaperEngineVisualProfile(wallpaperEngineSelection);
+  var ids = Object.keys(wallpaperEngineVisualProfiles);
+  ids.slice(0, Math.max(0, ids.length - 100)).forEach(function (oldId) { delete wallpaperEngineVisualProfiles[oldId]; });
+  try { localStorage.setItem(WALLPAPER_ENGINE_VISUAL_PROFILES_STORE_KEY, JSON.stringify(wallpaperEngineVisualProfiles)); }
+  catch (e) { }
+}
 
 function wallpaperEngineVisualSettings() {
   return {
@@ -234,6 +269,7 @@ function setWallpaperEngineVisualSetting(name, rawValue) {
 }
 
 function saveWallpaperEngineSelection() {
+  rememberWallpaperEngineVisualProfile();
   try { localStorage.setItem(WALLPAPER_ENGINE_SELECTION_STORE_KEY, JSON.stringify(normalizeWallpaperEngineSelection(wallpaperEngineSelection))); }
   catch (e) { }
 }
@@ -1673,6 +1709,10 @@ function activateWallpaperEngineItem(id) {
     showToast('该项目没有可安全导入的媒体');
     return;
   }
+  // Framing belongs to this wallpaper, never to the previously selected one.
+  // Remembering first also migrates the current selection from older builds.
+  rememberWallpaperEngineVisualProfile();
+  var framing = wallpaperEngineVisualProfiles[item.id] || normalizeWallpaperEngineVisualProfile();
   wallpaperEngineSelection = normalizeWallpaperEngineSelection({
     active: true,
     id: item.id,
@@ -1684,9 +1724,9 @@ function activateWallpaperEngineItem(id) {
     hasPreview: item.hasPreview,
     previewAnimated: item.previewAnimated,
     visualOpacity: wallpaperEngineSelection.visualOpacity,
-    visualPositionX: wallpaperEngineSelection.visualPositionX,
-    visualPositionY: wallpaperEngineSelection.visualPositionY,
-    visualScale: wallpaperEngineSelection.visualScale,
+    visualPositionX: framing.visualPositionX,
+    visualPositionY: framing.visualPositionY,
+    visualScale: framing.visualScale,
     updatedAt: item.updatedAt
   });
   wallpaperEngineDesktopPreviewActive = false;

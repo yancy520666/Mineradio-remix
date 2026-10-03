@@ -314,6 +314,9 @@ function setBackgroundGlassOpacity(value, silent) {
 function setCustomBackgroundAlbumCover(enabled, silent) {
   fx.backgroundAlbumCover = enabled === true;
   if (fx.backgroundAlbumCover) {
+    // A user selecting cover media replaces the app's WE background. Leaving
+    // its native source/helper alive keeps an unrelated layer behind the app.
+    if (typeof deactivateWallpaperEngineBackground === 'function') deactivateWallpaperEngineBackground(true);
     fx.backgroundMedia = null;
     fx.backgroundImage = '';
   }
