@@ -36,6 +36,7 @@ var detailAlbumGaplessUserTouched = false;
 var detailAlbumCollectionState = Object.create(null);
 var detailCommentSong = null;
 var detailCommentSubmitBusy = false;
+var detailCommentsState = null;
 function normalizeArtistNameForMatch(name) {
   return String(name || '')
     .toLowerCase()
@@ -280,7 +281,7 @@ function commentTimeLabel(ms) {
 }
 function renderDetailComments(comments) {
   if (!comments || !comments.length) return '<div class="detail-empty">暂无评论</div>';
-  return '<div class="detail-scroll">' + comments.map(function (c) {
+  return comments.map(function (c) {
     var user = c.user || {};
     var avatar = user.avatar ? coverUrlWithSize(user.avatar, 64) : '';
     return '<div class="comment-item">' +
@@ -288,7 +289,7 @@ function renderDetailComments(comments) {
       '<div class="comment-main"><div class="comment-meta">' + escHtml(user.nickname || '音乐用户') + (c.likedCount ? (' · ' + c.likedCount + ' 赞') : '') + (c.time ? (' · ' + escHtml(commentTimeLabel(c.time))) : '') + '</div>' +
       '<div class="comment-text">' + escHtml(c.content || '') + '</div></div>' +
       '</div>';
-  }).join('') + '</div>';
+  }).join('');
 }
 function detailCommentsConfig(song) {
   var provider = songProviderKey(song);
@@ -298,7 +299,7 @@ function detailCommentsConfig(song) {
     return {
       provider: 'qq',
       title: 'QQ 音乐评论',
-      readUrl: '/api/qq/song/comments?id=' + encodeURIComponent(qqId) + '&mid=' + encodeURIComponent(qqMid) + '&limit=18',
+      readUrl: '/api/qq/song/comments?id=' + encodeURIComponent(qqId) + '&mid=' + encodeURIComponent(qqMid) + '&limit=30',
       writeUrl: '',
       canWrite: false,
     };
@@ -308,7 +309,7 @@ function detailCommentsConfig(song) {
     return qishuiId ? {
       provider: 'qishui',
       title: '汽水音乐评论',
-      readUrl: '/api/qishui/song/comments?id=' + encodeURIComponent(qishuiId) + '&limit=18',
+      readUrl: '/api/qishui/song/comments?id=' + encodeURIComponent(qishuiId) + '&limit=30',
       writeUrl: '/api/qishui/song/comments?id=' + encodeURIComponent(qishuiId),
       canWrite: true,
       id: qishuiId,
@@ -318,7 +319,7 @@ function detailCommentsConfig(song) {
     return {
       provider: 'netease',
       title: '网易云评论',
-      readUrl: '/api/song/comments?id=' + encodeURIComponent(song.id) + '&limit=18',
+      readUrl: '/api/song/comments?id=' + encodeURIComponent(song.id) + '&limit=30',
       writeUrl: '/api/song/comments?id=' + encodeURIComponent(song.id),
       canWrite: true,
       id: song.id,
@@ -334,29 +335,81 @@ function renderDetailCommentComposer(config) {
     '</div>';
 }
 function loadDetailComments(song, seq) {
+  if (seq !== trackDetailSeq) return Promise.resolve();
+  detailCommentsState = null;
   var config = detailCommentsConfig(song);
   var target = document.getElementById('song-comments');
   if (!config || !config.readUrl) {
     if (target) target.innerHTML = '<div class="detail-empty">当前平台暂无评论接口</div>';
     return Promise.resolve();
   }
-  if (target) target.innerHTML = '<div class="detail-loading">正在载入评论...</div>';
-  return apiJson(config.readUrl).then(function (result) {
-    if (seq !== trackDetailSeq) return;
-    var nextTarget = document.getElementById('song-comments');
-    if (nextTarget) nextTarget.innerHTML = result && !result.error
-      ? renderDetailComments(result.comments || [])
-      : '<div class="detail-empty">评论加载失败</div>';
+  if (!target) return Promise.resolve();
+  detailCommentsState = { config: config, seq: seq, offset: 0, cursor: '', loading: false,
+    hasMore: true, count: 0, seen: Object.create(null), error: false };
+  target.innerHTML = '<div class="detail-scroll"></div><div class="detail-comments-footer">' +
+    '<span class="detail-comments-count" aria-live="polite"></span>' +
+    '<button type="button" onclick="loadMoreDetailComments()">加载更多</button></div>';
+  return loadMoreDetailComments();
+}
+function updateDetailCommentsFooter(state, target) {
+  var button = target.querySelector('.detail-comments-footer button');
+  var label = target.querySelector('.detail-comments-count');
+  if (button) {
+    button.hidden = !state.hasMore;
+    button.disabled = state.loading;
+    button.textContent = state.loading ? '正在载入…' : (state.error ? '加载失败，点击重试' : '加载更多');
+  }
+  if (label) label.textContent = state.count ? '已显示 ' + state.count + ' 条评论' : (state.loading ? '正在载入评论…' : '');
+}
+function loadMoreDetailComments() {
+  var state = detailCommentsState;
+  var target = document.getElementById('song-comments');
+  if (!state || !target || state.seq !== trackDetailSeq || state.loading || !state.hasMore) return Promise.resolve();
+  state.loading = true;
+  state.error = false;
+  updateDetailCommentsFooter(state, target);
+  var cursorMode = state.config.provider === 'qishui';
+  var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset);
+  return apiJson(url).then(function (result) {
+    if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
+    if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
+    var fresh = result.comments.filter(function (c) {
+      if (!c || !c.content) return false;
+      var key = c.id != null && c.id !== '' ? 'id:' + c.id : JSON.stringify([c.user && c.user.id, c.time, c.content]);
+      if (state.seen[key]) return false;
+      state.seen[key] = true;
+      return true;
+    });
+    var list = target.querySelector('.detail-scroll');
+    if (fresh.length) {
+      list.insertAdjacentHTML('beforeend', renderDetailComments(fresh));
+      state.count += fresh.length;
+    }
+    if (cursorMode) {
+      var nextCursor = result.nextCursor == null ? '' : String(result.nextCursor);
+      state.hasMore = result.hasMore !== false && !!nextCursor && nextCursor !== state.cursor;
+      state.cursor = nextCursor;
+    } else {
+      var nextOffset = Number(result.nextOffset);
+      state.hasMore = result.hasMore === true && Number.isFinite(nextOffset) && nextOffset > state.offset;
+      state.offset = nextOffset;
+    }
+    if (!state.count && !state.hasMore) list.innerHTML = '<div class="detail-empty">暂无评论</div>';
     bindTrackDetailScrollers();
   }).catch(function () {
-    var nextTarget = document.getElementById('song-comments');
-    if (seq === trackDetailSeq && nextTarget) nextTarget.innerHTML = '<div class="detail-empty">评论加载失败</div>';
-    bindTrackDetailScrollers();
+    if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
+    state.error = true;
+  }).finally(function () {
+    if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
+    state.loading = false;
+    updateDetailCommentsFooter(state, target);
   });
 }
 async function submitDetailComment() {
   if (detailCommentSubmitBusy || !detailCommentSong) return;
-  var config = detailCommentsConfig(detailCommentSong);
+  var song = detailCommentSong;
+  var seq = trackDetailSeq;
+  var config = detailCommentsConfig(song);
   if (!config || !config.canWrite || !config.writeUrl) {
     showToast('当前平台评论只读');
     return;
@@ -374,17 +427,20 @@ async function submitDetailComment() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: config.id, content: content })
     });
+    if (seq !== trackDetailSeq || song !== detailCommentSong) return;
     if (!result || result.error || result.success === false || result.created === false) {
       throw new Error(result && (result.message || result.error) || 'COMMENT_CREATE_FAILED');
     }
     if (input) input.value = '';
     showToast('评论已发布');
-    await loadDetailComments(detailCommentSong, trackDetailSeq);
+    await loadDetailComments(song, seq);
   } catch (err) {
-    showToast('评论发布失败' + (err && err.message ? ': ' + err.message : ''));
+    if (seq === trackDetailSeq) showToast('评论发布失败' + (err && err.message ? ': ' + err.message : ''));
   } finally {
-    detailCommentSubmitBusy = false;
-    if (button) { button.disabled = false; button.textContent = '发送'; }
+    if (seq === trackDetailSeq) {
+      detailCommentSubmitBusy = false;
+      if (button) { button.disabled = false; button.textContent = '发送'; }
+    }
   }
 }
 function renderArtistSongList(songs) {
@@ -432,7 +488,10 @@ function bindTrackDetailScrollers() {
   if (body) body.querySelectorAll('.detail-scroll').forEach(bindSmoothWheelScroll);
 }
 function closeTrackDetailModal() {
+  var closingSeq = ++trackDetailSeq;
+  detailCommentsState = null;
   closeGsapModal(document.getElementById('track-detail-modal'), function () {
+    if (closingSeq !== trackDetailSeq) return;
     detailCommentSong = null;
     detailCommentSubmitBusy = false;
   });
@@ -449,6 +508,8 @@ function openTrackDetailModal(type, songOverride) {
   var title = song.name || '当前歌曲';
   var artists = currentArtistNames(song);
   var seq = ++trackDetailSeq;
+  detailCommentsState = null;
+  detailCommentSubmitBusy = false;
   detailCommentSong = song;
   if (type === 'album') {
     var albumUrl = albumDetailUrlForSong(song);
