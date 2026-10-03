@@ -49,6 +49,10 @@ test('measurement excludes warmup, background, resume and deliberate frame caps'
   assert.equal(runFrames(meter, 18100, 30, 5, 30, false).length, 0);
   assert.equal(runFrames(meter, 48100, 4, 30, 30).length, 0);
   assert.equal(runFrames(meter, 52100, 4, 60, 60).length, 0, 'target change starts another warmup');
+  const slow = runFrames(policy.createMeter(), 100, 18, 20, 30)[0];
+  assert.equal(slow.target, 30, 'a slow renderer keeps the requested target');
+  assert(Math.abs(slow.fps - 20) < 0.1, 'measure actual throughput rather than the cap');
+  assert.equal(policy.createGovernor().sample(slow, 18100, 'eco', true), 'lower');
 });
 test('sustained load lowers only opted-in visuals; recovery is slow and bounded', () => {
   const g = policy.createGovernor(), slow = { fps: 20, target: 60, duration: 12000 };
