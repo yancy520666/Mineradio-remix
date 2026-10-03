@@ -11,7 +11,7 @@
     if (!managed) return null;
     var tier = Math.max(0, ceiling(quality) - Math.max(0, reduction || 0));
     return { tier: tier, gridSize: grids[tier], dpr: ratios[tier], pixels: budgets[tier],
-      fps: [30, 30, 45, 60, 0][tier], floatingCount: [8, 20, 40, 60, 80][tier] };
+      fps: [30, 30, 45, 60, 0][tier], floatingCount: [8, 20, 40, 60, 100][tier] };
   }
   function pixelRatio(value, width, height, device) {
     var base = Math.min(2, Math.max(1, device || 1));
@@ -27,6 +27,20 @@
   function fpsLimit(mode, value, displayHz) {
     if (!/^(30|45|60|75|90|120)$/.test(String(mode)) && !(value && value.fps)) return 0;
     return targetFps(mode, value, displayHz);
+  }
+  // Count observed active intervals, not wall time across suspended timers.
+  function createVisibleClock() {
+    var previous = null, wasActive = false, elapsed = 0;
+    return {
+      reset: function (now) { previous = now; wasActive = false; elapsed = 0; },
+      advance: function (now, active) {
+        var gap = previous === null ? 0 : now - previous;
+        if (active && wasActive && gap >= 0 && gap <= 1500) elapsed += gap;
+        else elapsed = 0;
+        previous = now; wasActive = active;
+        return elapsed;
+      }
+    };
   }
   function createMeter() {
     var previous = 0, warmUntil = 0, start = 0, frames = 0, target = 0;
@@ -72,7 +86,7 @@
     };
   }
   var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps, fpsLimit: fpsLimit,
-    createMeter: createMeter, createGovernor: createGovernor };
+    createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MineradioSonicPerformancePolicy = api;
 })(typeof window === 'undefined' ? globalThis : window);
