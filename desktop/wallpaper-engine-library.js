@@ -13,6 +13,7 @@ const MAX_PROJECT_JSON_BYTES = 1024 * 1024;
 const CACHE_TTL_MS = 30 * 1000;
 const MAX_MANUAL_SCAN_DIRS = 4000;
 const SCENE_PACKAGE_EXTENSIONS = new Set(['.pkg', '.pak']);
+const WEB_EXTENSIONS = new Set(['.html', '.htm']);
 const AUDIO_PROPERTY_HINT = /(?:\bvolume\b|\bmute(?:d)?\b|\bsilent\b|\baudio\s*(?:volume|level|gain|enable|enabled|toggle)\b|\bmusic\s*(?:volume|level|gain|size|enable|enabled|toggle)\b|\bsound\s*(?:volume|level|gain|enable|enabled|toggle)\b|音量|静音|无声|音乐(?:大小|音量|开关)|声音(?:大小|音量|开关)|音效(?:大小|音量|开关))/i;
 const AUDIO_PROPERTY_KEY = /^(?:volume|dbvolume|musicvolume|music_volume|audiovolume|audio_volume|soundvolume|sound_volume|bgmvolume|bgm_volume|muteaudio|audiomute|mutemusic|musicmute|music|audio|sound|bgm)$/i;
 const AUDIO_STANDALONE_LABEL = /^(?:(?:background\s*(?:audio|music|sound)|背景(?:音频|音乐|声音))|(?:audio|music|sound|bgm|音频|音乐|声音)(?:[\s,，、/_-]*(?:audio|music|sound|bgm|音频|音乐|声音|\d+))*)$/i;
@@ -38,9 +39,13 @@ const IMAGE_MIME = new Map([
   ['.jpeg', 'image/jpeg'],
   ['.png', 'image/png'],
   ['.webp', 'image/webp'],
+  ['.bmp', 'image/bmp'],
+  ['.avif', 'image/avif'],
   ['.gif', 'image/gif'],
 ]);
 const VIDEO_MIME = new Map([
+  ['.mkv', 'video/x-matroska'],
+  ['.avi', 'video/x-msvideo'],
   ['.mp4', 'video/mp4'],
   ['.webm', 'video/webm'],
   ['.m4v', 'video/mp4'],
@@ -151,7 +156,8 @@ function analyzeSceneProperties(project) {
       key,
       label,
       type: type.replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'unknown',
-      value: normalizeScenePropertyValue(property.value),
+      value: type === 'textinput' && typeof property.value === 'string'
+        ? property.value.replace(/\u0000/g, '').slice(0, 4096) : normalizeScenePropertyValue(property.value, 4096),
       audio: audioProperty,
       autoMuted: false,
     };
@@ -161,6 +167,9 @@ function analyzeSceneProperties(project) {
     if (Number.isFinite(minimum)) descriptor.min = minimum;
     if (Number.isFinite(maximum)) descriptor.max = maximum;
     if (Number.isFinite(step) && step > 0) descriptor.step = step;
+    if (Number.isFinite(Number(property.order))) descriptor.order = Number(property.order);
+    if (Number.isFinite(Number(property.precision))) descriptor.precision = Math.max(0, Math.min(6, Number(property.precision)));
+    if (property.fraction === true && !descriptor.step) descriptor.step = descriptor.precision ? 10 ** -descriptor.precision : 0.01;
     if (options.length) descriptor.options = options;
     if (audioProperty) {
       audioPropertyCount += 1;
@@ -192,7 +201,7 @@ function analyzeSceneProperties(project) {
     descriptors.push(descriptor);
   }
   return {
-    properties: descriptors,
+    properties: descriptors.sort((a, b) => (a.order || 0) - (b.order || 0)),
     muteProperties: { ...muteProperties },
     propertyCount: descriptors.length,
     audioPropertyCount,
@@ -473,16 +482,18 @@ async function indexProject(projectRoot, source, scenePackageOverride = '') {
     'cover.webp',
     'cover.gif',
   ], IMAGE_MIME);
-  if (!media && !preview && !scenePackage) return null;
+  const webEntry = projectType === 'web'
+    ? await firstProjectFile(projectRoot, [project.file], WEB_EXTENSIONS) : '';
+  if (!media && !preview && !scenePackage && !webEntry) return null;
 
   const id = opaqueId(projectRoot);
   const mediaExt = path.extname(media).toLowerCase();
   const previewExt = path.extname(preview).toLowerCase();
   const mediaType = VIDEO_MIME.has(mediaExt) ? 'video' : (IMAGE_MIME.has(mediaExt) ? 'image' : '');
   const safeProjectType = projectType || (mediaType ? mediaType : 'unknown');
-  const enginePlayable = !!scenePackage;
+  const enginePlayable = !!(scenePackage || webEntry || (media && projectType === 'video'));
   const previewOnly = !media && !enginePlayable;
-  const propertyAnalysis = projectType === 'scene' ? analyzeSceneProperties(project) : {
+  const propertyAnalysis = enginePlayable ? analyzeSceneProperties(project) : {
     propertyCount: 0,
     audioPropertyCount: 0,
     mutedAudioPropertyCount: 0,
@@ -516,6 +527,7 @@ async function indexProject(projectRoot, source, scenePackageOverride = '') {
       media,
       preview,
       scenePackage,
+      webEntry,
       workshopId,
     },
   };
@@ -776,19 +788,32 @@ class WallpaperEngineLibrary {
     if (!/^[a-f0-9]{24}$/.test(id)) throw new Error('WALLPAPER_SCENE_ID_INVALID');
     if (!this.snapshot && !this.scanPromise) await this.list({ force: false });
     const record = this.index.get(id);
-    if (!record || !record.scenePackage) throw new Error('WALLPAPER_SCENE_NOT_FOUND');
-    const target = await resolveProjectFile(record.projectRoot, path.relative(record.projectRoot, record.scenePackage), SCENE_PACKAGE_EXTENSIONS);
-    const scenePackage = await validateScenePackage(target);
-    if (!scenePackage) throw new Error('WALLPAPER_SCENE_PACKAGE_INVALID');
+    if (!record) throw new Error('WALLPAPER_SCENE_NOT_FOUND');
     const manifest = await readProjectManifest(record.projectRoot);
-    if (!manifest || String(manifest.value.type || '').trim().toLowerCase() !== 'scene') {
+    const projectType = String(manifest && manifest.value.type || '').trim().toLowerCase();
+    if (!manifest || !['scene', 'web', 'video'].includes(projectType)) {
       throw new Error('WALLPAPER_SCENE_MANIFEST_INVALID');
     }
+    // The legacy Scene IPC also serves official WE Web/video pop-out windows.
+    // Imported HTML is never loaded into Mineradio's privileged renderer.
+    let scenePackage = '';
+    let nativeFile = '';
+    if (projectType === 'scene' && record.scenePackage) {
+      const target = await resolveProjectFile(record.projectRoot, path.relative(record.projectRoot, record.scenePackage), SCENE_PACKAGE_EXTENSIONS);
+      scenePackage = await validateScenePackage(target);
+      nativeFile = scenePackage;
+    } else {
+      nativeFile = await firstProjectFile(record.projectRoot, [manifest.value.file],
+        projectType === 'web' ? WEB_EXTENSIONS : VIDEO_MIME);
+    }
+    if (!nativeFile) throw new Error('WALLPAPER_SCENE_PACKAGE_INVALID');
     const propertyAnalysis = analyzeSceneProperties(manifest.value);
     return {
       id,
       projectFile: manifest.file,
       scenePackage,
+      nativeFile,
+      projectType,
       muteProperties: propertyAnalysis.muteProperties,
       propertyCount: propertyAnalysis.propertyCount,
       audioPropertyCount: propertyAnalysis.audioPropertyCount,

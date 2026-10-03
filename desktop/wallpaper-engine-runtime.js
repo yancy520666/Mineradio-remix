@@ -266,6 +266,9 @@ function signatureScript() {
     "$ErrorActionPreference = 'Stop'",
     "$target = [Environment]::GetEnvironmentVariable('MINERADIO_WE_SIGNATURE_TARGET', 'Process')",
     'if ([string]::IsNullOrWhiteSpace($target)) { throw \'Missing signature target\' }',
+    // Load the module belonging to Windows PowerShell, even when a PowerShell
+    // 7 launcher exported incompatible module paths to the application.
+    "Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1') -ErrorAction Stop",
     '$signature = Get-AuthenticodeSignature -LiteralPath $target',
     '[pscustomobject]@{',
     '  status = [string]$signature.Status',
@@ -475,8 +478,8 @@ public static class MineradioExplorerParentLauncher {
         throw new Win32Exception(Marshal.GetLastWin32Error());
       }
       int integrityRid = GetIntegrityRid(explorerToken);
-      if (integrityRid < SECURITY_MANDATORY_MEDIUM_RID || integrityRid >= SECURITY_MANDATORY_HIGH_RID) {
-        throw new InvalidOperationException("Desktop Shell token is not medium integrity");
+      if (integrityRid < SECURITY_MANDATORY_MEDIUM_RID || integrityRid > SECURITY_MANDATORY_HIGH_RID) {
+        throw new InvalidOperationException("Desktop Shell token has unsupported integrity");
       }
       IntPtr attributeSize = IntPtr.Zero;
       InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref attributeSize);
@@ -500,16 +503,16 @@ public static class MineradioExplorerParentLauncher {
         throw new Win32Exception(Marshal.GetLastWin32Error());
       }
       // PROC_THREAD_ATTRIBUTE_PARENT_PROCESS makes Windows inherit Explorer's
-      // process token. Verify that contract immediately and fail closed if a
-      // future Windows/runtime change ever produces a high-integrity child.
+      // process token. Match that token exactly: normal Explorer stays medium;
+      // built-in Administrator desktops with UAC disabled legitimately run high.
       if (!OpenProcessToken(processInformation.hProcess, TOKEN_QUERY, out childToken)) {
         TerminateProcess(processInformation.hProcess, 1);
         throw new Win32Exception(Marshal.GetLastWin32Error());
       }
       int childIntegrityRid = GetIntegrityRid(childToken);
-      if (childIntegrityRid < SECURITY_MANDATORY_MEDIUM_RID || childIntegrityRid >= SECURITY_MANDATORY_HIGH_RID) {
+      if (childIntegrityRid != integrityRid) {
         TerminateProcess(processInformation.hProcess, 1);
-        throw new InvalidOperationException("Wallpaper Engine child is not medium integrity");
+        throw new InvalidOperationException("Wallpaper Engine child does not match Desktop Shell integrity");
       }
       if (waitForExit) {
         uint waitResult = WaitForSingleObject(processInformation.hProcess, (uint)Math.Max(1000, waitTimeout));
@@ -1725,6 +1728,7 @@ function defaultDesktopCapturer() {
 class WallpaperEngineRuntime {
   constructor(options = {}) {
     this.library = options.library || null;
+    this.propertyStore = options.propertyStore || null;
     this.desktopCapturer = options.desktopCapturer || defaultDesktopCapturer();
     this.discoverSteamLibraries = options.discoverSteamLibraries || defaultDiscoverSteamLibraries;
     this.execFile = options.execFile || childProcess.execFile;
@@ -1913,8 +1917,12 @@ class WallpaperEngineRuntime {
 
   _powerShellEnv(extra = {}) {
     fs.mkdirSync(this.nativeTempPath, { recursive: true });
+    const environment = { ...process.env };
+    for (const key of Object.keys(environment)) {
+      if (key.toLowerCase() === 'psmodulepath') delete environment[key];
+    }
     return {
-      ...process.env,
+      ...environment,
       TEMP: this.nativeTempPath,
       TMP: this.nativeTempPath,
       MINERADIO_NATIVE_TEMP_DIR: this.nativeTempPath,
@@ -2873,6 +2881,7 @@ class WallpaperEngineRuntime {
     const properties = project.general && project.general.properties;
     const muteProperties = {
       ...(session.savedUserProperties && session.savedUserProperties.values),
+      ...session.localUserProperties,
       ...sanitizeMuteProperties(session.muteProperties),
     };
     let stagedPropertyCount = 0;
@@ -2905,7 +2914,7 @@ class WallpaperEngineRuntime {
     try {
       await fs.promises.mkdir(stageRoot, { recursive: true });
     } catch (_) {
-      stageRoot = path.resolve(path.dirname(scenePackage), '.mineradio-scene-stage');
+      stageRoot = path.resolve(this.nativeTempPath, 'wallpaper-engine-scene-stage');
       await fs.promises.mkdir(stageRoot, { recursive: true });
     }
     const stageDirectory = path.resolve(stageRoot, session.sessionId);
@@ -3062,10 +3071,22 @@ class WallpaperEngineRuntime {
         session.executable, session.originalProjectFile, session.originalScenePackage, session.savedUserProperties
       );
       if (!this._sessionIsCurrent(session)) return false;
+      const overrides = this.propertyStore ? await this.propertyStore.values(session.id, session.propertyDefinitions || []) : {};
+      const restoredDefaults = {};
+      // Reset only keys that this window previously overrode. Sending every
+      // manifest default includes decorative/unsupported author metadata and
+      // can overwhelm older WE scene scripts with a large property batch.
+      for (const key of session.appliedOverrideKeys || []) {
+        if (!Object.prototype.hasOwnProperty.call(overrides, key)
+          && Object.prototype.hasOwnProperty.call(session.defaultUserProperties || {}, key)) restoredDefaults[key] = session.defaultUserProperties[key];
+      }
       const properties = {
+        ...restoredDefaults,
         ...(session.savedUserProperties && session.savedUserProperties.values),
+        ...overrides,
         ...sanitizeMuteProperties(session.muteProperties),
       };
+      if (!this._sessionIsCurrent(session)) return false;
       const propertyJson = JSON.stringify(properties);
       if (onlyIfChanged && propertyJson === session.appliedPropertyJson) return true;
       await this._runTransientControl(session.executable, [
@@ -3078,6 +3099,7 @@ class WallpaperEngineRuntime {
       ]);
       if (!this._sessionIsCurrent(session)) return false;
       session.appliedPropertyJson = propertyJson;
+      session.appliedOverrideKeys = Object.keys(overrides);
       session.audioMuteCommandCount = Math.max(0, Number(session.audioMuteCommandCount) || 0) + 1;
       session.audioMuteLastAt = this.now();
       // This flag means the unique-location property command was acknowledged.
@@ -3403,6 +3425,35 @@ class WallpaperEngineRuntime {
       available: false,
       reason: result.reason || 'WALLPAPER_ENGINE_NOT_INSTALLED',
     };
+  }
+
+  async getProjectDetails(id) {
+    const details = await this.library.getProjectDetails(id);
+    const target = await this.library.getNativeSceneTarget(id).catch(() => null);
+    const installation = target ? await this._discoverExecutable(false) : null;
+    const saved = installation && installation.available
+      ? await readSavedWallpaperProperties(installation.executable, target.projectFile, target.scenePackage || target.nativeFile) : null;
+    const overrides = this.propertyStore ? await this.propertyStore.values(id, details.properties) : {};
+    return { ...details, editable: !!target && !!this.propertyStore, properties: details.properties.map(property => ({
+      ...property,
+      value: Object.prototype.hasOwnProperty.call(overrides, property.key) ? overrides[property.key]
+        : saved && Object.prototype.hasOwnProperty.call(saved.values, property.key) ? saved.values[property.key] : property.value,
+      overridden: Object.prototype.hasOwnProperty.call(overrides, property.key),
+    })) };
+  }
+
+  async updateProjectProperties(id, changes, reset = false, allowPath = false) {
+    const definitions = await this.library.getProjectDetails(id);
+    await this.library.getNativeSceneTarget(id);
+    if (!this.propertyStore) throw runtimeError('WALLPAPER_PROPERTY_STORE_UNAVAILABLE');
+    await this.propertyStore.update(id, definitions.properties, changes, reset, allowPath);
+    const session = this.active;
+    let applied = false;
+    if (session && session.id === id && this._sessionIsCurrent(session)) {
+      if (session.muteApplyPromise) await session.muteApplyPromise.catch(() => {});
+      applied = await this._applySessionMute(session);
+    }
+    return { ...await this.getProjectDetails(id), applied };
   }
 
   async revealWorkshop(workshopId) {
@@ -4096,17 +4147,22 @@ class WallpaperEngineRuntime {
         throw runtimeError(installation.reason || 'WALLPAPER_ENGINE_NOT_INSTALLED');
       }
       const projectFile = target && target.projectFile;
-      const scenePackage = target && target.scenePackage;
+      const scenePackage = target && (target.scenePackage || target.nativeFile);
       const projectStat = projectFile && path.isAbsolute(projectFile) && path.extname(projectFile).toLowerCase() === '.json'
         ? await statFile(projectFile)
         : null;
       const sceneExtension = path.extname(String(scenePackage || '')).toLowerCase();
-      const targetStat = scenePackage && path.isAbsolute(scenePackage) && (sceneExtension === '.pkg' || sceneExtension === '.pak')
+      const allowedExtension = target && target.projectType === 'web' ? ['.html', '.htm']
+        : target && target.projectType === 'video' ? ['.mp4', '.webm', '.m4v', '.mov', '.mkv', '.avi'] : ['.pkg', '.pak'];
+      const targetStat = scenePackage && path.isAbsolute(scenePackage) && allowedExtension.includes(sceneExtension)
         ? await statFile(scenePackage)
         : null;
       if (!targetStat || !target || String(target.id || '').toLowerCase() !== session.id) {
         throw runtimeError('WALLPAPER_SCENE_PACKAGE_INVALID');
       }
+      // Large texture/video bundles can legitimately take longer on a cold
+      // disk. Keep the bounded startup window, rather than falling to a GIF.
+      if (options.sourceTimeoutMs == null && targetStat.size >= 64 * 1024 * 1024) runtimeOptions.sourceTimeoutMs = 30000;
       if (generation !== this.generation || this.disposed) throw runtimeError('WALLPAPER_ENGINE_START_SUPERSEDED');
 
       startStage = 'ensure-engine-ready';
@@ -4118,10 +4174,18 @@ class WallpaperEngineRuntime {
       session.originalProjectFile = projectFile;
       session.originalScenePackage = scenePackage;
       session.savedUserProperties = await readSavedWallpaperProperties(session.executable, projectFile, scenePackage);
+      const details = this.propertyStore ? await this.library.getProjectDetails(session.id) : null;
+      session.propertyDefinitions = details ? details.properties : [];
+      session.defaultUserProperties = Object.fromEntries(session.propertyDefinitions
+        .filter(property => !['text', 'group', 'unknown'].includes(property.type)
+          && (property.value !== null || ['file', 'directory', 'textinput'].includes(property.type)))
+        .map(property => [property.key, property.value === null ? '' : property.value]));
+      session.localUserProperties = this.propertyStore ? await this.propertyStore.values(session.id, session.propertyDefinitions) : {};
+      session.appliedOverrideKeys = Object.keys(session.localUserProperties);
       startStage = 'prepare-silent-project';
-      session.launchFile = projectStat
+      session.launchFile = projectStat && (!target.projectType || target.projectType === 'scene')
         ? await this._prepareSilentLaunchFile(session, projectFile, scenePackage)
-        : scenePackage;
+        : projectStat ? projectFile : scenePackage;
       const previous = this.active;
       if (previous && previous.sessionId !== session.sessionId) {
         startStage = 'close-previous-window';

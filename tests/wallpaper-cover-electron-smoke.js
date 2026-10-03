@@ -81,6 +81,48 @@ async function exercise() {
   setWallpaperEngineVisualSetting('scale',1.5); setWallpaperEngineVisualSetting('positionX',30);
   result.nextImage = await select(ids[1]);
   result.restoredImage = await select(ids[0]);
+
+  const editorId = '333333333333333333333333';
+  const originalProperties = [
+    {key:'clock',label:'显示时钟',type:'bool',value:true},
+    {key:'size',label:'时钟大小',type:'slider',value:15,min:10,max:50,step:0.5},
+    {key:'color',label:'时钟颜色',type:'color',value:'1 0 0'},
+    {key:'mode',label:'显示模式',type:'combo',value:'1',options:[{label:'白天',value:'1'},{label:'夜间',value:'2'}]},
+    {key:'text',label:'自定义文字',type:'textinput',value:'原始文字'},
+    {key:'volume',label:'声音',type:'slider',value:0,autoMuted:true},
+  ];
+  let editedProperties = originalProperties.map(property=>({...property}));
+  let failSave = false;
+  let editorSaves = [];
+  getDesktopWindowApi = () => ({
+    getWallpaperEngineProjectDetails: async()=>({ok:true,id:editorId,title:'壁纸设置',editable:true,properties:editedProperties}),
+    setWallpaperEngineProjectProperties:async payload=>{
+      editorSaves.push(payload);
+      if (failSave) return {ok:false,error:'WALLPAPER_PROPERTY_VALUE_INVALID'};
+      editedProperties = originalProperties.map(property=>({...property,value:payload.reset?property.value:Object.prototype.hasOwnProperty.call(payload.values,property.key)?payload.values[property.key]:property.value}));
+      return {ok:true,id:editorId,title:'壁纸设置',editable:true,properties:editedProperties,applied:true};
+    },
+  });
+  await showWallpaperEngineProjectDetails(editorId);
+  const edit = (key,value)=>{
+    const input=document.querySelector('[data-property-key="'+key+'"]');
+    if(input.type==='checkbox')input.checked=value;else input.value=value;
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  };
+  edit('clock',false); edit('size','20.5'); edit('color','#00ff00'); edit('mode','1'); edit('text','测试文字\n第二行');
+  await saveWallpaperEngineProjectProperties(false);
+  const values=editorSaves[0].values;
+  const textRestored=document.querySelector('[data-property-key="text"]').value;
+  const mutedReadOnly=!document.querySelector('[data-property-key="volume"]');
+  failSave=true; edit('size','55'); await saveWallpaperEngineProjectProperties(false);
+  const retryPreserved=wallpaperEnginePropertyChanges.size===55&&!document.getElementById('wallpaper-engine-details-save').disabled;
+  failSave=false; await saveWallpaperEngineProjectProperties(true);
+  filterWallpaperEngineProperties('时钟');
+  const filtered=document.querySelector('[data-property-key="text"]').closest('[data-property-search]').hidden;
+  filterWallpaperEngineProperties('');
+  const desktopOverflow=document.getElementById('wallpaper-engine-details-properties').scrollWidth>document.getElementById('wallpaper-engine-details-properties').clientWidth;
+  result.editor={values,textRestored,mutedReadOnly,retryPreserved,filtered,desktopOverflow,reset:editorSaves[2].reset};
+  closeWallpaperEngineProjectDetails();
   return result;
 }
 
@@ -119,6 +161,10 @@ app.whenReady().then(async () => {
   assert.match(result.nextImage.transform, /^matrix\(1\.08, 0, 0, 1\.08, 0, 0\)$/);
   assert.equal(result.restoredImage.settings.scale, 1.5);
   assert.equal(result.restoredImage.settings.positionX, 0.3);
+  assert.deepEqual(result.editor.values,{clock:false,size:20.5,color:'0 1 0',mode:'2',text:'测试文字\n第二行'});
+  assert.equal(result.editor.textRestored,'测试文字\n第二行');
+  assert(result.editor.mutedReadOnly&&result.editor.retryPreserved&&result.editor.filtered&&result.editor.reset);
+  assert(!result.editor.desktopOverflow);
   console.log('WALLPAPER_COVER_OK:' + JSON.stringify(result));
 }).then(() => finish(0)).catch(error => { console.error(error.stack); finish(1); });
 

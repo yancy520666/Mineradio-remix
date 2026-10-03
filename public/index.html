@@ -1673,7 +1673,7 @@
           <div>
             <div class="wallpaper-engine-kicker">LOCAL WALLPAPER LIBRARY</div>
             <h2 id="wallpaper-engine-modal-title">Wallpaper Engine 壁纸导入</h2>
-            <p>只建立本地索引，不复制大型项目；Video 直接播放，Scene 项目与有效 PKGV 场景包由本机 Wallpaper Engine 原生引擎实时运行。</p>
+            <p>图片 / 视频使用原文件，Scene / Web 由已安装的 Wallpaper Engine 原生运行；点击齿轮调整壁纸设置。</p>
           </div>
           <button class="wallpaper-engine-close" type="button" onclick="closeWallpaperEngineLibrary()" aria-label="关闭">×</button>
         </div>
@@ -1699,14 +1699,17 @@
               <button class="wallpaper-engine-close" type="button" onclick="closeWallpaperEngineProjectDetails()" aria-label="关闭项目设置">×</button>
             </div>
             <p id="wallpaper-engine-details-summary" class="wallpaper-engine-details-summary"></p>
+            <input id="wallpaper-engine-property-search" class="wallpaper-engine-property-search" type="search" placeholder="查找文字、颜色、时钟等设置" aria-label="筛选壁纸设置" oninput="filterWallpaperEngineProperties(this.value)">
             <div id="wallpaper-engine-details-properties" class="wallpaper-engine-details-properties"></div>
             <div class="wallpaper-engine-details-actions">
+              <button id="wallpaper-engine-details-save" class="fx-mini-btn" type="button" hidden disabled onclick="saveWallpaperEngineProjectProperties(false)">保存并应用</button>
+              <button id="wallpaper-engine-details-reset" class="fx-mini-btn ghost" type="button" hidden onclick="saveWallpaperEngineProjectProperties(true)">恢复 WE 设置</button>
               <button id="wallpaper-engine-details-we" class="fx-mini-btn" type="button"
                 onclick="launchWallpaperEngineProjectDetails('we')">在 WE 中打开设置（实验）</button>
               <button id="wallpaper-engine-details-workshop" class="fx-mini-btn ghost" type="button"
                 onclick="launchWallpaperEngineProjectDetails('workshop')">创意工坊详情</button>
             </div>
-            <small class="wallpaper-engine-details-note">每次载入自动应用静音值（音量 0 / 静音开启 / 音频关闭）；Scene 包只处理缓存副本，原文件不变。其他视觉设置仍由 Wallpaper Engine 管理。</small>
+            <small class="wallpaper-engine-details-note">支持文字、颜色、开关、数值、选项和媒体选择。原项目只读；播放器保存独立配置，音频始终静音。</small>
           </section>
         </div>
       </div>

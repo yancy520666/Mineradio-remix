@@ -17,6 +17,7 @@ const {
 } = require('./local-music-library');
 const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
+const { WallpaperPropertyStore } = require('./wallpaper-engine-properties');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
@@ -186,6 +187,7 @@ const localMusicImportCapabilities = new Map();
 const wallpaperEngineLibrary = new WallpaperEngineLibrary({ userDataPath: STABLE_USER_DATA_PATH });
 const wallpaperEngineRuntime = new WallpaperEngineRuntime({
   library: wallpaperEngineLibrary,
+  propertyStore: new WallpaperPropertyStore(STABLE_USER_DATA_PATH),
   desktopCapturer,
   hostElevationProbe: systemMemory.probeProcessElevation,
   nativeTempPath: NATIVE_HELPER_TEMP_PATH,
@@ -235,7 +237,9 @@ function wallpaperEngineTargetFps(display, requestedFps) {
     Math.round(Number(display && display.displayFrequency) || 60)
   ));
   const requested = Number(requestedFps);
-  if (!Number.isFinite(requested) || requested <= 0) return displayFrequency;
+  // Automatic foreground vsync must not also force a heavy 4K wallpaper to
+  // render at 240 Hz. Explicit fixed-rate choices remain available.
+  if (!Number.isFinite(requested) || requested <= 0) return Math.min(60, displayFrequency);
   return Math.max(24, Math.min(displayFrequency, WALLPAPER_ENGINE_MAX_CAPTURE_FPS, Math.round(requested)));
 }
 
@@ -4228,10 +4232,36 @@ ipcMain.handle('mineradio-wallpaper-engine-list', async (event, payload = {}) =>
 ipcMain.handle('mineradio-wallpaper-engine-project-details', async (event, id) => {
   try {
     if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
-    return await wallpaperEngineLibrary.getProjectDetails(String(id || ''));
+    return await wallpaperEngineRuntime.getProjectDetails(String(id || ''));
   } catch (error) {
     return { ok: false, error: error.message || 'WALLPAPER_ENGINE_PROJECT_DETAILS_FAILED' };
   }
+});
+
+ipcMain.handle('mineradio-wallpaper-engine-set-properties', async (event, payload = {}) => {
+  try {
+    if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
+    return await wallpaperEngineRuntime.updateProjectProperties(String(payload.id || ''), payload.values || {}, payload.reset === true);
+  } catch (error) { return { ok: false, error: error.message || 'WALLPAPER_PROPERTY_SAVE_FAILED' }; }
+});
+
+ipcMain.handle('mineradio-wallpaper-engine-property-path', async (event, payload = {}) => {
+  try {
+    if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
+    const id = String(payload.id || '');
+    const details = await wallpaperEngineRuntime.getProjectDetails(id);
+    const property = details.properties.find(item => item.key === payload.key);
+    if (!details.editable || !property || property.autoMuted || !['file', 'directory'].includes(property.type)) {
+      throw new Error('WALLPAPER_PROPERTY_READ_ONLY');
+    }
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: property.label,
+      properties: [property.type === 'directory' ? 'openDirectory' : 'openFile'],
+      ...(property.type === 'file' ? { filters: [{ name: '图片、视频与音频', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'avif', 'mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'ogg'] }] } : {}),
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: true, canceled: true };
+    return await wallpaperEngineRuntime.updateProjectProperties(id, { [property.key]: result.filePaths[0] }, false, true);
+  } catch (error) { return { ok: false, error: error.message || 'WALLPAPER_PROPERTY_SAVE_FAILED' }; }
 });
 
 ipcMain.handle('mineradio-wallpaper-engine-open-project-details', async (event, payload = {}) => {

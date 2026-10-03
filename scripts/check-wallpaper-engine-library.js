@@ -126,7 +126,15 @@ async function main() {
     assert(web && !web.playable && web.projectType === 'web');
     assert(escape && !escape.playable, 'path traversal media must be rejected');
     assert(!JSON.stringify(snapshot.projects).includes(temp), 'renderer metadata must not expose absolute paths');
-    assert.strictEqual(snapshot.enginePlayableCount, 2, 'valid .pkg and PKGV .pak Scene packages should be engine playable');
+    assert.strictEqual(snapshot.enginePlayableCount, 4, 'valid Scene, Web and video targets should support official native playback');
+    const webTarget = await instance.getNativeSceneTarget(web.id);
+    assert.equal(webTarget.projectType, 'web');
+    assert.equal(webTarget.nativeFile, path.join(libraryRoot, 'web-project', 'index.html'));
+    const videoTarget = await instance.getNativeSceneTarget(video.id);
+    assert.equal(videoTarget.projectType, 'video');
+    assert.equal(videoTarget.nativeFile, path.join(libraryRoot, 'video-project', 'wallpaper.mp4'));
+    const importedHtml = await instance.mediaResponse(new Request(`mineradio-wallpaper://media/${web.id}?token=${snapshot.mediaToken}`));
+    assert.equal(importedHtml.status, 404, 'HTML must never be served to the privileged app renderer');
     const sceneTarget = await instance.getNativeSceneTarget(scene.id);
     assert.strictEqual(sceneTarget.scenePackage, path.join(libraryRoot, 'scene-project', 'scene.pkg'));
     assert.strictEqual(sceneTarget.projectFile, path.join(libraryRoot, 'scene-project', 'project.json'));

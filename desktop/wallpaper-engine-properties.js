@@ -71,4 +71,100 @@ async function readSavedWallpaperProperties(executable, projectFile, scenePackag
   }
 }
 
-module.exports = { readSavedWallpaperProperties };
+function validatePropertyValue(property, value, allowPath = false) {
+  if (!property || property.autoMuted) throw new Error('WALLPAPER_PROPERTY_READ_ONLY');
+  switch (property.type) {
+    case 'bool':
+      if (typeof value === 'boolean') return value;
+      break;
+    case 'slider': {
+      if (typeof value !== 'number' || !Number.isFinite(value)) break;
+      const min = Number.isFinite(property.min) ? property.min : 0;
+      const max = Number.isFinite(property.max) ? property.max : 100;
+      if (min > max || value < min || value > max) break;
+      const step = property.step || (property.precision ? 10 ** -property.precision : 1);
+      const rounded = Number((min + Math.round((value - min) / step) * step).toFixed(6));
+      if (!Number.isFinite(rounded)) break;
+      return Math.max(min, Math.min(max, rounded));
+    }
+    case 'combo':
+      if ((property.options || []).some(option => option.value === value)) return value;
+      break;
+    case 'color': {
+      if (typeof value !== 'string') break;
+      const components = value.trim().split(/\s+/).map(Number);
+      if (components.length === 3 && components.every(n => Number.isFinite(n) && n >= 0 && n <= 1)) {
+        return components.map(n => Number(n.toFixed(6))).join(' ');
+      }
+      break;
+    }
+    case 'textinput':
+      if (typeof value === 'string' && value.length <= 4096 && !value.includes('\0') && !value.includes(')~END')) return value;
+      break;
+    case 'file':
+    case 'directory':
+      if (allowPath && typeof value === 'string' && path.isAbsolute(value) && normalizeValue(value) !== undefined) return value;
+      break;
+    default: throw new Error('WALLPAPER_PROPERTY_READ_ONLY');
+  }
+  throw new Error('WALLPAPER_PROPERTY_VALUE_INVALID');
+}
+
+class WallpaperPropertyStore {
+  constructor(userDataPath) {
+    this.file = path.join(userDataPath, 'wallpaper-engine-properties.json');
+    this.writeQueue = Promise.resolve();
+    this.loaded = null;
+  }
+
+  async load() {
+    if (!this.loaded) this.loaded = readJson(this.file, 4 * 1024 * 1024)
+      .then(result => object(result.value.projects) ? result.value.projects : {})
+      .catch(() => ({}));
+    return this.loaded;
+  }
+
+  async values(id, definitions) {
+    const projects = await this.load();
+    const saved = object(projects[id]) ? projects[id] : {};
+    const values = {};
+    for (const property of definitions) {
+      if (!Object.prototype.hasOwnProperty.call(saved, property.key)) continue;
+      try { values[property.key] = validatePropertyValue(property, saved[property.key], true); } catch (_) { }
+    }
+    return values;
+  }
+
+  update(id, definitions, changes, reset = false, allowPath = false) {
+    if (!/^[a-f0-9]{24}$/.test(id) || !object(changes) || Object.keys(changes).length > 256) {
+      return Promise.reject(new Error('WALLPAPER_PROPERTY_VALUE_INVALID'));
+    }
+    const validated = {};
+    try {
+      for (const [key, value] of Object.entries(changes)) {
+        if (!safeKey.test(key) || blockedKeys.has(key.toLowerCase())) throw new Error('WALLPAPER_PROPERTY_VALUE_INVALID');
+        validated[key] = validatePropertyValue(definitions.find(property => property.key === key), value, allowPath);
+      }
+    } catch (error) { return Promise.reject(error); }
+    const operation = this.writeQueue.catch(() => {}).then(async () => {
+      const projects = await this.load();
+      const next = { ...projects };
+      if (reset) delete next[id];
+      else next[id] = { ...(object(projects[id]) ? projects[id] : {}), ...validated };
+      // WE's Windows control command must fit CreateProcess's command-line
+      // limit, including its executable, location and RAW JSON framing.
+      if (next[id] && Buffer.byteLength(JSON.stringify(next[id])) > 24 * 1024) throw new Error('WALLPAPER_PROPERTY_TEXT_TOO_LONG');
+      const encoded = JSON.stringify({ version: 1, projects: next });
+      if (Buffer.byteLength(encoded) > 4 * 1024 * 1024) throw new Error('WALLPAPER_PROPERTY_STORE_FULL');
+      await fs.mkdir(path.dirname(this.file), { recursive: true });
+      const temporary = this.file + '.tmp';
+      await fs.writeFile(temporary, encoded, 'utf8');
+      await fs.rename(temporary, this.file);
+      this.loaded = Promise.resolve(next);
+    });
+    this.writeQueue = operation;
+    return operation;
+  }
+}
+
+module.exports = { readSavedWallpaperProperties, WallpaperPropertyStore, validatePropertyValue };
