@@ -41,8 +41,18 @@ function saveLastPlaybackSnapshot(force, reason) {
   var monotonicNow = performance.now();
   if (!force && lastPlaybackSnapshotMonotonicAt !== null && monotonicNow - lastPlaybackSnapshotMonotonicAt < 2500) return;
   var song = currentCoverSong();
-  if (!song) return;
-  if (audio && typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audio)) return;
+  if (!song) {
+    if (!force || playQueue.length) return;
+    // Persist an empty selection, so a disk checkpoint cannot revive a removed track.
+    var empty = { version: 1, savedAt: Math.max(now, lastPlaybackSnapshotSavedAt + 1), reason: reason || '',
+      currentIdx: -1, currentTime: 0, duration: 0, playing: false, current: null, queue: [] };
+    try { localStorage.setItem(LAST_PLAYBACK_STORE_KEY, JSON.stringify(empty)); } catch (e) { }
+    lastPlaybackSnapshotSavedAt = empty.savedAt;
+    lastPlaybackSnapshotMonotonicAt = monotonicNow;
+    persistPlaybackCheckpoint(empty);
+    return;
+  }
+  if (audio && audio.src && typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audio)) return;
   if (!audio && restoredLastPlaybackSnapshot && restoredLastPlaybackSnapshot.current && queueItemKey(song) === queueItemKey(restoredLastPlaybackSnapshot.current)) return;
   var durationSec = getPlaybackDurationSeconds();
   var currentSec = audio && audio.__mineradioPendingResumeAt > 0 ? audio.__mineradioPendingResumeAt : getPlaybackCurrentSeconds();
