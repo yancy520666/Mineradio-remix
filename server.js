@@ -148,6 +148,8 @@ cleanupStaleSpillFiles(AUDIO_SPILL_DIR);
 // from growing the in-memory buffer without limit.
 const QISHUI_AUDIO_ENCRYPTED_MAX_BYTES = 256 * 1024 * 1024;
 let qishuiAudioDecryptCacheBytes = 0;
+// Release notes are read the same way as the installed updater (see extractReleaseNotes).
+const { extractReleaseHighlights } = require('./desktop/remix-updater');
 const UPDATE_FALLBACK_NOTES = [
   '请在 Mineradio Remix 发布页查看更新内容。',
   '从发布页下载对应版本安装包。',
@@ -569,19 +571,11 @@ function cleanReleaseLine(line) {
     .replace(/`/g, '')
     .trim();
 }
+// Same reading as the installed updater: the bold phrases under 更新重点. Taking
+// raw lines instead showed the "## 更新重点" heading as the first item and each
+// item's whole explanation.
 function extractReleaseNotes(body) {
-  const notes = [];
-  String(body || '').split(/\r?\n/).forEach(line => {
-    if (/<!--[\s\S]*?-->/i.test(line)) return;
-    const text = cleanReleaseLine(line);
-    if (!text) return;
-    if (/^(what'?s changed|changes|changelog|full changelog|更新日志|更新内容)$/i.test(text)) return;
-    if (/https?:\/\//i.test(text)) return;
-    if (/^(下载|网盘|夸克盘|百度(?:云|网盘)|蓝奏(?:云|网盘)|安装包)/i.test(text)) return;
-    if (text.length > 72) return;
-    notes.push(text);
-  });
-  return notes.slice(0, 4);
+  return extractReleaseHighlights(body);
 }
 function safeExternalUpdateUrl(value) {
   const raw = String(value || '').trim();
@@ -687,7 +681,7 @@ function normalizeManifestUpdateInfo(data) {
       asset: null,
       patch: null,
       patchAvailable: false,
-      summary: release.summary || data.summary || notes[0] || '发现新版本，建议更新。',
+      summary: release.summary || data.summary || '',
       notes,
     },
     source: 'manifest',
@@ -991,7 +985,7 @@ async function fetchLatestUpdateInfo() {
         asset: null,
         patch: null,
         patchAvailable: false,
-        summary: notes[0] || '发现新版本，建议更新。',
+        summary: '',
         notes,
       },
     };
