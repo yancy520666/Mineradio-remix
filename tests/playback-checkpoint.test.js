@@ -112,6 +112,7 @@ test('large queues keep the current track; browser storage failure still saves t
   let matches = true;
   const c = vm.createContext({ audio: { paused: false, ended: false, __mineradioPendingResumeAt: 37.25 }, currentIdx: 350, playQueue: queue,
     currentCoverSong: () => queue[350], restoredLastPlaybackSnapshot: null, lastPlaybackSnapshotSavedAt: 0,
+    lastPlaybackSnapshotMonotonicAt: null, performance: { now: () => 0 },
     playbackMediaMatchesCurrentQueueItem: () => matches, getPlaybackCurrentSeconds: () => 0, getPlaybackDurationSeconds: () => 120,
     localStorage: { setItem() { throw Error('quota exceeded'); } }, persistPlaybackCheckpoint: data => saved.push(data) });
   vm.runInContext(source.slice(0, source.indexOf('function readLastPlaybackSnapshot()')) + source.slice(source.indexOf('function saveLastPlaybackSnapshot('), source.indexOf('function applyRestoredPlaybackProgressUi(')), c);
@@ -145,4 +146,25 @@ test('a system clock set back keeps saving progress and does not discard the las
   assert.equal((await store.save({ ...snapshot(56), savedAt: now - 3600000 - 2000 })).skipped, true, 'a genuinely late write is still dropped');
   const future = normalize({ ...snapshot(70), savedAt: now + 3600000 });
   assert.ok(future && future.savedAt <= Date.now(), 'a checkpoint written before the clock moved back is kept');
+});
+
+test('renderer periodic saves continue after clock rollback and a forced pause save', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../public/js/modules/05-playback/09-queue-snapshot-autoplay.js'), 'utf8');
+  let wall = 1700000000000, elapsed = 0, position = 10;
+  const saved = [];
+  const song = { id: 1, name: 'Clock song' };
+  const c = vm.createContext({ Date: { now: () => wall }, performance: { now: () => elapsed },
+    audio: { paused: false, ended: false }, currentIdx: 0, playQueue: [song], currentCoverSong: () => song,
+    restoredLastPlaybackSnapshot: null, lastPlaybackSnapshotSavedAt: 0, lastPlaybackSnapshotMonotonicAt: null,
+    getPlaybackCurrentSeconds: () => position, getPlaybackDurationSeconds: () => 100,
+    localStorage: { setItem() {} }, persistPlaybackCheckpoint: payload => saved.push(payload) });
+  vm.runInContext(source.slice(0, source.indexOf('function readLastPlaybackSnapshot()'))
+    + source.slice(source.indexOf('function saveLastPlaybackSnapshot('), source.indexOf('function applyRestoredPlaybackProgressUi(')), c);
+  c.saveLastPlaybackSnapshot(false, 'tick');
+  wall -= 3600000; elapsed += 3000; position = 20;
+  c.saveLastPlaybackSnapshot(false, 'tick');
+  position = 21; c.saveLastPlaybackSnapshot(true, 'pause');
+  elapsed += 1000; c.saveLastPlaybackSnapshot(false, 'tick');
+  elapsed += 2000; position = 24; c.saveLastPlaybackSnapshot(false, 'tick');
+  assert.deepEqual(saved.map(value => value.currentTime), [10, 20, 21, 24]);
 });

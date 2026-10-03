@@ -809,7 +809,11 @@ function qishuiTrialUpgradeWithinBudget(promise, deadline) {
   });
 }
 function qishuiFullSourceKey(song) {
-  return song ? sourceFallbackRecoveryContentKey(song) : '';
+  if (!song) return '';
+  // Keep recording identity and version suffixes; search's loose title key
+  // must not let a Live/remix recording borrow another recording's cache.
+  return JSON.stringify([sourceFallbackSongKey(song), String(song.name || song.title || '').trim().toLowerCase(),
+    artistNameParts(song).sort(), songDurationSecondsForMatch(song)]);
 }
 function qishuiSongLooksPaid(song) {
   if (!song) return false;
@@ -916,7 +920,9 @@ function rememberQishuiFullSource(song, found, expectedSec) {
 function qishuiRememberedFullSource(song) {
   var entry = qishuiFullSourceMemory[qishuiFullSourceKey(song)];
   if (!entry) return null;
-  if (Date.now() - entry.at > QISHUI_FULL_SOURCE_MEMORY_TTL_MS || !sourceFallbackProviderReady(entry.provider)) {
+  if (Date.now() - entry.at > QISHUI_FULL_SOURCE_MEMORY_TTL_MS || !sourceFallbackProviderReady(entry.provider)
+    || !qishuiTrialUpgradeDurationMatches(songDurationSecondsForMatch(song), entry.expectedSec)
+    || !qishuiTrialUpgradeDurationMatches(entry.expectedSec, songDurationSecondsForMatch(entry.candidate))) {
     delete qishuiFullSourceMemory[qishuiFullSourceKey(song)];
     return null;
   }

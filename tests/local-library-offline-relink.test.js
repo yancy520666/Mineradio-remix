@@ -77,12 +77,16 @@ test('a replaced file at an old location is not played under the moved song', as
     const a = (await library.importFiles([p1])).tracks[0].localKey;
     fs.renameSync(p1, p2);
     await library.importFiles([p2]);
-    fs.writeFileSync(p1, 'another recording, different length');
+    fs.writeFileSync(p1, 'SONG-B audio bytes');
     fs.rmSync(p2);
     const listed = await library.listTracks();
     assert.equal(listed.tracks.some(t => t.localKey === a), false, 'shown as offline instead of resolving to the replaced file');
+    assert.equal(library.resolveTrack(a).localMissing, true, 'synchronous playback resolution also rejects equal-size replacements');
     fs.writeFileSync(p1, 'SONG-A audio bytes');
     assert.equal((await library.listTracks()).tracks.some(t => t.localKey === a), true, 'the same content at the old location still works');
+    assert.equal(library.resolveTrack(a).localMissing, false);
+    const response = await library.mediaResponse(new Request(library.resolveTrack(a).localUrl));
+    assert.equal(await response.text(), 'SONG-A audio bytes');
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }

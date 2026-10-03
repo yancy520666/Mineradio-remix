@@ -84,9 +84,16 @@ function localFileId(filePath) {
   return crypto.createHash('sha256').update(normalizedPathIdentity(filePath)).digest('hex').slice(0, 24);
 }
 
-// Alternates hold the same content as the primary, so their size must match
-// the size recorded at import. A replaced file at an old location is skipped
-// instead of being played under this song's name.
+// Size is only a quick rejection: equal-size replacements need a full hash.
+const alternateFingerprintCache = new Map();
+function alternateFingerprintKey(file, stat) {
+  return JSON.stringify([file, stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs]);
+}
+function cacheAlternateFingerprint(key, fingerprint) {
+  if (alternateFingerprintCache.size >= 256) alternateFingerprintCache.delete(alternateFingerprintCache.keys().next().value);
+  alternateFingerprintCache.set(key, fingerprint);
+  return fingerprint;
+}
 function recordedAudioSize(record) {
   const size = parseInt(String(record && record.revision || '').split('-')[1] || '', 36);
   return Number.isFinite(size) && size > 0 ? size : 0;
@@ -95,7 +102,37 @@ function recordedAudioSize(record) {
 function audioCandidateUsable(record, file, stat, isPrimary) {
   if (!stat || !stat.isFile()) return false;
   const expected = recordedAudioSize(record);
-  return isPrimary || !expected || stat.size === expected;
+  if (isPrimary) return true;
+  if (!record.fingerprint || expected && stat.size !== expected) return false;
+  const key = alternateFingerprintKey(file, stat);
+  let fingerprint = alternateFingerprintCache.get(key);
+  if (!fingerprint) {
+    const handle = fs.openSync(file, 'r');
+    try {
+      const hash = crypto.createHash('sha256');
+      const buffer = Buffer.allocUnsafe(256 * 1024);
+      let count;
+      while ((count = fs.readSync(handle, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, count));
+      if (alternateFingerprintKey(file, fs.fstatSync(handle)) !== key) return false;
+      fingerprint = cacheAlternateFingerprint(key, hash.digest('hex'));
+    } finally { fs.closeSync(handle); }
+  }
+  return fingerprint === record.fingerprint;
+}
+
+async function audioCandidateUsableAsync(record, file, stat, isPrimary) {
+  if (!stat || !stat.isFile()) return false;
+  if (isPrimary) return true;
+  const expected = recordedAudioSize(record);
+  if (!record.fingerprint || expected && stat.size !== expected) return false;
+  const key = alternateFingerprintKey(file, stat);
+  let fingerprint = alternateFingerprintCache.get(key);
+  if (!fingerprint) {
+    fingerprint = await audioFingerprint(file);
+    if (alternateFingerprintKey(file, await fs.promises.stat(file)) !== key) return false;
+    cacheAlternateFingerprint(key, fingerprint);
+  }
+  return fingerprint === record.fingerprint;
 }
 
 function availableAudioPath(record) {
@@ -424,7 +461,7 @@ class LocalMusicLibrary {
         const files = [record.audioPath, ...(record.alternatePaths || [])];
         for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
           try {
-            if (audioCandidateUsable(record, files[fileIndex], await fs.promises.stat(files[fileIndex]), fileIndex === 0)) { available = files[fileIndex]; break; }
+            if (await audioCandidateUsableAsync(record, files[fileIndex], await fs.promises.stat(files[fileIndex]), fileIndex === 0)) { available = files[fileIndex]; break; }
           } catch (_) {}
         }
         if (available) tracks.push(this.serializeRecord(record, available));
