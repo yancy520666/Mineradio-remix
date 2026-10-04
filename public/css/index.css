@@ -18995,3 +18995,57 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
 #home-daily-fallback-modal .home-daily-fallback-options { flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
 #home-daily-fallback-modal .home-daily-fallback-remember { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 16px; font-size: 12px; color: #9aa6b6; cursor: pointer; }
 #home-daily-fallback-modal .home-daily-fallback-remember input { margin: 0; accent-color: #fac900; }
+
+/* Wallpaper Engine playback mode controls. */
+.wallpaper-engine-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 7px 0 10px;
+}
+.wallpaper-engine-mode-label {
+  flex: 0 0 64px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, .78);
+}
+#wallpaper-engine-playback-modes {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+#wallpaper-engine-playback-modes .fx-mini-btn {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+#wallpaper-engine-playback-modes .fx-mini-btn:focus-visible {
+  outline: 2px solid var(--champagne, #f4d28a);
+  outline-offset: 2px;
+}
+#wallpaper-engine-mode-status {
+  display: block;
+  margin: -3px 0 10px 76px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--champagne, #f4d28a);
+}
+#wallpaper-engine-mode-status[hidden],
+#wallpaper-engine-mode-tooltip[hidden] { display: none; }
+.wallpaper-engine-mode-tooltip {
+  position: fixed;
+  z-index: 2147483000;
+  max-width: min(260px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid rgba(244, 210, 138, .22);
+  border-radius: 9px;
+  background: rgba(24, 24, 29, .96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+  color: rgba(255, 255, 255, .94);
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1.6;
+  pointer-events: none;
+}

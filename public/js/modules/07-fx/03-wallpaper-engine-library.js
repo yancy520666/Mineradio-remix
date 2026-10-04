@@ -157,7 +157,7 @@ function normalizeWallpaperEngineSelection(value) {
     active: value.active === true && id.length === 24,
     id: id,
     title: String(value.title || '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 160),
-    kind: value.kind === 'engine' ? 'engine' : (value.kind === 'media' ? 'media' : 'preview'),
+    kind: value.kind === 'loop' ? 'loop' : (value.kind === 'engine' ? 'engine' : (value.kind === 'media' ? 'media' : 'preview')),
     mediaType: value.mediaType === 'video' ? 'video' : 'image',
     mediaAnimated: value.mediaAnimated === true,
     projectType: String(value.projectType || 'unknown').slice(0, 32),
@@ -244,7 +244,10 @@ function flushWallpaperEngineVisualSettings() {
   var sessionId = String(wallpaperEngineNativeSessionId || '');
   if (!api || typeof api.updateWallpaperEngineVisualSettings !== 'function'
     || !/^[a-f0-9]{24}$/i.test(sessionId)) return;
-  try { api.updateWallpaperEngineVisualSettings(Object.assign({ sessionId: sessionId }, wallpaperEngineVisualSettings())); }
+  // Record the unmodified full frame; apply the saved framing only on playback.
+  var settings = typeof wallpaperLoopIsRecording === 'function' && wallpaperLoopIsRecording()
+    ? { opacity: 1, positionX: 0, positionY: 0, scale: 1 } : wallpaperEngineVisualSettings();
+  try { api.updateWallpaperEngineVisualSettings(Object.assign({ sessionId: sessionId }, settings)); }
   catch (e) { }
 }
 
@@ -356,6 +359,10 @@ function wallpaperEngineProjectLabel(item) {
   item = item || {};
   if (item.playable && item.mediaType === 'video') return 'Video · 动态播放';
   if (item.playable && item.mediaType === 'image') return '图片 · 原图显示';
+  if (typeof wallpaperEnginePlaybackMode !== 'undefined' && wallpaperEnginePlaybackMode === 'loop'
+      && item.enginePlayable && (item.projectType === 'scene' || item.projectType === 'web')) {
+    return (item.projectType === 'scene' ? 'Scene' : 'Web') + ' · 循环视频模式';
+  }
   if (item.projectType === 'scene' && item.enginePlayable) return 'Scene · Wallpaper Engine 原生实时运行';
   if (item.projectType === 'scene') return 'Scene · 预览（未找到有效 PKGV 场景包）';
   if (item.projectType === 'web') return item.enginePlayable ? 'Web · Wallpaper Engine 原生运行' : 'Web · 预览（入口文件不可用）';
@@ -376,10 +383,12 @@ function updateWallpaperEngineEntryUi(message) {
         + (wallpaperEngineDesktopPreviewUsesAsset ? ' · 桌面被动模式 · 项目预览' : ' · 桌面被动模式 · 原背景');
     }
     else if (active && wallpaperEngineSelection.kind === 'engine') value.textContent = (wallpaperEngineSelection.title || '已选择') + ' · WE 引擎实时运行';
+    else if (active && wallpaperEngineSelection.kind === 'loop') value.textContent = (wallpaperEngineSelection.title || '已选择') + ' · 循环视频';
     else if (active) value.textContent = (wallpaperEngineSelection.title || '已选择') + ' · 原背景保留';
     else value.textContent = '未启用 · 原背景保留';
   }
   if (restore) restore.disabled = !active;
+  if (typeof syncWallpaperEngineLoopModeUi === 'function') syncWallpaperEngineLoopModeUi();
 }
 
 function cancelWallpaperEngineSwitchTimer() {
@@ -1490,7 +1499,8 @@ function wallpaperEngineRuntimeErrorText(error) {
 function requestWallpaperEngineVideoPlayback(video, item, kind, token, revealLayer, attempt) {
   cancelWallpaperEngineVideoRetry();
   if (!video || token !== wallpaperEngineLayerToken || !wallpaperEngineSelection.active) return;
-  var hostUnavailable = kind === 'engine' ? wallpaperEngineNativeHostUnavailable() : document.hidden;
+  var hostUnavailable = kind === 'engine' ? wallpaperEngineNativeHostUnavailable()
+    : (kind === 'loop' ? !wallpaperEngineDesktopHostIsVisible() : document.hidden);
   if (hostUnavailable) {
     try { video.pause(); } catch (e) { }
     if (revealLayer) wallpaperEngineLayerReady('video', token);
@@ -1517,7 +1527,8 @@ function requestWallpaperEngineVideoPlayback(video, item, kind, token, revealLay
 
 function handleWallpaperEngineVideoPlayFailure(error, video, item, kind, token, revealLayer, attempt) {
   if (token !== wallpaperEngineLayerToken || !wallpaperEngineSelection.active) return;
-  var hostUnavailable = kind === 'engine' ? wallpaperEngineNativeHostUnavailable() : document.hidden;
+  var hostUnavailable = kind === 'engine' ? wallpaperEngineNativeHostUnavailable()
+    : (kind === 'loop' ? !wallpaperEngineDesktopHostIsVisible() : document.hidden);
   var interrupted = hostUnavailable || wallpaperEnginePlayWasInterrupted(error);
   if (!interrupted) {
     wallpaperEngineLayerFailed(item, kind, token);
@@ -1555,6 +1566,7 @@ function clearWallpaperEngineLayerMedia(delay) {
         try { video.srcObject = null; } catch (e2) { }
       }
       video.removeAttribute('poster');
+      video.removeAttribute('crossorigin');
       video.removeAttribute('src');
       try { video.load(); } catch (e3) { }
     }
@@ -1645,7 +1657,7 @@ function wallpaperEngineLayerFailed(item, attemptedKind, token) {
   if (attemptedKind === 'media' && item && item.enginePlayable) {
     wallpaperEngineSelection.kind = 'engine';
     wallpaperEngineSelection.mediaType = 'video';
-    applyWallpaperEngineBackground(item, true);
+    applyWallpaperEngineBackground(item, true, typeof wallpaperLoopJob !== 'undefined' && !!wallpaperLoopJob);
     return;
   }
   if ((attemptedKind === 'media' || attemptedKind === 'engine') && item && item.hasPreview) {
@@ -1653,7 +1665,9 @@ function wallpaperEngineLayerFailed(item, attemptedKind, token) {
     wallpaperEngineSelection.kind = 'preview';
     wallpaperEngineSelection.mediaType = 'image';
     showToast(attemptedKind === 'engine' ? ((wallpaperEngineRuntimeError || 'Wallpaper Engine 实时运行失败') + '，已切换到项目预览；再次点击可重试') : '动态媒体解码失败，已切换到安全预览');
-    applyWallpaperEngineBackground(item, true);
+    // A failed recording source must reach its preview/error state rather
+    // than automatically starting another recording through mode routing.
+    applyWallpaperEngineBackground(item, true, typeof wallpaperLoopJob !== 'undefined' && !!wallpaperLoopJob);
     return;
   }
   wallpaperEngineRuntimeError = attemptedKind === 'engine' ? 'WE 引擎运行失败' : '媒体不可用';
@@ -1663,8 +1677,9 @@ function wallpaperEngineLayerFailed(item, attemptedKind, token) {
   showToast('壁纸媒体不可用，已恢复原背景');
 }
 
-function applyWallpaperEngineBackground(item, quiet) {
+function applyWallpaperEngineBackground(item, quiet, nativeOnly) {
   item = item || wallpaperEngineProjectById(wallpaperEngineSelection.id);
+  if (!nativeOnly && typeof cancelWallpaperEngineLoop === 'function') cancelWallpaperEngineLoop();
   if (!item || !wallpaperEngineSelection.active) {
     wallpaperEngineRuntimeError = item ? '' : '项目离线';
     restoreOriginalBackgroundAfterWallpaperEngine();
@@ -1672,6 +1687,10 @@ function applyWallpaperEngineBackground(item, quiet) {
     updateWallpaperEngineEntryUi(item ? '' : '项目离线 · 已显示原背景');
     return false;
   }
+  if (!nativeOnly && typeof startWallpaperEngineLoopBackground === 'function'
+      && wallpaperEnginePlaybackMode === 'loop' && item.enginePlayable
+      && (item.projectType === 'scene' || item.projectType === 'web')) return startWallpaperEngineLoopBackground(item);
+  if (wallpaperEngineSelection.kind === 'loop') wallpaperEngineSelection.kind = item.enginePlayable ? 'engine' : 'media';
   var kind = wallpaperEngineSelection.kind === 'engine' && item.enginePlayable
     ? 'engine'
     : (wallpaperEngineSelection.kind === 'media' && item.playable ? 'media' : 'preview');
@@ -1774,6 +1793,7 @@ function activateWallpaperEngineItem(id) {
 }
 
 function deactivateWallpaperEngineBackground(quiet) {
+  if (typeof cancelWallpaperEngineLoop === 'function') cancelWallpaperEngineLoop();
   cancelWallpaperEngineHostRecovery(true);
   wallpaperEngineDesktopPreviewActive = false;
   wallpaperEngineDesktopPreviewUsesAsset = false;
@@ -2130,6 +2150,10 @@ async function saveWallpaperEngineProjectProperties(reset, pathKey) {
       renderWallpaperEngineProjectDetails(wallpaperEngineProjectDetails, '');
       var summary = document.getElementById('wallpaper-engine-details-summary');
       if (summary) summary.textContent = response.applied ? '已保存并应用到播放器壁纸。' : '已保存，下次载入此壁纸时应用。';
+      if (typeof wallpaperEnginePlaybackMode !== 'undefined' && wallpaperEnginePlaybackMode === 'loop'
+          && wallpaperEngineSelection.active && wallpaperEngineSelection.id === id) {
+        applyWallpaperEngineBackground(wallpaperEngineProjectById(id), true);
+      }
     }
   } catch (error) {
     if (epoch === wallpaperEngineDetailsEpoch) {
@@ -2308,7 +2332,7 @@ function consumeWallpaperEngineSnapshot(snapshot) {
       wallpaperEngineSelection = normalizeWallpaperEngineSelection(Object.assign({}, wallpaperEngineSelection, {
         title: selected.title,
         kind: wallpaperEngineSelection.kind === 'engine' && !selected.enginePlayable ? (selected.playable ? 'media' : 'preview') : wallpaperEngineSelection.kind,
-        mediaType: wallpaperEngineSelection.kind === 'engine' && selected.enginePlayable ? 'video' : (wallpaperEngineSelection.kind === 'media' ? selected.mediaType : 'image'),
+        mediaType: wallpaperEngineSelection.kind === 'loop' || (wallpaperEngineSelection.kind === 'engine' && selected.enginePlayable) ? 'video' : (wallpaperEngineSelection.kind === 'media' ? selected.mediaType : 'image'),
         mediaAnimated: selected.mediaAnimated,
         projectType: selected.projectType,
         hasPreview: selected.hasPreview,
@@ -2544,6 +2568,10 @@ function bindWallpaperEngineLibraryEvents() {
       var video = document.getElementById('wallpaper-engine-video');
       if (!wallpaperEngineSelection.active) return;
       var item = wallpaperEngineProjectById(wallpaperEngineSelection.id);
+      if (wallpaperEngineSelection.kind === 'loop' && typeof syncWallpaperEngineLoopVisibility === 'function') {
+        syncWallpaperEngineLoopVisibility();
+        return;
+      }
       if (wallpaperEngineSelection.kind === 'engine') {
         if (wallpaperEngineDesktopPreviewActive) return;
         if (wallpaperEngineUsesDesktopHostLifecycle()) {

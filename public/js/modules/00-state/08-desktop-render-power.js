@@ -445,6 +445,7 @@ function updateDesktopRuntimeState(state) {
   updateRenderPowerClasses();
   applyRendererPowerMode();
   if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('desktop-runtime-state');
+  if (typeof syncWallpaperEngineLoopVisibility === 'function') syncWallpaperEngineLoopVisibility();
   if ((desktopRuntimeState.minimized || !desktopRuntimeState.visible) && typeof flushLyricLayoutSave === 'function') {
     flushLyricLayoutSave();
   }

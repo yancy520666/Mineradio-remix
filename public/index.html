@@ -428,6 +428,24 @@
             onclick="deactivateWallpaperEngineBackground()" disabled>恢复原背景</button>
         </div>
       </div>
+      <div id="wallpaper-engine-mode-controls">
+      <div class="wallpaper-engine-mode-row">
+        <span class="wallpaper-engine-mode-label">播放方式</span>
+        <div id="wallpaper-engine-playback-modes" role="group" aria-label="Wallpaper Engine 播放方式">
+          <button id="wallpaper-engine-mode-native" class="fx-mini-btn ghost active" type="button" aria-pressed="true"
+            aria-describedby="wallpaper-engine-mode-tooltip" onclick="setWallpaperEnginePlaybackMode('native')"
+            data-mode-hint="由 Wallpaper Engine 实时运行，保留音频响应与鼠标交互。"
+            onmouseenter="showWallpaperEngineModeHint(this)" onmouseleave="hideWallpaperEngineModeHint()"
+            onfocus="showWallpaperEngineModeHint(this)" onblur="hideWallpaperEngineModeHint()">原生实时</button>
+          <button id="wallpaper-engine-mode-loop" class="fx-mini-btn ghost" type="button" aria-pressed="false"
+            aria-describedby="wallpaper-engine-mode-tooltip" onclick="setWallpaperEnginePlaybackMode('loop')"
+            data-mode-hint="Scene / Web 首次录制约 20 秒，之后播放本地循环视频。不再响应音乐与鼠标；循环衔接可能有跳变。"
+            onmouseenter="showWallpaperEngineModeHint(this)" onmouseleave="hideWallpaperEngineModeHint()"
+            onfocus="showWallpaperEngineModeHint(this)" onblur="hideWallpaperEngineModeHint()">循环视频</button>
+        </div>
+      </div>
+      <small id="wallpaper-engine-mode-status" role="status" hidden></small>
+      </div>
       <div class="wallpaper-engine-visual-controls">
         <div class="fx-slider"><label>WE 壁纸透明度</label><input id="wallpaper-engine-opacity" type="range" min="0.15" max="1" step="0.01" oninput="setWallpaperEngineVisualSetting('opacity', this.value)"><output></output></div>
         <div class="fx-slider"><label>WE 水平位置</label><input id="wallpaper-engine-position-x" type="range" min="-50" max="50" step="1" oninput="setWallpaperEngineVisualSetting('positionX', this.value)"><output></output></div>
@@ -1080,7 +1098,7 @@
             <code class="cache-storage-path small" id="cache-storage-chromium-path">—</code>
             <div class="cache-storage-row"><span>节奏分析缓存</span><b id="cache-storage-beatmaps-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-beatmaps-path">—</code>
-            <div class="cache-storage-row"><span>Wallpaper Engine 静音场景缓存</span><b id="cache-storage-wallpaper-size">—</b></div>
+            <div class="cache-storage-row"><span>WE 场景与循环视频缓存</span><b id="cache-storage-wallpaper-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-wallpaper-path">—</code>
             <div class="cache-storage-row muted"><span>设置与登录资料（安全固定）</span><b id="cache-storage-userdata-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-userdata-path">—</code>
@@ -1953,6 +1971,7 @@
     </div>
     <p id="sonic-performance-diagnostics" hidden></p>
   </aside>
+  <div id="wallpaper-engine-mode-tooltip" class="wallpaper-engine-mode-tooltip" role="tooltip" hidden></div>
 </body>
 
 </html>
