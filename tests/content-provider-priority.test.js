@@ -142,6 +142,74 @@ test('changing priority while a daily feed loads prevents obsolete content from 
   assert.equal(c.homePlatformRecommendationState.source, undefined, 'An old empty response must not reopen its platform');
 });
 
+test('daily playback waits for the real in-flight feed, including previously cached songs', async () => {
+  for (const source of ['qq', 'kugou', 'qishui']) {
+    const { c, plays, openings } = setup();
+    c.saveAccountProviderOrder([source, ...['netease', 'qq', 'kugou', 'qishui'].filter(key => key !== source)]);
+    const feed = c.homePlatformRecommendationState.feeds[source];
+    feed.songs = [{ id: 'old-song' }]; feed.loaded = true;
+    let finish, requests = 0;
+    c.apiJson = () => { requests++; return new Promise(resolve => { finish = resolve; }); };
+    c.renderHomePlatformRecommendations = () => {};
+    c.homePlatformRecommendationFeedConfig = () => ({ endpoint: '/api/' + source + '/recommendations' });
+    vm.runInContext(namedFunction('05-playback/03a-home-dashboard.js', 'loadHomePlatformFeedRecommendations'), c);
+    const pending = c.loadHomePlatformFeedRecommendations(source, true);
+    let finished = false;
+    const playback = c.playHomeDaily().then(() => { finished = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(requests, 1);
+    assert.equal(finished, false, source + ' must await the existing request');
+    assert.deepEqual(plays, []); assert.deepEqual(openings, []);
+    finish({ songs: [{ id: 'new-song' }] });
+    await Promise.all([pending, playback]);
+    assert.deepEqual(plays, [source]);
+    assert.equal(feed.songs[0].id, 'new-song');
+    assert.equal(feed.loading, false);
+    assert.equal(feed.pending, null);
+  }
+});
+
+test('an in-flight empty response is considered empty only after it completes and can be retried', async () => {
+  const { c, plays, openings } = setup();
+  c.saveAccountProviderOrder(['qq', 'kugou', 'netease', 'qishui']);
+  let finish;
+  c.apiJson = () => new Promise(resolve => { finish = resolve; });
+  c.renderHomePlatformRecommendations = () => {};
+  c.homePlatformRecommendationFeedConfig = () => ({ endpoint: '/api/qq/recommendations' });
+  vm.runInContext(namedFunction('05-playback/03a-home-dashboard.js', 'loadHomePlatformFeedRecommendations'), c);
+  const pending = c.loadHomePlatformFeedRecommendations('qq', true);
+  const playback = c.playHomeDaily();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(openings, []);
+  finish({ songs: [] }); await Promise.all([pending, playback]);
+  assert.deepEqual(openings, ['qq']); assert.deepEqual(plays, []);
+  const retry = c.playHomeDaily();
+  await new Promise(resolve => setImmediate(resolve));
+  finish({ songs: [{ id: 'available-now' }] }); await retry;
+  assert.deepEqual(plays, ['qq']);
+});
+
+test('failed shared feeds release loading state and allow another request', async () => {
+  for (const synchronous of [true, false]) {
+    const { c } = setup();
+    c.console = { warn() {} };
+    c.renderHomePlatformRecommendations = () => {};
+    c.homePlatformRecommendationFeedConfig = () => ({ endpoint: '/api/qq/recommendations' });
+    c.apiJson = () => {
+      if (synchronous) throw new Error('QA_FEED_FAILED');
+      return Promise.reject(new Error('QA_FEED_FAILED'));
+    };
+    vm.runInContext(namedFunction('05-playback/03a-home-dashboard.js', 'loadHomePlatformFeedRecommendations'), c);
+    await Promise.all([c.loadHomePlatformFeedRecommendations('qq', true), c.loadHomePlatformFeedRecommendations('qq', false)]);
+    const feed = c.homePlatformRecommendationState.feeds.qq;
+    assert.equal(feed.loading, false); assert.equal(feed.pending, null);
+    assert.equal(feed.error, 'QA_FEED_FAILED');
+    c.apiJson = async () => ({ songs: [{ id: 'retry-song' }] });
+    await c.loadHomePlatformFeedRecommendations('qq', false);
+    assert.equal(feed.songs[0].id, 'retry-song');
+  }
+});
+
 test('clicking a QQ daily recommendation plays its selected row', () => {
   const { c, plays } = setup();
   const listeners = {};

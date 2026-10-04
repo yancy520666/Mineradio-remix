@@ -70,6 +70,26 @@ function hydrateCustomCover(song) {
   if (custom) song.customCover = custom;
   return song;
 }
+function syncCustomCoverCopies(key, cover) {
+  if (!key) return;
+  var pools = [typeof playQueue !== 'undefined' ? playQueue : []];
+  if (typeof homeDiscoverState !== 'undefined') pools.push(homeDiscoverState.songs);
+  if (typeof homePlatformRecommendationState !== 'undefined') {
+    Object.keys(homePlatformRecommendationState.feeds || {}).forEach(function (source) {
+      pools.push(homePlatformRecommendationState.feeds[source].songs);
+    });
+  }
+  if (typeof homeDashboardDiscoveryCache !== 'undefined') pools.push(homeDashboardDiscoveryCache);
+  if (typeof currentLocalSong !== 'undefined') pools.push([currentLocalSong]);
+  pools.forEach(function (songs) {
+    if (!Array.isArray(songs)) return;
+    songs.forEach(function (song) {
+      if (!song || songCustomCoverKey(song) !== key) return;
+      if (cover) song.customCover = cover;
+      else delete song.customCover;
+    });
+  });
+}
 function songCoverSrc(song, size) {
   var custom = getCustomCoverForSong(song);
   if (custom) return custom;

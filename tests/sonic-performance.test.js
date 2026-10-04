@@ -105,13 +105,41 @@ test('keep-current is remembered; opt-in/disable restores the saved visual witho
   const reopened = controller(c.storage); reopened.emit(slow);
   assert.equal(reopened.api.snapshot().recommendation, false);
   reopened.api.setEnabled(true); assert.equal(reopened.api.profile().gridSize, 112);
-  reopened.emit(slow); assert.equal(reopened.api.profile().gridSize, 80);
+  reopened.emit({ ...slow, sample: { ...slow.sample, target: 30 } });
+  assert.equal(reopened.api.profile().gridSize, 80);
   assert.equal(reopened.window.fx.performanceQuality, 'eco');
   reopened.api.setEnabled(false); assert.equal(reopened.api.profile(), null);
   reopened.api.qualityChanged(); assert.equal(reopened.api.profile().gridSize, 112);
   assert.equal(reopened.api.stageProfile(), null, 'quality choice alone leaves the topography stage unchanged');
   assert.equal(controller(c.storage).api.profile().gridSize, 112, 'manual-quality intent survives restart');
 });
+test('a healthy window clears the recommendation without dismissing future load reports', () => {
+  const c = controller();
+  const emit = fps => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target: 60, duration: 12000 } });
+  emit(42);
+  assert.equal(c.api.snapshot().recommendation, true);
+  emit(60);
+  assert.equal(c.api.snapshot().recommendation, false);
+  assert.equal(c.node('sonic-performance-notice').hidden, true);
+  assert.equal(c.api.snapshot().preferences.dismissed, false);
+  emit(42);
+  assert.equal(c.api.snapshot().recommendation, true);
+});
+
+test('changing the requested FPS clears old advice and rejects late samples for the old target', () => {
+  const c = controller();
+  const emit = (fps, target) => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target, duration: 12000 } });
+  emit(42, 60);
+  c.window.fx.foregroundFpsMode = '30'; c.tick();
+  assert.equal(c.api.snapshot().recommendation, false);
+  assert.equal(c.api.snapshot().sample, null);
+  emit(42, 60);
+  assert.equal(c.api.snapshot().recommendation, false);
+  assert.equal(c.api.snapshot().sample, null);
+  emit(30, 30);
+  assert.equal(c.api.snapshot().sample.target, 30);
+});
+
 test('render interruption times out, recovers, and leaves the selected wallpaper intact', () => {
   const c = controller();
   c.emit({ type: 'mineradio-sonic-performance-health', state: 'lost' });
