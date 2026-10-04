@@ -1173,6 +1173,17 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   int visualPositionY = 0;
   int visualScale = 1080000;
   readonly MineradioWeInput input;
+  // SetWindowPos/SetWindowRgn on the WE window wait for WE's own thread. Run
+  // them on one worker so a busy or hung WE cannot stall this helper's UI
+  // thread (DWM surface, rounding, input). Only the latest target is kept.
+  readonly object sourceFollowGate = new object();
+  readonly AutoResetEvent sourceFollowWake = new AutoResetEvent(false);
+  bool sourceFollowPending = false;
+  bool sourceFollowStopped = false;
+  IntPtr sourceFollowInsertAfter = IntPtr.Zero;
+  RECT sourceFollowRect;
+  int sourceFollowRadius = 0;
+  int sourceFollowFailures = 0;
 
   MineradioWeDwmSurfaceHost(IntPtr host, IntPtr source, string expectedTitle, int cornerRadius,
       bool enableDesktopIconLayering, int initialOpacity, int initialPositionX,
@@ -1180,6 +1191,9 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     hostWindow = host;
     sourceWindow = source;
     input = new MineradioWeInput(source);
+    Thread sourceFollowThread = new Thread(RunSourceFollow);
+    sourceFollowThread.IsBackground = true;
+    sourceFollowThread.Start();
     sourceTitle = expectedTitle ?? "";
     windowCornerRadius = Math.Max(0, Math.Min(512, cornerRadius));
     desktopIconLayeringEnabled = enableDesktopIconLayering;
@@ -1370,6 +1384,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
 
   protected override void OnFormClosed(FormClosedEventArgs eventArgs) {
     StopHostFollow();
+    StopSourceFollow();
     if (IsWindow(sourceWindow) && WindowTitle(sourceWindow) == sourceTitle) input.Close();
     if (thumbnail != IntPtr.Zero) {
       DwmUnregisterThumbnail(thumbnail);
@@ -1521,7 +1536,13 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     bool samePosition = current.Left == target.Left && current.Top == target.Top;
     bool sameSize = current.Right - current.Left == target.Right - target.Left
       && current.Bottom - current.Top == target.Bottom - target.Top;
-    bool sameOrder = GetWindow(window, GW_HWNDPREV) == insertAfter;
+    // A renderer thread's hidden IME window sits directly above its owner;
+    // only visible windows can break the intended stacking.
+    IntPtr previous = GetWindow(window, GW_HWNDPREV);
+    while (previous != IntPtr.Zero && previous != insertAfter && !IsWindowVisible(previous)) {
+      previous = GetWindow(previous, GW_HWNDPREV);
+    }
+    bool sameOrder = previous == insertAfter;
     if (samePosition && sameSize && sameOrder && IsWindowVisible(window)) return;
     // Copying stale client pixels during resize leaves trails in Web/DX scenes.
     uint flags = SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS;
@@ -1532,6 +1553,47 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
         target.Right - target.Left, target.Bottom - target.Top, flags)) {
       throw new Win32Exception(Marshal.GetLastWin32Error());
     }
+  }
+
+  void RequestSourceFollow(IntPtr insertAfter, RECT target, int radius) {
+    lock (sourceFollowGate) {
+      sourceFollowInsertAfter = insertAfter;
+      sourceFollowRect = target;
+      sourceFollowRadius = radius;
+      sourceFollowPending = true;
+    }
+    sourceFollowWake.Set();
+  }
+
+  void RunSourceFollow() {
+    while (true) {
+      sourceFollowWake.WaitOne();
+      IntPtr insertAfter;
+      RECT target;
+      int radius;
+      lock (sourceFollowGate) {
+        if (sourceFollowStopped) return;
+        if (!sourceFollowPending) continue;
+        sourceFollowPending = false;
+        insertAfter = sourceFollowInsertAfter;
+        target = sourceFollowRect;
+        radius = sourceFollowRadius;
+      }
+      try {
+        AlignWindow(sourceWindow, insertAfter, target);
+        ApplyCornerRegion(sourceWindow, Math.Max(1, target.Right - target.Left),
+          Math.Max(1, target.Bottom - target.Top), radius);
+        Interlocked.Exchange(ref sourceFollowFailures, 0);
+      } catch (Exception error) {
+        Interlocked.Increment(ref sourceFollowFailures);
+        try { Console.Error.WriteLine(error.Message); Console.Error.Flush(); } catch { }
+      }
+    }
+  }
+
+  void StopSourceFollow() {
+    lock (sourceFollowGate) { sourceFollowStopped = true; }
+    sourceFollowWake.Set();
   }
 
   void FollowHost() {
@@ -1566,9 +1628,12 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     if (iconHost != IntPtr.Zero && hostRoot != hostWindow && hostRoot != iconHost) iconHost = IntPtr.Zero;
     IntPtr hostLayer = hostRoot != IntPtr.Zero && hostRoot != hostWindow ? hostRoot : hostWindow;
     IntPtr surfaceInsertAfter = iconHost != IntPtr.Zero ? iconHost : hostLayer;
+    if (Interlocked.CompareExchange(ref sourceFollowFailures, 0, 0) >= 8) {
+      throw new InvalidOperationException("WE source window stopped following");
+    }
     if (thumbnail != IntPtr.Zero) {
       AlignWindow(Handle, surfaceInsertAfter, hostRect);
-      AlignWindow(sourceWindow, Handle, hostRect);
+      RequestSourceFollow(Handle, hostRect, radius);
     } else {
       // Until WGC has primed the SVG sampler, show the real source above the
       // empty DWM destination so startup never flashes a black base frame.
@@ -1577,7 +1642,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     }
 
     ApplyCornerRegion(Handle, width, height, radius);
-    ApplyCornerRegion(sourceWindow, width, height, radius);
+    if (thumbnail == IntPtr.Zero) ApplyCornerRegion(sourceWindow, width, height, radius);
 
     if (thumbnail != IntPtr.Zero) {
       DWM_THUMBNAIL_PROPERTIES properties = new DWM_THUMBNAIL_PROPERTIES();

@@ -85,7 +85,7 @@ test('virtualized daily cards preserve absolute indexes and full-queue playback'
   assert.match(renderWindow, /homePlatformRecommendationSpacer\(range\.topRows/);
   assert.match(renderWindow, /homePlatformRecommendationSpacer\(range\.bottomRows/);
 
-  const playDaily = namedFunctionSource(homeActionsScript, 'playHomeDaily');
+  const playDaily = namedFunctionSource(homeActionsScript, 'playHomeDailyFromSource');
   const playSong = namedFunctionSource(homeActionsScript, 'playHomeSong');
   assert.match(playDaily, /playQueue\s*=\s*homeDiscoverState\.songs\.map\(cloneSong\)/);
   assert.match(playSong, /playQueue\s*=\s*homeDiscoverState\.songs\.map\(cloneSong\)/);

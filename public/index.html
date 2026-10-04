@@ -1736,6 +1736,19 @@
       </div>
     </div>
 
+    <div id="home-daily-fallback-modal" class="modal-mask" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="home-daily-fallback-title" onclick="if(event.target===this)closeHomeDailyFallback(null)" onkeydown="if(event.key==='Escape')closeHomeDailyFallback(null)">
+      <div class="modal home-daily-fallback-modal">
+        <h2 id="home-daily-fallback-title">每日推荐</h2>
+        <p id="home-daily-fallback-text"></p>
+        <div id="home-daily-fallback-options" class="btn-row home-daily-fallback-options"></div>
+        <label class="home-daily-fallback-remember"><input id="home-daily-fallback-remember" type="checkbox"> 以后自动改用排在后面的可用平台</label>
+        <div class="btn-row">
+          <button class="modal-btn" type="button" onclick="closeHomeDailyFallback(null)">取消</button>
+          <button class="modal-btn" type="button" onclick="closeHomeDailyFallback('view')">查看原因</button>
+        </div>
+      </div>
+    </div>
+
     <div id="collect-modal" class="modal-mask">
       <div class="modal collect-modal">
         <h2>收藏到歌单</h2>

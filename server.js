@@ -3236,6 +3236,66 @@ async function handleQQUserPlaylists() {
   return { loggedIn: true, provider: 'qq', userId: uin, playlists };
 }
 
+// QQ's personalized "每日30首" is a per-user playlist listed on the logged-in
+// home feed ("为你打造"). Its id changes daily, so look it up each time.
+async function fetchQQDailyPlaylistId() {
+  const body = await qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    feed: {
+      module: 'music.recommend.RecommendFeed',
+      method: 'get_recommend_feed',
+      param: { direction: 0, page: 1, s_num: 0 },
+    },
+  }, { cookie: true, timeoutMs: 10000 });
+  const block = body && body.feed;
+  const code = Number(body && body.code) || Number(block && block.code) || 0;
+  if (!block || code !== 0) {
+    const err = new Error('QQ_DAILY_FEED_FAILED_' + code);
+    err.code = 'QQ_DAILY_FEED_FAILED';
+    throw err;
+  }
+  const shelves = block.data && Array.isArray(block.data.v_shelf) ? block.data.v_shelf : [];
+  for (const shelf of shelves) {
+    for (const niche of Array.isArray(shelf && shelf.v_niche) ? shelf.v_niche : []) {
+      for (const card of Array.isArray(niche && niche.v_card) ? niche.v_card : []) {
+        if (card && Number(card.type) === 500 && String(card.title || '').trim() === '每日30首' && /^\d+$/.test(String(card.id || ''))) {
+          return String(card.id);
+        }
+      }
+    }
+  }
+  return '';
+}
+
+async function handleQQDailyRecommendations() {
+  const info = await getQQLoginInfo();
+  if (!info.loggedIn || !info.userId) {
+    return { provider: 'qq', loggedIn: false, songs: [], error: 'QQ_LOGIN_REQUIRED', message: '登录 QQ 音乐后可读取每日30首，未使用关键词搜索替代。' };
+  }
+  let playlistId = '';
+  try {
+    playlistId = await fetchQQDailyPlaylistId();
+  } catch (err) {
+    return { provider: 'qq', loggedIn: true, songs: [], error: err.code || 'QQ_DAILY_FEED_FAILED', message: 'QQ 音乐每日30首读取失败，请稍后重试。' };
+  }
+  if (!playlistId) {
+    return { provider: 'qq', loggedIn: true, songs: [], error: '', message: 'QQ 音乐本次没有返回每日30首，未使用关键词搜索补位。' };
+  }
+  const data = await handleQQPlaylistTracks(playlistId, {});
+  const songs = Array.isArray(data && data.tracks) ? data.tracks : [];
+  return {
+    provider: 'qq',
+    loggedIn: true,
+    mode: 'daily-30',
+    source: 'qq-recommend-feed',
+    playlist: data && data.playlist || null,
+    songs,
+    total: songs.length,
+    error: songs.length ? '' : (data && data.error || ''),
+    message: songs.length ? '' : 'QQ 音乐每日30首暂时没有可用歌曲。',
+  };
+}
+
 async function handleQQPlaylistTracks(id, opts) {
   opts = opts || {};
   const info = await getQQLoginInfo();
@@ -5770,6 +5830,16 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[QQUserPlaylists]', err);
       sendJSON(res, { provider: 'qq', loggedIn: false, error: err.message, playlists: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/qq/recommendations') {
+    try {
+      sendJSON(res, await handleQQDailyRecommendations());
+    } catch (err) {
+      console.error('[QQRecommendations]', err);
+      sendJSON(res, { provider: 'qq', error: err.message, songs: [] }, 500);
     }
     return;
   }
