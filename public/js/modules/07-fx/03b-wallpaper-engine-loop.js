@@ -5,6 +5,7 @@ try { if (localStorage.getItem(WALLPAPER_ENGINE_MODE_KEY) === 'loop') wallpaperE
 var wallpaperLoopJob = null;
 var wallpaperLoopMessage = '';
 var wallpaperLoopActions = [];
+var wallpaperLoopWindowRestorePending = Promise.resolve();
 
 function wallpaperLoopIsRecording() { return !!(wallpaperLoopJob && wallpaperLoopJob.recording); }
 function wallpaperLoopIsCurrent(job) {
@@ -35,7 +36,7 @@ function wallpaperLoopDesktopState() {
 }
 function wallpaperLoopCanExpand(limits) {
   var api = wallpaperEngineDesktopApi(), state = wallpaperLoopDesktopState();
-  return !!(api && typeof api.toggleFullscreen === 'function') && !state.fullscreen && !state.embedded
+  return !!(api && typeof api.wallpaperEngineLoopWindow === 'function') && !state.fullscreen && !state.embedded
     && wallpaperLoopWindowIsSmall(limits);
 }
 function syncWallpaperEngineLoopModeUi() {
@@ -71,16 +72,20 @@ function wallpaperLoopStatus(job, message, actions) {
   syncWallpaperEngineLoopModeUi();
 }
 function wallpaperLoopRestoreWindow(job) {
-  if (!job || !job.expanded || job.restored) return;
-  job.restored = true;
-  if (!wallpaperLoopDesktopState().fullscreen) return;
-  var api = wallpaperEngineDesktopApi();
-  try {
-    if (api && typeof api.exitFullscreenWindowed === 'function') {
-      var result = api.exitFullscreenWindowed();
-      if (result && typeof result.catch === 'function') result.catch(function () {});
-    } else if (typeof toggleFullscreen === 'function') toggleFullscreen();
-  } catch (e) { }
+  if (!job || !job.expansion) return Promise.resolve();
+  if (job.restoring) return job.restoring;
+  // Cancellation may precede the enter-fullscreen IPC reply. Its token is
+  // available only after entry has completed; never trust a stale UI flag.
+  job.restoring = Promise.resolve(job.expansion).then(async function (entered) {
+    if (entered && entered.ok && entered.expanded && entered.token) {
+      var result = await wallpaperEngineDesktopApi().wallpaperEngineLoopWindow({ action: 'end', token: entered.token });
+      if (!result || result.ok === false) throw new Error(result && result.error || 'LOOP_WINDOW_RESTORE_FAILED');
+    }
+    job.restored = true;
+  });
+  wallpaperLoopWindowRestorePending = job.restoring;
+  job.restoring.catch(function (error) { console.warn('[Wallpaper loop window restore]', error); });
+  return job.restoring;
 }
 function cancelWallpaperEngineLoop() {
   var job = wallpaperLoopJob;
@@ -263,7 +268,7 @@ async function playWallpaperLoop(job, cached, message, actions) {
   video.src = cached.url;
   video.load();
   // The cached video now covers the background; return to the user's window.
-  wallpaperLoopRestoreWindow(job);
+  await wallpaperLoopRestoreWindow(job);
 }
 async function waitWallpaperLoopExpanded(job, limits) {
   var until = Date.now() + 5000, lastSize = '', stableSince = 0;
@@ -298,6 +303,8 @@ function startWallpaperEngineLoopBackground(item, options) {
   wallpaperLoopStatus(job, '正在检查循环视频…');
   (async function () {
     try {
+      await wallpaperLoopWindowRestorePending;
+      if (!wallpaperLoopIsCurrent(job)) return;
       var cached = await wallpaperLoopRequest({ action: 'lookup', id: item.id });
       if (!wallpaperLoopIsCurrent(job)) return;
       var limits = wallpaperLoopLimits(cached);
@@ -323,12 +330,14 @@ function startWallpaperEngineLoopBackground(item, options) {
         return;
       }
       if (capture === 'expand' && wallpaperLoopCanExpand(limits)) {
-        job.expanded = true;
         wallpaperLoopStatus(job, '正在铺满屏幕，录完自动恢复窗口…');
-        if (typeof toggleFullscreen === 'function') toggleFullscreen();
-        else wallpaperEngineDesktopApi().toggleFullscreen();
-        await waitWallpaperLoopExpanded(job, limits);
-        if (!wallpaperLoopIsCurrent(job)) return;
+        job.expansion = wallpaperEngineDesktopApi().wallpaperEngineLoopWindow({ action: 'begin' });
+        var entered = await job.expansion;
+        if (!entered || entered.ok === false) throw new Error(entered && entered.error || 'LOOP_EXPAND_FAILED');
+        job.expanded = entered.expanded === true;
+        if (!wallpaperLoopIsCurrent(job)) { await wallpaperLoopRestoreWindow(job); return; }
+        if (job.expanded) await waitWallpaperLoopExpanded(job, limits);
+        if (!wallpaperLoopIsCurrent(job)) { await wallpaperLoopRestoreWindow(job); return; }
       }
       wallpaperLoopStatus(job, '首次生成 · 正在准备原生壁纸…');
       wallpaperEngineSelection.kind = 'engine';
@@ -350,7 +359,8 @@ function startWallpaperEngineLoopBackground(item, options) {
       if (job.jobId) await wallpaperLoopRequest({ action: 'abort', jobId: job.jobId }).catch(function () {});
       if (!wallpaperLoopIsCurrent(job)) return;
       job.recording = false; flushWallpaperEngineVisualSettings();
-      wallpaperLoopRestoreWindow(job);
+      await wallpaperLoopRestoreWindow(job).catch(function () {});
+      if (!wallpaperLoopIsCurrent(job)) return;
       var unavailable = /RECORDER_UNAVAILABLE|API_UNAVAILABLE/.test(String(error.message));
       wallpaperLoopStatus(job, unavailable ? '当前环境无法录制，可使用原生模式' : '生成未完成，点击循环视频重试');
       showToast(unavailable ? '此环境暂不支持循环视频录制' : '循环视频生成未完成，原背景与项目文件保留');

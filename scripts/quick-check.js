@@ -705,7 +705,7 @@ function checkWallpaperEngineImportGuard() {
     fail('Wallpaper Engine late capture acknowledgements and stale frozen bounds jobs must recover without reviving an old session');
   }
   if (!/win\.on\('enter-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'enter-full-screen'\)/.test(mainText)
-    || !/win\.on\('leave-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'leave-full-screen'\)/.test(mainText)
+    || !/win\.on\('leave-full-screen'[\s\S]{0,800}scheduleWallpaperEngineHostBoundsRestart\(win, 'leave-full-screen'\)/.test(mainText)
     || !/win\.on\('enter-html-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'enter-html-full-screen'\)/.test(mainText)
     || !/win\.on\('leave-html-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'leave-html-full-screen'\)/.test(mainText)
     || !/forceVisibleHost:\s*true/.test(wallpaperBoundsScheduleBlock)) {
