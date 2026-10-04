@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),
   toggleFullscreen: () => ipcRenderer.invoke('desktop-window-toggle-fullscreen'),
   exitFullscreenWindowed: () => ipcRenderer.invoke('desktop-window-exit-fullscreen-windowed'),
+  wallpaperEngineLoopWindow: (payload) => ipcRenderer.invoke('mineradio-wallpaper-loop-window', payload || {}),
   getState: () => ipcRenderer.invoke('desktop-window-get-state'),
   getGpuDiagnostics: () => ipcRenderer.invoke('mineradio-get-gpu-diagnostics'),
   getMemorySnapshot: () => ipcRenderer.invoke('mineradio-memory-get-snapshot'),
