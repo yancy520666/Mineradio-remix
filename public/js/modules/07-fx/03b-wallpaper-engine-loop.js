@@ -46,11 +46,14 @@ function syncWallpaperEngineLoopModeUi() {
     button.setAttribute('aria-pressed', String(wallpaperEnginePlaybackMode === mode));
   });
   var status = document.getElementById('wallpaper-engine-mode-status');
-  if (status) { status.textContent = wallpaperLoopMessage; status.hidden = !wallpaperLoopMessage; }
+  if (status) { status.textContent = wallpaperLoopMessage || ''; status.hidden = !wallpaperLoopMessage; }
+  // 03-wallpaper-engine-library.js calls this during its own top-level
+  // initialization, before this file's vars are assigned.
+  var actionList = Array.isArray(wallpaperLoopActions) ? wallpaperLoopActions : [];
   var actions = document.getElementById('wallpaper-engine-mode-actions');
   if (actions) {
     actions.textContent = '';
-    wallpaperLoopActions.forEach(function (action) {
+    actionList.forEach(function (action) {
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'fx-mini-btn ghost';
@@ -58,7 +61,7 @@ function syncWallpaperEngineLoopModeUi() {
       button.addEventListener('click', action.run);
       actions.appendChild(button);
     });
-    actions.hidden = !wallpaperLoopActions.length;
+    actions.hidden = !actionList.length;
   }
 }
 function wallpaperLoopStatus(job, message, actions) {
