@@ -1133,6 +1133,13 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
 
   [DllImport("user32.dll", SetLastError = true)]
   static extern int SetWindowRgn(IntPtr hWnd, IntPtr region, bool redraw);
+  [DllImport("dwmapi.dll")]
+  static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
+  const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+  const int DWMWCP_DONOTROUND = 1;
+  const int DWMWCP_ROUND = 2;
+  const int DWMWA_BORDER_COLOR = 34;
+  const int DWMWA_COLOR_NONE = unchecked((int)0xFFFFFFFE);
 
   [DllImport("gdi32.dll")]
   static extern bool DeleteObject(IntPtr handle);
@@ -1184,6 +1191,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   RECT sourceFollowRect;
   int sourceFollowRadius = 0;
   int sourceFollowFailures = 0;
+  int appliedCornerPreference = 0;
 
   MineradioWeDwmSurfaceHost(IntPtr host, IntPtr source, string expectedTitle, int cornerRadius,
       bool enableDesktopIconLayering, int initialOpacity, int initialPositionX,
@@ -1555,6 +1563,18 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     }
   }
 
+  // WE renders with DirectX, which ignores the source window's region. With the
+  // surface's small system rounding, a full-size source would peek out at the
+  // corners as square wallpaper. Keep it a few pixels inside, fully hidden; the
+  // thumbnail and input mapping both scale the source client area to the surface.
+  RECT InsetBehindRoundedSurface(RECT target, int radius) {
+    if (radius <= 0 || appliedCornerPreference != DWMWCP_ROUND) return target;
+    uint dpi = GetDpiForWindow(hostWindow);
+    int inset = Math.Max(3, (int)Math.Ceiling(4 * (dpi > 0 ? dpi : 96) / 96.0));
+    if (target.Right - target.Left <= inset * 4 || target.Bottom - target.Top <= inset * 4) return target;
+    return new RECT { Left = target.Left + inset, Top = target.Top + inset, Right = target.Right - inset, Bottom = target.Bottom - inset };
+  }
+
   void RequestSourceFollow(IntPtr insertAfter, RECT target, int radius) {
     lock (sourceFollowGate) {
       sourceFollowInsertAfter = insertAfter;
@@ -1596,6 +1616,23 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     sourceFollowWake.Set();
   }
 
+  // DWM draws the thumbnail above this window's GDI content and does not clip
+  // it to SetWindowRgn, so the region alone leaves square wallpaper corners.
+  // Windows 11's own window rounding does clip the thumbnail (fixed ~8 px).
+  // Older Windows rejects the attribute and keeps the previous behaviour.
+  void ApplySystemCorners(bool rounded) {
+    int preference = rounded ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
+    if (appliedCornerPreference == preference) return;
+    try {
+      if (DwmSetWindowAttribute(Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int)) == 0) {
+        appliedCornerPreference = preference;
+        // Rounded windows also get a 1 px system outline; the player draws its own edge.
+        int border = DWMWA_COLOR_NONE;
+        DwmSetWindowAttribute(Handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+      }
+    } catch (EntryPointNotFoundException) { }
+  }
+
   void FollowHost() {
     if (!IsWindow(hostWindow) || !IsWindow(sourceWindow)) {
       Close();
@@ -1633,7 +1670,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     }
     if (thumbnail != IntPtr.Zero) {
       AlignWindow(Handle, surfaceInsertAfter, hostRect);
-      RequestSourceFollow(Handle, hostRect, radius);
+      RequestSourceFollow(Handle, InsetBehindRoundedSurface(hostRect, radius), radius);
     } else {
       // Until WGC has primed the SVG sampler, show the real source above the
       // empty DWM destination so startup never flashes a black base frame.
@@ -1642,6 +1679,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     }
 
     ApplyCornerRegion(Handle, width, height, radius);
+    ApplySystemCorners(radius > 0);
     if (thumbnail == IntPtr.Zero) ApplyCornerRegion(sourceWindow, width, height, radius);
 
     if (thumbnail != IntPtr.Zero) {

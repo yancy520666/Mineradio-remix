@@ -42,6 +42,11 @@ public static class FollowProbe {
     while (clock.ElapsedMilliseconds < milliseconds);
   }
   static void Check(bool value, string message) { if (!value) throw new System.Exception(message); }
+  static int SourceInset;
+  // The source sits a few pixels inside the rounded surface so DirectX corners stay hidden.
+  static System.Drawing.Rectangle Inner(System.Drawing.Rectangle r) {
+    return System.Drawing.Rectangle.FromLTRB(r.Left + SourceInset, r.Top + SourceInset, r.Right - SourceInset, r.Bottom - SourceInset);
+  }
   public static void Run() {
     var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
     var type = typeof(MineradioWeDwmSurfaceHost);
@@ -75,6 +80,14 @@ public static class FollowProbe {
           new object[] { host.Handle, sourceHandle, "Mineradio follow fixture", 34, false, 255, 0, 0, 1080000 }, null)) {
         type.GetMethod("FollowHost", flags).Invoke(surface, null);
         type.GetMethod("ActivateThumbnail", flags).Invoke(surface, null);
+        // SetWindowRgn does not clip the DWM thumbnail; Windows 11 rounding must be requested.
+        if (System.Environment.OSVersion.Version.Build >= 22000) {
+          Check((int)type.GetField("appliedCornerPreference", flags).GetValue(surface) == 2, "System corner rounding not applied to the DWM surface");
+        }
+        Pump(60);
+        SourceInset = Bounds(sourceHandle).Left - surface.Bounds.Left;
+        if (System.Environment.OSVersion.Version.Build >= 22000) Check(SourceInset >= 3 && SourceInset <= 12, "Source not hidden inside rounded surface: " + SourceInset);
+        Check(Bounds(sourceHandle) == Inner(surface.Bounds), "Source inset is not symmetric");
         var timer = (System.Windows.Forms.Timer)type.GetField("followTimer", flags).GetValue(surface);
         var start = type.GetMethod("StartHostFollow", flags);
         Check(start != null, "Event-driven following missing");
@@ -94,7 +107,7 @@ public static class FollowProbe {
           SetWindowPos(host.Handle, System.IntPtr.Zero, target.Left, target.Top, target.Width, target.Height, 0x0014);
           do {
             Pump(1);
-            if (surface.Bounds == target && Bounds(sourceHandle) == target) { matched++; break; }
+            if (surface.Bounds == target && Bounds(sourceHandle) == Inner(target)) { matched++; break; }
           } while (clock.ElapsedMilliseconds - began < 20);
           totalLatency += clock.ElapsedMilliseconds - began;
         }
@@ -103,7 +116,7 @@ public static class FollowProbe {
         Check(source.ResizeMessages == sourceResizeMessages, "Dragging unnecessarily resized the source renderer");
         SetWindowPos(host.Handle, System.IntPtr.Zero, -13500, -13600, 800, 450, 0x0014);
         Pump(40);
-        Check(surface.Bounds == host.Bounds && Bounds(sourceHandle) == host.Bounds, "Resize not followed");
+        Check(surface.Bounds == host.Bounds && Bounds(sourceHandle) == Inner(host.Bounds), "Resize not followed");
         var propertiesField = type.GetField("lastThumbnailProperties", flags);
         object resizedProperties = propertiesField.GetValue(surface);
         type.GetField("visualScale", flags).SetValue(surface, 1500000);
@@ -118,7 +131,7 @@ public static class FollowProbe {
         timer.Start();
         SetWindowPos(sourceHandle, System.IntPtr.Zero, -14500, -14500, 200, 100, 0x0014);
         Pump(180);
-        Check(Bounds(sourceHandle) == host.Bounds, "Source reset not recovered");
+        Check(Bounds(sourceHandle) == Inner(host.Bounds), "Source reset not recovered");
         source.Invoke(new System.Action(delegate() { source.Hide(); })); Pump(180);
         Check(IsWindowVisible(sourceHandle), "Source visibility not recovered");
         surface.Close();

@@ -1006,9 +1006,9 @@
           <div id="sonic-performance-controls">
             <button type="button" class="fx-toggle" id="sonic-performance-toggle" aria-pressed="false"
               aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
-              <span>音域回响性能优先</span><span class="dot" aria-hidden="true"></span>
+              <span>音域回响流畅优先</span><span class="dot" aria-hidden="true"></span>
             </button>
-            <p class="fx-sub" id="sonic-performance-help">允许降低壁纸细节，优先保持流畅；WE 版同时降低背景分辨率。关闭后恢复原设置。</p>
+            <p class="fx-sub" id="sonic-performance-help">只影响音域回响背景：开启后按画质档位降低网格和分辨率，持续掉帧时再临时降低；关闭后恢复原画质。全局画质请用下方的画质档位。</p>
             <p class="fx-sub" id="sonic-performance-status" role="status"></p>
           </div>
           <div class="fx-section-label">前台帧率上限</div>
@@ -1946,7 +1946,7 @@
   <aside id="sonic-performance-notice" hidden aria-label="壁纸性能提示">
     <p id="sonic-performance-message" role="status"></p>
     <div class="sonic-performance-actions">
-      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.setEnabled(true)">开启性能优先</button>
+      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.setEnabled(true)">开启流畅优先</button>
       <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.dismiss()">保持当前</button>
       <button type="button" id="sonic-performance-retry" onclick="MineradioSonicPerformance.retry()">重试壁纸</button>
       <button type="button" id="sonic-performance-diagnostics-button" onclick="MineradioSonicPerformance.diagnostics()">查看诊断</button>
