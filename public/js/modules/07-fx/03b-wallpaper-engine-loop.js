@@ -106,6 +106,18 @@ async function recordWallpaperLoop(job, source, settings) {
   var stream = canvas.captureStream(settings.fps);
   var recorder = job.recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 });
   var pending = Promise.resolve(), uploadError = null, timer, began = Date.now(), frames = 0;
+  // A resize/maximize restarts the native session and drops the sampler
+  // stream; drawing would then repeat the last frame into a "valid" cache.
+  var sourceSession = String(source.dataset.wallpaperEngineSession || '');
+  var sourceStream = source.srcObject;
+  function sourceIsLive() {
+    if (!sourceSession || source.srcObject !== sourceStream || !sourceStream
+      || String(wallpaperEngineNativeSessionId || '') !== sourceSession
+      || String(source.dataset.wallpaperEngineSession || '') !== sourceSession
+      || !document.body.classList.contains('wallpaper-engine-glass-sampler-ready')) return false;
+    var tracks = typeof sourceStream.getVideoTracks === 'function' ? sourceStream.getVideoTracks() : [];
+    return tracks.some(function (track) { return track && track.readyState === 'live'; });
+  }
   try {
     await new Promise(function (resolve, reject) {
       job.cancelRecording = function () { reject(new Error('LOOP_CANCELLED')); };
@@ -124,7 +136,7 @@ async function recordWallpaperLoop(job, source, settings) {
       recorder.onerror = function () { reject(new Error('LOOP_RECORD_FAILED')); };
       recorder.onstop = function () { resolve(); };
       function draw() {
-        if (!wallpaperLoopIsCurrent(job) || !wallpaperEngineDesktopHostIsVisible()) {
+        if (!wallpaperLoopIsCurrent(job) || !wallpaperEngineDesktopHostIsVisible() || !sourceIsLive()) {
           reject(new Error('LOOP_RECORD_INTERRUPTED')); return;
         }
         try { context.drawImage(source, 0, 0, canvas.width, canvas.height); frames++; }

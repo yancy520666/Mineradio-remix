@@ -75,3 +75,27 @@ test('failed native recording source falls back without routing into a second lo
   s.c.wallpaperEngineLayerFailed({ ...s.item, hasPreview: true }, 'engine', 0);
   assert.equal(fallback, true); assert.equal(s.c.wallpaperEngineSelection.kind, 'preview');
 });
+
+test('native session restart during recording aborts instead of caching a frozen frame', async () => {
+  const s = setup(); let draws = 0;
+  const track = { readyState: 'live', stop() {} };
+  const stream = { getVideoTracks: () => [track] };
+  const source = { videoWidth: 1280, videoHeight: 720, srcObject: stream, dataset: { wallpaperEngineSession: 'c'.repeat(24) } };
+  const recorder = { state: 'inactive', start() { this.state = 'recording'; },
+    stop() { this.state = 'inactive'; if (this.onstop) this.onstop(); } };
+  s.c.MediaRecorder = Object.assign(function () { return recorder; }, { isTypeSupported: () => true });
+  s.c.document.createElement = () => ({ getContext: () => ({ drawImage() { draws++; } }),
+    captureStream: () => ({ getTracks: () => [] }) });
+  s.c.document.body = { classList: { contains: () => true } };
+  s.c.wallpaperEngineNativeSessionId = 'c'.repeat(24);
+  s.c.wallpaperEngineDesktopHostIsVisible = () => true;
+  s.c.wallpaperLoopStatus = () => {};
+  const job = s.c.wallpaperLoopJob = { item: s.item, cancelled: false, jobId: 'j', recording: true };
+  s.c.wallpaperEngineSelection.kind = 'engine';
+  const recording = s.c.recordWallpaperLoop(job, source, { width: 1920, height: 1080, fps: 30, duration: 20 });
+  assert.equal(draws, 1);
+  // A resize restarts the native session and the sampler drops its stream.
+  s.c.wallpaperEngineNativeSessionId = 'd'.repeat(24); source.srcObject = null;
+  await assert.rejects(recording, /LOOP_RECORD_INTERRUPTED/);
+  assert.equal(draws, 1);
+});
