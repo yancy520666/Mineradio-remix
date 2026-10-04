@@ -143,3 +143,14 @@ test('a cached low-resolution loop plays and offers a full-screen regeneration',
   assert.match(s.c.wallpaperLoopMessage, /1100×700/);
   assert.equal(s.actions.children.length, 1);
 });
+
+test('the library can sync the mode UI before this module has run (bundle load order)', () => {
+  // 03-wallpaper-engine-library.js runs first in the same bundle and calls
+  // this hoisted function while the module's vars are still undefined.
+  const actions = { hidden: false, textContent: 'x', appendChild() {} };
+  const c = vm.createContext({ console, setTimeout, clearTimeout, Date,
+    window: { addEventListener() {} }, localStorage: { getItem() {}, setItem() {} },
+    document: { getElementById: id => id === 'wallpaper-engine-mode-actions' ? actions : null } });
+  assert.doesNotThrow(() => vm.runInContext('syncWallpaperEngineLoopModeUi();\n' + source, c));
+  assert.equal(actions.hidden, true);
+});
