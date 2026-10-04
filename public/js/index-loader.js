@@ -114,6 +114,7 @@
     'js/modules/08-account/05-startup-login-guide.js',
     'js/modules/08-account/06-original-profile-import.js',
     'js/modules/09-idle-toast-libraries.js',
+    'js/modules/09a-onboarding-guide.js',
     'js/modules/10-shell/00-gesture-control.js',
     'js/modules/10-shell/01-viewport-resize-shortcuts.js',
     'js/modules/10-shell/02-peek-panels-upload.js',

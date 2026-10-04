@@ -39,7 +39,7 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'public/js/modules/00-state/02a-onboarding-state.js'), 'utf8'), context);
-  const file = 'public/js/modules/09-idle-toast-libraries.js';
+  const file = 'public/js/modules/09a-onboarding-guide.js';
   vm.runInContext(source(file, 'function visualGuideWasSeen()', 'function startVisualGuide(opts)'), context);
   vm.runInContext(source(file, 'function closeVisualGuide(markSeen)', 'function handleVisualGuideSurfaceClick(e)'), context);
 

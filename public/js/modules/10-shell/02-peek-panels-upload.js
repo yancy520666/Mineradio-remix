@@ -70,6 +70,7 @@ function shouldAnimatePlaylistPanelOpen(panel) {
 }
 function setPeek(el, on, key) {
   if (!el) return;
+  if (!on && typeof visualGuideKeepsPeekOpen === 'function' && visualGuideKeepsPeekOpen(key)) return;
   if (immersiveMode && on && (key === 'search' || key === 'fx')) return;
   if (on && !diyPlayerMode && key === 'fx') return;
   if (!on && key === 'search' && emptyHomeActive && !immersiveMode) return;
@@ -376,6 +377,8 @@ window.addEventListener('mousemove', function (e) {
   var fp = document.getElementById('fx-panel');
   var pp = document.getElementById('playlist-panel');
   var ex = e.clientX, ey = e.clientY, W = innerWidth, H = innerHeight;
+  // The guide covers the player; reading its card must not trigger panels or camera focus underneath.
+  if (visualGuideActive) return;
   updateUserCapsuleAutoHideFromPointer(ex, ey);
   updateFxFabAutoHideFromPointer(ex, ey);
   updateFullscreenDiyPeekFromPointer(ex, ey);

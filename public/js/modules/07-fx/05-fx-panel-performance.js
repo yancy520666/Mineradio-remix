@@ -532,7 +532,8 @@ function ensureFxSliderResetButton(id, key) {
 }
 var fxPanelTab = 'home';
 var fxPanelTabScroll = {};
-function setFxPanelTab(tab) {
+function setFxPanelTab(tab, opts) {
+  opts = opts || {};
   var allowed = { home: 1, interface: 1, lyrics: 1, motion: 1, shelf: 1, system: 1 };
   var panel = document.getElementById('fx-panel');
   var nextTab = allowed[tab] ? tab : 'home';
@@ -547,7 +548,7 @@ function setFxPanelTab(tab) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
     btn.setAttribute('tabindex', active ? '0' : '-1');
-    if (active && previousTab !== fxPanelTab) btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (active && previousTab !== fxPanelTab && opts.scroll !== false) btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
   document.querySelectorAll('#fx-panel .fx-tab-page').forEach(function (page) {
     var active = page.getAttribute('data-fx-page') === fxPanelTab;

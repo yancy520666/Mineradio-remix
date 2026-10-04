@@ -18955,3 +18955,35 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #sonic-performance-notice p, #sonic-performance-status {
   -webkit-user-select: text; user-select: text; cursor: text;
 }
+
+/* A guide step owns visibility until the reader leaves it, including Home. */
+body.visual-guide-active.visual-guide-bottom #bottom-bar.visible {
+  opacity: .91 !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+  filter: none !important;
+  background: rgba(0, 0, 0, .10) !important;
+}
+
+/* Reveal the existing titlebar entrances in fullscreen without resizing or exiting it. */
+body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
+  display: flex !important;
+  -webkit-app-region: no-drag;
+}
+
+#visual-guide .visual-guide-card {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 620px) {
+  #visual-guide .visual-guide-card {
+    padding: 12px 16px;
+  }
+  #visual-guide .visual-guide-head {
+    margin-top: 12px;
+  }
+  #visual-guide .visual-guide-actions {
+    margin-top: 12px;
+  }
+}

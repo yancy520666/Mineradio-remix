@@ -44,6 +44,7 @@ function shouldShowHomeForPausedStartupRestore() {
 function setControlsHidden(hidden) {
   var bar = document.getElementById('bottom-bar');
   if (!bar) return;
+  if (hidden && typeof visualGuideKeepsBottomControlsVisible === 'function' && visualGuideKeepsBottomControlsVisible()) hidden = false;
   if (hidden && desktopWallpaperKeepsPlayerConsoleVisible()) hidden = false;
   if (hidden && controlsRevealHoldUntil > performance.now()) hidden = false;
   if (hidden && (controlsHovering || miniQueueOpen)) hidden = false;
@@ -105,7 +106,12 @@ function restoreBottomControlsAfterShelfExit(reason) {
 
 function scheduleControlsHide(delay) {
   if (controlsHideTimer) clearTimeout(controlsHideTimer);
+  controlsHideTimer = null;
   if (!controlsAutoHide) return;
+  if (typeof visualGuideKeepsBottomControlsVisible === 'function' && visualGuideKeepsBottomControlsVisible()) {
+    setControlsHidden(false);
+    return;
+  }
   if (desktopWallpaperKeepsPlayerConsoleVisible()) {
     controlsHideTimer = null;
     setControlsHidden(false);
