@@ -29,6 +29,7 @@ var homePlatformRecommendationState = {
   feeds: {
     qishui: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
     kugou: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
+    qq: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
   },
 };
 
@@ -566,7 +567,7 @@ function renderHomeDashboardQuickCards() {
       label: 'DAILY MIX',
       title: '每日推荐',
       sub: daily ? ((daily.name || daily.title || '今日歌曲') + (homeDashboardSubtitle(daily) ? ' · ' + homeDashboardSubtitle(daily) : '')) :
-        (dailySource === 'qq' ? 'QQ 音乐暂未支持每日推荐' : '优先来自' + homePlatformRecommendationSourceLabel(dailySource) + ' · 点击查看推荐'),
+        '优先来自' + homePlatformRecommendationSourceLabel(dailySource) + ' · 点击查看推荐',
       cover: homeDashboardSongCover(daily, 260),
       action: 'playHomeDaily()',
       tone: 'mix',
@@ -875,6 +876,13 @@ function homePlatformRecommendationFeedConfig(source) {
       readyText: '来自汽水推荐 Feed',
       playlistName: '汽水推荐 Feed',
     },
+    qq: {
+      endpoint: '/api/qq/recommendations',
+      sectionTitle: '每日30首',
+      cardLabel: 'QQ 音乐每日30首',
+      readyText: '来自 QQ 音乐每日30首',
+      playlistName: 'QQ 音乐每日30首',
+    },
     kugou: {
       endpoint: '/api/kugou/recommendations',
       sectionTitle: '每日推荐',
@@ -1112,7 +1120,7 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   var feedState = homePlatformRecommendationState.feeds[source];
   if (!config || !feedState || feedState.loading) return;
   // Daily content and the connected account can change between openings.
-  if (feedState.loaded && !force && source !== 'kugou') return;
+  if (feedState.loaded && !force && source !== 'kugou' && source !== 'qq') return;
   feedState.loading = true;
   feedState.error = '';
   feedState.message = '';

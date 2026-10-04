@@ -25,7 +25,8 @@ async function probe() {
   await until(() => snapshot()?.state === 'ready', 'bundled workshop renderer did not initialize');
   await wait(500);
   const legacy = snapshot();
-  check(fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync' &&
+  // First launch picks ultra on capable GPUs and steps down on integrated/software ones.
+  check(firstRunQualityDecision && fx.performanceQuality === firstRunQualityDecision.quality && fx.foregroundFpsMode === 'vsync' &&
     !MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
     'first-run quality, frame cadence or opt-in defaults changed');
   check(legacy.config.profile === null && legacy.triangles > 1000000, 'legacy geometry changed');

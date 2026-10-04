@@ -14,6 +14,7 @@
     'js/modules/00-state/06-fx-runtime-layout.js',
     'js/modules/00-state/07-ui-playback-runtime.js',
     'js/modules/00-state/08-desktop-render-power.js',
+    'js/modules/00-state/08a-first-run-quality.js',
     'js/modules/00-state/09-performance-probe.js',
     'js/modules/00-state/10-frame-scheduler.js',
     'js/modules/00-state/11-system-memory-controls.js',

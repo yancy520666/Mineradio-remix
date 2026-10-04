@@ -18987,3 +18987,11 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
     margin-top: 12px;
   }
 }
+
+/* Home daily recommendation: offer another connected platform when the preferred one is empty. */
+#home-daily-fallback-modal .home-daily-fallback-modal { max-width: 420px; padding: 26px; text-align: center; }
+#home-daily-fallback-modal .home-daily-fallback-modal h2 { margin: 0 0 12px; }
+#home-daily-fallback-modal .home-daily-fallback-modal p { margin: 0 0 18px; color: #b8c2d0; line-height: 1.7; }
+#home-daily-fallback-modal .home-daily-fallback-options { flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+#home-daily-fallback-modal .home-daily-fallback-remember { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 16px; font-size: 12px; color: #9aa6b6; cursor: pointer; }
+#home-daily-fallback-modal .home-daily-fallback-remember input { margin: 0; accent-color: #fac900; }

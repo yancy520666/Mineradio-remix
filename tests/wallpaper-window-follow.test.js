@@ -28,6 +28,14 @@ public static class FollowProbe {
   static extern bool SetWindowPos(System.IntPtr hwnd, System.IntPtr after, int x, int y, int w, int h, uint flags);
   [System.Runtime.InteropServices.DllImport("user32.dll")]
   static extern bool IsWindowVisible(System.IntPtr hwnd);
+  [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+  struct NativeRect { public int Left, Top, Right, Bottom; }
+  [System.Runtime.InteropServices.DllImport("user32.dll")]
+  static extern bool GetWindowRect(System.IntPtr hwnd, out NativeRect rect);
+  static System.Drawing.Rectangle Bounds(System.IntPtr hwnd) {
+    NativeRect r; GetWindowRect(hwnd, out r);
+    return System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+  }
   static void Pump(int milliseconds) {
     var clock = System.Diagnostics.Stopwatch.StartNew();
     do { System.Windows.Forms.Application.DoEvents(); System.Threading.Thread.Sleep(1); }
@@ -37,16 +45,34 @@ public static class FollowProbe {
   public static void Run() {
     var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
     var type = typeof(MineradioWeDwmSurfaceHost);
-    using (var host = new FollowProbeWindow())
-    using (var source = new FollowProbeWindow()) {
-      host.FormBorderStyle = source.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-      host.ShowInTaskbar = source.ShowInTaskbar = false;
-      host.StartPosition = source.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
-      host.Bounds = source.Bounds = new System.Drawing.Rectangle(-14000, -14000, 640, 360);
+    // Like the real Wallpaper Engine window, the source renders on its own
+    // message thread, so positioning it is always a cross-thread call.
+    FollowProbeWindow source = null;
+    var sourceReady = new System.Threading.ManualResetEvent(false);
+    var sourceThread = new System.Threading.Thread(delegate() {
+      source = new FollowProbeWindow();
+      source.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+      source.ShowInTaskbar = false;
+      source.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
+      source.Bounds = new System.Drawing.Rectangle(-14000, -14000, 640, 360);
       source.Text = "Mineradio follow fixture";
-      host.Show(); source.Show();
+      source.Show();
+      sourceReady.Set();
+      System.Windows.Forms.Application.Run();
+    });
+    sourceThread.SetApartmentState(System.Threading.ApartmentState.STA);
+    sourceThread.IsBackground = true;
+    sourceThread.Start();
+    sourceReady.WaitOne();
+    var sourceHandle = (System.IntPtr)source.Invoke(new System.Func<System.IntPtr>(delegate() { return source.Handle; }));
+    using (var host = new FollowProbeWindow()) {
+      host.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+      host.ShowInTaskbar = false;
+      host.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
+      host.Bounds = new System.Drawing.Rectangle(-14000, -14000, 640, 360);
+      host.Show();
       using (var surface = (System.Windows.Forms.Form)System.Activator.CreateInstance(type, flags, null,
-          new object[] { host.Handle, source.Handle, source.Text, 34, false, 255, 0, 0, 1080000 }, null)) {
+          new object[] { host.Handle, sourceHandle, "Mineradio follow fixture", 34, false, 255, 0, 0, 1080000 }, null)) {
         type.GetMethod("FollowHost", flags).Invoke(surface, null);
         type.GetMethod("ActivateThumbnail", flags).Invoke(surface, null);
         var timer = (System.Windows.Forms.Timer)type.GetField("followTimer", flags).GetValue(surface);
@@ -68,7 +94,7 @@ public static class FollowProbe {
           SetWindowPos(host.Handle, System.IntPtr.Zero, target.Left, target.Top, target.Width, target.Height, 0x0014);
           do {
             Pump(1);
-            if (surface.Bounds == target && source.Bounds == target) { matched++; break; }
+            if (surface.Bounds == target && Bounds(sourceHandle) == target) { matched++; break; }
           } while (clock.ElapsedMilliseconds - began < 20);
           totalLatency += clock.ElapsedMilliseconds - began;
         }
@@ -77,7 +103,7 @@ public static class FollowProbe {
         Check(source.ResizeMessages == sourceResizeMessages, "Dragging unnecessarily resized the source renderer");
         SetWindowPos(host.Handle, System.IntPtr.Zero, -13500, -13600, 800, 450, 0x0014);
         Pump(40);
-        Check(surface.Bounds == host.Bounds && source.Bounds == host.Bounds, "Resize not followed");
+        Check(surface.Bounds == host.Bounds && Bounds(sourceHandle) == host.Bounds, "Resize not followed");
         var propertiesField = type.GetField("lastThumbnailProperties", flags);
         object resizedProperties = propertiesField.GetValue(surface);
         type.GetField("visualScale", flags).SetValue(surface, 1500000);
@@ -90,16 +116,17 @@ public static class FollowProbe {
         Check(source.PositionMessages == idlePositionMessages, "Stationary source received redundant positioning writes");
         // Recovery must still correct an external source move when no host event occurs.
         timer.Start();
-        SetWindowPos(source.Handle, System.IntPtr.Zero, -14500, -14500, 200, 100, 0x0014);
+        SetWindowPos(sourceHandle, System.IntPtr.Zero, -14500, -14500, 200, 100, 0x0014);
         Pump(180);
-        Check(source.Bounds == host.Bounds, "Source reset not recovered");
-        source.Hide(); Pump(180);
-        Check(IsWindowVisible(source.Handle), "Source visibility not recovered");
+        Check(Bounds(sourceHandle) == host.Bounds, "Source reset not recovered");
+        source.Invoke(new System.Action(delegate() { source.Hide(); })); Pump(180);
+        Check(IsWindowVisible(sourceHandle), "Source visibility not recovered");
         surface.Close();
         Check((System.IntPtr)type.GetField("hostLocationHook", flags).GetValue(surface) == System.IntPtr.Zero, "Location hook leaked after close");
         timer.Stop();
       }
     }
+    source.Invoke(new System.Action(delegate() { source.Close(); System.Windows.Forms.Application.ExitThread(); }));
   }
 }`;
     const script = path.join(root, 'follow.ps1');

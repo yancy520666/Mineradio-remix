@@ -1712,7 +1712,8 @@ async function main() {
       && runtimeSourceText.includes('session.dwmSurfaceDesktopIconLayering = enabled;'),
     'a late helper ACK must also repair the desired desktop-icon state used by a later DWM helper restart');
     assert(runtimeSourceText.includes('AlignWindow(Handle, surfaceInsertAfter, hostRect)')
-      && runtimeSourceText.includes('AlignWindow(sourceWindow, Handle, hostRect)'),
+      && runtimeSourceText.includes('RequestSourceFollow(Handle, hostRect, radius)')
+      && runtimeSourceText.includes('AlignWindow(sourceWindow, insertAfter, target)'),
       'the unique DWM surface must remain above its exact Wallpaper Engine source');
     assert(runtimeSourceText.includes('AlignWindow(sourceWindow, surfaceInsertAfter, hostRect)')
       && runtimeSourceText.includes('AlignWindow(Handle, sourceWindow, hostRect)'),

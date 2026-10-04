@@ -185,6 +185,31 @@ async function waitForHomeDiscoverIdle(timeout) {
     await new Promise(function (resolve) { setTimeout(resolve, 80); });
   }
 }
+// Plays one platform's real daily list: 'played', 'empty', or 'stale' when the
+// login or platform priority changed while it was loading.
+async function playHomeDailyFromSource(source, isCurrent) {
+  if (source !== 'netease') {
+    if (homePlatformRecommendationFeedConfig(source)) await loadHomePlatformFeedRecommendations(source, false);
+    if (!isCurrent()) return 'stale';
+    var feed = homePlatformRecommendationState.feeds[source];
+    if (!feed || !feed.songs.length) return 'empty';
+    playHomePlatformFeedSong(source, 0);
+    return 'played';
+  }
+  await waitForHomeDiscoverIdle();
+  if (!homeDiscoverState.loaded || (!homeDiscoverState.songs.length && !homeDiscoverState.loading)) {
+    await loadHomeDiscover(true);
+  }
+  if (!isCurrent()) return 'stale';
+  if (!homeDiscoverState.songs.length) return 'empty';
+  playQueue = homeDiscoverState.songs.map(cloneSong);
+  currentIdx = 0;
+  safeRenderQueuePanel('home-daily');
+  safeShelfRebuild('home-daily', true);
+  forcePlaybackControlsInteractive();
+  playQueueAt(0).catch(function (e) { console.warn('[HomeDailyPlay]', e); });
+  return 'played';
+}
 async function playHomeDaily() {
   homeForcedOpen = false;
   homeSuppressed = false;
@@ -193,30 +218,23 @@ async function playHomeDaily() {
     showLoginModal({ source: 'home-daily' });
     return;
   }
-  var preferredSource = typeof preferredHomeRecommendationSource === 'function' ? preferredHomeRecommendationSource() : 'netease';
-  if (preferredSource !== 'netease') {
-    if (homePlatformRecommendationFeedConfig(preferredSource)) await loadHomePlatformFeedRecommendations(preferredSource, false);
-    if (!hasAnyPlatformLogin() || preferredHomeRecommendationSource() !== preferredSource) return;
-    var feed = homePlatformRecommendationState.feeds[preferredSource];
-    if (feed && feed.songs.length) playHomePlatformFeedSong(preferredSource, 0);
-    else openHomePlatformRecommendations(preferredSource);
-    return;
-  }
-  await waitForHomeDiscoverIdle();
-  if (!homeDiscoverState.loaded || (!homeDiscoverState.songs.length && !homeDiscoverState.loading)) {
-    await loadHomeDiscover(true);
-  }
-  if (!hasAnyPlatformLogin() || (typeof preferredHomeRecommendationSource === 'function' && preferredHomeRecommendationSource() !== preferredSource)) return;
-  if (!homeDiscoverState.songs.length) {
+  var preferred = function () {
+    return typeof preferredHomeRecommendationSource === 'function' ? preferredHomeRecommendationSource() : 'netease';
+  };
+  var preferredSource = preferred();
+  var isCurrent = function () { return hasAnyPlatformLogin() && preferred() === preferredSource; };
+  if (await playHomeDailyFromSource(preferredSource, isCurrent) !== 'empty') return;
+  // The preferred platform has nothing playable today. Never substitute a
+  // search; offer the user's other connected platforms instead.
+  var alternatives = typeof homeDailyFallbackSources === 'function' ? homeDailyFallbackSources(preferredSource) : [];
+  var choice = !alternatives.length ? 'view'
+    : (homeDailyAutoFallbackEnabled() ? alternatives[0] : await askHomeDailyFallback(preferredSource, alternatives));
+  if (!choice || !isCurrent()) return;
+  if (choice === 'view') {
     openHomePlatformRecommendations(preferredSource);
     return;
   }
-  playQueue = homeDiscoverState.songs.map(cloneSong);
-  currentIdx = 0;
-  safeRenderQueuePanel('home-daily');
-  safeShelfRebuild('home-daily', true);
-  forcePlaybackControlsInteractive();
-  playQueueAt(0).catch(function (e) { console.warn('[HomeDailyPlay]', e); });
+  if (await playHomeDailyFromSource(choice, isCurrent) === 'empty') openHomePlatformRecommendations(choice);
 }
 async function playHomePrivateRadio() {
   homeForcedOpen = false;
