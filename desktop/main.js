@@ -4637,7 +4637,7 @@ ipcMain.handle('mineradio-wallpaper-engine-loop-cache', async (event, payload = 
     if (!active.active || active.id !== id) throw new Error('LOOP_NATIVE_SESSION_CHANGED');
     if (payload.action === 'begin') return await wallpaperLoopCache.begin(id);
     if (payload.action === 'append') return await wallpaperLoopCache.append(String(payload.jobId), payload.chunk);
-    if (payload.action === 'finish') return await wallpaperLoopCache.finish(String(payload.jobId));
+    if (payload.action === 'finish') return await wallpaperLoopCache.finish(String(payload.jobId), payload.size || {});
     throw new Error('LOOP_ACTION_INVALID');
   } catch (error) { return { ok: false, error: error.message || 'LOOP_CACHE_FAILED' }; }
 });

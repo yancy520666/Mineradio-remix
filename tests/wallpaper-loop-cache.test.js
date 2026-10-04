@@ -59,3 +59,13 @@ test('switching during upload cancels its partial file and rejects late chunks',
   await assert.rejects(s.cache.finish(next.jobId), /PROJECT_CHANGED/);
   await s.cache.abortAll(); assert.deepEqual(await fs.readdir(s.options.root), []);
 });
+test('the recorded capture size is stored and reported for regeneration hints', async t => {
+  const s = await setup(t), job = await s.cache.begin(s.id);
+  await s.cache.append(job.jobId, s.bytes);
+  const saved = await s.cache.finish(job.jobId, { width: 1280, height: 720 });
+  assert.equal(saved.recordedWidth, 1280); assert.equal(saved.recordedHeight, 720);
+  const read = await new WallpaperLoopCache(s.options).lookup(s.id);
+  assert.equal(read.recordedWidth, 1280); assert.equal(read.recordedHeight, 720);
+  await s.save();
+  assert.equal((await s.cache.lookup(s.id)).recordedWidth, 0, 'unknown size is not reported as low');
+});

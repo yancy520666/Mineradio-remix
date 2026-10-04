@@ -19049,3 +19049,19 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
   line-height: 1.6;
   pointer-events: none;
 }
+
+/* Loop recording choices (full-screen vs current window, regenerate). */
+#wallpaper-engine-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 10px 76px;
+}
+#wallpaper-engine-mode-actions[hidden] { display: none !important; }
+#wallpaper-engine-mode-actions .fx-mini-btn {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
