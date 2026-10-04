@@ -30,6 +30,9 @@ if (!process.argv.includes('--child')) {
   process.env.MINERADIO_RUNTIME_NAME = 'Mineradio Guide QA ' + process.pid;
   process.env.MINERADIO_STARTUP_QA_USER_DATA = user;
   process.env.MINERADIO_STARTUP_QA_HIDDEN = '1';
+  // Hidden QA windows must render the guide transitions; production still
+  // throttles hidden/minimized windows. Set before desktop/main reads it.
+  process.env.MINERADIO_KEEP_BACKGROUND_RENDERING = '1';
   app.commandLine.appendSwitch('mute-audio');
   fs.writeFileSync(path.join(user, 'cache-settings.json'), JSON.stringify({ rootPath: path.join(temp, 'cache') }));
   fs.writeFileSync(path.join(user, 'onboarding-state.json'), JSON.stringify({ visual: true, login: true }));
