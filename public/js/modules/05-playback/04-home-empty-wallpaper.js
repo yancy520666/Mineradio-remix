@@ -193,12 +193,22 @@ async function playHomeDaily() {
     showLoginModal({ source: 'home-daily' });
     return;
   }
+  var preferredSource = typeof preferredHomeRecommendationSource === 'function' ? preferredHomeRecommendationSource() : 'netease';
+  if (preferredSource !== 'netease') {
+    if (homePlatformRecommendationFeedConfig(preferredSource)) await loadHomePlatformFeedRecommendations(preferredSource, false);
+    if (!hasAnyPlatformLogin() || preferredHomeRecommendationSource() !== preferredSource) return;
+    var feed = homePlatformRecommendationState.feeds[preferredSource];
+    if (feed && feed.songs.length) playHomePlatformFeedSong(preferredSource, 0);
+    else openHomePlatformRecommendations(preferredSource);
+    return;
+  }
   await waitForHomeDiscoverIdle();
   if (!homeDiscoverState.loaded || (!homeDiscoverState.songs.length && !homeDiscoverState.loading)) {
     await loadHomeDiscover(true);
   }
+  if (!hasAnyPlatformLogin() || (typeof preferredHomeRecommendationSource === 'function' && preferredHomeRecommendationSource() !== preferredSource)) return;
   if (!homeDiscoverState.songs.length) {
-    runHomeSearch('每日推荐');
+    openHomePlatformRecommendations(preferredSource);
     return;
   }
   playQueue = homeDiscoverState.songs.map(cloneSong);
