@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { loadFunctions } = require('./helpers/classic-functions');
 
 const root = path.resolve(__dirname, '..');
-const guideFile = 'public/js/modules/09-idle-toast-libraries.js';
+const guideFile = 'public/js/modules/09a-onboarding-guide.js';
 
 function guideSteps() {
   const source = fs.readFileSync(path.join(root, guideFile), 'utf8');
@@ -35,17 +35,23 @@ test('the guide tours quality, comments, DIY background and Wallpaper Engine on 
 
 function consoleHarness(mode) {
   const calls = [];
-  const fx = { classList: { open: false, contains(name) { return name === 'show' && this.open; } } };
+  const classes = new Set();
+  const fx = { scrollTop: 0, classList: {
+    contains: name => classes.has(name),
+    toggle(name, on) { if (on) classes.add(name); else classes.delete(name); }
+  } };
   const ctx = vm.createContext({
     diyPlayerMode: mode === 'diy', fxPanelTab: 'lyrics',
-    visualGuideState: { mode, fxTab: 'lyrics', diyPreview: false, consoleOpened: false },
-    document: { getElementById: () => fx },
+    visualGuideState: { mode, fxTab: 'lyrics', diyPreview: false, consoleOpened: false, fxScrollTop: 71 },
+    document: { getElementById: id => id === 'fx-panel' ? fx : null },
+    peekTimers: { fx: null },
+    requestAnimationFrame: fn => fn(),
     applyDiyMode(on, opts) { calls.push(['diy', on, opts && opts.save]); ctx.diyPlayerMode = on; },
-    toggleFxPanel(on) { calls.push(['panel', on]); fx.classList.open = on; },
+    setPeek(el, on) { calls.push(['panel', on]); el.classList.toggle('peek', on); },
     setFxPanelTab(tab) { calls.push(['tab', tab]); ctx.fxPanelTab = tab; },
   });
   loadFunctions(ctx, guideFile, ['setVisualGuideConsole']);
-  return { ctx, calls };
+  return { ctx, calls, fx };
 }
 
 test('console steps preview DIY without saving it and put mode, panel and tab back afterwards', () => {
@@ -57,7 +63,36 @@ test('console steps preview DIY without saving it and put mode, panel and tab ba
   assert.equal(ctx.diyPlayerMode, false);
   assert.equal(ctx.fxPanelTab, 'lyrics');
   assert(calls.filter(c => c[0] === 'diy').every(c => c[2] === false), 'the preview never saves the DIY preference');
-  assert.deepEqual(calls.filter(c => c[0] === 'panel'), [['panel', true], ['panel', false]]);
+  assert.deepEqual(calls.filter(c => c[0] === 'panel'), [['panel', true]]);
+  assert.equal(ctx.document.getElementById('fx-panel').classList.contains('peek'), false);
+  assert.equal(ctx.document.getElementById('fx-panel').scrollTop, 71);
+});
+
+test('an already open console is restored with its tab and scroll, rather than closed', () => {
+  const { ctx, fx } = consoleHarness('diy');
+  ctx.visualGuideState.fxWasPeek = true;
+  ctx.visualGuideState.fxWasOpen = true;
+  fx.classList.toggle('peek', true);
+  ctx.setVisualGuideConsole('interface');
+  fx.scrollTop = 250;
+  ctx.setVisualGuideConsole('');
+  assert.equal(fx.classList.contains('peek'), true);
+  assert.equal(ctx.fxPanelTab, 'lyrics');
+  assert.equal(fx.scrollTop, 71);
+});
+
+test('guide visibility holds are limited to the current step and end on close', () => {
+  const ctx = vm.createContext({ visualGuideActive: true, visualGuideStep: 2, visualGuideSteps: guideSteps() });
+  loadFunctions(ctx, guideFile, ['activeVisualGuideSteps', 'visualGuideKeepsBottomControlsVisible', 'visualGuideKeepsPeekOpen']);
+  assert.equal(ctx.visualGuideKeepsBottomControlsVisible(), true);
+  ctx.visualGuideStep = 3;
+  assert.equal(ctx.visualGuideKeepsBottomControlsVisible(), true);
+  ctx.visualGuideStep = 5;
+  assert.equal(ctx.visualGuideKeepsBottomControlsVisible(), false);
+  assert.equal(ctx.visualGuideKeepsPeekOpen('fx'), true);
+  assert.equal(ctx.visualGuideKeepsPeekOpen('search'), false);
+  ctx.visualGuideActive = false;
+  assert.equal(ctx.visualGuideKeepsPeekOpen('fx'), false);
 });
 
 test('a mode the user switches to during the guide is kept when the guide moves on', () => {
