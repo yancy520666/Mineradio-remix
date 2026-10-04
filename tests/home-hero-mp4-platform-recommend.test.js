@@ -111,7 +111,9 @@ test('platform recommendation entry uses real feeds and does not synthesize radi
   assert.match(feedConfig, /\/api\/qishui\/feed/);
   assert.match(feedConfig, /\/api\/kugou\/recommendations/);
   assert.doesNotMatch(feedConfig, /\/api\/spotify\/recommendations/);
-  assert.doesNotMatch(feedConfig, /\/api\/qq\/|search/);
+  // QQ reads the account's real "每日30首"; no platform may fall back to a search.
+  assert.match(feedConfig, /\/api\/qq\/recommendations/);
+  assert.doesNotMatch(feedConfig, /search/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /apiJson\s*\(\s*config\.endpoint/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.fallback/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.mode/);

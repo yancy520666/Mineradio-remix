@@ -19,7 +19,7 @@ function setup(storage = new Map()) {
     loginStatus: { loggedIn: true }, qqLoginStatus: { loggedIn: true },
     kugouLoginStatus: { loggedIn: true }, qishuiLoginStatus: { loggedIn: true }, spotifyLoginStatus: {},
     homeDiscoverState: { loaded: true, loading: false, loggedIn: true, songs: [{ id: 'ne', provider: 'netease' }] },
-    homePlatformRecommendationState: { open: false, feeds: { qishui: { songs: [] }, kugou: { songs: [] } } },
+    homePlatformRecommendationState: { open: false, feeds: { qishui: { songs: [] }, kugou: { songs: [] }, qq: { songs: [] } } },
     builtInPlaylists: [{ id: 'builtin', provider: 'mineradio' }],
     neteasePlaylists: [{ id: 'ne', provider: 'netease' }], qqPlaylists: [{ id: 'qq', provider: 'qq' }],
     kugouPlaylists: [{ id: 'kg', provider: 'kugou' }],
@@ -33,8 +33,12 @@ function setup(storage = new Map()) {
     playlistPanelKey: (provider, id) => provider + ':' + id,
     hasAnyPlatformLogin: () => true, setHomeControlsLocked() {}, waitForHomeDiscoverIdle: async () => {},
     loadHomeDiscover: async () => {}, openHomePlatformRecommendations: source => openings.push(source),
-    homePlatformRecommendationFeedConfig: source => ['kugou', 'qishui'].includes(source) ? {} : null,
-    loadHomePlatformFeedRecommendations: async source => { c.homePlatformRecommendationState.feeds[source].songs = [{ id: source }]; },
+    homePlatformRecommendationFeedConfig: source => ['kugou', 'qishui', 'qq'].includes(source) ? {} : null,
+    homePlatformRecommendationSourceLabel: source => source,
+    emptyFeeds: new Set(),
+    loadHomePlatformFeedRecommendations: async source => {
+      c.homePlatformRecommendationState.feeds[source].songs = c.emptyFeeds.has(source) ? [] : [{ id: source }];
+    },
     playHomePlatformFeedSong: source => plays.push(source),
     cloneSong: song => ({ ...song }), safeRenderQueuePanel() {}, safeShelfRebuild() {}, forcePlaybackControlsInteractive() {},
     playQueueAt: async () => { plays.push('netease'); },
@@ -44,7 +48,7 @@ function setup(storage = new Map()) {
   const shell = '06-lyrics/01-playlist-panel-shell.js', detail = '06-lyrics/02-playlist-detail.js';
   for (const name of ['playlistCatalogProviderArray', 'rebuildUserPlaylistsFromCatalog']) vm.runInContext(namedFunction(shell, name), c);
   for (const name of ['normalizePlaylistProvider', 'playlistReorderKey', 'readPlaylistReorderKeys', 'savePlaylistReorderKeys', 'applyUserPlaylistOrder']) vm.runInContext(namedFunction(detail, name), c);
-  vm.runInContext(namedFunction('05-playback/04-home-empty-wallpaper.js', 'playHomeDaily'), c);
+  for (const name of ['playHomeDailyFromSource', 'playHomeDaily']) vm.runInContext(namedFunction('05-playback/04-home-empty-wallpaper.js', name), c);
   return { c, storage, plays, openings, renders };
 }
 const ids = c => Array.from(c.userPlaylists, row => row.id);
@@ -87,16 +91,36 @@ test('changing platform priority preserves per-platform manual order and groups 
   assert.deepEqual(ids(c), ['builtin', 'kg', 'qs2', 'qs1', 'qs3', 'ne', 'qq']);
 });
 
-test('daily playback uses the preferred real feed; QQ and empty NetEase show their own empty state', async () => {
-  const { c, plays, openings } = setup();
+test('daily playback uses the preferred real feed, including QQ daily 30', async () => {
+  const { c, plays } = setup();
   c.saveAccountProviderOrder(['kugou', 'netease', 'qq', 'qishui']);
-  await c.playHomeDaily(); assert.deepEqual(plays, ['kugou']);
+  await c.playHomeDaily();
   c.saveAccountProviderOrder(['qq', 'kugou', 'netease', 'qishui']);
-  await c.playHomeDaily(); assert.deepEqual(openings, ['qq']);
-  assert.deepEqual(plays, ['kugou']);
-  c.saveAccountProviderOrder(['netease', 'qq', 'kugou', 'qishui']);
-  c.homeDiscoverState.songs = [];
-  await c.playHomeDaily(); assert.deepEqual(openings, ['qq', 'netease']);
+  await c.playHomeDaily();
+  assert.deepEqual(plays, ['kugou', 'qq']);
+});
+
+test('an empty preferred platform offers the other connected platforms instead of a search', async () => {
+  const { c, plays, openings, storage } = setup();
+  c.saveAccountProviderOrder(['qq', 'kugou', 'netease', 'qishui']);
+  c.emptyFeeds.add('qq');
+  const asked = [];
+  c.askHomeDailyFallback = async (source, alternatives) => { asked.push([source, Array.from(alternatives)]); return asked.length === 1 ? 'netease' : 'view'; };
+  await c.playHomeDaily();
+  assert.deepEqual(asked[0], ['qq', ['kugou', 'netease', 'qishui']]);
+  assert.deepEqual(plays, ['netease']);
+  await c.playHomeDaily();
+  assert.deepEqual(openings, ['qq'], 'view shows the empty platform rather than substituting content');
+  // "Remember" skips the question and uses the next platform in priority order.
+  storage.set(c.HOME_DAILY_AUTO_FALLBACK_STORE_KEY, '1');
+  await c.playHomeDaily();
+  assert.equal(asked.length, 2);
+  assert.deepEqual(plays, ['netease', 'kugou']);
+  // Without another connected platform the empty state opens directly.
+  c.kugouLoginStatus.loggedIn = false; c.qishuiLoginStatus.loggedIn = false; c.loginStatus.loggedIn = false;
+  await c.playHomeDaily();
+  assert.deepEqual(openings, ['qq', 'qq']);
+  assert.equal(asked.length, 2);
 });
 
 test('changing priority while a daily feed loads prevents obsolete content from playing', async () => {
