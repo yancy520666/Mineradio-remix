@@ -18,6 +18,7 @@ const {
 const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { WallpaperPropertyStore } = require('./wallpaper-engine-properties');
+const { WallpaperLoopCache } = require('./wallpaper-engine-loop-cache');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
@@ -191,6 +192,11 @@ const wallpaperEngineRuntime = new WallpaperEngineRuntime({
   desktopCapturer,
   hostElevationProbe: systemMemory.probeProcessElevation,
   nativeTempPath: NATIVE_HELPER_TEMP_PATH,
+});
+const wallpaperLoopCache = new WallpaperLoopCache({
+  root: path.join(NATIVE_HELPER_TEMP_PATH, 'wallpaper-engine-muted-package-cache', 'loop-videos'),
+  library: wallpaperEngineLibrary,
+  propertyStore: wallpaperEngineRuntime.propertyStore,
 });
 const fullDesktopModeRuntime = new FullDesktopModeRuntime({
   screen,
@@ -4621,6 +4627,21 @@ ipcMain.on('mineradio-wallpaper-engine-pointer-activity', (event, payload = {}) 
   } catch (_) { }
 });
 
+ipcMain.handle('mineradio-wallpaper-engine-loop-cache', async (event, payload = {}) => {
+  if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
+  try {
+    if (payload.action === 'lookup') return await wallpaperLoopCache.lookup(String(payload.id || ''));
+    if (payload.action === 'abort') return await wallpaperLoopCache.abort(String(payload.jobId || ''));
+    const active = wallpaperEngineRuntime.getStatus();
+    const id = payload.action === 'begin' ? String(payload.id || '') : wallpaperLoopCache.job(payload.jobId).id;
+    if (!active.active || active.id !== id) throw new Error('LOOP_NATIVE_SESSION_CHANGED');
+    if (payload.action === 'begin') return await wallpaperLoopCache.begin(id);
+    if (payload.action === 'append') return await wallpaperLoopCache.append(String(payload.jobId), payload.chunk);
+    if (payload.action === 'finish') return await wallpaperLoopCache.finish(String(payload.jobId));
+    throw new Error('LOOP_ACTION_INVALID');
+  } catch (error) { return { ok: false, error: error.message || 'LOOP_CACHE_FAILED' }; }
+});
+
 ipcMain.handle('mineradio-wallpaper-engine-stop-scene', async (event, payload = {}) => {
   try {
     if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
@@ -6237,7 +6258,7 @@ if (!gotSingleInstanceLock) {
       console.warn('[LocalMusic] media protocol unavailable:', error && error.message || error);
     }
     try {
-      await wallpaperEngineLibrary.installProtocol(protocol);
+      await wallpaperEngineLibrary.installProtocol(protocol, wallpaperLoopCache);
     } catch (error) {
       console.warn('[Wallpaper Engine] local media protocol unavailable:', error && error.message || error);
     }
@@ -6340,6 +6361,7 @@ if (!gotSingleInstanceLock) {
       // its exact WE source/DWM companion is disposed. Running these in
       // parallel can race the native detach acknowledgement.
       await disposeFullDesktopModeWithGuard();
+      await wallpaperLoopCache.abortAll().catch(() => {});
       await wallpaperEngineRuntime.dispose().then((result) => {
         if (result && result.ok === false) {
           console.warn('[Wallpaper Engine] dispose incomplete:', result.reason || 'WALLPAPER_ENGINE_WINDOW_CLOSE_FAILED');

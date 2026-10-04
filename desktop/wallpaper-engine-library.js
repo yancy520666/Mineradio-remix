@@ -906,9 +906,12 @@ class WallpaperEngineLibrary {
     return new Response(Readable.toWeb(stream), { status: range ? 206 : 200, headers });
   }
 
-  async installProtocol(protocol) {
+  async installProtocol(protocol, loopCache) {
     if (this.protocolInstalled) return;
-    await protocol.handle(WALLPAPER_ENGINE_SCHEME, (request) => this.mediaResponse(request));
+    await protocol.handle(WALLPAPER_ENGINE_SCHEME, (request) => {
+      if (loopCache && new URL(request.url).hostname === 'loop') return loopCache.response(request);
+      return this.mediaResponse(request);
+    });
     this.protocolInstalled = true;
   }
 
