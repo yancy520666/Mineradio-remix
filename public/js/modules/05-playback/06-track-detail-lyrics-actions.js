@@ -900,16 +900,14 @@ function setCustomCoverForCurrent(dataUrl, opts) {
       hasKey = true;
       customCoverMap[key] = dataUrl;
       saved = saveCustomCoverMap();
-      for (var i = 0; i < playQueue.length; i++) {
-        if (songCustomCoverKey(playQueue[i]) === key) playQueue[i].customCover = dataUrl;
-      }
-      if (currentLocalSong && songCustomCoverKey(currentLocalSong) === key) currentLocalSong.customCover = dataUrl;
+      syncCustomCoverCopies(key, dataUrl);
     }
   }
   applyCoverDataUrl(dataUrl, opts);
   safeRenderQueuePanel('custom-cover-apply', { scrollCurrent: miniQueueOpen });
   safeShelfRebuild('custom-cover-apply');
   updateCustomCoverButton();
+  if (typeof renderHomeDiscover === 'function') renderHomeDiscover();
   showToast(song ? (!hasKey ? '封面已应用' : (saved ? '封面已保存' : '封面已应用，存储空间不足')) : '已应用临时封面');
 }
 function updateCustomCoverButton() {
@@ -942,17 +940,13 @@ function clearCustomCoverForCurrent() {
   }
   delete playlistCoverCache[custom];
   delete song.customCover;
-  if (key) {
-    for (var i = 0; i < playQueue.length; i++) {
-      if (songCustomCoverKey(playQueue[i]) === key) delete playQueue[i].customCover;
-    }
-  }
-  if (key && currentLocalSong && songCustomCoverKey(currentLocalSong) === key) delete currentLocalSong.customCover;
+  syncCustomCoverCopies(key, '');
   if (currentIdx >= 0 && playQueue[currentIdx] && playQueue[currentIdx].cover) loadCoverFromUrl(coverUrlWithSize(playQueue[currentIdx].cover, 400));
   else loadCoverFromUrl('');
   safeRenderQueuePanel('custom-cover-clear', { scrollCurrent: miniQueueOpen });
   safeShelfRebuild('custom-cover-clear');
   updateCustomCoverButton();
+  if (typeof renderHomeDiscover === 'function') renderHomeDiscover();
   showToast('已恢复默认封面');
 }
 function readCustomLyricMap() {

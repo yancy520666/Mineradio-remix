@@ -66,9 +66,10 @@
   function sample(value) {
     if (!preset() || !eligible() || !value || !Number.isFinite(value.fps) ||
         !Number.isFinite(value.target) || value.target < 1 || value.duration < 12000) return;
+    if (preset() === 8 && value.target !== config().target) return;
     latest = value;
     var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled);
-    if (action === 'recommend' && !preferences.dismissed) recommendation = true;
+    recommendation = action === 'recommend' && !preferences.dismissed;
     if (action === 'lower' || action === 'restore') {
       noticeText = action === 'lower' ? '已降低壁纸细节，优先保持流畅。' : '运行稳定，已恢复一级壁纸细节。';
       noticeUntil = now() + 8000;
@@ -144,7 +145,7 @@
     banner.hidden = !which || !(error || recommendation || noticeUntil > now());
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
-      recommendation ? '检测到音域回响持续掉帧。开启流畅优先，可降低细节换取流畅度。' : noticeText;
+      recommendation ? '近期音域回响帧率低于目标。可开启流畅优先，降低细节与渲染负载。' : noticeText;
     setText(document.getElementById('sonic-performance-message'), text);
     document.getElementById('sonic-performance-enable').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-keep').hidden = !recommendation || !!error;
@@ -165,6 +166,7 @@
     if (active === 8 && frame && frame.contentWindow) {
       var signature = JSON.stringify(c);
       if (signature !== lastConfig) {
+        if (latest && latest.target !== c.target) { latest = null; recommendation = false; }
         lastConfig = signature;
         frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: c }, location.origin);
       }

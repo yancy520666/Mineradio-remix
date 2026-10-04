@@ -1118,36 +1118,43 @@ async function loadHomePlatformQishuiRecommendations(force) {
 async function loadHomePlatformFeedRecommendations(source, force) {
   var config = homePlatformRecommendationFeedConfig(source);
   var feedState = homePlatformRecommendationState.feeds[source];
-  if (!config || !feedState || feedState.loading) return;
+  if (!config || !feedState) return;
+  if (feedState.loading) return feedState.pending;
   // Daily content and the connected account can change between openings.
   if (feedState.loaded && !force && source !== 'kugou' && source !== 'qq') return;
   feedState.loading = true;
   feedState.error = '';
   feedState.message = '';
+  // Both the recommendations panel and daily playback await the same request.
+  // Defer its start so pending is assigned even if apiJson throws immediately.
+  feedState.pending = Promise.resolve().then(async function () {
+    try {
+      var separator = config.endpoint.indexOf('?') >= 0 ? '&' : '?';
+      var data = await apiJson(config.endpoint + separator + 't=' + Date.now(), { timeoutMs: 14000 });
+      var rawSongs = data && (data.songs || data.tracks || data.items || data.recommendations);
+      feedState.songs = (Array.isArray(rawSongs) ? rawSongs : []).map(cloneSong);
+      feedState.error = data && data.error ? String(data.error) : '';
+      feedState.message = data && data.message ? String(data.message) : '';
+      feedState.mode = data && data.mode ? String(data.mode) : '';
+      feedState.source = data && data.source ? String(data.source) : '';
+      feedState.fallback = !!(data && data.fallback);
+      feedState.provenance = data && data.provenance ? String(data.provenance) : '';
+      feedState.loaded = true;
+    } catch (error) {
+      console.warn('[HomePlatformFeed:' + source + ']', error);
+      feedState.songs = [];
+      feedState.error = String(error && error.message || 'PLATFORM_FEED_FAILED');
+      feedState.message = '';
+      feedState.loaded = true;
+    } finally {
+      feedState.loading = false;
+      feedState.pending = null;
+      renderHomePlatformRecommendations();
+      renderHomeDashboardQuickCards();
+    }
+  });
   renderHomePlatformRecommendations();
-  try {
-    var separator = config.endpoint.indexOf('?') >= 0 ? '&' : '?';
-    var data = await apiJson(config.endpoint + separator + 't=' + Date.now(), { timeoutMs: 14000 });
-    var rawSongs = data && (data.songs || data.tracks || data.items || data.recommendations);
-    feedState.songs = (Array.isArray(rawSongs) ? rawSongs : []).map(cloneSong);
-    feedState.error = data && data.error ? String(data.error) : '';
-    feedState.message = data && data.message ? String(data.message) : '';
-    feedState.mode = data && data.mode ? String(data.mode) : '';
-    feedState.source = data && data.source ? String(data.source) : '';
-    feedState.fallback = !!(data && data.fallback);
-    feedState.provenance = data && data.provenance ? String(data.provenance) : '';
-    feedState.loaded = true;
-  } catch (error) {
-    console.warn('[HomePlatformFeed:' + source + ']', error);
-    feedState.songs = [];
-    feedState.error = String(error && error.message || 'PLATFORM_FEED_FAILED');
-    feedState.message = '';
-    feedState.loaded = true;
-  } finally {
-    feedState.loading = false;
-    renderHomePlatformRecommendations();
-    renderHomeDashboardQuickCards();
-  }
+  return feedState.pending;
 }
 
 async function loadHomePlatformRecommendations(source, force) {

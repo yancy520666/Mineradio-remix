@@ -65,13 +65,17 @@
     var raf = 0, due = 0, stopped = false;
     function frame(now) {
       if (stopped) return;
-      raf = requestAnimationFrame(frame);
-      if (config.paused) { due = 0; return; }
-      var interval = fps > 0 ? 1000 / fps : 0;
-      if (!due || now + 0.5 >= due) {
-        invalidate();
-        due = interval ? Math.max(due + interval, now) : 0;
+      if (config.paused) due = 0;
+      else {
+        var interval = fps > 0 ? 1000 / fps : 0;
+        if (!due || now + 0.5 >= due) {
+          invalidate();
+          due = interval ? Math.max(due + interval, now) : 0;
+        }
       }
+      // Let R3F queue its draw before our next tick; the reverse order makes
+      // demand mode clear the invalidation and draw only every other refresh.
+      raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
     return function () { stopped = true; cancelAnimationFrame(raf); };
