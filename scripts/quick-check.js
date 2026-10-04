@@ -585,7 +585,7 @@ function checkWallpaperEngineImportGuard() {
     || !/AlignWindow\(Handle, surfaceInsertAfter, hostRect\)/.test(dwmSurfaceBlock)
     || !/SetWindowPos\(window, insertAfter, target\.Left, target\.Top/.test(dwmSurfaceBlock)
     || !/hostRoot != hostWindow && hostRoot != iconHost/.test(dwmSurfaceBlock)
-    || !/RequestSourceFollow\(Handle, hostRect, radius\)/.test(dwmSurfaceBlock)
+    || !/RequestSourceFollow\(Handle, InsetBehindRoundedSurface\(hostRect, radius\), radius\)/.test(dwmSurfaceBlock)
     || !/AlignWindow\(sourceWindow, insertAfter, target\)/.test(dwmSurfaceBlock)
     || !/SetWinEventHook\(EVENT_OBJECT_LOCATIONCHANGE/.test(dwmSurfaceBlock)
     || !/UnhookWinEvent\(hostLocationHook\)/.test(dwmSurfaceBlock)
@@ -593,7 +593,10 @@ function checkWallpaperEngineImportGuard() {
     || /parkActiveWindow|_startSessionPointerRelay/.test(captureReadyBlock)
     || !/captureMode:\s*'dwm-thumbnail'/.test(mainText + runtimeText)
     || !/if \(status && status\.active === true && status\.captureMode === 'dwm-thumbnail'\) return/.test(mainText)
-    || /\bSetParent\b|SW_HIDE|SetLayeredWindowAttributes|SetWindowLong|DwmSetWindowAttribute/.test(dwmSurfaceBlock)
+    || /\bSetParent\b|SW_HIDE|SetLayeredWindowAttributes|SetWindowLong/.test(dwmSurfaceBlock)
+    // Only the helper's own Windows 11 corner rounding; never the WE source's composition.
+    || /DwmSetWindowAttribute\((?!Handle, DWMWA_WINDOW_CORNER_PREFERENCE|Handle, DWMWA_BORDER_COLOR|IntPtr hWnd)/.test(dwmSurfaceBlock)
+    || !/ApplySystemCorners\(radius > 0\)/.test(dwmSurfaceBlock)
     || !/SWP_NOCOPYBITS/.test(dwmSurfaceBlock)) {
     fail('Wallpaper Engine source must stay aligned and rounded without stale resize pixels or changing its composition');
   }

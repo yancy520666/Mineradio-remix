@@ -135,7 +135,7 @@
     var statusEl = document.getElementById('sonic-performance-status');
     var p = which === 7 ? stageProfile() : currentProfile();
     var detail = !which ? '适用于两款音域回响；导入的 Wallpaper Engine 壁纸独立运行。' :
-      (preferences.enabled ? '性能优先已开启' : '性能优先已关闭') + ' · ' +
+      (preferences.enabled ? '流畅优先已开启' : '流畅优先已关闭') + ' · ' +
       (p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
     setText(statusEl, detail);
@@ -144,7 +144,7 @@
     banner.hidden = !which || !(error || recommendation || noticeUntil > now());
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
-      recommendation ? '检测到壁纸持续掉帧。开启性能优先，可降低细节换取流畅度。' : noticeText;
+      recommendation ? '检测到音域回响持续掉帧。开启流畅优先，可降低细节换取流畅度。' : noticeText;
     setText(document.getElementById('sonic-performance-message'), text);
     document.getElementById('sonic-performance-enable').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-keep').hidden = !recommendation || !!error;
