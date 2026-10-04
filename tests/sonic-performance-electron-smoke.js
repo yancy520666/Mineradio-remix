@@ -65,9 +65,22 @@ async function probe() {
   MineradioSonicPerformance.retry();
   await until(() => snapshot()?.state === 'ready', 'retry did not recreate the renderer');
   MineradioSonicPerformance.setEnabled(false);
-  await wait(700);
+  // CI's software renderer can take longer than a fixed delay to rebuild the
+  // full original grid; wait for the result instead of sampling mid-rebuild.
+  const restoredMatches = () => {
+    const value = snapshot();
+    return value && value.triangles === legacy.triangles && value.width === legacy.width;
+  };
+  try {
+    await until(restoredMatches, 'restore', 8000);
+  } catch (_) {
+    const value = snapshot() || {};
+    check(false, 'disable did not restore original geometry and pixels: ' + JSON.stringify({
+      legacy: { triangles: legacy.triangles, width: legacy.width },
+      restored: { triangles: value.triangles, width: value.width, state: value.state, profile: value.config && value.config.profile },
+      quality: fx.performanceQuality }));
+  }
   const restored = snapshot();
-  check(restored.triangles === legacy.triangles && restored.width === legacy.width, 'disable did not restore original geometry and pixels');
   setPerformanceQualityMode('balanced', true);
   await wait(1000);
   check(snapshot().config.profile.gridSize === 160, 'manual quality selection was not applied');
