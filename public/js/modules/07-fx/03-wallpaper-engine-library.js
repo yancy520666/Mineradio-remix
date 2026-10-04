@@ -60,6 +60,7 @@ function cancelWallpaperEnginePointerActivity() {
   if (wallpaperEnginePointerActivityTimer) clearTimeout(wallpaperEnginePointerActivityTimer);
   wallpaperEnginePointerActivityTimer = 0;
   wallpaperEnginePointerActivityLastSentAt = 0;
+  if (typeof wallpaperEngineHeldButtons === 'number') wallpaperEngineHeldButtons = 0;
 }
 
 function wallpaperEnginePointerActivityReady() {
@@ -73,7 +74,8 @@ function wallpaperEnginePointerActivityReady() {
     || !wallpaperEngineSelection.active
     || wallpaperEngineSelection.kind !== 'engine'
     || !/^[a-f0-9]{24}$/i.test(String(wallpaperEngineNativeSessionId || ''))
-    || !wallpaperEngineCaptureStream) return false;
+    || (wallpaperEngineCaptureMode !== 'dwm-thumbnail' && !wallpaperEngineCaptureStream)) return false;
+  if (wallpaperEngineCaptureMode === 'dwm-thumbnail') return document.body.classList.contains('wallpaper-engine-dwm-active');
   var layer = document.getElementById('wallpaper-engine-layer');
   return !!(layer && layer.classList.contains('engine-ready'));
 }
@@ -89,7 +91,8 @@ function flushWallpaperEnginePointerActivity() {
     api.reportWallpaperEnginePointerActivity({
       sessionId: String(wallpaperEngineNativeSessionId || ''),
       xUnit: wallpaperEnginePointerActivityLatestX,
-      yUnit: wallpaperEnginePointerActivityLatestY
+      yUnit: wallpaperEnginePointerActivityLatestY,
+      kind: 'move', buttons: typeof wallpaperEngineHeldButtons === 'number' ? wallpaperEngineHeldButtons : 0
     });
   } catch (e) { }
 }
@@ -1296,7 +1299,8 @@ async function ensureWallpaperEngineGlassSamplerCapture(sessionId, layerToken, a
     // surface. Confirm its pixels changed after DWM activation before exposing
     // the clipped sampler beneath the saved SVG glass. This remains reliable
     // even when Chromium marks the transparent host as document.hidden.
-    var livePixels = await waitForWallpaperEngineGlassSamplerPixelChange(video, stream, primingPixels, 3600);
+    var livePixels = activated.alreadyActive ? { meanAbsoluteRgb: 0 }
+      : await waitForWallpaperEngineGlassSamplerPixelChange(video, stream, primingPixels, 3600);
     if (!livePixels || !wallpaperEngineGlassSamplerIsCurrent(sessionId, layerToken, captureToken)) {
       throw new Error('WALLPAPER_GLASS_CAPTURE_LIVE_PIXELS_TIMEOUT');
     }
@@ -1325,6 +1329,12 @@ async function ensureWallpaperEngineGlassSamplerCapture(sessionId, layerToken, a
     };
     return true;
   } catch (error) {
+    // The rounded display and input must remain available if optional SVG
+    // glass capture fails.
+    if (wallpaperEngineGlassSamplerIsCurrent(sessionId, layerToken, captureToken)
+      && typeof api.activateWallpaperEngineDwmSurface === 'function') {
+      try { await api.activateWallpaperEngineDwmSurface({ sessionId: sessionId }); } catch (e4) { }
+    }
     if (captureToken === wallpaperEngineGlassCaptureToken) {
       try {
         window.__mineradioWallpaperEngineGlassSamplerState = {
@@ -2509,6 +2519,7 @@ function bindWallpaperEngineLibraryEvents() {
   }
   if (!document._wallpaperEngineKeyBound) {
     document._wallpaperEngineKeyBound = true;
+    if (typeof bindWallpaperEngineInteraction === 'function') bindWallpaperEngineInteraction();
     document.addEventListener('pointermove', queueWallpaperEnginePointerActivity, { passive: true, capture: true });
     document.addEventListener('mousemove', queueWallpaperEnginePointerActivity, { passive: true, capture: true });
     document.addEventListener('keydown', function (event) {

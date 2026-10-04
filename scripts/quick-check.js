@@ -582,18 +582,19 @@ function checkWallpaperEngineImportGuard() {
     || !/nativeDwmThumbnailSurfaceScript/.test(runtimeText)
     || !/DwmRegisterThumbnail/.test(dwmSurfaceBlock)
     || !/DwmUpdateThumbnailProperties/.test(dwmSurfaceBlock)
-    || !/AlignWindow\(Handle, surfaceInsertAfter, hostRect, false\)/.test(dwmSurfaceBlock)
+    || !/AlignWindow\(Handle, surfaceInsertAfter, hostRect\)/.test(dwmSurfaceBlock)
     || !/SetWindowPos\(window, insertAfter, target\.Left, target\.Top/.test(dwmSurfaceBlock)
     || !/hostRoot != hostWindow && hostRoot != iconHost/.test(dwmSurfaceBlock)
-    || !/AlignWindow\(sourceWindow, Handle, hostRect, true\)/.test(dwmSurfaceBlock)
+    || !/AlignWindow\(sourceWindow, Handle, hostRect\)/.test(dwmSurfaceBlock)
     || !/SetWinEventHook\(EVENT_OBJECT_LOCATIONCHANGE/.test(dwmSurfaceBlock)
     || !/UnhookWinEvent\(hostLocationHook\)/.test(dwmSurfaceBlock)
     || !/_startSessionDwmSurface/.test(captureReadyBlock)
     || /parkActiveWindow|_startSessionPointerRelay/.test(captureReadyBlock)
     || !/captureMode:\s*'dwm-thumbnail'/.test(mainText + runtimeText)
     || !/if \(status && status\.active === true && status\.captureMode === 'dwm-thumbnail'\) return/.test(mainText)
-    || /\bSetParent\b|SetWindowLong|SW_HIDE|DwmSetWindowAttribute/.test(dwmSurfaceBlock)) {
-    fail('Wallpaper Engine source must stay pixel-aligned behind a validated DWM live surface without capture parking or synthetic input');
+    || /\bSetParent\b|SW_HIDE|SetLayeredWindowAttributes|SetWindowLong|DwmSetWindowAttribute/.test(dwmSurfaceBlock)
+    || !/SWP_NOCOPYBITS/.test(dwmSurfaceBlock)) {
+    fail('Wallpaper Engine source must stay aligned and rounded without stale resize pixels or changing its composition');
   }
   if (!/analyzeSceneProperties/.test(libraryText) || !/getProjectDetails/.test(libraryText)
     || !/muteProperties:\s*propertyAnalysis\.muteProperties/.test(libraryText)
