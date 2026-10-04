@@ -12,6 +12,59 @@ const publicRoot = path.resolve(__dirname, '../public');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-wallpaper-cover-'));
 app.setPath('userData', profile);
 let server, win;
+let coverFixtures;
+const pendingLargeCovers = [];
+
+function createCoverFixtures() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 2048;
+  const paint = canvas.getContext('2d');
+  const gradient = paint.createLinearGradient(0, 0, 2048, 2048);
+  gradient.addColorStop(0, '#1b6173'); gradient.addColorStop(1, '#c76e55');
+  paint.fillStyle = gradient; paint.fillRect(0, 0, 2048, 2048);
+  paint.strokeStyle = '#f4e4cb'; paint.lineWidth = 2;
+  for (let radius = 10; radius < 1500; radius += 10) {
+    paint.beginPath(); paint.arc(1024, 1024, radius, 0, Math.PI * 2); paint.stroke();
+  }
+  const low = document.createElement('canvas'); low.width = low.height = 400;
+  low.getContext('2d').drawImage(canvas, 0, 0, 400, 400);
+  return { low: low.toDataURL(), high: canvas.toDataURL() };
+}
+
+async function prepareCoverQuality() {
+  dismissSplash({ instant: true });
+  closeVisualGuide();
+  fx.backgroundGlassOpacity = 0;
+  const remote = 'https://p1.music.126.net/qa-cover.jpg?param=400y400';
+  loadCoverFromUrl(remote, { trackToken: trackSwitchToken });
+  const thumb = document.getElementById('thumb-cover');
+  for (let attempt = 0; attempt < 100 && (!thumb.complete || !thumb.naturalWidth); attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 30));
+  }
+  setCustomBackgroundAlbumCover(true, true);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return { thumbnail: [thumb.naturalWidth, thumb.naturalHeight],
+    fallback: document.getElementById('custom-bg').style.getPropertyValue('--custom-bg-image'),
+    canvasResolution: fx.coverResolution };
+}
+
+async function finishCoverQuality() {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (customBackgroundAlbumCoverSource().includes('2048y2048')) break;
+    await new Promise(resolve => setTimeout(resolve, 30));
+  }
+  const source = customBackgroundAlbumCoverSource();
+  const image = new Image(); image.src = source; await image.decode();
+  const layer = document.getElementById('custom-bg');
+  const result = { background: [image.naturalWidth, image.naturalHeight],
+    applied: layer.style.getPropertyValue('--custom-bg-image').includes(source),
+    thumbnail: document.getElementById('thumb-cover').naturalWidth, canvasResolution: fx.coverResolution };
+  fx.backgroundGlassOpacity = 1; applyCustomBackground();
+  result.glassBlur = layer.style.getPropertyValue('--custom-bg-glass-blur');
+  result.glassSourceUnchanged = layer.style.getPropertyValue('--custom-bg-image').includes(source);
+  fx.backgroundGlassOpacity = 0; applyCustomBackground();
+  return result;
+}
 
 async function exercise() {
   const calls = [];
@@ -128,6 +181,14 @@ async function exercise() {
 
 app.whenReady().then(async () => {
   server = http.createServer((req, res) => {
+    const request = new URL(req.url, 'http://localhost');
+    if (request.pathname === '/api/cover' && request.searchParams.get('url')?.includes('/qa-cover.jpg')) {
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      if (request.searchParams.get('url').includes('2048y2048')) pendingLargeCovers.push(res);
+      else res.end(coverFixtures.low);
+      return;
+    }
     const file = path.resolve(publicRoot, '.' + new URL(req.url, 'http://localhost').pathname);
     if (!file.startsWith(publicRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404).end(); return;
@@ -146,6 +207,29 @@ app.whenReady().then(async () => {
   await win.webContents.mainFrame.executeJavaScript(`new Promise((resolve,reject)=>{const until=Date.now()+20000;
     function wait(){if(typeof setCustomBackgroundAlbumCover==='function'&&typeof wallpaperEngineLayerReady==='function')return resolve();
     if(Date.now()>until)return reject(new Error('Renderer unavailable'));setTimeout(wait,40)}wait()})`);
+  const fixtures = await win.webContents.mainFrame.executeJavaScript('(' + createCoverFixtures.toString() + ')()');
+  coverFixtures = Object.fromEntries(Object.entries(fixtures).map(([key, value]) => [key, Buffer.from(value.split(',')[1], 'base64')]));
+  const before = await win.webContents.mainFrame.executeJavaScript('(' + prepareCoverQuality.toString() + ')()');
+  assert.deepEqual(before.thumbnail, [400, 400]);
+  assert(before.fallback.includes('400y400') && !before.fallback.includes('2048y2048'));
+  assert.equal(pendingLargeCovers.length, 1, 'Control refreshes must reuse the in-flight large cover');
+  const shotDir = process.env.MINERADIO_COVER_QA_SHOTS;
+  if (shotDir) {
+    fs.mkdirSync(shotDir, { recursive: true });
+    fs.writeFileSync(path.join(shotDir, 'cover-before.png'), (await win.webContents.capturePage()).toPNG());
+  }
+  for (const response of pendingLargeCovers) response.end(coverFixtures.high);
+  const after = await win.webContents.mainFrame.executeJavaScript('(' + finishCoverQuality.toString() + ')()');
+  assert.deepEqual(after.background, [2048, 2048]);
+  assert(after.applied && after.glassSourceUnchanged);
+  assert.equal(after.thumbnail, 400);
+  assert.equal(after.canvasResolution, before.canvasResolution);
+  assert.equal(after.glassBlur, '32.0px');
+  if (shotDir) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    fs.writeFileSync(path.join(shotDir, 'cover-after.png'), (await win.webContents.capturePage()).toPNG());
+  }
+  console.log('COVER_QUALITY_OK:' + JSON.stringify({ before, after }));
   const result = await win.webContents.mainFrame.executeJavaScript('(' + exercise.toString() + ')()');
   assert(result.previousLayerActive && result.coverSelected && result.coverSourceCorrect);
   assert(!result.engineSelected && !result.engineSession && !result.engineVisible && !result.dwmVisible);
