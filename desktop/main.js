@@ -19,6 +19,7 @@ const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { WallpaperPropertyStore } = require('./wallpaper-engine-properties');
 const { WallpaperLoopCache } = require('./wallpaper-engine-loop-cache');
+const { WallpaperLoopWindow } = require('./wallpaper-loop-window');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
@@ -197,6 +198,21 @@ const wallpaperLoopCache = new WallpaperLoopCache({
   root: path.join(NATIVE_HELPER_TEMP_PATH, 'wallpaper-engine-muted-package-cache', 'loop-videos'),
   library: wallpaperEngineLibrary,
   propertyStore: wallpaperEngineRuntime.propertyStore,
+});
+const wallpaperLoopWindow = new WallpaperLoopWindow({
+  enter: toggleFullscreen,
+  exit: exitFullscreenToWindow,
+  isFullscreen: win => win.isFullScreen() || windowFullscreenActive || htmlFullscreenActive,
+  apply: (win, snapshot) => {
+    const minimized = win.isMinimized();
+    setMainWindowFullscreenResizeGuard(win, false);
+    if (win.isMaximized()) win.unmaximize();
+    updateMainWindowMinimumSize(win);
+    win.setBounds(snapshot.bounds, false);
+    if (snapshot.maximized) win.maximize();
+    if (minimized && !win.isMinimized()) win.minimize();
+    sendWindowState(win);
+  },
 });
 const fullDesktopModeRuntime = new FullDesktopModeRuntime({
   screen,
@@ -3546,7 +3562,7 @@ function exitFullscreenToWindow(win) {
   windowFullscreenActive = false;
 
   if (!win.isFullScreen()) {
-    applyWindowedBounds(win);
+    if (!wallpaperLoopWindow.restoreOnLeave(win)) applyWindowedBounds(win);
     return;
   }
 
@@ -4035,6 +4051,18 @@ ipcMain.handle('desktop-window-exit-fullscreen-windowed', (event) => {
   }
   exitFullscreenToWindow(win);
   return getWindowState(win);
+});
+
+ipcMain.handle('mineradio-wallpaper-loop-window', async (event, payload = {}) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  const win = getSenderWindow(event);
+  try {
+    if (payload.action === 'end') return await wallpaperLoopWindow.end(win, String(payload.token || ''));
+    if (payload.action !== 'begin' || fullDesktopModeRuntime.getStatus('wallpaper-loop-window').enabled === true) {
+      throw new Error('LOOP_WINDOW_UNAVAILABLE');
+    }
+    return await wallpaperLoopWindow.begin(win);
+  } catch (error) { return { ok: false, error: error.message || 'LOOP_WINDOW_FAILED' }; }
 });
 
 ipcMain.handle('desktop-window-get-state', (event) => {
@@ -6169,12 +6197,15 @@ async function createWindowOnce() {
     setTimeout(() => scheduleWallpaperEngineHostBoundsRestart(win, 'enter-full-screen'), 40);
   });
   win.on('leave-full-screen', () => {
+    const loopRestore = wallpaperLoopWindow.current(win) || null;
     windowFullscreenActive = false;
     setMainWindowFullscreenResizeGuard(win, false);
     clearMainWindowFullscreenVisibilityGuard();
     setTimeout(() => {
+      if (win.isDestroyed()) { wallpaperLoopWindow.restoreOnLeave(win, loopRestore); return; }
+      if (win.isFullScreen() || windowFullscreenActive) return;
       const targetDisplay = getFullscreenTargetDisplay(win);
-      applyWindowedBounds(win, targetDisplay);
+      if (!wallpaperLoopWindow.restoreOnLeave(win, loopRestore)) applyWindowedBounds(win, targetDisplay);
       windowFullscreenDisplayId = null;
       scheduleWallpaperEngineHostBoundsRestart(win, 'leave-full-screen');
     }, 50);

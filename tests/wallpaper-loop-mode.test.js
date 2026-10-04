@@ -111,7 +111,10 @@ function sizedSetup({ innerWidth, innerHeight, cached }) {
   s.c.document.createElement = () => ({ addEventListener(_, run) { this.run = run; } });
   s.c.wallpaperEngineNativeSessionId = 'c'.repeat(24);
   s.c.toggleFullscreen = () => { calls.push('fullscreen'); state.fullscreen = true; s.c.window.innerWidth = 1920; s.c.window.innerHeight = 1080; };
-  s.c.wallpaperEngineDesktopApi = () => ({ toggleFullscreen() {}, wallpaperEngineLoopCache: async payload => {
+  s.c.wallpaperEngineDesktopApi = () => ({ wallpaperEngineLoopWindow: async payload => {
+    if (payload.action === 'begin') { s.c.toggleFullscreen(); return { ok: true, expanded: true, token: 'window-token' }; }
+    calls.push('restore'); state.fullscreen = false; return { ok: true };
+  }, wallpaperEngineLoopCache: async payload => {
     calls.push(payload.action);
     return payload.action === 'lookup' ? { ok: true, width: 1920, height: 1080, ...cached } : { ok: true };
   }, exitFullscreenWindowed: async () => { calls.push('restore'); state.fullscreen = false; } });
@@ -129,7 +132,47 @@ test('a small window asks before recording and full-screen choice expands then r
   assert.ok(s.calls.includes('fullscreen'));
   // Cancelling (e.g. switching back to native) must return the user's window.
   s.c.setWallpaperEnginePlaybackMode('native');
+  await settle();
   assert.equal(s.calls.at(-1), 'restore'); assert.equal(s.state.fullscreen, false);
+});
+
+test('cancel before the fullscreen IPC reply waits for its token and restores exactly once', async () => {
+  const s = sizedSetup({ innerWidth: 1100, innerHeight: 700, cached: { cached: false } });
+  const entered = defer(); let exits = 0;
+  const api = s.c.wallpaperEngineDesktopApi();
+  api.wallpaperEngineLoopWindow = async payload => {
+    if (payload.action === 'begin') return entered.promise;
+    assert.equal(payload.token, 'late-token'); exits++; s.state.fullscreen = false; return { ok: true };
+  };
+  s.c.wallpaperEngineDesktopApi = () => api;
+  s.c.startWallpaperEngineLoopBackground(s.item, { capture: 'expand' });
+  await settle(); await settle();
+  const job = s.c.wallpaperLoopJob;
+  s.c.setWallpaperEnginePlaybackMode('native');
+  assert.equal(exits, 0); assert.notEqual(job.restored, true);
+  s.state.fullscreen = true;
+  entered.resolve({ ok: true, expanded: true, token: 'late-token' });
+  await settle(); await settle();
+  assert.equal(exits, 1); assert.equal(s.state.fullscreen, false); assert.equal(job.restored, true);
+});
+
+test('a replacement loop waits for old window restoration before looking up its cache', async () => {
+  const s = sizedSetup({ innerWidth: 1100, innerHeight: 700, cached: { cached: false } });
+  const restoring = defer(); s.c.wallpaperLoopWindowRestorePending = restoring.promise;
+  s.c.startWallpaperEngineLoopBackground(s.item);
+  await settle(); assert.deepEqual(s.calls, []);
+  restoring.resolve(); await settle(); await settle();
+  assert.deepEqual(s.calls, ['lookup']);
+});
+
+test('failed native preparation restores the temporary fullscreen window', async () => {
+  const s = sizedSetup({ innerWidth: 1100, innerHeight: 700, cached: { cached: false } });
+  s.c.waitWallpaperLoopExpanded = async () => {};
+  s.c.waitWallpaperLoopSource = async () => { throw new Error('SOURCE_FAILED'); };
+  s.c.startWallpaperEngineLoopBackground(s.item, { capture: 'expand' });
+  await settle(); await settle();
+  assert.equal(s.state.fullscreen, false); assert.equal(s.calls.at(-1), 'restore');
+  assert.equal(s.c.wallpaperLoopJob.restored, true); assert.match(s.c.wallpaperLoopMessage, /生成未完成/);
 });
 
 test('a cached low-resolution loop plays and offers a full-screen regeneration', async () => {
