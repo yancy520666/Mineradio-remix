@@ -68,7 +68,8 @@ if (!process.argv.includes('--child')) {
         bottomOpacity:Number(getComputedStyle(document.getElementById('bottom-bar')).opacity),
         playlistPeek:document.getElementById('playlist-panel').classList.contains('peek'),
         panelOpen:panel.classList.contains('peek')||panel.classList.contains('show'),
-        panelOpacity:Number(getComputedStyle(panel).opacity), title:document.getElementById('visual-guide-title').textContent};
+        panelOpacity:Number(getComputedStyle(panel).opacity), title:document.getElementById('visual-guide-title').textContent,
+        body:document.getElementById('visual-guide-body').textContent, hint:document.getElementById('visual-guide-hint').textContent};
     })()`;
     const verify = (state, bounds) => {
       assert.deepEqual(win.getBounds(), bounds, state.key + ' resized or moved the window');
@@ -88,16 +89,23 @@ if (!process.argv.includes('--child')) {
         * Math.max(0, Math.min(state.card.bottom,state.ring.bottom)-Math.max(state.card.top,state.ring.top));
       assert(overlap <= 1, state.key + ' card covers its target');
       if (state.key === 'comments' || state.key === 'quality') assert(state.bottomOpacity > .5, 'Control bar is hidden');
+      if (state.key === 'quality') assert.match(state.body, /先搜索并播放/, 'Empty player suggests an existing track');
+      if (state.key === 'comments') assert.match(state.hint, /无需先登录/, 'Empty player requires login to continue');
       if (state.key === 'background' || state.key === 'wallpaper') assert(state.panelOpen && state.panelOpacity > .9, 'Console is hidden');
     };
+    assert(await evaluate('!hasAnyPlatformLogin() && playQueue.length===0 && !currentCoverSong()'), 'QA must start without accounts or songs');
     for (const size of [[1280,820], [960,600]]) {
       win.setSize(...size); await wait(400);
       await evaluate(`closeVisualGuide(false); applyDiyMode(false,{save:false}); controlsAutoHide=true;
         controlsHovering=false; controlsRevealHoldUntil=0; setHomeControlsLocked(true);
         document.getElementById('bottom-bar').classList.remove('visible','soft-hidden');
-        document.getElementById('control-title-text').textContent='引导测试歌曲';
-        document.getElementById('control-artist').textContent='隔离测试歌手';
-        window.guideQaPref=localStorage.getItem('mineradio-diy-player-mode-v1'); startVisualGuide({manual:true}); true`);
+        window.guideQaPref=localStorage.getItem('mineradio-diy-player-mode-v1'); true`);
+      if (size[0] === 1280) {
+        await evaluate(`startupOnboardingState.visual=false; localStorage.removeItem(startupGuideStoreKey('visual'));
+          maybeRunStartupVisualGuide('empty-player-qa'); true`);
+        await wait(1700);
+        assert(await evaluate('visualGuideActive'), 'First-run guide did not start for a logged-out empty player');
+      } else await evaluate('startVisualGuide({manual:true}); true');
       const bounds = win.getBounds();
       for (let index=0; index<8; index++) {
         await evaluate(`showVisualGuideStep(${index}); true`); await wait(1600);
