@@ -141,3 +141,43 @@ test('changing priority while a daily feed loads prevents obsolete content from 
   finish(); await emptyDaily;
   assert.equal(c.homePlatformRecommendationState.source, undefined, 'An old empty response must not reopen its platform');
 });
+
+test('clicking a QQ daily recommendation plays its selected row', () => {
+  const { c, plays } = setup();
+  const listeners = {};
+  const list = { addEventListener: (name, fn) => { listeners[name] = fn; }, contains: () => true };
+  c.document.getElementById = id => id === 'home-platform-recommend-list' ? list : null;
+  c.document.addEventListener = () => {};
+  c.window = { addEventListener() {} };
+  c.homePlatformRecommendationControlsBound = false;
+  c.scheduleHomePlatformDailyWindowRender = () => {};
+  c.closeHomePlatformRecommendations = () => {};
+  vm.runInContext(namedFunction('05-playback/03a-home-dashboard.js', 'bindHomePlatformRecommendationControls'), c);
+  c.bindHomePlatformRecommendationControls();
+  const card = { getAttribute: key => key === 'data-home-recommend-kind' ? 'qq-song' : '4' };
+  let row;
+  c.playHomePlatformFeedSong = (source, index) => { plays.push(source); row = index; };
+  listeners.click({ target: { closest: () => card } });
+  assert.deepEqual(plays, ['qq']);
+  assert.equal(row, 4);
+});
+
+test('logging out of the chosen fallback platform during loading prevents its daily songs from playing', async () => {
+  const { c, plays } = setup();
+  c.saveAccountProviderOrder(['qq', 'kugou', 'netease', 'qishui']);
+  c.emptyFeeds.add('qq');
+  c.askHomeDailyFallback = async () => 'kugou';
+  const load = c.loadHomePlatformFeedRecommendations;
+  let finish;
+  c.loadHomePlatformFeedRecommendations = async source => {
+    if (source === 'kugou') await new Promise(resolve => { finish = resolve; });
+    await load(source);
+  };
+  const pending = c.playHomeDaily();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(typeof finish, 'function', 'Fallback loading never started');
+  c.kugouLoginStatus.loggedIn = false;
+  finish();
+  await pending;
+  assert.deepEqual(plays, []);
+});
