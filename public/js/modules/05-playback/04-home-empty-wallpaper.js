@@ -234,7 +234,9 @@ async function playHomeDaily() {
     openHomePlatformRecommendations(preferredSource);
     return;
   }
-  if (await playHomeDailyFromSource(choice, isCurrent) === 'empty') openHomePlatformRecommendations(choice);
+  var fallbackIsCurrent = function () { return isCurrent() && homeRecommendationProviderConnected(choice); };
+  if (!fallbackIsCurrent()) return;
+  if (await playHomeDailyFromSource(choice, fallbackIsCurrent) === 'empty') openHomePlatformRecommendations(choice);
 }
 async function playHomePrivateRadio() {
   homeForcedOpen = false;
