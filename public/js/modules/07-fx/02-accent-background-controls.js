@@ -96,8 +96,8 @@ function customBackgroundAlbumCoverSource() {
       if (song) src = typeof songCoverSrc === 'function' ? songCoverSrc(song, 640) : (song.customCover || song.cover || '');
     } catch (e4) { }
   }
-  if (src && /^https?:\/\//i.test(src) && typeof coverProxySrc === 'function') return coverProxySrc(src, false) || src;
-  return src || '';
+  if (src && /^https?:\/\//i.test(src) && typeof coverProxySrc === 'function') src = coverProxySrc(src, false) || src;
+  return albumCoverBackgroundSource(src || '');
 }
 function customBackgroundActiveMedia() {
   var media = normalizeCustomBackgroundMedia(fx.backgroundMedia || fx.backgroundImage);
@@ -125,6 +125,7 @@ function applyCustomBackground() {
   var color = normalizeHexColor(fx.backgroundColor || '#000000', '#000000');
   var rgb = hexToRgb(color);
   var albumMode = typeof customBackgroundUsesAlbumCover === 'function' && customBackgroundUsesAlbumCover();
+  if (!albumMode) cancelAlbumCoverBackgroundLoad();
   var media = customBackgroundActiveMedia();
   var image = media && media.type === 'image' ? media.src : '';
   var hasVideo = !!(media && media.type === 'video');

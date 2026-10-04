@@ -94,6 +94,7 @@
     'js/modules/06-lyrics/06-lyric-timing-offset.js',
     'js/modules/07-fx/00-preset-archive-data.js',
     'js/modules/07-fx/01-lyric-color-controls.js',
+    'js/modules/07-fx/02a-album-cover-background.js',
     'js/modules/07-fx/02-accent-background-controls.js',
     'js/modules/07-fx/03-wallpaper-engine-library.js',
     'js/modules/07-fx/03-cover-picker-fonts.js',
