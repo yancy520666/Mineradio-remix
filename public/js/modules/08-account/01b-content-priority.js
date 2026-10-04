@@ -4,14 +4,67 @@ function contentProviderOrder() {
   var order = ready && typeof accountProviderOrder === 'function' ? accountProviderOrder() : ['netease', 'qq', 'kugou', 'qishui'];
   return order.concat('spotify');
 }
+function homeRecommendationProviderConnected(provider) {
+  var status = platformStatus(provider);
+  return !!(status && (status.loggedIn || (provider === 'qishui' && status.configured)));
+}
 function preferredHomeRecommendationSource() {
   var order = contentProviderOrder().filter(function (provider) { return provider !== 'spotify'; });
   for (var i = 0; i < order.length; i++) {
-    var provider = order[i];
-    var status = platformStatus(provider);
-    if (status && (status.loggedIn || (provider === 'qishui' && status.configured))) return provider;
+    if (homeRecommendationProviderConnected(order[i])) return order[i];
   }
   return order[0] || 'netease';
+}
+// Other connected platforms, in priority order, that can supply a daily list.
+function homeDailyFallbackSources(exclude) {
+  return contentProviderOrder().filter(function (provider) {
+    return provider !== exclude && provider !== 'spotify' && homeRecommendationProviderConnected(provider)
+      && (provider === 'netease' || !!homePlatformRecommendationFeedConfig(provider));
+  });
+}
+var HOME_DAILY_AUTO_FALLBACK_STORE_KEY = 'mineradio-home-daily-auto-fallback-v1';
+function homeDailyAutoFallbackEnabled() {
+  try { return localStorage.getItem(HOME_DAILY_AUTO_FALLBACK_STORE_KEY) === '1'; } catch (e) { return false; }
+}
+var homeDailyFallbackResolve = null;
+function closeHomeDailyFallback(choice) {
+  var modal = document.getElementById('home-daily-fallback-modal');
+  var remember = document.getElementById('home-daily-fallback-remember');
+  var resolve = homeDailyFallbackResolve;
+  homeDailyFallbackResolve = null;
+  if (modal) {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  if (choice && choice !== 'view' && remember && remember.checked) {
+    try { localStorage.setItem(HOME_DAILY_AUTO_FALLBACK_STORE_KEY, '1'); } catch (e) { }
+  }
+  if (resolve) resolve(choice || null);
+}
+// Resolves with a platform key, 'view' (show why the preferred one is empty) or null.
+function askHomeDailyFallback(source, alternatives) {
+  var modal = document.getElementById('home-daily-fallback-modal');
+  var text = document.getElementById('home-daily-fallback-text');
+  var options = document.getElementById('home-daily-fallback-options');
+  var remember = document.getElementById('home-daily-fallback-remember');
+  if (!modal || !text || !options || homeDailyFallbackResolve) return Promise.resolve('view');
+  var label = homePlatformRecommendationSourceLabel(source);
+  text.textContent = label + '今天没有可播放的每日推荐。要改用其他已登录平台的推荐吗？';
+  options.innerHTML = '';
+  alternatives.forEach(function (provider, index) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'modal-btn' + (index === 0 ? ' primary' : '');
+    button.textContent = '改用' + homePlatformRecommendationSourceLabel(provider);
+    button.addEventListener('click', function () { closeHomeDailyFallback(provider); });
+    options.appendChild(button);
+  });
+  if (remember) remember.checked = false;
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  var first = options.querySelector('button');
+  if (first) first.focus();
+  return new Promise(function (resolve) { homeDailyFallbackResolve = resolve; });
 }
 function homePreferredDailySong() {
   var source = preferredHomeRecommendationSource();
