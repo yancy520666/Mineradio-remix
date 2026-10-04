@@ -4,8 +4,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-const { discoverSteamLibraries: defaultDiscoverSteamLibraries } = require('./wallpaper-engine-library');
+const { discoverSteamLibraries: defaultDiscoverSteamLibraries, VIDEO_MIME } = require('./wallpaper-engine-library');
 const { readSavedWallpaperProperties } = require('./wallpaper-engine-properties');
+const { wallpaperInputCommand, nativeWallpaperInputSource } = require('./wallpaper-engine-input');
 
 const SIGNER_PATTERN = /\bSkutta Software\b/i;
 const MIN_WIDTH = 64;
@@ -1022,6 +1023,8 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
+${nativeWallpaperInputSource()}
+
 public sealed class MineradioWeDwmSurfaceHost : Form {
   [StructLayout(LayoutKind.Sequential)]
   struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
@@ -1053,7 +1056,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   const uint SWP_NOSIZE = 0x0001;
   const uint SWP_NOMOVE = 0x0002;
   const uint SWP_NOZORDER = 0x0004;
-  const uint SWP_ASYNCWINDOWPOS = 0x4000;
+  const uint SWP_NOCOPYBITS = 0x0100;
   const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
   const uint GW_HWNDPREV = 3;
   const int WM_NCHITTEST = 0x0084;
@@ -1169,12 +1172,14 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
   int visualPositionX = 0;
   int visualPositionY = 0;
   int visualScale = 1080000;
+  readonly MineradioWeInput input;
 
   MineradioWeDwmSurfaceHost(IntPtr host, IntPtr source, string expectedTitle, int cornerRadius,
       bool enableDesktopIconLayering, int initialOpacity, int initialPositionX,
       int initialPositionY, int initialScale) {
     hostWindow = host;
     sourceWindow = source;
+    input = new MineradioWeInput(source);
     sourceTitle = expectedTitle ?? "";
     windowCornerRadius = Math.Max(0, Math.Min(512, cornerRadius));
     desktopIconLayeringEnabled = enableDesktopIconLayering;
@@ -1326,6 +1331,28 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
             } catch { }
             continue;
           }
+          if (command.StartsWith("P|", StringComparison.Ordinal)) {
+            string[] values = command.Split('|');
+            int x, y, buttons, button, delta;
+            if (values.Length != 7 || !Int32.TryParse(values[2], out x) || !Int32.TryParse(values[3], out y)
+                || !Int32.TryParse(values[4], out buttons) || !Int32.TryParse(values[5], out button)
+                || !Int32.TryParse(values[6], out delta) || x < 0 || x > 65535 || y < 0 || y > 65535
+                || buttons < 0 || buttons > 7 || button < 0 || button > 2 || Math.Abs((long)delta) > 1200) continue;
+            string kind = values[1];
+            try {
+              if (!IsDisposed && IsHandleCreated) BeginInvoke(new Action(delegate() {
+                if (thumbnail == IntPtr.Zero || !IsWindow(hostWindow) || !IsWindowVisible(hostWindow)
+                    || !IsWindow(sourceWindow) || WindowTitle(sourceWindow) != sourceTitle) return;
+                double width = Math.Max(1, ClientSize.Width - 1);
+                double height = Math.Max(1, ClientSize.Height - 1);
+                RECT destination = lastThumbnailProperties.rcDestination;
+                double px = (x / 65535.0 * width - destination.Left) / Math.Max(1, destination.Right - destination.Left - 1);
+                double py = (y / 65535.0 * height - destination.Top) / Math.Max(1, destination.Bottom - destination.Top - 1);
+                input.Forward(kind, px, py, buttons, button, delta);
+              }));
+            } catch (InvalidOperationException) { }
+            continue;
+          }
         }
       } catch { }
       try {
@@ -1343,6 +1370,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
 
   protected override void OnFormClosed(FormClosedEventArgs eventArgs) {
     StopHostFollow();
+    if (IsWindow(sourceWindow) && WindowTitle(sourceWindow) == sourceTitle) input.Close();
     if (thumbnail != IntPtr.Zero) {
       DwmUnregisterThumbnail(thumbnail);
       thumbnail = IntPtr.Zero;
@@ -1487,7 +1515,7 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     } catch { }
   }
 
-  static void AlignWindow(IntPtr window, IntPtr insertAfter, RECT target, bool asynchronous) {
+  static void AlignWindow(IntPtr window, IntPtr insertAfter, RECT target) {
     RECT current;
     if (!GetWindowRect(window, out current)) throw new Win32Exception(Marshal.GetLastWin32Error());
     bool samePosition = current.Left == target.Left && current.Top == target.Top;
@@ -1495,12 +1523,11 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
       && current.Bottom - current.Top == target.Bottom - target.Top;
     bool sameOrder = GetWindow(window, GW_HWNDPREV) == insertAfter;
     if (samePosition && sameSize && sameOrder && IsWindowVisible(window)) return;
-    uint flags = SWP_NOACTIVATE | SWP_SHOWWINDOW;
+    // Copying stale client pixels during resize leaves trails in Web/DX scenes.
+    uint flags = SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS;
     if (samePosition) flags |= SWP_NOMOVE;
     if (sameSize) flags |= SWP_NOSIZE;
     if (sameOrder) flags |= SWP_NOZORDER;
-    // A busy WE render thread must not stall the surface following Electron.
-    if (asynchronous) flags |= SWP_ASYNCWINDOWPOS;
     if (!SetWindowPos(window, insertAfter, target.Left, target.Top,
         target.Right - target.Left, target.Bottom - target.Top, flags)) {
       throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -1540,13 +1567,13 @@ public sealed class MineradioWeDwmSurfaceHost : Form {
     IntPtr hostLayer = hostRoot != IntPtr.Zero && hostRoot != hostWindow ? hostRoot : hostWindow;
     IntPtr surfaceInsertAfter = iconHost != IntPtr.Zero ? iconHost : hostLayer;
     if (thumbnail != IntPtr.Zero) {
-      AlignWindow(Handle, surfaceInsertAfter, hostRect, false);
-      AlignWindow(sourceWindow, Handle, hostRect, true);
+      AlignWindow(Handle, surfaceInsertAfter, hostRect);
+      AlignWindow(sourceWindow, Handle, hostRect);
     } else {
       // Until WGC has primed the SVG sampler, show the real source above the
       // empty DWM destination so startup never flashes a black base frame.
-      AlignWindow(sourceWindow, surfaceInsertAfter, hostRect, true);
-      AlignWindow(Handle, sourceWindow, hostRect, false);
+      AlignWindow(sourceWindow, surfaceInsertAfter, hostRect);
+      AlignWindow(Handle, sourceWindow, hostRect);
     }
 
     ApplyCornerRegion(Handle, width, height, radius);
@@ -1932,6 +1959,8 @@ class WallpaperEngineRuntime {
 
   _stopSessionDwmSurface(session) {
     if (!session) return false;
+    if (session.dwmSurfaceActivationTimer) clearTimeout(session.dwmSurfaceActivationTimer);
+    session.dwmSurfaceActivationTimer = null;
     if (session.dwmSurfaceRetryTimer) clearTimeout(session.dwmSurfaceRetryTimer);
     session.dwmSurfaceRetryTimer = null;
     const child = session.dwmSurfaceProcess;
@@ -2144,14 +2173,22 @@ class WallpaperEngineRuntime {
       }
 
       session.dwmSurfaceReady = true;
-      // The source window itself stays directly behind Electron until the
-      // renderer has opened a cursor-free capture of this plain helper HWND.
-      // Only then does activateDwmSurface() register the DWM thumbnail.
+      // Give optional SVG glass capture time to prime. The rounded base must
+      // also activate if capture fails or a replacement helper lost its ACK.
       session.dwmSurfaceActive = false;
+      session.dwmSurfaceActivationTimer = setTimeout(() => {
+        if (this.disposed || this.active !== session || session.stopping === true
+          || session.dwmSurfaceProcess !== child) return;
+        session.dwmSurfaceActivationTimer = null;
+        this.activateDwmSurface(session.sessionId).catch(() => {});
+      }, 10000);
+      session.dwmSurfaceActivationTimer.unref();
       session.windowParking = null;
       if (typeof child.once === 'function') {
         child.once('exit', () => {
           if (session.dwmSurfaceProcess !== child) return;
+          if (session.dwmSurfaceActivationTimer) clearTimeout(session.dwmSurfaceActivationTimer);
+          session.dwmSurfaceActivationTimer = null;
           session.dwmSurfaceProcess = null;
           session.dwmSurfaceReady = false;
           session.dwmSurfaceActive = false;
@@ -2243,7 +2280,7 @@ class WallpaperEngineRuntime {
       || !session.dwmSurfaceProcess.stdin) {
       throw runtimeError('WALLPAPER_ENGINE_DWM_SURFACE_FAILED');
     }
-    if (session.dwmSurfaceActive === true) return this._publicSession(session);
+    if (session.dwmSurfaceActive === true) return { ...this._publicSession(session), alreadyActive: true };
     const child = session.dwmSurfaceProcess;
     const stdin = child.stdin;
     if (stdin.destroyed === true || stdin.writableEnded === true) {
@@ -2257,7 +2294,7 @@ class WallpaperEngineRuntime {
         || session.dwmSurfaceProcess !== child) {
         throw runtimeError('WALLPAPER_ENGINE_START_SUPERSEDED');
       }
-      if (session.dwmSurfaceActive === true) return this._publicSession(session);
+      if (session.dwmSurfaceActive === true) return { ...this._publicSession(session), alreadyActive: false };
       await this.sleep(20);
     }
     throw runtimeError('WALLPAPER_ENGINE_DWM_SURFACE_FAILED');
@@ -2716,6 +2753,14 @@ class WallpaperEngineRuntime {
     const session = this.active;
     expectedSessionId = String(expectedSessionId || '');
     coordinates = coordinates && typeof coordinates === 'object' ? coordinates : null;
+    if (session && !this.disposed && session.stopping !== true && session.sessionId === expectedSessionId
+      && session.dwmSurfaceReady === true && session.dwmSurfaceActive === true) {
+      const command = wallpaperInputCommand(coordinates);
+      const stdin = session.dwmSurfaceProcess && session.dwmSurfaceProcess.stdin;
+      if (!command || !stdin || stdin.destroyed || stdin.writableEnded
+        || (stdin.writableNeedDrain && coordinates.kind === 'move')) return false;
+      try { stdin.write(command, 'ascii'); return true; } catch (_) { return false; }
+    }
     const rawXUnit = coordinates && coordinates.xUnit;
     const rawYUnit = coordinates && coordinates.yUnit;
     const xUnit = Math.round(rawXUnit);
@@ -4153,7 +4198,7 @@ class WallpaperEngineRuntime {
         : null;
       const sceneExtension = path.extname(String(scenePackage || '')).toLowerCase();
       const allowedExtension = target && target.projectType === 'web' ? ['.html', '.htm']
-        : target && target.projectType === 'video' ? ['.mp4', '.webm', '.m4v', '.mov', '.mkv', '.avi'] : ['.pkg', '.pak'];
+        : target && target.projectType === 'video' ? Array.from(VIDEO_MIME.keys()) : ['.pkg', '.pak'];
       const targetStat = scenePackage && path.isAbsolute(scenePackage) && allowedExtension.includes(sceneExtension)
         ? await statFile(scenePackage)
         : null;

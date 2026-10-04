@@ -48,14 +48,15 @@ for (const name of fs.readdirSync(os.tmpdir())) {
   try { if (Date.now() - fs.statSync(dir).mtimeMs > 3600000) fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
 }
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-qa-'));
-const userData = path.join(temp, 'Mineradio QA');
+const runtimeName = 'Mineradio QA ' + process.pid;
+const userData = path.join(temp, runtimeName);
 fs.mkdirSync(userData);
 fs.writeFileSync(path.join(userData, 'cache-settings.json'), JSON.stringify({ rootPath: path.join(temp, 'cache') }));
 fs.writeFileSync(path.join(userData, 'onboarding-state.json'), JSON.stringify({ visual: true, login: true }));
 app.setPath('appData', temp);
 app.setPath('userData', userData);
 app.setPath('sessionData', path.join(temp, 'session'));
-process.env.MINERADIO_RUNTIME_NAME = 'Mineradio QA ' + process.pid;
+process.env.MINERADIO_RUNTIME_NAME = runtimeName;
 process.env.MINERADIO_STARTUP_QA_USER_DATA = userData;
 if (!visible) process.env.MINERADIO_STARTUP_QA_HIDDEN = '1';
 
@@ -70,7 +71,25 @@ require(path.join(root, 'desktop', 'main'));
 require(path.join(root, 'tests', 'helpers', 'electron-frames')).keepTestWindowFramesRunning(app);
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-setTimeout(() => { console.log('QA_RESULT ' + JSON.stringify({ error: 'timeout' })); app.exit(3); }, timeoutMs).unref();
+async function stopQaWallpaper(win) {
+  if (!win || win.isDestroyed()) return;
+  // app.exit bypasses before-quit. Close only this throwaway profile's native
+  // popout, otherwise its Web process/cache can break the next isolated run.
+  await Promise.race([
+    win.webContents.mainFrame.executeJavaScript(`(async () => {
+      const api = window.desktopWindow;
+      if (api && typeof api.stopWallpaperEngineScene === 'function') {
+        await api.stopWallpaperEngineScene({});
+      }
+    })()`).catch(() => {}),
+    wait(8000),
+  ]);
+}
+setTimeout(async () => {
+  console.log('QA_RESULT ' + JSON.stringify({ error: 'timeout' }));
+  await stopQaWallpaper(BrowserWindow.getAllWindows().find(w => /^http:\/\/127\.0\.0\.1:/.test(w.webContents.getURL())));
+  app.exit(3);
+}, timeoutMs).unref();
 
 app.whenReady().then(async () => {
   for (;;) {
@@ -93,6 +112,7 @@ app.whenReady().then(async () => {
         fs.writeFileSync(shot, (await win.webContents.capturePage()).toPNG());
       }
       console.log('QA_RESULT ' + JSON.stringify(result === undefined ? null : result));
+      await stopQaWallpaper(win);
       app.exit(0);
       return;
     }

@@ -96,6 +96,7 @@
     'js/modules/07-fx/01-lyric-color-controls.js',
     'js/modules/07-fx/02a-album-cover-background.js',
     'js/modules/07-fx/02-accent-background-controls.js',
+    'js/modules/07-fx/03a-wallpaper-engine-interaction.js',
     'js/modules/07-fx/03-wallpaper-engine-library.js',
     'js/modules/07-fx/03-cover-picker-fonts.js',
     'js/modules/07-fx/04-preset-grid-uniforms.js',

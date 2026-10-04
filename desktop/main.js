@@ -4554,6 +4554,7 @@ ipcMain.handle('mineradio-wallpaper-engine-activate-dwm-surface', async (event, 
   try {
     const result = await wallpaperEngineRuntime.activateDwmSurface(sessionId);
     return {
+      alreadyActive: !!(result && result.alreadyActive === true),
       ok: !!(result && result.dwmSurfaceActive === true),
       active: !!(result && result.dwmSurfaceActive === true),
       captureMode: 'dwm-thumbnail',
@@ -4607,11 +4608,16 @@ ipcMain.on('mineradio-wallpaper-engine-pointer-activity', (event, payload = {}) 
   const status = wallpaperEngineRuntime.getStatus();
   if (!status
     || status.active !== true
-    || status.sourceWindowParked !== true
+    || (status.sourceWindowParked !== true && status.dwmSurfaceActive !== true)
     || String(status.sessionId || '') !== sessionId
     || typeof wallpaperEngineRuntime.noteHostPointerActivity !== 'function') return;
   try {
-    wallpaperEngineRuntime.noteHostPointerActivity({ sessionId, xUnit, yUnit });
+    wallpaperEngineRuntime.noteHostPointerActivity({
+      sessionId, xUnit, yUnit, kind: payload.kind || 'move',
+      buttons: payload.buttons == null ? 0 : payload.buttons,
+      button: payload.button == null ? 0 : payload.button,
+      delta: payload.delta == null ? 0 : payload.delta
+    });
   } catch (_) { }
 });
 

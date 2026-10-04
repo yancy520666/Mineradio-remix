@@ -42,6 +42,7 @@ const IMAGE_MIME = new Map([
   ['.bmp', 'image/bmp'],
   ['.avif', 'image/avif'],
   ['.gif', 'image/gif'],
+  ['.apng', 'image/apng'],
 ]);
 const VIDEO_MIME = new Map([
   ['.mkv', 'video/x-matroska'],
@@ -50,6 +51,11 @@ const VIDEO_MIME = new Map([
   ['.webm', 'video/webm'],
   ['.m4v', 'video/mp4'],
   ['.mov', 'video/quicktime'],
+  ['.ogv', 'video/ogg'],
+  ['.ogg', 'video/ogg'],
+  ['.wmv', 'video/x-ms-wmv'],
+  ['.mpg', 'video/mpeg'],
+  ['.mpeg', 'video/mpeg'],
 ]);
 const SAFE_MIME = new Map([...IMAGE_MIME, ...VIDEO_MIME]);
 
@@ -505,7 +511,7 @@ async function indexProject(projectRoot, source, scenePackageOverride = '') {
       title: sanitizeText(project.title, path.basename(projectRoot)),
       projectType: safeProjectType,
       mediaType,
-      mediaAnimated: mediaExt === '.gif',
+      mediaAnimated: ['.gif', '.apng', '.webp'].includes(mediaExt),
       playable: !!media,
       enginePlayable,
       previewOnly,
@@ -916,6 +922,7 @@ class WallpaperEngineLibrary {
 }
 
 module.exports = {
+  VIDEO_MIME,
   WALLPAPER_ENGINE_SCHEME,
   WallpaperEngineLibrary,
   discoverSteamLibraries,
