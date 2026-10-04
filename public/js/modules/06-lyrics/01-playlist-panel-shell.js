@@ -552,7 +552,9 @@ function mergePlaylistCatalogRows(existing, incoming, provider) {
 }
 function rebuildUserPlaylistsFromCatalog(opts) {
   opts = opts || {};
-  userPlaylists = builtInPlaylists.concat(neteasePlaylists, qqPlaylists, kugouPlaylists, qishuiPlaylists, spotifyPlaylists);
+  var providers = typeof contentProviderOrder === 'function' ? contentProviderOrder() : ['netease', 'qq', 'kugou', 'qishui', 'spotify'];
+  userPlaylists = builtInPlaylists.slice();
+  providers.forEach(function (provider) { userPlaylists = userPlaylists.concat(playlistCatalogProviderArray(provider)); });
   if (typeof applyUserPlaylistOrder === 'function') applyUserPlaylistOrder();
   playlistCatalogRevision += 1;
   renderUserPlaylistsList({ animate: !!opts.animate, reset: !!opts.reset, preserveScroll: opts.preserveScroll !== false });

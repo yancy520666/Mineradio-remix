@@ -156,6 +156,7 @@ function saveAccountProviderOrder(order) {
   if (typeof renderUserBtn === 'function') renderUserBtn();
   animateAccountProviderReorder(topRoot, '.top-account-pill[data-account-provider]', topRects, 'provider-reorder-moving');
   if (typeof scheduleLoginWorkflowEdges === 'function') scheduleLoginWorkflowEdges('provider-order');
+  if (typeof syncContentProviderPriority === 'function') syncContentProviderPriority();
   return order;
 }
 function moveAccountProviderBefore(provider, beforeProvider) {

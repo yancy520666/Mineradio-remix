@@ -535,7 +535,8 @@ function renderHomeDashboardQuickCards() {
   var summary = typeof homeListenSummary === 'function' ? homeListenSummary() : {};
   var recent = summary && summary.recent || null;
   var current = homeDashboardCurrentSong();
-  var daily = homeDiscoverState && homeDiscoverState.songs && homeDiscoverState.songs[0] || null;
+  var dailySource = typeof preferredHomeRecommendationSource === 'function' ? preferredHomeRecommendationSource() : 'netease';
+  var daily = typeof homePreferredDailySong === 'function' ? homePreferredDailySong() : (homeDiscoverState.songs && homeDiscoverState.songs[0] || null);
   var continueItem = current || recent;
   var localSongs = homeDashboardLocalSongs();
   var localCount = localSongs.length;
@@ -564,7 +565,8 @@ function renderHomeDashboardQuickCards() {
     {
       label: 'DAILY MIX',
       title: '每日推荐',
-      sub: daily ? ((daily.name || daily.title || '今日歌曲') + (homeDashboardSubtitle(daily) ? ' · ' + homeDashboardSubtitle(daily) : '')) : '使用当前 Mineradio 推荐数据',
+      sub: daily ? ((daily.name || daily.title || '今日歌曲') + (homeDashboardSubtitle(daily) ? ' · ' + homeDashboardSubtitle(daily) : '')) :
+        (dailySource === 'qq' ? 'QQ 音乐暂未支持每日推荐' : '优先来自' + homePlatformRecommendationSourceLabel(dailySource) + ' · 点击查看推荐'),
       cover: homeDashboardSongCover(daily, 260),
       action: 'playHomeDaily()',
       tone: 'mix',
@@ -1136,6 +1138,7 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   } finally {
     feedState.loading = false;
     renderHomePlatformRecommendations();
+    renderHomeDashboardQuickCards();
   }
 }
 
@@ -1229,15 +1232,12 @@ function openHomePlatformRecommendations(preferredSource) {
   bindHomePlatformRecommendationControls();
   var mask = document.getElementById('home-platform-recommend-mask');
   if (!mask) return;
+  if (typeof syncHomeRecommendationTabOrder === 'function') syncHomeRecommendationTabOrder();
   homePlatformRecommendationState.previousFocus = document.activeElement;
   homePlatformRecommendationState.open = true;
   mask.classList.add('show');
   mask.setAttribute('aria-hidden', 'false');
-  var defaultSource = loginStatus && loginStatus.loggedIn
-    ? 'netease'
-    : (qishuiLoginStatus && (qishuiLoginStatus.loggedIn || qishuiLoginStatus.configured)
-      ? 'qishui'
-      : (kugouLoginStatus && kugouLoginStatus.loggedIn ? 'kugou' : 'netease'));
+  var defaultSource = typeof preferredHomeRecommendationSource === 'function' ? preferredHomeRecommendationSource() : 'netease';
   var source = /^(netease|qishui|qq|kugou)$/.test(String(preferredSource || '')) ? preferredSource : defaultSource;
   loadHomePlatformRecommendations(source, false);
   setTimeout(function () {

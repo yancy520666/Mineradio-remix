@@ -202,6 +202,7 @@ function playlistPanelDetailRowsHtml(options) {
   return rows;
 }
 var PLAYLIST_REORDER_STORE_KEY = 'mineradio-playlist-reorder-v1';
+var PLAYLIST_REORDER_PROVIDER_ORDER_STORE_KEY = 'mineradio-playlist-reorder-provider-order-v1';
 function playlistReorderKey(pl) {
   if (!pl) return '';
   return playlistPanelKey(normalizePlaylistProvider(pl.provider), pl.id);
@@ -218,19 +219,37 @@ function readPlaylistReorderKeys() {
 function savePlaylistReorderKeys() {
   try {
     localStorage.setItem(PLAYLIST_REORDER_STORE_KEY, JSON.stringify(userPlaylists.map(playlistReorderKey).filter(Boolean)));
+    if (typeof contentProviderOrder === 'function') {
+      localStorage.setItem(PLAYLIST_REORDER_PROVIDER_ORDER_STORE_KEY, contentProviderOrder().join(','));
+    }
   } catch (e) { }
 }
 function applyUserPlaylistOrder() {
   if (!userPlaylists || !userPlaylists.length) return false;
   var keys = readPlaylistReorderKeys();
   if (!keys.length) return false;
+  var providerRanks = null;
+  if (typeof contentProviderOrder === 'function') {
+    var providerOrder = contentProviderOrder();
+    var savedProviderOrder = 'netease,qq,kugou,qishui,spotify';
+    try { savedProviderOrder = localStorage.getItem(PLAYLIST_REORDER_PROVIDER_ORDER_STORE_KEY) || savedProviderOrder; } catch (e) { }
+    // A new account ordering overrides the old cross-platform placement,
+    // preserving hand-sorted rows within each platform. A later manual drag
+    // can override this default until the account ordering changes again.
+    if (savedProviderOrder !== providerOrder.join(',')) {
+      providerRanks = { mineradio: -1 };
+      providerOrder.forEach(function (provider, index) { providerRanks[provider] = index; });
+    }
+  }
   var rank = {};
   keys.forEach(function (key, idx) {
     if (rank[key] == null) rank[key] = idx;
   });
   userPlaylists = userPlaylists.map(function (pl, idx) {
-    return { pl: pl, idx: idx, rank: rank[playlistReorderKey(pl)] };
+    var provider = normalizePlaylistProvider(pl.provider);
+    return { pl: pl, idx: idx, rank: rank[playlistReorderKey(pl)], providerRank: providerRanks ? providerRanks[provider] : 0 };
   }).sort(function (a, b) {
+    if (a.providerRank !== b.providerRank) return a.providerRank - b.providerRank;
     var ar = a.rank;
     var br = b.rank;
     var ah = ar != null;

@@ -1770,7 +1770,7 @@ function checkQishuiProviderGuard() {
   if (!/\/api\/qishui\/user\/playlists/.test(serverText) || !/\/api\/qishui\/playlist\/tracks/.test(serverText)) {
     fail('server.js must route Qishui user playlists and playlist track detail endpoints');
   }
-  if (!/qishuiPlaylists/.test(coreStoreText) || !/if \(provider === 'qishui'\) return '\/api\/qishui\/user\/playlists'/.test(playlistShellText) || !/builtInPlaylists\.concat\(neteasePlaylists, qqPlaylists, kugouPlaylists, qishuiPlaylists, spotifyPlaylists\)/.test(playlistShellText)) {
+  if (!/qishuiPlaylists/.test(coreStoreText) || !/if \(provider === 'qishui'\) return '\/api\/qishui\/user\/playlists'/.test(playlistShellText) || !/userPlaylists\.concat\(playlistCatalogProviderArray\(provider\)\)/.test(playlistShellText) || !/if \(provider === 'qishui'\) return qishuiPlaylists/.test(playlistShellText)) {
     fail('playlist panel refresh must merge Qishui playlists with the other providers');
   }
   if (!/normalizePlaylistProvider/.test(playlistDetailText) || !/\/api\/qishui\/playlist\/tracks/.test(playlistDetailText) || !/qishui:' \+ id/.test(playlistDetailText) || !/汽水音乐歌单/.test(playlistDetailText)) {
@@ -5626,7 +5626,7 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
     playlistPanelGlassBlur: 14,
     playlistPanelGlassDensity: 0.55,
     performanceBackground: 'release',
-    performanceQuality: 'eco',
+    performanceQuality: 'ultra',
     memoryAutoSystemTrim: true,
     memorySystemAutoElevate: false,
     wallpaperFps: 60,
