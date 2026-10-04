@@ -99,3 +99,47 @@ test('native session restart during recording aborts instead of caching a frozen
   await assert.rejects(recording, /LOOP_RECORD_INTERRUPTED/);
   assert.equal(draws, 1);
 });
+
+function sizedSetup({ innerWidth, innerHeight, cached }) {
+  const s = setup(); const calls = [];
+  const state = { fullscreen: false, embedded: false };
+  Object.assign(s.c.window, { innerWidth, innerHeight, devicePixelRatio: 1, screen: { width: 1920, height: 1080 } });
+  s.c.desktopRuntimeState = state;
+  const actions = { hidden: true, children: [], set textContent(_) { this.children = []; },
+    appendChild(child) { this.children.push(child); } };
+  s.c.document.getElementById = id => id === 'wallpaper-engine-video' ? s.video : (id === 'wallpaper-engine-mode-actions' ? actions : null);
+  s.c.document.createElement = () => ({ addEventListener(_, run) { this.run = run; } });
+  s.c.wallpaperEngineNativeSessionId = 'c'.repeat(24);
+  s.c.toggleFullscreen = () => { calls.push('fullscreen'); state.fullscreen = true; s.c.window.innerWidth = 1920; s.c.window.innerHeight = 1080; };
+  s.c.wallpaperEngineDesktopApi = () => ({ toggleFullscreen() {}, wallpaperEngineLoopCache: async payload => {
+    calls.push(payload.action);
+    return payload.action === 'lookup' ? { ok: true, width: 1920, height: 1080, ...cached } : { ok: true };
+  }, exitFullscreenWindowed: async () => { calls.push('restore'); state.fullscreen = false; } });
+  return { ...s, calls, actions, state };
+}
+
+test('a small window asks before recording and full-screen choice expands then restores', async () => {
+  const s = sizedSetup({ innerWidth: 1100, innerHeight: 700, cached: { cached: false } });
+  s.c.startWallpaperEngineLoopBackground(s.item);
+  await settle(); await settle();
+  assert.deepEqual(s.calls, ['lookup'], 'nothing records until the user chooses');
+  assert.equal(s.actions.hidden, false); assert.equal(s.actions.children.length, 2);
+  s.actions.children[0].run();
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.ok(s.calls.includes('fullscreen'));
+  // Cancelling (e.g. switching back to native) must return the user's window.
+  s.c.setWallpaperEnginePlaybackMode('native');
+  assert.equal(s.calls.at(-1), 'restore'); assert.equal(s.state.fullscreen, false);
+});
+
+test('a cached low-resolution loop plays and offers a full-screen regeneration', async () => {
+  const s = sizedSetup({ innerWidth: 1100, innerHeight: 700,
+    cached: { cached: true, url: 'mineradio-wallpaper://loop/k', recordedWidth: 1100, recordedHeight: 700 } });
+  s.c.startWallpaperEngineLoopBackground(s.item);
+  await settle(); s.stop.resolve({ ok: true }); await settle();
+  assert.equal(s.video.lastSrc, 'mineradio-wallpaper://loop/k');
+  s.c.requestWallpaperEngineVideoPlayback = () => {};
+  s.video.onloadeddata();
+  assert.match(s.c.wallpaperLoopMessage, /1100×700/);
+  assert.equal(s.actions.children.length, 1);
+});

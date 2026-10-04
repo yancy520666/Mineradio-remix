@@ -249,3 +249,23 @@ test('logging out of the chosen fallback platform during loading prevents its da
   await pending;
   assert.deepEqual(plays, []);
 });
+
+test('refreshing during a load reloads once after it, however often it is clicked', async () => {
+  const { c } = setup();
+  const finishes = [];
+  c.apiJson = () => new Promise(resolve => { finishes.push(resolve); });
+  c.renderHomePlatformRecommendations = () => {};
+  c.homePlatformRecommendationFeedConfig = () => ({ endpoint: '/api/qq/recommendations' });
+  vm.runInContext(namedFunction('05-playback/03a-home-dashboard.js', 'loadHomePlatformFeedRecommendations'), c);
+  const first = c.loadHomePlatformFeedRecommendations('qq', false);
+  const refreshes = [c.loadHomePlatformFeedRecommendations('qq', true), c.loadHomePlatformFeedRecommendations('qq', true)];
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(finishes.length, 1);
+  finishes[0]({ songs: [{ id: 'stale' }] }); await first;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(finishes.length, 2, 'one queued reload after the in-flight request');
+  finishes[1]({ songs: [{ id: 'fresh' }] }); await Promise.all(refreshes);
+  const feed = c.homePlatformRecommendationState.feeds.qq;
+  assert.equal(feed.songs[0].id, 'fresh'); assert.equal(feed.loading, false);
+  assert.equal(finishes.length, 2);
+});

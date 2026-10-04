@@ -1119,7 +1119,17 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   var config = homePlatformRecommendationFeedConfig(source);
   var feedState = homePlatformRecommendationState.feeds[source];
   if (!config || !feedState) return;
-  if (feedState.loading) return feedState.pending;
+  if (feedState.loading) {
+    if (!force) return feedState.pending;
+    // A refresh during a load runs once more after it; repeated clicks share it.
+    if (!feedState.queuedRefresh) {
+      feedState.queuedRefresh = Promise.resolve(feedState.pending).then(function () {
+        feedState.queuedRefresh = null;
+        return loadHomePlatformFeedRecommendations(source, true);
+      });
+    }
+    return feedState.queuedRefresh;
+  }
   // Daily content and the connected account can change between openings.
   if (feedState.loaded && !force && source !== 'kugou' && source !== 'qq') return;
   feedState.loading = true;
