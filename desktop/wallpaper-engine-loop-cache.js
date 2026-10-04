@@ -9,6 +9,11 @@ const { parseByteRange } = require('./wallpaper-engine-library');
 const MAX_BYTES = 64 * 1024 * 1024;
 const MAX_CHUNK = 1024 * 1024;
 const SETTINGS = { version: 1, duration: 20, width: 1920, height: 1080, fps: 30 };
+// 0 means unknown (caches written before sizes were recorded).
+function recordedDimension(value) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) && number >= 2 && number <= 7680 ? number : 0;
+}
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 function sortedValues(value) {
   return Object.keys(value || {}).sort().map(key => [key, value[key]]);
@@ -45,7 +50,7 @@ class WallpaperLoopCache {
   }
   begin(id) { return this.mutate(() => this.beginJob(id)); }
   append(id, chunk) { return this.mutate(() => this.appendJob(id, chunk)); }
-  finish(id) { return this.mutate(() => this.finishJob(id)); }
+  finish(id, size) { return this.mutate(() => this.finishJob(id, size)); }
   abort(id) { return this.mutate(() => this.abortJob(id)); }
   abortAll() { return this.mutate(async () => { for (const id of Array.from(this.jobs.keys())) await this.abortJob(id); }); }
 
@@ -83,7 +88,8 @@ class WallpaperLoopCache {
       for await (const chunk of fs.createReadStream(files.video)) digest.update(chunk);
       if (digest.digest('hex') !== meta.sha256) throw new Error('LOOP_INVALID_CACHE');
       this.entries.set(identity.key, files.video);
-      return { ok: true, cached: true, ...identity, url: this.url(identity.key), bytes: stat.size };
+      return { ok: true, cached: true, ...identity, url: this.url(identity.key), bytes: stat.size,
+        recordedWidth: recordedDimension(meta.recordedWidth), recordedHeight: recordedDimension(meta.recordedHeight) };
     } catch (_) {
       this.entries.delete(identity.key);
       return { ok: true, cached: false, ...identity };
@@ -126,19 +132,29 @@ class WallpaperLoopCache {
     return { ok: true };
   }
 
-  async finishJob(jobId) {
+  async finishJob(jobId, size = {}) {
     const job = this.job(jobId);
     if (job.bytes < 128) throw new Error('LOOP_EMPTY_RECORDING');
     const current = await this.identity(job.id);
     if (current.key !== job.key || this.jobs.get(jobId) !== job) throw new Error('LOOP_PROJECT_CHANGED');
     const files = this.files(job.key);
-    const metadata = { ...current, bytes: job.bytes, sha256: job.digest.digest('hex') };
-    await fs.promises.rename(job.temp, files.video);
+    // Keep the actual capture size so a recording made in a small window can
+    // be offered a full-screen regeneration later.
+    const recorded = { recordedWidth: recordedDimension(size.width), recordedHeight: recordedDimension(size.height) };
+    const metadata = { ...current, ...recorded, bytes: job.bytes, sha256: job.digest.digest('hex') };
+    // Regenerating replaces a video the player may have just released.
+    for (let attempt = 0; ; attempt++) {
+      try { await fs.promises.rename(job.temp, files.video); break; }
+      catch (error) {
+        if (attempt >= 5 || !['EPERM', 'EBUSY', 'EACCES'].includes(error.code)) throw error;
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
     await fs.promises.writeFile(files.meta, JSON.stringify(metadata));
     this.jobs.delete(jobId);
     this.entries.set(job.key, files.video);
     await this.prune(job.key).catch(() => {});
-    return { ok: true, cached: true, ...current, bytes: job.bytes, url: this.url(job.key) };
+    return { ok: true, cached: true, ...current, ...recorded, bytes: job.bytes, url: this.url(job.key) };
   }
 
   async abortJob(jobId) {
