@@ -513,7 +513,7 @@ async function main() {
     const initialDwmStatus = runtime.getStatus();
     assert.strictEqual(initialDwmStatus.dwmSurfaceReady, true);
     assert.strictEqual(initialDwmStatus.dwmSurfaceActive, false,
-      'DWM thumbnail activation must wait until the cursor-free SVG sampler capture is primed');
+      'DWM starts unactivated while the optional cursor-free sampler primes');
     assert.strictEqual(initialDwmStatus.dwmSurfaceHelperPid, firstDwmSurface.child.pid);
     assert.strictEqual(initialDwmStatus.dwmSurfaceWindowId, 6262);
     assert.strictEqual(initialDwmStatus.dwmDesktopIconLayering, true);
@@ -564,8 +564,13 @@ async function main() {
     });
     const activatedDwm = await runtime.activateDwmSurface(started.sessionId);
     assert.strictEqual(activatedDwm.dwmSurfaceActive, true);
+    assert.strictEqual(activatedDwm.alreadyActive, false);
+    assert.strictEqual((await runtime.activateDwmSurface(started.sessionId)).alreadyActive, true);
     assert.strictEqual(dwmSurfaceCommands.filter((entry) => entry.command === 'D').length, 1,
-      'the base DWM thumbnail must activate only after the sampler source was obtained');
+      'repeated DWM activation must reuse the existing thumbnail');
+    assert.strictEqual(runtime.noteHostPointerActivity({ sessionId: started.sessionId, kind: 'down', xUnit: 1000, yUnit: 2000, buttons: 1 }), true);
+    await new Promise(resolve => setImmediate(resolve));
+    assert(dwmSurfaceCommands.some(entry => entry.command === 'P|down|1000|2000|1|0|0'), 'active DWM must deliver input through its existing helper');
     await assert.rejects(
       () => runtime.getDwmGlassCaptureSource('ffffffffffffffffffffffff'),
       (error) => error && error.code === 'WALLPAPER_ENGINE_SESSION_MISMATCH'
@@ -1706,11 +1711,11 @@ async function main() {
     assert(runtimeSourceText.includes('session.dwmDesktopIconLayering === enabled) {')
       && runtimeSourceText.includes('session.dwmSurfaceDesktopIconLayering = enabled;'),
     'a late helper ACK must also repair the desired desktop-icon state used by a later DWM helper restart');
-    assert(runtimeSourceText.includes('AlignWindow(Handle, surfaceInsertAfter, hostRect, false)')
-      && runtimeSourceText.includes('AlignWindow(sourceWindow, Handle, hostRect, true)'),
+    assert(runtimeSourceText.includes('AlignWindow(Handle, surfaceInsertAfter, hostRect)')
+      && runtimeSourceText.includes('AlignWindow(sourceWindow, Handle, hostRect)'),
       'the unique DWM surface must remain above its exact Wallpaper Engine source');
-    assert(runtimeSourceText.includes('AlignWindow(sourceWindow, surfaceInsertAfter, hostRect, true)')
-      && runtimeSourceText.includes('AlignWindow(Handle, sourceWindow, hostRect, false)'),
+    assert(runtimeSourceText.includes('AlignWindow(sourceWindow, surfaceInsertAfter, hostRect)')
+      && runtimeSourceText.includes('AlignWindow(Handle, sourceWindow, hostRect)'),
       'before thumbnail activation the exact source must remain above the empty DWM destination to prevent a black startup frame');
     assert(!runtimeSourceText.includes('SetWindowPos(hostWindow') && !runtimeSourceText.includes('AlignWindow(hostWindow'),
       'DWM following must never promote or otherwise reorder the Electron main window');
@@ -2131,7 +2136,7 @@ async function main() {
       dwmGlassGeometryGuard: true,
       dwmGlassSvgSamplerGuard: true,
       dwmSurfaceFailureCleanupGuard: true,
-      realCursorNoSyntheticRelayGuard: true,
+      nativeCursorAndInputSessionGuard: true,
       publicPathLeak: false,
     }));
   } finally {
