@@ -342,6 +342,16 @@ function wallpaperEngineMediaUrl(item, kind) {
   return 'mineradio-wallpaper://' + kind + '/' + encodeURIComponent(item.id || '') + '?v=' + encodeURIComponent(String(item.updatedAt || 0)) + '&token=' + encodeURIComponent(wallpaperEngineMediaToken);
 }
 
+function wallpaperEnginePreviewReason(item) {
+  if (item.playable || item.enginePlayable) return '当前仅使用项目预览，可重新选择壁纸重试运行';
+  if (item.projectType === 'application') return '暂不支持运行应用型壁纸';
+  if (item.projectType === 'scene') return '未找到有效的 PKGV 场景包';
+  if (item.projectType === 'web') return '网页入口文件不可用';
+  if (item.projectType === 'video') return '未找到可播放的视频文件';
+  if (item.projectType === 'image') return '图片文件不可用';
+  return '暂不支持运行此类壁纸';
+}
+
 function wallpaperEngineProjectLabel(item) {
   item = item || {};
   if (item.playable && item.mediaType === 'video') return 'Video · 动态播放';
@@ -349,8 +359,9 @@ function wallpaperEngineProjectLabel(item) {
   if (item.projectType === 'scene' && item.enginePlayable) return 'Scene · Wallpaper Engine 原生实时运行';
   if (item.projectType === 'scene') return 'Scene · 预览（未找到有效 PKGV 场景包）';
   if (item.projectType === 'web') return item.enginePlayable ? 'Web · Wallpaper Engine 原生运行' : 'Web · 预览（入口文件不可用）';
-  if (item.projectType === 'application') return 'Application · 安全预览（未运行程序）';
-  return '本地项目 · 安全预览';
+  if (item.projectType === 'application') return 'Application · 暂不支持运行，仅预览';
+  if (item.projectType === 'video') return 'Video · 预览（视频文件不可用）';
+  return '本地项目 · 暂不支持运行，仅预览';
 }
 
 function updateWallpaperEngineEntryUi(message) {
@@ -1720,14 +1731,14 @@ function applyWallpaperEngineBackground(item, quiet) {
     clearWallpaperEngineLayerMedia(0);
     beginWallpaperEngineMediaLoad();
   }
-  if (!quiet) showToast(kind === 'engine' ? '正在用 Wallpaper Engine 原生引擎载入 Scene…' : (kind === 'media' ? 'Wallpaper Engine 壁纸已启用' : '已启用安全预览，原背景仍保留'));
+  if (!quiet) showToast(kind === 'engine' ? '正在用 Wallpaper Engine 原生引擎载入壁纸…' : (kind === 'media' ? 'Wallpaper Engine 壁纸已启用' : wallpaperEnginePreviewReason(item) + '；仅显示项目预览，不运行原壁纸的效果与交互'));
   return true;
 }
 
 function activateWallpaperEngineItem(id) {
   var item = wallpaperEngineProjectById(id);
   if (!item || (!item.playable && !item.enginePlayable && !item.hasPreview)) {
-    showToast('该项目没有可安全导入的媒体');
+    showToast(item ? wallpaperEnginePreviewReason(item) + '，也没有预览图；请选择其他壁纸' : '该壁纸已不在索引中，请重新识别');
     return;
   }
   // Framing belongs to this wallpaper, never to the previously selected one.

@@ -18,6 +18,19 @@ function guideSteps() {
   return JSON.parse(JSON.stringify(ctx.visualGuideSteps));
 }
 
+test('empty players explain when song-dependent controls become available', () => {
+  let song = null;
+  const ctx = vm.createContext({ currentCoverSong: () => song });
+  loadFunctions(ctx, guideFile, ['visualGuideStepContent']);
+  const steps = guideSteps();
+  const content = key => ctx.visualGuideStepContent(steps.find(s => s.key === key));
+  assert.match(content('quality').body, /先搜索并播放/);
+  assert.match(content('comments').hint, /无需先登录/);
+  assert.match(content('background').body, /播放歌曲后/);
+  song = { id: 123, name: '已选歌曲' };
+  for (const step of steps) assert.equal(ctx.visualGuideStepContent(step), step);
+});
+
 test('the guide tours quality, comments, DIY background and Wallpaper Engine on elements that exist', () => {
   const steps = guideSteps();
   assert.deepEqual(steps.map(step => step.key),

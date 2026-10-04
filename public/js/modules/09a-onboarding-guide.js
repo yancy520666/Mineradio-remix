@@ -56,6 +56,22 @@ var visualGuideSteps = [
 function activeVisualGuideSteps() {
   return visualGuideSteps;
 }
+function visualGuideStepContent(step) {
+  if (!currentCoverSong()) {
+    if (step.key === 'quality') return {
+      body: '先搜索并播放一首在线歌曲，歌名旁就能查看和切换音质。可选档位取决于平台和账号权限。',
+      hint: '这里先认识音质入口；本地歌曲会隐藏这个标签'
+    };
+    if (step.key === 'comments') return {
+      body: '这里是歌名和歌手区域。播放或选择一首歌曲后，点歌名即可打开详情，查看最新、热门评论和楼中楼回复。',
+      hint: '还没有歌曲也可以继续引导，无需先登录'
+    };
+    if (step.key === 'background') return {
+      body: '在“界面 › 背景媒体”里选择图片或视频，并按需裁切。播放歌曲后，也可以把歌曲封面设为背景。'
+    };
+  }
+  return step;
+}
 function visualGuideWasSeen() {
   return startupGuideWasSeen('visual');
 }
@@ -265,9 +281,10 @@ function showVisualGuideStep(index) {
     setText('visual-guide-index', String(visualGuideStep + 1).padStart(2, '0'));
     setText('visual-guide-kicker', step.kicker);
     setText('visual-guide-title', step.title);
-    setText('visual-guide-body', step.body);
+    var content = visualGuideStepContent(step);
+    setText('visual-guide-body', content.body);
     var hint = document.getElementById('visual-guide-hint');
-    if (hint) { hint.textContent = step.hint || ''; hint.hidden = !step.hint; }
+    if (hint) { hint.textContent = content.hint || ''; hint.hidden = !content.hint; }
     if (card) {
       card.classList.toggle('is-hero', !!step.center);
       card.classList.remove('is-swapping');
