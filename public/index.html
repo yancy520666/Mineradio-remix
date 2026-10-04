@@ -439,12 +439,13 @@
             onfocus="showWallpaperEngineModeHint(this)" onblur="hideWallpaperEngineModeHint()">原生实时</button>
           <button id="wallpaper-engine-mode-loop" class="fx-mini-btn ghost" type="button" aria-pressed="false"
             aria-describedby="wallpaper-engine-mode-tooltip" onclick="setWallpaperEnginePlaybackMode('loop')"
-            data-mode-hint="Scene / Web 首次录制约 20 秒，之后播放本地循环视频。不再响应音乐与鼠标；循环衔接可能有跳变。"
+            data-mode-hint="Scene / Web 首次录制约 20 秒，之后播放本地循环视频；窗口小于屏幕时可临时铺满屏幕录制以保证清晰度。不再响应音乐与鼠标；循环衔接可能有跳变。"
             onmouseenter="showWallpaperEngineModeHint(this)" onmouseleave="hideWallpaperEngineModeHint()"
             onfocus="showWallpaperEngineModeHint(this)" onblur="hideWallpaperEngineModeHint()">循环视频</button>
         </div>
       </div>
       <small id="wallpaper-engine-mode-status" role="status" hidden></small>
+      <div id="wallpaper-engine-mode-actions" hidden></div>
       </div>
       <div class="wallpaper-engine-visual-controls">
         <div class="fx-slider"><label>WE 壁纸透明度</label><input id="wallpaper-engine-opacity" type="range" min="0.15" max="1" step="0.01" oninput="setWallpaperEngineVisualSetting('opacity', this.value)"><output></output></div>
