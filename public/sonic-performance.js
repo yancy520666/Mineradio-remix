@@ -2,20 +2,21 @@
   'use strict';
   var policy = global.MineradioSonicPerformancePolicy;
   var key = 'mineradio-sonic-performance-v1';
-  var preferences = { enabled: false, manualQuality: false, dismissed: false, hardwarePrompted: false,
-    sceneQualityPrompted: false };
+  var preferences = { enabled: false, manualQuality: false, dismissed: false, sceneQualityPrompted: false };
   try {
     var saved = JSON.parse(localStorage.getItem(key) || '{}');
     Object.keys(preferences).forEach(function (name) { preferences[name] = saved[name] === true; });
   } catch (_) {}
+  // Adaptive quality is on unless the user switched it off or chose "keep
+  // current" on the old opt-in advice; both set `dismissed` and stay respected.
+  if (!preferences.dismissed) preferences.enabled = true;
   var governor = policy.createGovernor(), meter = policy.createMeter();
   var active = 0, latest = null, recommendation = '', health = {}, gpu = {};
   var lastConfig = '', lastTarget = '', stageAttached = false, stageRestore = null;
   var noticeUntil = 0, noticeText = '';
   var healthClocks = {};
   var hardwareClock = policy.createVisibleClock(), noticeVisible = false, noticeAnimation = null;
-  // Closing the card only snoozes load advice for this run; "keep" is remembered.
-  var snoozed = false, sceneGpu = null;
+  var sceneGpu = null, offHintShown = false;
   // Ordinary scenes have no adaptive mode, so their one-time advice is a lower
   // quality tier: balanced on integrated GPUs, eco on software rendering.
   var SCENE_REASONS = { 'scene-gpu': 'balanced', 'scene-software': 'eco' };
@@ -29,7 +30,7 @@
       !document.body.classList.contains('visual-guide-active');
   }
   // The WE version follows an explicitly chosen quality tier; the topography
-  // stage keeps its own quality caps unless performance-first is switched on.
+  // stage keeps its own quality caps unless adaptive quality is on (default).
   function currentProfile() {
     return policy.profile(global.fx && global.fx.performanceQuality,
       preferences.enabled || preferences.manualQuality, preferences.enabled ? governor.reduction() : 0);
@@ -56,7 +57,7 @@
     var mode = global.fx && global.fx.foregroundFpsMode;
     var target = policy.targetFps(mode, p, display);
     return { profile: p, target: target, fpsLimit: policy.fpsLimit(mode, p, display),
-      lossTarget: policy.loadTarget(target, policy.smoothnessFloor(mode), preferences.enabled && governor.reduction() < 1),
+      lossTarget: policy.loadTarget(target, policy.smoothnessFloor(mode)),
       eligible: eligible(), paused: typeof global.isDeepBackgroundMode === 'function'
         ? global.isDeepBackgroundMode() : !!document.hidden };
   }
@@ -65,7 +66,6 @@
     if (lastTarget && lastTarget !== next) {
       // Keep the current detail while discarding the old goal's recovery history.
       governor.retarget(); meter.reset(now()); latest = null;
-      if (recommendation === 'load') recommendation = '';
       lastConfig = ''; noticeUntil = 0;
     }
     lastTarget = next;
@@ -87,7 +87,6 @@
     preferences.dismissed = !preferences.enabled;
     save(); refresh();
   }
-  function dismiss() { preferences.dismissed = true; recommendation = ''; save(); renderUi(); }
   function qualityChanged() { preferences.manualQuality = true; save(); refresh(); }
   function sample(value) {
     if (!preset() || !eligible() || !policy.validSample(value)) return;
@@ -101,14 +100,18 @@
     latest = value;
     var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled,
       policy.smoothnessFloor(global.fx.foregroundFpsMode));
-    if (action === 'recommend' && !preferences.dismissed && !snoozed) recommendation = 'load';
-    else if (recommendation === 'load') recommendation = '';
-    if (action === 'lower' || action === 'restore' || action === 'rollback') {
-      noticeText = action === 'lower' ? '已降低背景细节，优先保持流畅。稳定后会小幅恢复。' :
+    if (action === 'lower' || action === 'restore' || action === 'rollback' || action === 'ineffective') {
+      noticeText = action === 'lower' ? '已降低背景细节，优先保持流畅。稳定后会小幅恢复。' +
+          // Adaptation is on by default; say once per run where to switch it off.
+          (offHintShown ? '' : '可在 系统 › 性能与后台 关闭自适应。') :
+        action === 'ineffective' ? '降低细节没有让画面更流畅，已恢复原来的画质。卡顿可能来自其他程序或处理器占用，稍后会再判断。' :
         action === 'rollback' ? '已回到刚才稳定的画质，稍后会小幅尝试恢复。' :
         governor.reduction() === 0 ? '画面运行稳定，已恢复所选画质。' : '画面运行稳定，正在逐步恢复细节。';
+      if (action === 'lower') offHintShown = true;
       // Small probes update the settings status without repeatedly opening a card.
-      if (action === 'lower' || (action === 'restore' && governor.reduction() === 0)) noticeUntil = now() + 8000;
+      if (action === 'lower' || action === 'ineffective' || (action === 'restore' && governor.reduction() === 0)) {
+        noticeUntil = now() + 8000;
+      }
       meter.reset(now()); lastConfig = '';
       if (global.MineradioSonicWorkshop) global.MineradioSonicWorkshop.pushProperties(true);
     }
@@ -141,16 +144,13 @@
   }
   function accept() {
     var quality = SCENE_REASONS[recommendation];
-    if (!quality) { setEnabled(true); return; }
+    if (!quality) return;
     recommendation = '';
     // Same path as clicking the quality buttons, so it is saved and marked manual.
     if (typeof global.setPerformanceQualityMode === 'function') global.setPerformanceQualityMode(quality);
     else { global.fx.performanceQuality = quality; qualityChanged(); }
   }
-  function keep() {
-    if (SCENE_REASONS[recommendation]) { recommendation = ''; renderUi(); }
-    else dismiss();
-  }
+  function keep() { recommendation = ''; renderUi(); }
   function attachStage() {
     if (stageAttached || !global.renderer) return;
     stageAttached = true;
@@ -260,27 +260,19 @@
       !document.body.classList.contains('visual-guide-active') && !!(error || recommendation || noticeUntil > now());
     setNoticeVisible(banner, showNotice);
     // Pending advice on another settings tab must not consume the one-time tip.
-    if (showNotice && !error && (recommendation === 'gpu' || recommendation === 'software') &&
-        !preferences.hardwarePrompted) {
-      preferences.hardwarePrompted = true; save();
-    }
     if (showNotice && scene && !preferences.sceneQualityPrompted) { preferences.sceneQualityPrompted = true; save(); }
     var title = error ? '背景渲染需要恢复' : recommendation ? '让画面更流畅' : '自适应画质';
     setText(document.getElementById('sonic-performance-title'), title);
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
-      recommendation === 'load' ? '音域回响持续掉帧。开启自适应后会按需降低细节，稳定后逐步恢复。' :
-      recommendation === 'gpu' ? '当前背景使用核显渲染。可开启自适应，在需要时降低细节，稳定后逐步恢复。' :
-      recommendation === 'software' ? '当前背景使用软件渲染。可尝试开启自适应降低负载；若仍卡顿，请检查图形加速设置。' :
       recommendation === 'scene-gpu' ? '当前使用核显渲染，超高画质可能不够流畅。可把画质档位调到“中”，之后随时可在性能设置里改回。' :
       recommendation === 'scene-software' ? '当前使用软件渲染，画面可能卡顿。可把画质档位调到“低”；也建议检查显卡驱动和图形加速设置。' : noticeText;
     setText(document.getElementById('sonic-performance-message'), text);
     var enable = document.getElementById('sonic-performance-enable');
     var keepButton = document.getElementById('sonic-performance-keep');
-    setText(enable, scene ? (recommendation === 'scene-gpu' ? '调到中画质' : '调到低画质') : '开启自适应');
-    setText(keepButton, scene ? '保持超高' : '保持当前画质');
-    enable.hidden = !recommendation || !!error;
-    keepButton.hidden = !recommendation || !!error;
+    setText(enable, recommendation === 'scene-software' ? '调到低画质' : '调到中画质');
+    enable.hidden = !scene || !!error;
+    keepButton.hidden = !scene || !!error;
     document.getElementById('sonic-performance-retry').hidden = !error;
     document.getElementById('sonic-performance-diagnostics-button').hidden = !error;
     var close = document.getElementById('sonic-performance-close');
@@ -311,14 +303,6 @@
     }
     if (!c.eligible) { meter.reset(now()); governor.clearEvidence(); }
     var h = health[active];
-    var hardwareElapsed = hardwareClock.advance(now(), c.eligible && h && h.state === 'ready');
-    if (hardwareElapsed >= 5000 && !preferences.enabled && !preferences.dismissed &&
-        !preferences.hardwarePrompted && !recommendation && typeof global.classifyRendererGpu === 'function') {
-      var gpuClass = global.classifyRendererGpu(gpu[active]);
-      if (gpuClass === 'integrated' || gpuClass === 'software') {
-        recommendation = gpuClass === 'integrated' ? 'gpu' : 'software';
-      }
-    }
     // Successful draws reset this clock. Hidden time and suspended timer gaps
     // never count, including the first tick after a long background pause.
     if (h && h.state !== 'failed' && healthClocks[active]) {
@@ -342,11 +326,8 @@
     config: config, profile: currentProfile, stageProfile: stageProfile, stageFrame: stageFrame, retry: retry,
     beginWorkshop: function () { lastConfig = ''; latest = null; status(8, 'loading'); },
     toggle: function () { setEnabled(!preferences.enabled); }, setEnabled: setEnabled,
-    dismiss: dismiss, qualityChanged: qualityChanged, refresh: refresh, accept: accept, keep: keep,
-    closeNotice: function () {
-      if (recommendation) snoozed = true;
-      recommendation = ''; noticeUntil = 0; renderUi();
-    },
+    qualityChanged: qualityChanged, refresh: refresh, accept: accept, keep: keep,
+    closeNotice: function () { recommendation = ''; noticeUntil = 0; renderUi(); },
     diagnostics: function () { document.getElementById('sonic-performance-diagnostics').hidden = false; },
     snapshot: function () { return { preferences: Object.assign({}, preferences), profile: currentProfile(),
       sample: latest, health: health, gpu: gpu, recommendation: !!recommendation, recommendationReason: recommendation }; }
