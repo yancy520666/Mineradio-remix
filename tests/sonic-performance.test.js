@@ -171,7 +171,7 @@ test('repeated long frames count as stutter even when average FPS looks fine', (
   assert.equal(policy.validSample({ fps: 70, target: 144, lossTarget: 60, duration: 8000, jank: true }), true);
 });
 
-function controller(storage = new Map()) {
+function controller(storage = new Map(), bridge) {
   const nodes = new Map(), events = {}, flags = new Set(), frameWindow = { postMessage() {} };
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, { hidden: true, textContent: '', attrs: {},
@@ -183,6 +183,7 @@ function controller(storage = new Map()) {
     body: { classList: { contains: name => flags.has(name) } }, getElementById: node,
     querySelector: () => ({ contentWindow: frameWindow }) };
   const window = { fx: { preset: 8, performanceQuality: 'eco', foregroundFpsMode: 'vsync' },
+    desktopWindow: bridge,
     MineradioSonicPerformancePolicy: policy,
     addEventListener: (name, fn) => { events[name] = fn; },
     classifyRendererGpu: vm.runInNewContext(fs.readFileSync(path.join(__dirname,
@@ -584,4 +585,159 @@ test('a reset attempted before later scripts are ready retries without being mis
   assert.equal(c.window.fx.performanceQuality, 'ultra');
   assert.equal(c.api.snapshot().preferences.qualityReset, true, 'the retry still saves the reset');
   assert.equal(c.api.snapshot().preferences.manualQuality, false);
+});
+
+test('stable native detail learns an achievable high-refresh goal, freezes on loss and catches fresh drops', () => {
+  const m = policy.createMeter(), g = policy.createGovernor();
+  let now = 100;
+  const actions = [];
+  function run(seconds, fps, target = 240) {
+    for (let i = 0; i < seconds * fps; i++) {
+      now += 1000 / fps;
+      const s = m.frame(now, target, true, g.goal(target, 60));
+      if (s) {
+        const action = g.sample(s, now, 'ultra', true, 60);
+        if (action) { actions.push(action); m.reset(now); }
+      }
+    }
+  }
+  run(40, 120);
+  assert.equal(g.goal(240, 60), 120, 'stable 120 on 240 Hz does not chase 192 FPS');
+  assert.equal(g.reduction(), 0);
+  assert.deepEqual(actions, []);
+  run(13, 80);
+  assert.equal(actions[0], 'lower', 'a sustained high-refresh drop is detected above 60 FPS');
+  assert.equal(g.goal(240, 60), 120, 'the expectation must not ratchet down with the loss');
+  run(30, 80);
+  assert.equal(g.goal(240, 60), 120);
+});
+
+test('baseline needs stable fresh windows and is discarded when the FPS goal changes', () => {
+  const g = policy.createGovernor(), at = (fps, extra) => ({ fps, target: 144, lossTarget: 60, duration: 12000, long: 0, ...extra });
+  g.sample(at(120, { stable: false }), 12000, 'ultra', true, 60);
+  g.sample(at(120, { stable: false }), 24000, 'ultra', true, 60);
+  assert.equal(g.goal(144, 60), 60, 'uneven buckets cannot establish a healthy baseline');
+  g.sample(at(120), 36000, 'ultra', true, 60);
+  for (let i = 0; i < 20; i++) g.sample(at(120), 36000, 'ultra', true, 60);
+  assert.equal(g.goal(144, 60), 60, 'duplicate samples provide no fresh time');
+  g.sample(at(120), 48000, 'ultra', true, 60);
+  assert.equal(g.goal(144, 60), 120);
+  g.retarget();
+  assert.equal(g.goal(144, 60), 60);
+  const cold = policy.createGovernor();
+  assert.equal(cold.sample(at(35), 12000, 'ultra', true, 60), 'lower', 'a consistently slow first launch cannot learn 35 as healthy');
+});
+
+test('the controller sends its learned goal to the renderer and rejects old-threshold fast reports', () => {
+  const c = controller();
+  c.window.fx.performanceQuality = 'ultra';
+  c.window.desktopRuntimeState = { displayHz: 240, focused: true, visible: true };
+  c.tick();
+  function emit(fps, lossTarget, extra) {
+    c.advance(12000);
+    c.emit({ type: 'mineradio-sonic-performance-sample', sample: {
+      fps, target: 240, lossTarget, duration: 12000, long: 0, stable: true, ...extra
+    } });
+  }
+  emit(120, 60); emit(120, 60);
+  assert.equal(c.api.config().lossTarget, 120);
+  assert.equal(c.api.profile().tier, 4);
+  emit(15, 60, { duration: 4000, early: true });
+  assert.equal(c.api.profile().tier, 4, 'in-flight evidence still refers to the old 60 FPS threshold');
+  emit(80, 120, { duration: 8000, sustained: true });
+  assert.equal(c.api.profile().tier, 3);
+});
+
+test('ineffective backoff is limited to the old load and does not block severe loss or new jank', () => {
+  const at = (fps, extra) => ({ fps, target: 60, lossTarget: 60, duration: 12000, long: 0, ...extra });
+  function paused() {
+    const g = policy.createGovernor();
+    assert.equal(g.sample(at(40), 1000, 'ultra', true, 60), 'lower');
+    assert.equal(g.sample(at(41), 14000, 'ultra', true, 60), 'ineffective');
+    assert.equal(g.sample(at(40), 27000, 'ultra', true, 60), '', 'unchanged load still backs off');
+    return g;
+  }
+  const severe = paused();
+  assert.equal(severe.sample(at(15, { duration: 4000, early: true }), 34000, 'ultra', true, 60), 'lower');
+  assert.equal(severe.reduction(), 2);
+  const crossing = paused();
+  assert.equal(crossing.sample(at(35, { duration: 4000, early: true }), 34000, 'ultra', true, 60), 'lower',
+    'crossing into severe loss ends an old moderate-load pause');
+  const jank = paused();
+  assert.equal(jank.sample(at(40, { duration: 8000, jank: true, long: 2 }), 38000, 'ultra', true, 60), 'lower');
+});
+
+test('desktop choices override another origin mirror and retain a manual tier and explicit disable', () => {
+  let disk = null;
+  const bridge = {
+    readSonicPreferencesSync: () => ({ ok: true, payload: disk }),
+    saveSonicPreferencesSync: value => { disk = JSON.parse(JSON.stringify(value)); return { ok: true }; }
+  };
+  const old = controller(new Map(), bridge);
+  old.api.qualityChanged(); old.api.setEnabled(false);
+  const reopened = controller(new Map([['mineradio-sonic-performance-v1', '{"enabled":true}']]), bridge);
+  const applied = [];
+  reopened.window.setPerformanceQualityMode = q => applied.push(q);
+  reopened.tick();
+  assert.deepEqual(applied, []);
+  assert.equal(reopened.api.snapshot().preferences.enabled, false);
+  assert.equal(reopened.api.snapshot().preferences.manualQuality, true);
+  assert.equal(disk.qualityReset, true);
+  const corruptMirror = controller(new Map([['mineradio-sonic-performance-v1', '{broken']]), bridge);
+  assert.equal(corruptMirror.api.snapshot().preferences.enabled, false, 'bad browser storage must not prevent the durable read');
+});
+
+test('already-reset legacy choices migrate without user interaction, retry failures and survive an empty origin', () => {
+  let disk = null, writable = false;
+  const bridge = {
+    readSonicPreferencesSync: () => ({ ok: true, payload: disk }),
+    saveSonicPreferencesSync: value => {
+      if (!writable) return { ok: false };
+      disk = JSON.parse(JSON.stringify(value)); return { ok: true };
+    }
+  };
+  const prefs = { qualityReset: true, manualQuality: true, dismissed: true, enabled: false };
+  const c = controller(new Map([['mineradio-sonic-performance-v1', JSON.stringify(prefs)]]), bridge);
+  assert.equal(disk, null);
+  writable = true; c.tick();
+  const reopened = controller(new Map(), bridge);
+  const applied = [];
+  reopened.window.setPerformanceQualityMode = q => applied.push(q); reopened.tick();
+  assert.deepEqual(applied, []);
+  for (const key of Object.keys(prefs)) assert.equal(reopened.api.snapshot().preferences[key], prefs[key]);
+});
+
+test('a reset is not completed until both the ultra tier and the desktop marker are durable', () => {
+  let diskQuality = 'balanced', writable = false;
+  const bridge = {
+    readSonicPreferencesSync: () => ({ ok: true, payload: null }),
+    readCurrentFxAutosaveSync: () => ({ ok: true, payload: { performanceQuality: diskQuality } }),
+    saveSonicPreferencesSync: () => ({ ok: writable })
+  };
+  const c = controller(new Map(), bridge);
+  c.window.fx.performanceQuality = 'balanced';
+  c.window.setPerformanceQualityMode = q => { c.window.fx.performanceQuality = q; c.api.qualityChanged(); };
+  c.tick();
+  assert.equal(c.api.snapshot().preferences.qualityReset, false, 'the old disk copy is still present');
+  assert.equal(c.api.snapshot().preferences.manualQuality, false);
+  diskQuality = 'ultra'; c.tick();
+  assert.equal(c.api.snapshot().preferences.qualityReset, false, 'failed marker writes must be retried');
+  writable = true; c.tick();
+  assert.equal(c.api.snapshot().preferences.qualityReset, true);
+});
+
+test('a marker retry does not rebuild visuals or override a real choice made during migration', () => {
+  const bridge = {
+    readSonicPreferencesSync: () => ({ ok: true, payload: null }),
+    saveSonicPreferencesSync: () => ({ ok: false })
+  };
+  const c = controller(new Map(), bridge);
+  let calls = 0;
+  c.window.setPerformanceQualityMode = q => { calls++; c.window.fx.performanceQuality = q; c.api.qualityChanged(); };
+  c.tick(); c.tick(); c.tick();
+  assert.equal(calls, 1, 'only the marker write needs retrying');
+  c.window.fx.performanceQuality = 'balanced'; c.api.qualityChanged(); c.tick();
+  assert.equal(calls, 1);
+  assert.equal(c.api.snapshot().preferences.manualQuality, true);
+  assert.equal(c.window.fx.performanceQuality, 'balanced');
 });

@@ -53,11 +53,8 @@
       }
     };
   }
-  // The smoothness goal is the same for every tier and for default-on or
-  // manual adaptation: 60 FPS (or the screen, if slower) when following the
-  // screen, otherwise the user's fixed cap. Running below a high refresh rate
-  // is never frame loss on its own; only falling under this goal or repeated
-  // long frames are.
+  // Start with a 60 FPS safety floor; the governor can raise it to a measured
+  // stable original-quality cadence. Display refresh is only the upper bound.
   function loadTarget(target, floor) {
     return Math.min(target, Number(floor) > 0 ? Number(floor) : target);
   }
@@ -80,7 +77,11 @@
     function recent(count) {
       var list = buckets.slice(-count), time = 0, n = 0, long = 0;
       list.forEach(function (b) { time += b.time; n += b.frames; long += b.long; });
-      return { list: list, fps: time ? n * 1000 / time : 0, long: time ? long * 1000 / time : 0, duration: time };
+      var fps = time ? n * 1000 / time : 0;
+      return { list: list, fps: fps, long: time ? long * 1000 / time : 0, duration: time,
+        stable: list.length >= LOAD && list.every(function (b) {
+          return Math.abs(b.frames * 1000 / b.time - fps) <= fps * 0.1;
+        }) };
     }
     function below(list, ratio) {
       return list.filter(function (b) { return b.frames * 1000 / b.time < lossTarget * ratio; }).length;
@@ -124,7 +125,7 @@
         var elapsed = now - start;
         if (elapsed < WINDOW) return null;
         var sample = { fps: frames * 1000 / elapsed, target: target, lossTarget: lossTarget, duration: elapsed,
-          long: longFrames * 1000 / elapsed };
+          long: longFrames * 1000 / elapsed, stable: recent(LOAD).stable };
         start = bucketStart = now; frames = bucketFrames = longFrames = bucketLong = 0; buckets = [];
         return sample;
       }
@@ -146,7 +147,8 @@
   // next report: if frames are still bad and neither FPS (+10%) nor long frames
   // (-30%) improved, detail was not the bottleneck (CPU work, another program
   // on the GPU), so the step is undone and lowering pauses for 5 minutes,
-  // doubling up to 20 while it keeps happening.
+  // doubling up to 20 while it keeps happening under the same workload. New
+  // severe loss or a material change in FPS/jank can end the pause early.
   //
   // Restoring probes only a quarter tier after 24s of stable evidence and at
   // least 30s since the last change. A failed probe rolls back just that step,
@@ -157,16 +159,23 @@
     var reduction = 0, goodMs = 0, lowerAfter = 0, restoreAfter = 0;
     var probe = null, restoreStep = 0.25, retryWait = 30000, lastSampleAt = null, targetKey = '';
     var pending = null, pauseUntil = 0, pauseWait = 300000;
+    var pausedLoad = null, baseline = 0, candidate = 0, candidateMs = 0;
+    function goal(target, floor) {
+      return floor > 0 ? Math.min(target, Math.max(loadTarget(target, floor), baseline)) : target;
+    }
     function clearEvidence() {
       goodMs = 0; lastSampleAt = null; pending = null;
+      candidate = candidateMs = 0;
       if (probe) probe.goodMs = 0;
     }
     function retarget() {
       clearEvidence(); probe = null; restoreStep = 0.25; retryWait = 30000;
       lowerAfter = restoreAfter = 0; targetKey = ''; pauseUntil = 0; pauseWait = 300000;
+      pausedLoad = null; baseline = candidate = candidateMs = 0;
     }
     return {
       reduction: function () { return reduction; },
+      goal: goal,
       reset: function () {
         reduction = 0; retarget();
       },
@@ -177,17 +186,40 @@
         var nextKey = sample.target + ':' + (Number(floor) || 0);
         if (targetKey && targetKey !== nextKey) retarget();
         targetKey = nextKey;
-        var goal = loadTarget(sample.target, floor);
+        var lossGoal = goal(sample.target, floor);
         // Fast flags are valid only for the threshold that actually counted
         // the bad buckets. Never promote 144Hz evidence into a 60FPS verdict.
-        if (sample.duration < WINDOW && (sample.lossTarget == null ? sample.target : sample.lossTarget) !== goal) return '';
+        if (sample.duration < WINDOW && (sample.lossTarget == null ? sample.target : sample.lossTarget) !== lossGoal) return '';
         // Reports already in flight before the last change are not new evidence.
         if (now < lowerAfter) return '';
         var freshMs = lastSampleAt === null ? Math.min(WINDOW, sample.duration) :
           Math.max(0, Math.min(WINDOW, sample.duration, now - lastSampleAt));
         lastSampleAt = now;
         var long = Number(sample.long) || 0;
-        var bad = sample.fps < goal * 0.8 || sample.jank === true;
+        var bad = sample.fps < lossGoal * 0.8 || sample.jank === true;
+        // Learn only fresh, healthy full windows at the user's original tier.
+        // Never follow a suspected slowdown downwards or learn the extra FPS
+        // gained by reducing detail as the new original-quality expectation.
+        if (floor > 0 && reduction === 0 && !pending && !probe && !bad &&
+            sample.duration >= WINDOW && sample.stable !== false && long < 0.5 && sample.fps >= lossGoal * 0.94) {
+          var cadence = Math.min(sample.target, sample.fps);
+          if (!candidate || Math.abs(cadence - candidate) > candidate * 0.1) {
+            candidate = cadence; candidateMs = freshMs;
+          } else {
+            candidate = Math.min(candidate, cadence); candidateMs += freshMs;
+          }
+          if (candidateMs >= 24000 && candidate > baseline * 1.1) {
+            baseline = Math.round(candidate);
+          }
+        } else candidate = candidateMs = 0;
+        // Backoff applies to the same ineffective workload, not to a new
+        // severe drop. Fresh reports still supply the usual drop confirmation.
+        if (pausedLoad && now < pauseUntil && bad &&
+            (sample.fps < pausedLoad.fps * 0.75 || sample.fps > pausedLoad.fps * 1.25 ||
+             (pausedLoad.fps >= lossGoal * 0.6 && sample.fps < lossGoal * 0.6) ||
+             long > Math.max(2, pausedLoad.long * 1.5) || (sample.jank === true && pausedLoad.long < 0.5))) {
+          pauseUntil = 0; pauseWait = 300000; pausedLoad = null;
+        }
         if (pending) {
           var improved = sample.fps >= pending.fps * 1.1 || (pending.long > 0 && long <= pending.long * 0.7);
           var lowered = pending;
@@ -195,12 +227,13 @@
           if (bad && !improved) {
             reduction = lowered.from; probe = null; goodMs = 0;
             pauseUntil = now + pauseWait; pauseWait = Math.min(1200000, pauseWait * 2);
+            pausedLoad = { fps: sample.fps, long: long };
             lowerAfter = now + 2500; restoreAfter = now + 30000;
             return 'ineffective';
           }
           if (improved) pauseWait = 300000;
         }
-        var good = !bad && sample.fps >= goal * 0.94 && long < 0.5;
+        var good = !bad && sample.fps >= lossGoal * 0.94 && long < 0.5;
         goodMs = (reduction > 0 || probe) && good ? goodMs + freshMs : 0;
         if (bad && probe) {
           reduction = probe.from; probe = null; goodMs = 0;
@@ -214,7 +247,7 @@
         }
         if (bad && reduction < ceiling(quality) && now >= pauseUntil) {
           pending = { from: reduction, fps: sample.fps, long: long };
-          reduction = Math.min(ceiling(quality), reduction + (sample.fps < goal * 0.5 ? 2 : 1));
+          reduction = Math.min(ceiling(quality), reduction + (sample.fps < lossGoal * 0.5 ? 2 : 1));
           goodMs = 0; lowerAfter = now + 2500; restoreAfter = now + 30000;
           return 'lower';
         }
@@ -228,8 +261,9 @@
       }
     };
   }
-  // Adaptive quality never caps FPS by itself. Following the screen, detail is
-  // traded only to keep 60 FPS; a fixed cap (30/45/.../120) is its own goal.
+  // Adaptive quality never caps FPS by itself. Following the screen starts
+  // with a 60 FPS floor, then measures its healthy cadence; fixed caps remain
+  // explicit goals, without baseline learning.
   function smoothnessFloor(mode) {
     return /^(30|45|60|75|90|120)$/.test(String(mode)) ? 0 : 60;
   }
