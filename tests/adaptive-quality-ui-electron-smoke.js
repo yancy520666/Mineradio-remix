@@ -20,6 +20,16 @@ async function probe() {
   check(!MineradioSonicPerformance.snapshot().preferences.enabled, 'adaptation must be opt-in');
   check(renderer.getPixelRatio() === Math.min(devicePixelRatio, 2), 'main renderer still compresses original resolution');
   const initialDpr = renderer.getPixelRatio();
+  // Ordinary scenes: an integrated/software renderer gets a one-time tier suggestion.
+  const gl = renderer.getContext(), info = gl.getExtension('WEBGL_debug_renderer_info');
+  const sceneClass = classifyRendererGpu(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+  if (['integrated', 'software'].includes(sceneClass)) {
+    await until(() => /^scene-/.test(MineradioSonicPerformance.snapshot().recommendationReason), 'scene GPU advice was missing');
+    check(fx.performanceQuality === 'ultra', 'scene advice changed quality on its own');
+    document.getElementById('sonic-performance-keep').click();
+    check(fx.performanceQuality === 'ultra' && !MineradioSonicPerformance.snapshot().preferences.dismissed,
+      'keeping ultra changed quality or refused Sonic advice');
+  }
   setPreset(8);
   const frame = () => document.querySelector('#sonic-workshop-layer iframe').contentWindow;
   const workshop = () => frame().__mineradioWorkshopPerformance?.snapshot();
@@ -35,7 +45,7 @@ async function probe() {
   const emit = sample => frame().eval('parent.postMessage(' + JSON.stringify({
     type: 'mineradio-sonic-performance-sample', sample
   }) + ',location.origin)');
-  emit({ fps: 15, target: MineradioSonicPerformance.config().target, duration: 6000, early: true });
+  emit({ fps: 15, target: MineradioSonicPerformance.config().target, duration: 4000, early: true });
   await until(() => MineradioSonicPerformance.snapshot().recommendationReason === 'load', 'fast evidence did not reach the UI');
   const notice = document.getElementById('sonic-performance-notice');
   await wait(300);
@@ -58,8 +68,8 @@ async function probe() {
   document.getElementById('sonic-performance-toggle').click();
   await until(() => workshop()?.config.profile?.tier === 4, 'enable reduced original detail before any load evidence');
   const target = MineradioSonicPerformance.config().target;
-  emit({ fps: target / 4, target, duration: 6000, early: true });
-  await until(() => workshop()?.config.profile?.tier === 3, 'fast lowering did not reach the real renderer');
+  emit({ fps: target / 4, target, duration: 4000, early: true });
+  await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
   const lowered = workshop();
   check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
   document.getElementById('sonic-performance-toggle').click();
@@ -68,7 +78,7 @@ async function probe() {
   check(JSON.parse(localStorage.getItem('mineradio-sonic-performance-v1')).dismissed, 'manual disable did not suppress repeated advice');
   // Finish on adaptive feedback for optional screenshots of both window sizes.
   MineradioSonicPerformance.setEnabled(true);
-  emit({ fps: target / 4, target, duration: 6000, early: true });
+  emit({ fps: target / 4, target, duration: 4000, early: true });
   await until(() => !notice.hidden, 'adaptive feedback did not appear');
   if (innerWidth < 1000) {
     // Keep this QA panel open even if the human moves the system pointer away.
