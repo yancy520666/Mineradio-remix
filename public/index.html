@@ -1016,7 +1016,7 @@
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
           <div class="fx-section-label">画质档位</div>
-          <div class="fx-seg" id="performance-quality-seg" title="控制渲染像素预算；主动选择后，音域回响·WE 也按档位调整细节（超高即原始画面），重启后保留">
+          <div class="fx-seg" id="performance-quality-seg" title="超高保留原始细节，渲染分辨率最高 2 倍；其他档位降低负载。手动选择后重启仍保留">
             <button data-performance-quality="eco">低</button>
             <button data-performance-quality="balanced">中</button>
             <button data-performance-quality="high">高</button>
@@ -1025,9 +1025,9 @@
           <div id="sonic-performance-controls">
             <button type="button" class="fx-toggle" id="sonic-performance-toggle" aria-pressed="false"
               aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
-              <span>音域回响流畅优先</span><span class="dot" aria-hidden="true"></span>
+              <span>音域回响自适应画质</span><span class="dot" aria-hidden="true"></span>
             </button>
-            <p class="fx-sub" id="sonic-performance-help">只影响音域回响背景：开启后按画质档位降低网格和分辨率，持续掉帧时再临时降低；关闭后恢复原画质。全局画质请用下方的画质档位。</p>
+            <p class="fx-sub" id="sonic-performance-help">默认保留原始细节。开启后，音域回响会在持续掉帧时降低细节，稳定后逐步恢复；以你选择的画质和帧率为上限。</p>
             <p class="fx-sub" id="sonic-performance-status" role="status"></p>
           </div>
           <div class="fx-section-label">前台帧率上限</div>
@@ -1962,11 +1962,17 @@
   </div>
 
   <script src="js/index-loader.js"></script>
-  <aside id="sonic-performance-notice" hidden aria-label="壁纸性能提示">
+  <aside id="sonic-performance-notice" hidden inert aria-hidden="true" aria-labelledby="sonic-performance-title">
+    <div class="sonic-performance-heading">
+      <h2 id="sonic-performance-title">让画面更流畅</h2>
+      <button type="button" id="sonic-performance-close" aria-label="关闭画质提示" onclick="MineradioSonicPerformance.closeNotice()">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+      </button>
+    </div>
     <p id="sonic-performance-message" role="status"></p>
     <div class="sonic-performance-actions">
-      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.setEnabled(true)">开启流畅优先</button>
-      <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.dismiss()">保持当前</button>
+      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.setEnabled(true)">开启自适应</button>
+      <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.dismiss()">保持当前画质</button>
       <button type="button" id="sonic-performance-retry" onclick="MineradioSonicPerformance.retry()">重试壁纸</button>
       <button type="button" id="sonic-performance-diagnostics-button" onclick="MineradioSonicPerformance.diagnostics()">查看诊断</button>
     </div>

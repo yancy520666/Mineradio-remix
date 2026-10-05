@@ -14,7 +14,7 @@ function load({ stored = null, renderer = '', profile = {} } = {}) {
     getParameter: () => renderer
   };
   const c = {
-    fx: { performanceQuality: 'ultra' },
+    fx: { performanceQuality: stored?.performanceQuality || 'ultra' },
     runtimeHardwareProfile: profile,
     readCurrentFxAutosaveStorageRaw: () => stored,
     document: { createElement: () => ({ getContext: () => (renderer === null ? null : gl) }) }
@@ -40,19 +40,24 @@ test('real Windows ANGLE renderer names map to GPU classes', () => {
   assert.equal(gpu(''), 'unknown');
 });
 
-test('first launch keeps original detail on capable machines and steps down on weak ones', () => {
+test('first launch keeps original detail on every machine without probing a disposable GPU context', () => {
   const rtx = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)';
   const iris = 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)';
   assert.equal(load({ renderer: rtx }).fx.performanceQuality, 'ultra');
   assert.equal(load({ renderer: '' }).fx.performanceQuality, 'ultra');
-  assert.equal(load({ renderer: iris }).fx.performanceQuality, 'balanced');
-  assert.equal(load({ renderer: iris, profile: { veryLargeSurface: true } }).fx.performanceQuality, 'eco');
-  assert.equal(load({ renderer: rtx, profile: { lowCore: true } }).fx.performanceQuality, 'eco');
-  assert.equal(load({ renderer: null }).fx.performanceQuality, 'eco');
+  assert.equal(load({ renderer: iris }).fx.performanceQuality, 'ultra');
+  assert.equal(load({ renderer: iris, profile: { veryLargeSurface: true } }).fx.performanceQuality, 'ultra');
+  assert.equal(load({ renderer: rtx, profile: { lowCore: true, lowMemory: true } }).fx.performanceQuality, 'ultra');
+  assert.equal(load({ renderer: null }).fx.performanceQuality, 'ultra');
+  const c = load();
+  c.document.createElement = () => { throw new Error('first launch must not allocate an extra renderer'); };
+  c.applyFirstRunPerformanceQuality();
 });
 
 test('any stored settings, including an explicit ultra on an integrated GPU, are kept', () => {
   const c = load({ stored: { performanceQuality: 'ultra' }, renderer: 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)' });
   assert.equal(c.fx.performanceQuality, 'ultra');
   assert.equal(c.firstRunQualityDecision, null);
+  assert.equal(load({ stored: { performanceQuality: 'eco' }, renderer: 'NVIDIA RTX 4070' }).fx.performanceQuality, 'eco');
+  assert.equal(load({ stored: { performanceQuality: 'balanced' }, renderer: 'Intel UHD Graphics' }).fx.performanceQuality, 'balanced');
 });
