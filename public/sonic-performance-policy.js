@@ -4,14 +4,15 @@
   var levels = ['eco', 'balanced', 'high', 'ultra'];
   var grids = [80, 112, 160, 224, 320];
   var ratios = [0.7, 0.9, 1.1, 1.35, 2];
-  // The top tier is the original wallpaper: no pixel budget and no extra FPS cap.
+  // The top tier is the original wallpaper: no pixel budget. No tier caps FPS;
+  // frame rate always follows the user's foreground FPS setting.
   var budgets = [1300000, 1800000, 2800000, 4000000, Infinity];
   function ceiling(quality) { return Math.max(0, levels.indexOf(quality)) + 1; }
   function profile(quality, managed, reduction) {
     if (!managed) return null;
     var tier = Math.max(0, ceiling(quality) - Math.max(0, reduction || 0));
     return { tier: tier, gridSize: grids[tier], dpr: ratios[tier], pixels: budgets[tier],
-      fps: [30, 30, 45, 60, 0][tier], floatingCount: [8, 20, 40, 60, 100][tier] };
+      fps: 0, floatingCount: [8, 20, 40, 60, 100][tier] };
   }
   function pixelRatio(value, width, height, device) {
     var base = Math.min(2, Math.max(1, device || 1));
@@ -109,35 +110,46 @@
   }
   // Lowering may happen again as soon as a fresh report arrives: the meter
   // restarts with its warmup after each change, so no cooldown is stacked on
-  // top. Very slow frames (< 50%) drop two tiers. Restoring stays slow, and a
-  // restore followed by load within 30s doubles the stable time required next.
+  // top. Very slow frames drop two tiers. Restoring stays slow; a restore that
+  // brings load back within 30s marks that tier as too heavy, and it is not
+  // retried for 10 minutes (doubling up to an hour) so detail cannot flap.
+  //
+  // `floor` is the smoothness worth trading detail for below the user's
+  // ceiling tier. Following a high-refresh screen may cost one tier; below that
+  // only drops under the floor (60 FPS) count. Fixed FPS caps pass their target.
   function createGovernor() {
     var reduction = 0, goodWindows = 0, slowWindows = 0, lowerAfter = 0, restoreAfter = 0;
-    var restoredAt = -Infinity, restoreWindows = 5;
+    var restoredAt = -Infinity, blockedUntil = {}, backoff = {};
     return {
       reduction: function () { return reduction; },
       reset: function () {
         reduction = 0; goodWindows = 0; slowWindows = 0; lowerAfter = 0; restoreAfter = 0;
-        restoredAt = -Infinity; restoreWindows = 5;
+        restoredAt = -Infinity; blockedUntil = {}; backoff = {};
       },
       clearEvidence: function () { goodWindows = 0; slowWindows = 0; },
-      sample: function (sample, now, quality, enabled) {
+      sample: function (sample, now, quality, enabled, floor) {
         if (!validSample(sample)) return '';
-        var slow = sample.fps < sample.target * 0.8;
+        var relaxed = Math.min(sample.target, Number(floor) > 0 ? Number(floor) : sample.target);
+        function goal(level) { return level === 0 ? sample.target : relaxed; }
         if (!enabled) {
-          slowWindows = slow ? (sample.early === true || sample.sustained === true ? 2 : slowWindows + 1) : 0;
+          var slowForAdvice = sample.fps < relaxed * 0.8;
+          slowWindows = slowForAdvice ? (sample.early === true || sample.sustained === true ? 2 : slowWindows + 1) : 0;
           return slowWindows >= 2 ? 'recommend' : '';
         }
-        goodWindows = sample.fps >= sample.target * 0.94 ? goodWindows + 1 : 0;
+        var slow = sample.fps < goal(reduction) * 0.8;
+        goodWindows = reduction > 0 && sample.fps >= goal(reduction - 1) * 0.94 ? goodWindows + 1 : 0;
         if (slow && reduction < ceiling(quality)) {
           // Reports already in flight before the last change are not new evidence.
           if (now < lowerAfter) return '';
-          if (now - restoredAt < 30000) restoreWindows = Math.min(20, restoreWindows * 2);
-          reduction = Math.min(ceiling(quality), reduction + (sample.fps < sample.target * 0.5 ? 2 : 1));
+          if (now - restoredAt < 30000) {
+            backoff[reduction] = Math.min(3600000, (backoff[reduction] || 300000) * 2);
+            blockedUntil[reduction] = now + backoff[reduction];
+          }
+          reduction = Math.min(ceiling(quality), reduction + (sample.fps < relaxed * 0.5 ? 2 : 1));
           goodWindows = 0; lowerAfter = now + 2500; restoreAfter = now + 60000;
           return 'lower';
         }
-        if (goodWindows >= restoreWindows && reduction > 0 && now >= restoreAfter) {
+        if (goodWindows >= 5 && reduction > 0 && now >= restoreAfter && now >= (blockedUntil[reduction - 1] || 0)) {
           reduction--; goodWindows = 0; restoredAt = now; restoreAfter = now + 60000;
           return 'restore';
         }
@@ -145,8 +157,14 @@
       }
     };
   }
+  // Adaptive quality never caps FPS by itself; under "follow the screen" it aims
+  // for the display rate, with detail traded down to keep at least this much.
+  function smoothnessFloor(mode) {
+    return /^(30|45|60|75|90|120)$/.test(String(mode)) ? 0 : 60;
+  }
   var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps, fpsLimit: fpsLimit,
-    createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor, validSample: validSample };
+    createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor, validSample: validSample,
+    smoothnessFloor: smoothnessFloor };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MineradioSonicPerformancePolicy = api;
 })(typeof window === 'undefined' ? globalThis : window);
