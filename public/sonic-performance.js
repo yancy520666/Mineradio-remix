@@ -2,23 +2,25 @@
   'use strict';
   var policy = global.MineradioSonicPerformancePolicy;
   var key = 'mineradio-sonic-performance-v1';
-  var preferences = { enabled: false, manualQuality: false, dismissed: false };
+  var preferences = { enabled: false, manualQuality: false, dismissed: false, hardwarePrompted: false };
   try {
     var saved = JSON.parse(localStorage.getItem(key) || '{}');
     Object.keys(preferences).forEach(function (name) { preferences[name] = saved[name] === true; });
   } catch (_) {}
   var governor = policy.createGovernor(), meter = policy.createMeter();
-  var active = 0, latest = null, recommendation = false, health = {}, gpu = {};
+  var active = 0, latest = null, recommendation = '', health = {}, gpu = {};
   var lastConfig = '', stageAttached = false, stageRestore = null;
   var noticeUntil = 0, noticeText = '';
   var healthClocks = {};
+  var hardwareClock = policy.createVisibleClock(), noticeVisible = false, noticeAnimation = null;
   function now() { return performance.now(); }
   function preset() { return global.fx && [7, 8].indexOf(Number(global.fx.preset)) >= 0 ? Number(global.fx.preset) : 0; }
   function save() { try { localStorage.setItem(key, JSON.stringify(preferences)); } catch (_) {} }
   function eligible() {
     var state = global.desktopRuntimeState;
     return visible() && document.hasFocus() && !(state && state.focused === false) &&
-      !document.body.classList.contains('splash-active');
+      !document.body.classList.contains('splash-active') &&
+      !document.body.classList.contains('visual-guide-active');
   }
   // The WE version follows an explicitly chosen quality tier; the topography
   // stage keeps its own quality caps unless performance-first is switched on.
@@ -52,26 +54,30 @@
     } catch (_) { return ''; }
   }
   function refresh() {
-    governor.reset(); meter.reset(now()); latest = null; recommendation = false; lastConfig = '';
+    governor.reset(); meter.reset(now()); hardwareClock.reset(now());
+    latest = null; recommendation = ''; lastConfig = ''; noticeUntil = 0;
     if (global.MineradioSonicWorkshop) global.MineradioSonicWorkshop.pushProperties(true);
     renderUi();
   }
   function setEnabled(value) {
     preferences.enabled = value === true;
-    if (preferences.enabled) preferences.dismissed = false;
+    preferences.dismissed = !preferences.enabled;
     save(); refresh();
   }
-  function dismiss() { preferences.dismissed = true; recommendation = false; save(); renderUi(); }
+  function dismiss() { preferences.dismissed = true; recommendation = ''; save(); renderUi(); }
   function qualityChanged() { preferences.manualQuality = true; save(); refresh(); }
   function sample(value) {
-    if (!preset() || !eligible() || !value || !Number.isFinite(value.fps) ||
-        !Number.isFinite(value.target) || value.target < 1 || value.duration < 12000) return;
-    if (preset() === 8 && value.target !== config().target) return;
+    if (!preset() || !eligible() || !policy.validSample(value)) return;
+    var target = config().target;
+    if (preset() === 7) target = Math.round(Math.min(target,
+      global.renderPerfState && global.renderPerfState.targetFps || target));
+    if (value.target !== target) return;
     latest = value;
     var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled);
-    recommendation = action === 'recommend' && !preferences.dismissed;
+    if (action === 'recommend' && !preferences.dismissed) recommendation = 'load';
+    else if (recommendation === 'load') recommendation = '';
     if (action === 'lower' || action === 'restore') {
-      noticeText = action === 'lower' ? '已降低壁纸细节，优先保持流畅。' : '运行稳定，已恢复一级壁纸细节。';
+      noticeText = action === 'lower' ? '已降低一级背景细节。运行稳定后会逐步恢复。' : '画面运行稳定，已恢复一级背景细节。';
       noticeUntil = now() + 8000;
       meter.reset(now()); lastConfig = '';
       if (global.MineradioSonicWorkshop) global.MineradioSonicWorkshop.pushProperties(true);
@@ -83,6 +89,7 @@
     health[which] = { state: state, since: now() };
     healthClocks[which] = policy.createVisibleClock();
     healthClocks[which].reset(now());
+    if (state !== 'ready') { governor.clearEvidence(); hardwareClock.reset(now()); }
     if (state === 'ready') meter.reset(now());
     renderUi();
   }
@@ -125,6 +132,39 @@
     renderUi();
   }
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+  function noticePlacement(banner) {
+    var panel = document.getElementById('fx-panel');
+    var open = panel && panel.classList && panel.classList.contains &&
+      (panel.classList.contains('show') || panel.classList.contains('peek'));
+    var controls = document.getElementById('sonic-performance-controls');
+    var group = controls && controls.closest && controls.closest('.fx-fold');
+    var inline = !!(open && panel.getAttribute('data-active-tab') === 'system' &&
+      group && group.classList.contains('open'));
+    var parent = inline ? controls : document.body;
+    if (banner.parentElement !== parent && parent.appendChild) parent.appendChild(banner);
+    banner.classList.toggle('sonic-performance-inline', inline);
+    return !open || inline;
+  }
+  function setNoticeVisible(banner, value) {
+    if (noticeVisible === value) return;
+    noticeVisible = value;
+    if (noticeAnimation) noticeAnimation.cancel();
+    banner.setAttribute('aria-hidden', String(!value));
+    banner.inert = !value;
+    if (!value && banner.contains && banner.contains(document.activeElement)) {
+      var toggle = document.getElementById('sonic-performance-toggle');
+      if (toggle && banner.parentElement === document.getElementById('sonic-performance-controls'))
+        toggle.focus({ preventScroll: true });
+      else if (global.renderer) global.renderer.domElement.focus({ preventScroll: true });
+    }
+    var reduced = global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!banner.animate || reduced) { banner.hidden = !value; return; }
+    banner.hidden = false;
+    var frames = [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }];
+    noticeAnimation = banner.animate(value ? frames : frames.slice().reverse(),
+      { duration: value ? 240 : 160, easing: 'cubic-bezier(.16, 1, .3, 1)' });
+    noticeAnimation.finished.then(function () { if (!noticeVisible) banner.hidden = true; }).catch(function () {});
+  }
   function renderUi() {
     var button = document.getElementById('sonic-performance-toggle');
     if (button) {
@@ -136,21 +176,36 @@
     var statusEl = document.getElementById('sonic-performance-status');
     var p = which === 7 ? stageProfile() : currentProfile();
     var detail = !which ? '适用于两款音域回响；导入的 Wallpaper Engine 壁纸独立运行。' :
-      (preferences.enabled ? '流畅优先已开启' : '流畅优先已关闭') + ' · ' +
+      (preferences.enabled ? '自适应已开启' : '自适应已关闭') + ' · ' +
       (p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
     setText(statusEl, detail);
     var banner = document.getElementById('sonic-performance-notice');
     if (!banner) return;
-    banner.hidden = !which || !(error || recommendation || noticeUntil > now());
+    var placementVisible = noticePlacement(banner);
+    var showNotice = !!which && visible() && placementVisible &&
+      !document.body.classList.contains('splash-active') &&
+      !document.body.classList.contains('visual-guide-active') && !!(error || recommendation || noticeUntil > now());
+    setNoticeVisible(banner, showNotice);
+    // Pending advice on another settings tab must not consume the one-time tip.
+    if (showNotice && !error && (recommendation === 'gpu' || recommendation === 'software') &&
+        !preferences.hardwarePrompted) {
+      preferences.hardwarePrompted = true; save();
+    }
+    var title = error ? '背景渲染需要恢复' : recommendation ? '让画面更流畅' : '自适应画质';
+    setText(document.getElementById('sonic-performance-title'), title);
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
-      recommendation ? '近期音域回响帧率低于目标。可开启流畅优先，降低细节与渲染负载。' : noticeText;
+      recommendation === 'load' ? '音域回响持续掉帧。开启自适应后会按需降低细节，稳定后逐步恢复。' :
+      recommendation === 'gpu' ? '当前背景使用核显渲染。可开启自适应，在需要时降低细节，稳定后逐步恢复。' :
+      recommendation === 'software' ? '当前背景使用软件渲染。可尝试开启自适应降低负载；若仍卡顿，请检查图形加速设置。' : noticeText;
     setText(document.getElementById('sonic-performance-message'), text);
     document.getElementById('sonic-performance-enable').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-keep').hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-retry').hidden = !error;
     document.getElementById('sonic-performance-diagnostics-button').hidden = !error;
+    var close = document.getElementById('sonic-performance-close');
+    if (close) close.hidden = !!error;
     var diagnostics = document.getElementById('sonic-performance-diagnostics');
     if (!error) diagnostics.hidden = true;
     // Rewriting unchanged text every tick would drop the user's selection.
@@ -159,21 +214,34 @@
   }
   function tick() {
     var next = preset();
-    if (next !== active) { active = next; governor.reset(); meter.reset(now()); latest = null; recommendation = false; lastConfig = ''; }
+    if (next !== active) {
+      active = next; governor.reset(); meter.reset(now()); hardwareClock.reset(now());
+      latest = null; recommendation = ''; lastConfig = ''; noticeUntil = 0;
+    }
     if (!active) { renderUi(); return; }
     attachStage();
     var c = config(), frame = document.querySelector('#sonic-workshop-layer iframe');
     if (active === 8 && frame && frame.contentWindow) {
       var signature = JSON.stringify(c);
       if (signature !== lastConfig) {
-        if (latest && latest.target !== c.target) { latest = null; recommendation = false; }
+        if (latest && latest.target !== c.target) {
+          latest = null; if (recommendation === 'load') recommendation = ''; governor.clearEvidence();
+        }
         lastConfig = signature;
         frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: c }, location.origin);
       }
       if (!health[8]) status(8, 'loading');
     }
-    if (!c.eligible) meter.reset(now());
+    if (!c.eligible) { meter.reset(now()); governor.clearEvidence(); }
     var h = health[active];
+    var hardwareElapsed = hardwareClock.advance(now(), c.eligible && h && h.state === 'ready');
+    if (hardwareElapsed >= 5000 && !preferences.enabled && !preferences.dismissed &&
+        !preferences.hardwarePrompted && !recommendation && typeof global.classifyRendererGpu === 'function') {
+      var gpuClass = global.classifyRendererGpu(gpu[active]);
+      if (gpuClass === 'integrated' || gpuClass === 'software') {
+        recommendation = gpuClass === 'integrated' ? 'gpu' : 'software';
+      }
+    }
     // Successful draws reset this clock. Hidden time and suspended timer gaps
     // never count, including the first tick after a long background pause.
     if (h && h.state !== 'failed' && healthClocks[active]) {
@@ -198,9 +266,13 @@
     beginWorkshop: function () { lastConfig = ''; latest = null; status(8, 'loading'); },
     toggle: function () { setEnabled(!preferences.enabled); }, setEnabled: setEnabled,
     dismiss: dismiss, qualityChanged: qualityChanged, refresh: refresh,
+    closeNotice: function () {
+      if (recommendation) dismiss();
+      else { noticeUntil = 0; renderUi(); }
+    },
     diagnostics: function () { document.getElementById('sonic-performance-diagnostics').hidden = false; },
     snapshot: function () { return { preferences: Object.assign({}, preferences), profile: currentProfile(),
-      sample: latest, health: health, gpu: gpu, recommendation: recommendation }; }
+      sample: latest, health: health, gpu: gpu, recommendation: !!recommendation, recommendationReason: recommendation }; }
   };
   setInterval(tick, 500);
 })(window);

@@ -10,7 +10,13 @@ async function probe() {
   const check = (value, message) => { if (!value) throw new Error(message); };
   const until = async (read, label, timeout = 12000) => {
     const end = Date.now() + timeout;
-    while (Date.now() < end) { if (read()) return; await wait(100); }
+    while (Date.now() < end) {
+      // A real pointer can enter the QA window's help button while other
+      // windows are being used. Keep only this disposable probe out of guides.
+      if (visualGuideActive) { closeVisualGuide(true); markVisualGuideSeen(); }
+      if (read()) return;
+      await wait(100);
+    }
     throw new Error(label + ': ' + JSON.stringify({ performance: MineradioSonicPerformance.snapshot(),
       config: MineradioSonicPerformance.config(), windowState: desktopRuntimeState, body: document.body.className }));
   };
@@ -25,8 +31,8 @@ async function probe() {
   await until(() => snapshot()?.state === 'ready', 'bundled workshop renderer did not initialize');
   await wait(500);
   const legacy = snapshot();
-  // First launch picks ultra on capable GPUs and steps down on integrated/software ones.
-  check(firstRunQualityDecision && fx.performanceQuality === firstRunQualityDecision.quality && fx.foregroundFpsMode === 'vsync' &&
+  // Every fresh profile keeps original detail, including this machine's integrated GPU.
+  check(firstRunQualityDecision && fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync' &&
     !MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
     'first-run quality, frame cadence or opt-in defaults changed');
   check(legacy.config.profile === null && legacy.triangles > 1000000, 'legacy geometry changed');

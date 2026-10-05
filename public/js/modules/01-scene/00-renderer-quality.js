@@ -129,7 +129,9 @@ function renderQualityProfile() {
   var lowSpec = profile && profile.lowSpec;
   if (quality === 'eco') return { cap: lowSpec ? 0.88 : 0.95, min: 0.52, budget: lowSpec ? 1900000 : 2400000 };
   if (quality === 'balanced') return { cap: lowSpec ? 0.98 : 1.12, min: 0.62, budget: lowSpec ? 2800000 : 3800000 };
-  if (quality === 'ultra') return { cap: 1.75, min: 0.85, budget: 7800000 };
+  // Original detail uses native resolution up to the same 2x DPR as Sonic WE,
+  // without a resolution-dependent pixel budget. Lower tiers remain bounded.
+  if (quality === 'ultra') return { cap: 2, min: 0.5, budget: Infinity };
   return { cap: lowSpec ? 1.12 : RENDER_DPR_CAP, min: lowSpec ? 0.66 : RENDER_MIN_DPR, budget: lowSpec ? 3600000 : RENDER_PIXEL_BUDGET };
 }
 function getRenderPixelRatio() {
