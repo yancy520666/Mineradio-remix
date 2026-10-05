@@ -127,8 +127,10 @@
   // Lowering may happen again as soon as a fresh report arrives: the meter
   // restarts with its warmup after each change. Restoring probes only a quarter
   // tier after 24s of stable evidence and at least 30s since the last change.
-  // A failed probe rolls back just that step, then tries an eighth tier after
-  // 45-60s of recovery. No tier is locked out for minutes or hours.
+  // A failed probe rolls back just that step, then tries an eighth tier. Each
+  // consecutive failure doubles the wait (60s, 2, 4, 8, then 10 min max), so
+  // step-like load (e.g. a dense chorus) cannot cause a stutter every minute;
+  // a successful probe or a new target resets it to 30s.
   //
   // `floor` is the smoothness worth trading detail for below the user's
   // ceiling tier. Following a high-refresh screen may cost one tier; below that
@@ -175,7 +177,7 @@
         if (slow && probe) {
           if (now < lowerAfter) return '';
           reduction = probe.from; probe = null; goodMs = 0;
-          restoreStep = 0.125; retryWait = Math.min(60000, retryWait + 15000);
+          restoreStep = 0.125; retryWait = Math.min(600000, retryWait * 2);
           lowerAfter = now + 2500; restoreAfter = now + retryWait;
           return 'rollback';
         }
