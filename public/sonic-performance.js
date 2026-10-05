@@ -4,13 +4,23 @@
   var key = 'mineradio-sonic-performance-v1';
   var preferences = { enabled: false, manualQuality: false, dismissed: false, sceneQualityPrompted: false,
     qualityReset: false };
+  var preferenceMigrationPending = false;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
   try {
-    var saved = JSON.parse(localStorage.getItem(key) || '{}');
+    var bridge = global.desktopWindow;
+    if (bridge && typeof bridge.readSonicPreferencesSync === 'function') {
+      var durable = bridge.readSonicPreferencesSync();
+      if (durable && durable.ok && durable.payload) saved = durable.payload;
+      else if (durable && durable.ok) preferenceMigrationPending = true;
+    }
     Object.keys(preferences).forEach(function (name) { preferences[name] = saved[name] === true; });
   } catch (_) {}
   // Adaptive quality is on unless the user switched it off or chose "keep
   // current" on the old opt-in advice; both set `dismissed` and stay respected.
   if (!preferences.dismissed) preferences.enabled = true;
+  // Import old choices even if that user's quality reset already completed.
+  if (preferenceMigrationPending) save();
   var governor = policy.createGovernor(), meter = policy.createMeter();
   var active = 0, latest = null, recommendation = '', health = {}, gpu = {};
   var lastConfig = '', lastTarget = '', stageAttached = false, stageRestore = null;
@@ -23,7 +33,19 @@
   var SCENE_REASONS = { 'scene-gpu': 'balanced', 'scene-software': 'eco' };
   function now() { return performance.now(); }
   function preset() { return global.fx && [7, 8].indexOf(Number(global.fx.preset)) >= 0 ? Number(global.fx.preset) : 0; }
-  function save() { try { localStorage.setItem(key, JSON.stringify(preferences)); } catch (_) {} }
+  function save() {
+    var localOk = false;
+    try { localStorage.setItem(key, JSON.stringify(preferences)); localOk = true; } catch (_) {}
+    var bridge = global.desktopWindow;
+    if (bridge && typeof bridge.saveSonicPreferencesSync === 'function') {
+      try {
+        var ok = bridge.saveSonicPreferencesSync(preferences).ok === true;
+        if (ok) preferenceMigrationPending = false;
+        return ok;
+      } catch (_) { return false; }
+    }
+    return localOk;
+  }
   function eligible() {
     var state = global.desktopRuntimeState;
     return visible() && document.hasFocus() && !(state && state.focused === false) &&
@@ -58,7 +80,7 @@
     var mode = global.fx && global.fx.foregroundFpsMode;
     var target = policy.targetFps(mode, p, display);
     return { profile: p, target: target, fpsLimit: policy.fpsLimit(mode, p, display),
-      lossTarget: policy.loadTarget(target, policy.smoothnessFloor(mode)),
+      lossTarget: governor.goal(target, policy.smoothnessFloor(mode)),
       eligible: eligible(), paused: typeof global.isDeepBackgroundMode === 'function'
         ? global.isDeepBackgroundMode() : !!document.hidden };
   }
@@ -88,7 +110,10 @@
     preferences.dismissed = !preferences.enabled;
     save(); refresh();
   }
-  function qualityChanged() { preferences.manualQuality = true; save(); refresh(); }
+  function qualityChanged() {
+    if (!resettingQuality) { preferences.manualQuality = true; save(); }
+    refresh();
+  }
   function sample(value) {
     if (!preset() || !eligible() || !policy.validSample(value)) return;
     var c = config(); syncTarget(c);
@@ -132,23 +157,35 @@
   // choice (tracked since 2.4.1), start from ultra like a new install. Runs
   // from the first tick, once every script has loaded, and saves through the
   // quality buttons' own path so the on-disk copy cannot bring the old tier back.
-  var qualityResetNeeded = null;
+  var qualityResetNeeded = null, qualityResetApplied = false, resettingQuality = false;
   function resetAutomaticQuality() {
     if (preferences.qualityReset || !global.fx || typeof global.setPerformanceQualityMode !== 'function') return;
     // Decide once, before the button path marks the tier as a manual choice.
     if (qualityResetNeeded === null) {
       qualityResetNeeded = !preferences.manualQuality && global.fx.performanceQuality !== 'ultra';
     }
+    // A real choice made while a failed migration is waiting takes precedence.
+    if (preferences.manualQuality) qualityResetNeeded = false;
     try {
-      if (qualityResetNeeded) global.setPerformanceQualityMode('ultra', true);
+      if (qualityResetNeeded && !qualityResetApplied) {
+        resettingQuality = true;
+        global.setPerformanceQualityMode('ultra', true);
+        if (typeof global.flushLyricLayoutSave === 'function') global.flushLyricLayoutSave('performanceQuality');
+        var bridge = global.desktopWindow;
+        if (bridge && typeof bridge.readCurrentFxAutosaveSync === 'function') {
+          var stored = bridge.readCurrentFxAutosaveSync();
+          if (!stored || !stored.ok || !stored.payload || stored.payload.performanceQuality !== 'ultra') return;
+        }
+        qualityResetApplied = true;
+      }
     } catch (_) {
-      // Later scripts not ready yet: undo the side effect and retry next tick.
-      if (qualityResetNeeded) { preferences.manualQuality = false; save(); }
+      // Later scripts not ready yet: retry without marking a manual choice.
       return;
+    } finally {
+      resettingQuality = false;
     }
-    // This was not the user's choice either; keep later tier tips possible.
-    if (qualityResetNeeded) preferences.manualQuality = false;
-    preferences.qualityReset = true; save();
+    preferences.qualityReset = true;
+    if (!save()) preferences.qualityReset = false;
   }
   function sceneRendererName() {
     if (sceneGpu === null && global.renderer && global.renderer.getContext) sceneGpu = readGpu(global.renderer.getContext());
@@ -308,6 +345,7 @@
       '。WebGL 初始化或恢复失败时，降低画质未必能解决；可检查显卡驱动及系统图形设置。');
   }
   function tick() {
+    if (preferenceMigrationPending) save();
     resetAutomaticQuality();
     var next = preset();
     if (next !== active) {

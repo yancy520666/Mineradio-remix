@@ -24,6 +24,7 @@ const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
+const { createSonicPreferencesStore } = require('./sonic-performance-preferences');
 const { createPlaybackCheckpointStore } = require('./playback-checkpoint-store');
 const { readOriginalPreferences } = require('./original-profile-preferences');
 const { extractKugouAuth } = require('../kugou-api');
@@ -169,6 +170,7 @@ const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const onboardingStore = createOnboardingStore(STABLE_USER_DATA_PATH);
+const sonicPreferencesStore = createSonicPreferencesStore(STABLE_USER_DATA_PATH);
 const playbackCheckpointStore = createPlaybackCheckpointStore(STABLE_USER_DATA_PATH);
 const ORIGINAL_PROFILE_PATH = path.join(app.getPath('appData'), 'Mineradio');
 const originalProfileImporter = createOriginalProfileImporter({
@@ -4969,6 +4971,15 @@ ipcMain.on('mineradio-onboarding-read-sync', (event) => {
 ipcMain.on('mineradio-onboarding-seen-sync', (event, kind) => {
   event.returnValue = isTrustedMainWindowIpc(event)
     ? onboardingStore.markSeen(kind) : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
+
+ipcMain.on('mineradio-sonic-preferences-read-sync', (event) => {
+  event.returnValue = isTrustedMainWindowIpc(event)
+    ? sonicPreferencesStore.read() : { ok: false, error: 'UNTRUSTED_SENDER' };
+});
+ipcMain.on('mineradio-sonic-preferences-save-sync', (event, payload) => {
+  event.returnValue = isTrustedMainWindowIpc(event)
+    ? sonicPreferencesStore.write(payload) : { ok: false, error: 'UNTRUSTED_SENDER' };
 });
 
 ipcMain.on('mineradio-current-fx-autosave-read-sync', (event) => {
