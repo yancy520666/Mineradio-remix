@@ -26,6 +26,7 @@ try {
   run(process.execPath, [path.join(root, 'tests', 'sonic-workshop-electron-smoke.js')]);
   run(process.execPath, [path.join(root, 'tests', 'sonic-performance-electron-smoke.js')], 120000);
   run(process.execPath, [path.join(root, 'tests', 'adaptive-quality-ui-electron-smoke.js')], 120000);
+  run(electron, [path.join(root, 'tests', 'quality-reset-electron-smoke.js')], 120000);
   run(process.execPath, [path.join(root, 'tests', 'song-comments-electron-smoke.js')], 180000);
   run(process.execPath, [path.join(root, 'tests', 'home-card-hover-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'visual-effect-controls-electron-smoke.js')]);
