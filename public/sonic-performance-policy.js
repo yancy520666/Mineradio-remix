@@ -42,14 +42,34 @@
       }
     };
   }
+  // Frames are counted in 1s buckets after a 3s warmup. A report needs most of
+  // the recent buckets to be slow, so one hitch (song change, cover decode, GC)
+  // cannot trigger it on its own:
+  //   severe: all of the last 4 buckets below 60%          -> about 7s
+  //   load:   7 of the last 8 below 80% and their mean too -> about 11s
+  // Every 12s a plain window is also reported for recovery decisions.
+  var WARMUP = 3000, SEVERE = 4, LOAD = 8, LOAD_SLOW = 7, WINDOW = 12000;
   function createMeter() {
-    var previous = 0, warmUntil = 0, start = 0, frames = 0, target = 0;
-    var fastStart = 0, fastFrames = 0, fastSlow = 0, sustainedSlow = 0;
-    var fastDuration = 0, fastCount = 0, fastReported = false;
+    var previous = 0, warmUntil = 0, target = 0;
+    var start = 0, frames = 0, bucketStart = 0, bucketFrames = 0, buckets = [];
     function reset(now) {
-      previous = 0; start = 0; frames = 0; warmUntil = now + 5000;
-      fastStart = 0; fastFrames = 0; fastSlow = 0; sustainedSlow = 0;
-      fastDuration = 0; fastCount = 0; fastReported = false;
+      previous = 0; warmUntil = now + WARMUP;
+      start = 0; frames = 0; bucketStart = 0; bucketFrames = 0; buckets = [];
+    }
+    function recent(count) {
+      var list = buckets.slice(-count), time = 0, n = 0;
+      list.forEach(function (b) { time += b.time; n += b.frames; });
+      return { list: list, fps: time ? n * 1000 / time : 0, duration: time };
+    }
+    function below(list, ratio) {
+      return list.filter(function (b) { return b.frames * 1000 / b.time < target * ratio; }).length;
+    }
+    function report(window, flag) {
+      var sample = { fps: window.fps, target: target, duration: window.duration };
+      sample[flag] = true;
+      // The next report needs fresh evidence; the plain window restarts too.
+      buckets = []; start = previous; frames = 0;
+      return sample;
     }
     return {
       reset: reset,
@@ -59,30 +79,23 @@
         }
         previous = now;
         if (now < warmUntil) return null;
-        if (!start) { start = now; fastStart = now; frames = 0; return null; }
-        frames++; fastFrames++;
-        var shortElapsed = now - fastStart;
-        if (shortElapsed >= 3000) {
-          // Two consecutive 3s windows below 60% confirm severe sustained loss.
-          // Borderline drops still use the full 12s measurement windows.
-          var shortFps = fastFrames * 1000 / shortElapsed;
-          sustainedSlow = shortFps < target * 0.8 ? sustainedSlow + 1 : 0;
-          if (shortFps < target * 0.6) {
-            fastSlow++; fastDuration += shortElapsed; fastCount += fastFrames;
-          } else { fastSlow = 0; fastDuration = 0; fastCount = 0; }
-          fastStart = now; fastFrames = 0;
-          if (fastSlow >= 2 && !fastReported) {
-            fastReported = true;
-            var early = { fps: fastCount * 1000 / fastDuration, target: target, duration: fastDuration, early: true };
-            start = now; frames = 0; sustainedSlow = 0;
-            return early;
+        if (!start) { start = bucketStart = now; frames = bucketFrames = 0; return null; }
+        frames++; bucketFrames++;
+        if (now - bucketStart >= 1000) {
+          buckets.push({ frames: bucketFrames, time: now - bucketStart });
+          if (buckets.length > LOAD) buckets.shift();
+          bucketStart = now; bucketFrames = 0;
+          var severe = recent(SEVERE);
+          if (severe.list.length === SEVERE && below(severe.list, 0.6) === SEVERE) return report(severe, 'early');
+          var load = recent(LOAD);
+          if (load.list.length === LOAD && below(load.list, 0.8) >= LOAD_SLOW && load.fps < target * 0.8) {
+            return report(load, 'sustained');
           }
         }
         var elapsed = now - start;
-        if (elapsed < 12000) return null;
-        var sample = { fps: frames * 1000 / elapsed, target: target, duration: elapsed,
-          sustained: sustainedSlow >= 3 };
-        start = now; frames = 0; sustainedSlow = 0;
+        if (elapsed < WINDOW) return null;
+        var sample = { fps: frames * 1000 / elapsed, target: target, duration: elapsed };
+        start = now; frames = 0;
         return sample;
       }
     };
@@ -90,14 +103,23 @@
   function validSample(sample) {
     if (!sample || !Number.isFinite(sample.fps) || sample.fps < 0 ||
         !Number.isFinite(sample.target) || sample.target < 1 || !Number.isFinite(sample.duration)) return false;
-    return sample.duration >= 12000 ||
-      (sample.early === true && sample.duration >= 6000 && sample.fps < sample.target * 0.6);
+    if (sample.duration >= WINDOW) return true;
+    if (sample.early === true) return sample.duration >= 3800 && sample.fps < sample.target * 0.6;
+    return sample.sustained === true && sample.duration >= 7600 && sample.fps < sample.target * 0.8;
   }
+  // Lowering may happen again as soon as a fresh report arrives: the meter
+  // restarts with its warmup after each change, so no cooldown is stacked on
+  // top. Very slow frames (< 50%) drop two tiers. Restoring stays slow, and a
+  // restore followed by load within 30s doubles the stable time required next.
   function createGovernor() {
-    var reduction = 0, goodWindows = 0, slowWindows = 0, nextChange = 0;
+    var reduction = 0, goodWindows = 0, slowWindows = 0, lowerAfter = 0, restoreAfter = 0;
+    var restoredAt = -Infinity, restoreWindows = 5;
     return {
       reduction: function () { return reduction; },
-      reset: function () { reduction = 0; goodWindows = 0; slowWindows = 0; nextChange = 0; },
+      reset: function () {
+        reduction = 0; goodWindows = 0; slowWindows = 0; lowerAfter = 0; restoreAfter = 0;
+        restoredAt = -Infinity; restoreWindows = 5;
+      },
       clearEvidence: function () { goodWindows = 0; slowWindows = 0; },
       sample: function (sample, now, quality, enabled) {
         if (!validSample(sample)) return '';
@@ -107,12 +129,17 @@
           return slowWindows >= 2 ? 'recommend' : '';
         }
         goodWindows = sample.fps >= sample.target * 0.94 ? goodWindows + 1 : 0;
-        if (now < nextChange) return '';
         if (slow && reduction < ceiling(quality)) {
-          reduction++; goodWindows = 0; nextChange = now + 20000; return 'lower';
+          // Reports already in flight before the last change are not new evidence.
+          if (now < lowerAfter) return '';
+          if (now - restoredAt < 30000) restoreWindows = Math.min(20, restoreWindows * 2);
+          reduction = Math.min(ceiling(quality), reduction + (sample.fps < sample.target * 0.5 ? 2 : 1));
+          goodWindows = 0; lowerAfter = now + 2500; restoreAfter = now + 60000;
+          return 'lower';
         }
-        if (goodWindows >= 5 && reduction > 0) {
-          reduction--; goodWindows = 0; nextChange = now + 60000; return 'restore';
+        if (goodWindows >= restoreWindows && reduction > 0 && now >= restoreAfter) {
+          reduction--; goodWindows = 0; restoredAt = now; restoreAfter = now + 60000;
+          return 'restore';
         }
         return '';
       }

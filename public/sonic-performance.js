@@ -2,7 +2,8 @@
   'use strict';
   var policy = global.MineradioSonicPerformancePolicy;
   var key = 'mineradio-sonic-performance-v1';
-  var preferences = { enabled: false, manualQuality: false, dismissed: false, hardwarePrompted: false };
+  var preferences = { enabled: false, manualQuality: false, dismissed: false, hardwarePrompted: false,
+    sceneQualityPrompted: false };
   try {
     var saved = JSON.parse(localStorage.getItem(key) || '{}');
     Object.keys(preferences).forEach(function (name) { preferences[name] = saved[name] === true; });
@@ -13,6 +14,11 @@
   var noticeUntil = 0, noticeText = '';
   var healthClocks = {};
   var hardwareClock = policy.createVisibleClock(), noticeVisible = false, noticeAnimation = null;
+  // Closing the card only snoozes load advice for this run; "keep" is remembered.
+  var snoozed = false, sceneGpu = null;
+  // Ordinary scenes have no adaptive mode, so their one-time advice is a lower
+  // quality tier: balanced on integrated GPUs, eco on software rendering.
+  var SCENE_REASONS = { 'scene-gpu': 'balanced', 'scene-software': 'eco' };
   function now() { return performance.now(); }
   function preset() { return global.fx && [7, 8].indexOf(Number(global.fx.preset)) >= 0 ? Number(global.fx.preset) : 0; }
   function save() { try { localStorage.setItem(key, JSON.stringify(preferences)); } catch (_) {} }
@@ -74,7 +80,7 @@
     if (value.target !== target) return;
     latest = value;
     var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled);
-    if (action === 'recommend' && !preferences.dismissed) recommendation = 'load';
+    if (action === 'recommend' && !preferences.dismissed && !snoozed) recommendation = 'load';
     else if (recommendation === 'load') recommendation = '';
     if (action === 'lower' || action === 'restore') {
       noticeText = action === 'lower' ? '已降低一级背景细节。运行稳定后会逐步恢复。' : '画面运行稳定，已恢复一级背景细节。';
@@ -92,6 +98,34 @@
     if (state !== 'ready') { governor.clearEvidence(); hardwareClock.reset(now()); }
     if (state === 'ready') meter.reset(now());
     renderUi();
+  }
+  function sceneRendererName() {
+    if (sceneGpu === null && global.renderer && global.renderer.getContext) sceneGpu = readGpu(global.renderer.getContext());
+    return sceneGpu || '';
+  }
+  // Main-scene advice: only while the default original tier is still in use
+  // and the user has not picked a tier themselves.
+  function sceneAdvice() {
+    var ready = eligible() && !(typeof global.isDeepBackgroundMode === 'function' && global.isDeepBackgroundMode()) &&
+      !document.body.classList.contains('wallpaper-engine-active');
+    var elapsed = hardwareClock.advance(now(), ready);
+    if (elapsed < 5000 || recommendation || preferences.sceneQualityPrompted || preferences.manualQuality ||
+        !global.fx || global.fx.performanceQuality !== 'ultra' || typeof global.classifyRendererGpu !== 'function') return;
+    var gpuClass = global.classifyRendererGpu(sceneRendererName());
+    if (gpuClass === 'integrated') recommendation = 'scene-gpu';
+    else if (gpuClass === 'software') recommendation = 'scene-software';
+  }
+  function accept() {
+    var quality = SCENE_REASONS[recommendation];
+    if (!quality) { setEnabled(true); return; }
+    recommendation = '';
+    // Same path as clicking the quality buttons, so it is saved and marked manual.
+    if (typeof global.setPerformanceQualityMode === 'function') global.setPerformanceQualityMode(quality);
+    else { global.fx.performanceQuality = quality; qualityChanged(); }
+  }
+  function keep() {
+    if (SCENE_REASONS[recommendation]) { recommendation = ''; renderUi(); }
+    else dismiss();
   }
   function attachStage() {
     if (stageAttached || !global.renderer) return;
@@ -183,7 +217,8 @@
     var banner = document.getElementById('sonic-performance-notice');
     if (!banner) return;
     var placementVisible = noticePlacement(banner);
-    var showNotice = !!which && visible() && placementVisible &&
+    var scene = !!SCENE_REASONS[recommendation];
+    var showNotice = (!!which || scene) && visible() && placementVisible &&
       !document.body.classList.contains('splash-active') &&
       !document.body.classList.contains('visual-guide-active') && !!(error || recommendation || noticeUntil > now());
     setNoticeVisible(banner, showNotice);
@@ -192,16 +227,23 @@
         !preferences.hardwarePrompted) {
       preferences.hardwarePrompted = true; save();
     }
+    if (showNotice && scene && !preferences.sceneQualityPrompted) { preferences.sceneQualityPrompted = true; save(); }
     var title = error ? '背景渲染需要恢复' : recommendation ? '让画面更流畅' : '自适应画质';
     setText(document.getElementById('sonic-performance-title'), title);
     var text = error ? (h.state === 'failed' ? '壁纸渲染未能恢复，可重试或查看诊断。' :
       '壁纸渲染中断，正在等待恢复…') :
       recommendation === 'load' ? '音域回响持续掉帧。开启自适应后会按需降低细节，稳定后逐步恢复。' :
       recommendation === 'gpu' ? '当前背景使用核显渲染。可开启自适应，在需要时降低细节，稳定后逐步恢复。' :
-      recommendation === 'software' ? '当前背景使用软件渲染。可尝试开启自适应降低负载；若仍卡顿，请检查图形加速设置。' : noticeText;
+      recommendation === 'software' ? '当前背景使用软件渲染。可尝试开启自适应降低负载；若仍卡顿，请检查图形加速设置。' :
+      recommendation === 'scene-gpu' ? '当前使用核显渲染，超高画质可能不够流畅。可把画质档位调到“中”，之后随时可在性能设置里改回。' :
+      recommendation === 'scene-software' ? '当前使用软件渲染，画面可能卡顿。可把画质档位调到“低”；也建议检查显卡驱动和图形加速设置。' : noticeText;
     setText(document.getElementById('sonic-performance-message'), text);
-    document.getElementById('sonic-performance-enable').hidden = !recommendation || !!error;
-    document.getElementById('sonic-performance-keep').hidden = !recommendation || !!error;
+    var enable = document.getElementById('sonic-performance-enable');
+    var keepButton = document.getElementById('sonic-performance-keep');
+    setText(enable, scene ? (recommendation === 'scene-gpu' ? '调到中画质' : '调到低画质') : '开启自适应');
+    setText(keepButton, scene ? '保持超高' : '保持当前画质');
+    enable.hidden = !recommendation || !!error;
+    keepButton.hidden = !recommendation || !!error;
     document.getElementById('sonic-performance-retry').hidden = !error;
     document.getElementById('sonic-performance-diagnostics-button').hidden = !error;
     var close = document.getElementById('sonic-performance-close');
@@ -218,7 +260,7 @@
       active = next; governor.reset(); meter.reset(now()); hardwareClock.reset(now());
       latest = null; recommendation = ''; lastConfig = ''; noticeUntil = 0;
     }
-    if (!active) { renderUi(); return; }
+    if (!active) { sceneAdvice(); renderUi(); return; }
     attachStage();
     var c = config(), frame = document.querySelector('#sonic-workshop-layer iframe');
     if (active === 8 && frame && frame.contentWindow) {
@@ -265,10 +307,10 @@
     config: config, profile: currentProfile, stageProfile: stageProfile, stageFrame: stageFrame, retry: retry,
     beginWorkshop: function () { lastConfig = ''; latest = null; status(8, 'loading'); },
     toggle: function () { setEnabled(!preferences.enabled); }, setEnabled: setEnabled,
-    dismiss: dismiss, qualityChanged: qualityChanged, refresh: refresh,
+    dismiss: dismiss, qualityChanged: qualityChanged, refresh: refresh, accept: accept, keep: keep,
     closeNotice: function () {
-      if (recommendation) dismiss();
-      else { noticeUntil = 0; renderUi(); }
+      if (recommendation) snoozed = true;
+      recommendation = ''; noticeUntil = 0; renderUi();
     },
     diagnostics: function () { document.getElementById('sonic-performance-diagnostics').hidden = false; },
     snapshot: function () { return { preferences: Object.assign({}, preferences), profile: currentProfile(),
