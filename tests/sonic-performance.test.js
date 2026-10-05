@@ -587,48 +587,7 @@ test('a reset attempted before later scripts are ready retries without being mis
   assert.equal(c.api.snapshot().preferences.manualQuality, false);
 });
 
-test('stable native detail learns an achievable high-refresh goal, freezes on loss and catches fresh drops', () => {
-  const m = policy.createMeter(), g = policy.createGovernor();
-  let now = 100;
-  const actions = [];
-  function run(seconds, fps, target = 240) {
-    for (let i = 0; i < seconds * fps; i++) {
-      now += 1000 / fps;
-      const s = m.frame(now, target, true, g.goal(target, 60));
-      if (s) {
-        const action = g.sample(s, now, 'ultra', true, 60);
-        if (action) { actions.push(action); m.reset(now); }
-      }
-    }
-  }
-  run(40, 120);
-  assert.equal(g.goal(240, 60), 120, 'stable 120 on 240 Hz does not chase 192 FPS');
-  assert.equal(g.reduction(), 0);
-  assert.deepEqual(actions, []);
-  run(13, 80);
-  assert.equal(actions[0], 'lower', 'a sustained high-refresh drop is detected above 60 FPS');
-  assert.equal(g.goal(240, 60), 120, 'the expectation must not ratchet down with the loss');
-  run(30, 80);
-  assert.equal(g.goal(240, 60), 120);
-});
-
-test('baseline needs stable fresh windows and is discarded when the FPS goal changes', () => {
-  const g = policy.createGovernor(), at = (fps, extra) => ({ fps, target: 144, lossTarget: 60, duration: 12000, long: 0, ...extra });
-  g.sample(at(120, { stable: false }), 12000, 'ultra', true, 60);
-  g.sample(at(120, { stable: false }), 24000, 'ultra', true, 60);
-  assert.equal(g.goal(144, 60), 60, 'uneven buckets cannot establish a healthy baseline');
-  g.sample(at(120), 36000, 'ultra', true, 60);
-  for (let i = 0; i < 20; i++) g.sample(at(120), 36000, 'ultra', true, 60);
-  assert.equal(g.goal(144, 60), 60, 'duplicate samples provide no fresh time');
-  g.sample(at(120), 48000, 'ultra', true, 60);
-  assert.equal(g.goal(144, 60), 120);
-  g.retarget();
-  assert.equal(g.goal(144, 60), 60);
-  const cold = policy.createGovernor();
-  assert.equal(cold.sample(at(35), 12000, 'ultra', true, 60), 'lower', 'a consistently slow first launch cannot learn 35 as healthy');
-});
-
-test('the controller sends its learned goal to the renderer and rejects old-threshold fast reports', () => {
+test('a high-refresh screen keeps original detail at any FPS above the 60 FPS goal, however fast it ran before', () => {
   const c = controller();
   c.window.fx.performanceQuality = 'ultra';
   c.window.desktopRuntimeState = { displayHz: 240, focused: true, visible: true };
@@ -636,16 +595,17 @@ test('the controller sends its learned goal to the renderer and rejects old-thre
   function emit(fps, lossTarget, extra) {
     c.advance(12000);
     c.emit({ type: 'mineradio-sonic-performance-sample', sample: {
-      fps, target: 240, lossTarget, duration: 12000, long: 0, stable: true, ...extra
+      fps, target: 240, lossTarget, duration: 12000, long: 0, ...extra
     } });
   }
-  emit(120, 60); emit(120, 60);
-  assert.equal(c.api.config().lossTarget, 120);
-  assert.equal(c.api.profile().tier, 4);
-  emit(15, 60, { duration: 4000, early: true });
-  assert.equal(c.api.profile().tier, 4, 'in-flight evidence still refers to the old 60 FPS threshold');
-  emit(80, 120, { duration: 8000, sustained: true });
-  assert.equal(c.api.profile().tier, 3);
+  emit(120, 60); emit(120, 60); emit(120, 60);
+  assert.equal(c.api.config().lossTarget, 60, 'a fast start is not learned as the goal');
+  emit(80, 60);
+  assert.equal(c.api.profile().tier, 4, '120 -> 80 FPS without stutter keeps original detail');
+  emit(70, 120, { duration: 8000, sustained: true });
+  assert.equal(c.api.profile().tier, 4, 'a report counted against another threshold is rejected');
+  emit(40, 60);
+  assert.equal(c.api.profile().tier, 3, 'falling under the 60 FPS goal still lowers detail');
 });
 
 test('ineffective backoff is limited to the old load and does not block severe loss or new jank', () => {
