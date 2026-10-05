@@ -43,9 +43,14 @@
   }
   function config() {
     var p = preset() === 7 ? stageProfile() : currentProfile();
-    var display = typeof global.estimatedDisplayRefreshHz === 'function' ? Math.round(global.estimatedDisplayRefreshHz()) : 60;
-    // Whole-Hz fluctuations must not reset the measurement window every frame.
-    display = [30, 60, 75, 90, 120, 144, 165, 240].reduce(function (best, hz) {
+    // Prefer the display's reported rate. The rAF-gap estimate follows the main
+    // loop, which idles under Sonic WE and swung between 48 and 240 Hz in QA;
+    // every swing reset frame-drop evidence. The estimate remains a fallback.
+    var state = global.desktopRuntimeState, reported = state && Number(state.displayHz);
+    var display = reported >= 24 ? Math.round(Math.min(240, reported)) :
+      typeof global.estimatedDisplayRefreshHz === 'function' ? Math.round(global.estimatedDisplayRefreshHz()) : 60;
+    // Whole-Hz fluctuations of the estimate must not reset the measurement window every frame.
+    if (!(reported >= 24)) display = [30, 60, 75, 90, 120, 144, 165, 240].reduce(function (best, hz) {
       return Math.abs(hz - display) < Math.abs(best - display) ? hz : best;
     }, 60);
     var mode = global.fx && global.fx.foregroundFpsMode;
