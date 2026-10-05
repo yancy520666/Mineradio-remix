@@ -31,13 +31,15 @@ async function probe() {
   await until(() => snapshot()?.state === 'ready', 'bundled workshop renderer did not initialize');
   await wait(500);
   const legacy = snapshot();
-  // Every fresh profile keeps original detail, including this machine's integrated GPU.
+  // Every fresh profile keeps original detail with adaptive quality on by
+  // default; without load its top tier is the original wallpaper.
   check(firstRunQualityDecision && fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync' &&
-    !MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
-    'first-run quality, frame cadence or opt-in defaults changed');
-  check(legacy.config.profile === null && legacy.triangles > 1000000, 'legacy geometry changed');
-  // Exercise the opt-in low tier without marking a manual quality preference;
-  // disabling performance-first must still return to the original rendering.
+    MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
+    'first-run quality, frame cadence or adaptive defaults changed');
+  check(legacy.config.profile?.tier === 4 && legacy.config.profile.gridSize === 320 && legacy.triangles > 1000000,
+    'default adaptation reduced the original geometry without load');
+  // Exercise the low tier without marking a manual quality preference;
+  // switching adaptation off must still return to the original rendering.
   fx.performanceQuality = 'eco';
   MineradioSonicPerformance.setEnabled(true);
   setForegroundFpsMode('30', true);
