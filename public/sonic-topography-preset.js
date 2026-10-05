@@ -591,8 +591,13 @@
       state.trailsData.push({ active: false, x: 0, y: -1000, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1, scale: 1 });
     }
     state.floatingData = [];
+    resizeFloatingData(floatingCount);
+  }
+
+  function resizeFloatingData(floatingCount) {
     floatingCount = Math.max(0, Math.round(Number(floatingCount) || 0));
-    for (i = 0; i < floatingCount; i++) {
+    if (state.floatingData.length > floatingCount) state.floatingData.length = floatingCount;
+    for (var i = state.floatingData.length; i < floatingCount; i++) {
       var ring = i / Math.max(1, floatingCount);
       var angle = ring * Math.PI * 2 * 5.0 + Math.sin(i * 12.9898) * 0.7;
       var radius = 14 + ((i * 37) % 62);
@@ -699,6 +704,27 @@
   function ensureLayer(scene, fx) {
     var settings = deriveTerrainGridSettings(fx);
     if (state.initialized && state.gridSize === settings.gridSize && state.floatingCount === settings.floatingCount) return;
+    if (state.initialized) {
+      // A quality probe replaces only instance buffers. Keep the material,
+      // opacity, rotation, ripples and meteor state so the background cannot
+      // fade out or restart its animation every time detail changes.
+      function replaceMesh(previous, next) {
+        previous.dispose(); previous.geometry.dispose(); next.material.dispose();
+        next.material = previous.material;
+        state.root.remove(previous); state.root.add(next);
+        return next;
+      }
+      if (state.gridSize !== settings.gridSize) {
+        state.terrain = replaceMesh(state.terrain, buildTerrainMesh(settings));
+        state.gridSize = settings.gridSize; state.gridSpacing = settings.spacing;
+      }
+      if (state.floatingCount !== settings.floatingCount) {
+        resizeFloatingData(settings.floatingCount);
+        state.floatingBlocks = replaceMesh(state.floatingBlocks, buildFloatingBlocksMesh(settings.floatingCount));
+        state.floatingCount = settings.floatingCount;
+      }
+      return;
+    }
     clearLayer();
     state.scene = scene;
     state.gridSize = settings.gridSize;
@@ -1001,18 +1027,22 @@
   function clearLayer() {
     if (state.root && state.scene) state.scene.remove(state.root);
     if (state.terrain) {
+      state.terrain.dispose();
       state.terrain.geometry.dispose();
       state.terrain.material.dispose();
     }
     if (state.floatingBlocks) {
+      state.floatingBlocks.dispose();
       state.floatingBlocks.geometry.dispose();
       state.floatingBlocks.material.dispose();
     }
     if (state.meteors) {
+      state.meteors.dispose();
       state.meteors.geometry.dispose();
       state.meteors.material.dispose();
     }
     if (state.trails) {
+      state.trails.dispose();
       state.trails.geometry.dispose();
       state.trails.material.dispose();
     }

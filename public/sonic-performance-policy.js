@@ -11,12 +11,22 @@
   function profile(quality, managed, reduction) {
     if (!managed) return null;
     var tier = Math.max(0, ceiling(quality) - Math.max(0, reduction || 0));
-    return { tier: tier, gridSize: grids[tier], dpr: ratios[tier], pixels: budgets[tier],
-      fps: 0, floatingCount: [8, 20, 40, 60, 100][tier] };
+    var low = Math.floor(tier), high = Math.ceil(tier), blend = tier - low;
+    function mix(values) { return values[low] + (values[high] - values[low]) * blend; }
+    return { tier: tier, gridSize: Math.round(mix(grids)), dpr: mix(ratios),
+      pixels: high === 4 ? Infinity : mix(budgets),
+      fps: 0, floatingCount: Math.round(mix([8, 20, 40, 60, 100])) };
   }
   function pixelRatio(value, width, height, device) {
     var base = Math.min(2, Math.max(1, device || 1));
     if (!value) return base;
+    // Blend the actual bounded resolutions, including the original no-budget
+    // endpoint. A fractional recovery must not suddenly remove a 4K budget.
+    if (value.tier % 1) {
+      var low = Math.floor(value.tier), high = Math.ceil(value.tier);
+      function ratio(tier) { return Math.min(base, ratios[tier], Math.sqrt(budgets[tier] / Math.max(1, width * height))); }
+      return ratio(low) + (ratio(high) - ratio(low)) * (value.tier - low);
+    }
     return Math.min(base, value.dpr, Math.sqrt(value.pixels / Math.max(1, width * height)));
   }
   function targetFps(mode, value, displayHz) {
@@ -50,8 +60,11 @@
   //   load:   7 of the last 8 below 80% and their mean too -> about 11s
   // Every 12s a plain window is also reported for recovery decisions.
   var WARMUP = 3000, SEVERE = 4, LOAD = 8, LOAD_SLOW = 7, WINDOW = 12000;
+  function loadTarget(target, floor, original) {
+    return original ? target : Math.min(target, Number(floor) > 0 ? Number(floor) : target);
+  }
   function createMeter() {
-    var previous = 0, warmUntil = 0, target = 0;
+    var previous = 0, warmUntil = 0, target = 0, lossTarget = 0;
     var start = 0, frames = 0, bucketStart = 0, bucketFrames = 0, buckets = [];
     function reset(now) {
       previous = 0; warmUntil = now + WARMUP;
@@ -63,10 +76,10 @@
       return { list: list, fps: time ? n * 1000 / time : 0, duration: time };
     }
     function below(list, ratio) {
-      return list.filter(function (b) { return b.frames * 1000 / b.time < target * ratio; }).length;
+      return list.filter(function (b) { return b.frames * 1000 / b.time < lossTarget * ratio; }).length;
     }
     function report(window, flag) {
-      var sample = { fps: window.fps, target: target, duration: window.duration };
+      var sample = { fps: window.fps, target: target, lossTarget: lossTarget, duration: window.duration };
       sample[flag] = true;
       // The next report needs fresh evidence; the plain window restarts too.
       buckets = []; start = previous; frames = 0;
@@ -74,9 +87,10 @@
     }
     return {
       reset: reset,
-      frame: function (now, nextTarget, eligible) {
-        if (!eligible || nextTarget !== target || !previous || now - previous > 1500) {
-          reset(now); target = nextTarget; previous = now; return null;
+      frame: function (now, nextTarget, eligible, nextLossTarget) {
+        nextLossTarget = Math.min(nextTarget, Number(nextLossTarget) || nextTarget);
+        if (!eligible || nextTarget !== target || nextLossTarget !== lossTarget || !previous || now - previous > 1500) {
+          reset(now); target = nextTarget; lossTarget = nextLossTarget; previous = now; return null;
         }
         previous = now;
         if (now < warmUntil) return null;
@@ -89,14 +103,14 @@
           var severe = recent(SEVERE);
           if (severe.list.length === SEVERE && below(severe.list, 0.6) === SEVERE) return report(severe, 'early');
           var load = recent(LOAD);
-          if (load.list.length === LOAD && below(load.list, 0.8) >= LOAD_SLOW && load.fps < target * 0.8) {
+          if (load.list.length === LOAD && below(load.list, 0.8) >= LOAD_SLOW && load.fps < lossTarget * 0.8) {
             return report(load, 'sustained');
           }
         }
         var elapsed = now - start;
         if (elapsed < WINDOW) return null;
-        var sample = { fps: frames * 1000 / elapsed, target: target, duration: elapsed };
-        start = now; frames = 0;
+        var sample = { fps: frames * 1000 / elapsed, target: target, lossTarget: lossTarget, duration: elapsed };
+        start = bucketStart = now; frames = bucketFrames = 0; buckets = [];
         return sample;
       }
     };
@@ -104,53 +118,88 @@
   function validSample(sample) {
     if (!sample || !Number.isFinite(sample.fps) || sample.fps < 0 ||
         !Number.isFinite(sample.target) || sample.target < 1 || !Number.isFinite(sample.duration)) return false;
+    var evidenceTarget = sample.lossTarget == null ? sample.target : sample.lossTarget;
+    if (!Number.isFinite(evidenceTarget) || evidenceTarget < 1 || evidenceTarget > sample.target) return false;
     if (sample.duration >= WINDOW) return true;
-    if (sample.early === true) return sample.duration >= 3800 && sample.fps < sample.target * 0.6;
-    return sample.sustained === true && sample.duration >= 7600 && sample.fps < sample.target * 0.8;
+    if (sample.early === true) return sample.duration >= 3800 && sample.fps < evidenceTarget * 0.6;
+    return sample.sustained === true && sample.duration >= 7600 && sample.fps < evidenceTarget * 0.8;
   }
   // Lowering may happen again as soon as a fresh report arrives: the meter
-  // restarts with its warmup after each change, so no cooldown is stacked on
-  // top. Very slow frames drop two tiers. Restoring stays slow; a restore that
-  // brings load back within 30s marks that tier as too heavy, and it is not
-  // retried for 10 minutes (doubling up to an hour) so detail cannot flap.
+  // restarts with its warmup after each change. Restoring probes only a quarter
+  // tier after 24s of stable evidence and at least 30s since the last change.
+  // A failed probe rolls back just that step, then tries an eighth tier after
+  // 45-60s of recovery. No tier is locked out for minutes or hours.
   //
   // `floor` is the smoothness worth trading detail for below the user's
   // ceiling tier. Following a high-refresh screen may cost one tier; below that
   // only drops under the floor (60 FPS) count. Fixed FPS caps pass their target.
   function createGovernor() {
-    var reduction = 0, goodWindows = 0, slowWindows = 0, lowerAfter = 0, restoreAfter = 0;
-    var restoredAt = -Infinity, blockedUntil = {}, backoff = {};
+    var reduction = 0, goodMs = 0, slowWindows = 0, lowerAfter = 0, restoreAfter = 0;
+    var probe = null, restoreStep = 0.25, retryWait = 30000, lastSampleAt = null, targetKey = '';
+    function clearEvidence() {
+      goodMs = 0; slowWindows = 0; lastSampleAt = null;
+      if (probe) probe.goodMs = 0;
+    }
+    function retarget() {
+      clearEvidence(); probe = null; restoreStep = 0.25; retryWait = 30000;
+      lowerAfter = restoreAfter = 0; targetKey = '';
+    }
     return {
       reduction: function () { return reduction; },
       reset: function () {
-        reduction = 0; goodWindows = 0; slowWindows = 0; lowerAfter = 0; restoreAfter = 0;
-        restoredAt = -Infinity; blockedUntil = {}; backoff = {};
+        reduction = 0; retarget();
       },
-      clearEvidence: function () { goodWindows = 0; slowWindows = 0; },
+      retarget: retarget,
+      clearEvidence: clearEvidence,
       sample: function (sample, now, quality, enabled, floor) {
         if (!validSample(sample)) return '';
+        var nextKey = sample.target + ':' + (Number(floor) || 0);
+        if (targetKey && targetKey !== nextKey) retarget();
+        targetKey = nextKey;
         var relaxed = Math.min(sample.target, Number(floor) > 0 ? Number(floor) : sample.target);
-        function goal(level) { return level === 0 ? sample.target : relaxed; }
+        function goal(level) { return loadTarget(sample.target, floor, level < 1); }
+        var lossGoal = enabled ? goal(reduction) : relaxed;
+        // Fast flags are valid only for the threshold that actually counted
+        // the slow buckets. Never promote 144Hz evidence into a 60FPS verdict.
+        if (sample.duration < WINDOW && (sample.lossTarget == null ? sample.target : sample.lossTarget) !== lossGoal) return '';
+        var freshMs = lastSampleAt === null ? Math.min(WINDOW, sample.duration) :
+          Math.max(0, Math.min(WINDOW, sample.duration, now - lastSampleAt));
+        lastSampleAt = now;
         if (!enabled) {
           var slowForAdvice = sample.fps < relaxed * 0.8;
           slowWindows = slowForAdvice ? (sample.early === true || sample.sustained === true ? 2 : slowWindows + 1) : 0;
           return slowWindows >= 2 ? 'recommend' : '';
         }
-        var slow = sample.fps < goal(reduction) * 0.8;
-        goodWindows = reduction > 0 && sample.fps >= goal(reduction - 1) * 0.94 ? goodWindows + 1 : 0;
+        var slow = sample.fps < lossGoal * 0.8;
+        goodMs = (reduction > 0 || probe) && sample.fps >= goal(Math.max(0, reduction - restoreStep)) * 0.94 ? goodMs + freshMs : 0;
+        if (slow && probe) {
+          if (now < lowerAfter) return '';
+          reduction = probe.from; probe = null; goodMs = 0;
+          restoreStep = 0.125; retryWait = Math.min(60000, retryWait + 15000);
+          lowerAfter = now + 2500; restoreAfter = now + retryWait;
+          return 'rollback';
+        }
+        if (probe) {
+          probe.goodMs = sample.fps >= lossGoal * 0.94 ? probe.goodMs + freshMs : 0;
+          if (probe.goodMs >= 24000) {
+            probe = null;
+            // A larger next step may cross from the 60FPS floor to high refresh.
+            // Evidence collected for the smaller step cannot authorize it.
+            if (restoreStep !== 0.25) goodMs = 0;
+            restoreStep = 0.25; retryWait = 30000;
+          }
+        }
         if (slow && reduction < ceiling(quality)) {
           // Reports already in flight before the last change are not new evidence.
           if (now < lowerAfter) return '';
-          if (now - restoredAt < 30000) {
-            backoff[reduction] = Math.min(3600000, (backoff[reduction] || 300000) * 2);
-            blockedUntil[reduction] = now + backoff[reduction];
-          }
           reduction = Math.min(ceiling(quality), reduction + (sample.fps < relaxed * 0.5 ? 2 : 1));
-          goodWindows = 0; lowerAfter = now + 2500; restoreAfter = now + 60000;
+          goodMs = 0; lowerAfter = now + 2500; restoreAfter = now + 30000;
           return 'lower';
         }
-        if (goodWindows >= 5 && reduction > 0 && now >= restoreAfter && now >= (blockedUntil[reduction - 1] || 0)) {
-          reduction--; goodWindows = 0; restoredAt = now; restoreAfter = now + 60000;
+        if (goodMs >= 24000 && reduction > 0 && now >= restoreAfter) {
+          probe = { from: reduction, goodMs: 0 };
+          reduction = Math.max(0, reduction - restoreStep); goodMs = 0;
+          lowerAfter = now + 2500; restoreAfter = now + 30000;
           return 'restore';
         }
         return '';
@@ -164,7 +213,7 @@
   }
   var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps, fpsLimit: fpsLimit,
     createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor, validSample: validSample,
-    smoothnessFloor: smoothnessFloor };
+    smoothnessFloor: smoothnessFloor, loadTarget: loadTarget };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MineradioSonicPerformancePolicy = api;
 })(typeof window === 'undefined' ? globalThis : window);

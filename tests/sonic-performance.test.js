@@ -66,40 +66,38 @@ test('sustained load lowers only opted-in visuals without stacked cooldowns; rec
   assert.equal(g.sample(slow, 27000, 'balanced', true), 'lower', 'the next fresh report may lower again');
   assert.equal(g.sample(slow, 62000, 'balanced', true), '');
   assert.equal(g.reduction(), 2);
-  for (let i = 0; i < 4; i++) assert.equal(g.sample({ fps: 30, target: 30, duration: 12000 }, 90000 + i * 12000, 'balanced', true), '');
-  assert.equal(g.sample({ fps: 30, target: 30, duration: 12000 }, 138000, 'balanced', true), 'restore');
-  assert.equal(g.reduction(), 1);
+  const good = { fps: 60, target: 60, duration: 12000 };
+  assert.equal(g.sample(good, 74000, 'balanced', true), '');
+  assert.equal(g.sample(good, 86000, 'balanced', true), 'restore');
+  assert.equal(g.reduction(), 1.75, 'a stable renderer probes just a quarter tier');
   g.reset(); assert.equal(g.reduction(), 0);
 });
 
-test('very slow frames drop two tiers; a tier whose restore brings load back is not retried for a while', () => {
+test('failed recovery rolls back just the probe and retries a smaller step within a minute', () => {
   const g = policy.createGovernor();
   assert.equal(g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true), 'lower');
   assert.equal(g.reduction(), 2);
   const good = { fps: 60, target: 60, duration: 12000 };
   let now = 10000, action = '';
   while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
-  assert.equal(g.reduction(), 1);
-  assert(now - 10000 >= 60000 && now - 10000 < 75000, 'first restore after about a minute');
-  assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, now + 10000, 'ultra', true), 'lower');
-  const loweredAt = now + 10000;
-  let restoredAt = 0;
-  for (let t = loweredAt + 12000; !restoredAt && t < loweredAt + 3600000; t += 12000) {
-    if (g.sample(good, t, 'ultra', true) === 'restore') restoredAt = t;
+  assert.equal(g.reduction(), 1.75);
+  assert(now - 10000 >= 30000 && now - 10000 < 45000);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    now += 11000;
+    assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, now, 'ultra', true), 'rollback');
+    assert.equal(g.reduction(), 2, 'the last stable detail is retained');
+    const failedAt = now;
+    action = '';
+    while (action !== 'restore' && now - failedAt <= 72000) { now += 12000; action = g.sample(good, now, 'ultra', true); }
+    assert.equal(action, 'restore');
+    assert(now - failedAt <= 60000, 'repeated failures never grow into a long lock');
+    assert.equal(g.reduction(), 1.875, 'the next probe is only an eighth tier');
   }
-  assert(restoredAt - loweredAt >= 600000, 'the failed tier waits at least 10 minutes');
-  assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, restoredAt + 10000, 'ultra', true), 'lower');
-  const again = restoredAt + 10000;
-  let next = 0;
-  for (let t = again + 12000; !next && t < again + 7200000; t += 12000) {
-    if (g.sample(good, t, 'ultra', true) === 'restore') next = t;
-  }
-  assert(next - again >= 1200000, 'repeated failures double the wait');
   g.reset();
   g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true);
   now = 10000; action = '';
   while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
-  assert(now - 10000 < 75000, 'a reset (new target, preset or opt-in) forgets old blocks');
+  assert.equal(g.reduction(), 1.75, 'a reset returns to the normal probe size');
 });
 
 test('follow-screen trades at most one tier for refresh above 60 FPS; fixed caps are honored fully', () => {
@@ -120,7 +118,7 @@ test('follow-screen trades at most one tier for refresh above 60 FPS; fixed caps
   const advice = policy.createGovernor();
   assert.equal(advice.sample({ ...at(100), sustained: true, duration: 8000 }, 1000, 'ultra', false, floor), '',
     '100 FPS on a 144 Hz screen is not reported as frame loss');
-  assert.equal(advice.sample({ ...at(40), sustained: true, duration: 8000 }, 2000, 'ultra', false, floor), 'recommend');
+  assert.equal(advice.sample({ ...at(40), lossTarget: 60, sustained: true, duration: 8000 }, 2000, 'ultra', false, floor), 'recommend');
 });
 
 function controller(storage = new Map()) {
@@ -348,14 +346,123 @@ test('recovery returns to original detail without any FPS cap and honors a manua
   g.sample({ fps: 100, target: 144, duration: 12000 }, 20000, 'ultra', true);
   assert.equal(g.reduction(), 1);
   assert.equal(policy.fpsLimit('vsync', policy.profile('ultra', true, g.reduction()), 144), 0);
-  for (let i = 0; i < 5; i++) g.sample({ fps: 144, target: 144, duration: 12000 }, 30000 + i * 12000, 'ultra', true);
-  assert.equal(g.reduction(), 1, 'restoring waits at least 60s after lowering');
-  g.sample({ fps: 144, target: 144, duration: 12000 }, 92000, 'ultra', true);
+  let now = 20000;
+  while (g.reduction() > 0 && now < 200000) {
+    const before = g.reduction(); now += 12000;
+    g.sample({ fps: 144, target: 144, duration: 12000 }, now, 'ultra', true);
+    assert(before - g.reduction() <= 0.25, 'recovery never jumps a full tier');
+  }
   assert.equal(g.reduction(), 0);
   const restored = policy.profile('ultra', true, g.reduction());
   assert.equal(restored.gridSize, 320);
   assert.equal(policy.fpsLimit('vsync', restored, 144), 0);
   assert.equal(policy.fpsLimit('30', restored, 144), 30);
+});
+
+test('fractional recovery smoothly increases actual 4K resolution and geometry without exceeding saved quality', () => {
+  let previousDpr = 0, previousGrid = 0;
+  for (let reduction = 1; reduction >= 0; reduction -= 0.125) {
+    const p = policy.profile('ultra', true, reduction);
+    const dpr = policy.pixelRatio(p, 3840, 2160, 2);
+    assert(dpr >= previousDpr && p.gridSize >= previousGrid);
+    if (previousDpr) assert(dpr - previousDpr < 0.2, 'each resolution probe stays small even at the no-budget endpoint');
+    assert(Number.isInteger(p.gridSize) && Number.isInteger(p.floatingCount));
+    previousDpr = dpr; previousGrid = p.gridSize;
+  }
+  assert.equal(previousDpr, 2); assert.equal(previousGrid, 320);
+  assert(policy.profile('balanced', true, 0.25).gridSize < policy.profile('balanced', true, 0).gridSize);
+});
+
+test('a one-second hitch on a 144Hz screen cannot borrow severe evidence from the wrong threshold', () => {
+  const m = policy.createMeter(), off = policy.createGovernor(), on = policy.createGovernor();
+  on.sample({ fps: 100, target: 144, duration: 12000 }, 0, 'ultra', true, 60);
+  let now = 100, fast = 0;
+  while (now < 18000) {
+    now += now >= 6000 && now < 7000 ? 200 : 1000 / 60;
+    const sample = m.frame(now, 144, true, 60);
+    if (!sample) continue;
+    if (sample.early || sample.sustained) fast++;
+    assert.equal(sample.lossTarget, 60); assert.equal(sample.target, 144);
+    assert.equal(off.sample(sample, now, 'ultra', false, 60), '');
+    assert.equal(on.sample(sample, now, 'ultra', true, 60), '');
+  }
+  assert.equal(fast, 0); assert.equal(on.reduction(), 1);
+  const old = { fps: 46.5, target: 144, duration: 4067, early: true };
+  assert.equal(off.sample(old, now, 'ultra', false, 60), '', 'stale flags from 144Hz are rejected');
+  assert.equal(on.sample(old, now, 'ultra', true, 60), '');
+});
+
+test('high-refresh floor still detects actual sustained low FPS quickly', () => {
+  const m = policy.createMeter(), g = policy.createGovernor(); let now = 100, sample;
+  while (!sample && now < 10000) { now += 1000 / 15; sample = m.frame(now, 144, true, 60); }
+  assert(sample.early); assert(now < 8000);
+  assert.equal(g.sample(sample, now, 'ultra', false, 60), 'recommend');
+  assert.equal(policy.validSample({ ...sample, lossTarget: 145 }), false);
+});
+
+test('changing FPS after a failed probe discards recovery history without a visual jump', () => {
+    const c = controller();
+    const emit = (fps, target = 60, duration = 12000, sustained = false) => c.emit({
+      type: 'mineradio-sonic-performance-sample', sample: { fps, target, duration, sustained }
+    });
+    c.window.fx.performanceQuality = 'ultra'; c.api.setEnabled(true);
+    emit(40); for (let i = 0; i < 3; i++) { c.advance(12000); emit(60); }
+    assert.equal(c.api.profile().tier, 3.25);
+    c.advance(11000); emit(40, 60, 8000, true);
+    assert.equal(c.api.profile().tier, 3);
+    c.window.fx.foregroundFpsMode = '30'; c.tick();
+    assert.equal(c.api.profile().tier, 3, 'changing target preserves current detail');
+    for (let i = 0; i < 3; i++) { c.advance(12000); emit(30, 30); }
+    assert.equal(c.api.profile().tier, 3.25, 'new target uses the normal quarter step, without the old wait');
+    assert.equal(c.window.fx.performanceQuality, 'ultra');
+});
+
+test('the topography stage uses the same recovery and target-reset path without iframe reports', () => {
+  const c = controller();
+  c.window.renderer = { getContext: () => ({ getExtension: () => null, getParameter: () => 'Intel Graphics', isContextLost: () => false }),
+    domElement: { addEventListener() {} } };
+  c.window.fx.preset = 7; c.window.fx.performanceQuality = 'ultra'; c.tick(); c.api.setEnabled(true);
+  const draw = (fps, seconds) => { for (let i = 0; i < fps * seconds; i++) { c.advance(1000 / fps); c.api.stageFrame(); } };
+  draw(40, 17); assert.equal(c.api.stageProfile().tier, 3);
+  draw(60, 41); assert.equal(c.api.stageProfile().tier, 3.25);
+  draw(40, 15); assert.equal(c.api.stageProfile().tier, 3);
+  c.window.fx.foregroundFpsMode = '30'; c.tick();
+  assert.equal(c.api.stageProfile().tier, 3);
+  draw(30, 41); assert.equal(c.api.stageProfile().tier, 3.25);
+});
+
+test('a confirmed probe at the high-refresh floor is not rolled back long after success', () => {
+  const g = policy.createGovernor();
+  g.sample({ fps: 25, target: 144, duration: 12000 }, 1000, 'ultra', true, 60);
+  let now = 1000;
+  while (g.reduction() > 1 && now < 300000) { now += 12000; g.sample({ fps: 144, target: 144, duration: 12000 }, now, 'ultra', true, 60); }
+  assert.equal(g.reduction(), 1);
+  for (let i = 0; i < 5; i++) { now += 12000; g.sample({ fps: 60, target: 144, duration: 12000 }, now, 'ultra', true, 60); }
+  assert.equal(g.sample({ fps: 40, target: 144, lossTarget: 60, duration: 8000, sustained: true }, now + 11000, 'ultra', true, 60), 'lower');
+  assert.equal(g.reduction(), 2, 'confirmed detail is no longer an unresolved trial');
+});
+
+test('background gaps and repeated copies of a sample cannot fabricate stable recovery time', () => {
+  const g = policy.createGovernor(), good = { fps: 60, target: 60, duration: 12000 };
+  g.sample({ fps: 40, target: 60, duration: 12000 }, 1000, 'ultra', true);
+  for (let i = 0; i < 10; i++) assert.equal(g.sample(good, 1100 + i, 'ultra', true), '');
+  g.clearEvidence();
+  assert.equal(g.sample(good, 100000, 'ultra', true), '', 'hidden wall time is not stable evidence');
+  assert.equal(g.sample(good, 112000, 'ultra', true), 'restore');
+  assert.equal(g.reduction(), 0.75);
+});
+
+test('confirming an eighth-tier probe cannot reuse floor evidence for a larger high-refresh step', () => {
+  const g = policy.createGovernor(); let now = 1000;
+  const at = (fps, duration = 12000) => ({ fps, target: 144, lossTarget: 60, duration, sustained: duration < 12000 });
+  g.sample(at(25), now, 'ultra', true, 60);
+  while (g.reduction() > 1 && now < 300000) { now += 12000; g.sample(at(144), now, 'ultra', true, 60); }
+  now += 11000; assert.equal(g.sample(at(40, 8000), now, 'ultra', true, 60), 'rollback');
+  while (g.reduction() === 1.25 && now < 400000) { now += 12000; g.sample(at(60), now, 'ultra', true, 60); }
+  assert.equal(g.reduction(), 1.125);
+  g.clearEvidence(); now += 120000;
+  for (let i = 0; i < 4; i++) { now += 12000; assert.equal(g.sample(at(60), now, 'ultra', true, 60), ''); }
+  assert.equal(g.reduction(), 1.125, '60FPS stability cannot authorize a new 144FPS goal');
 });
 
 test('reduced-motion advice skips animation; closing snoozes without a remembered refusal', () => {

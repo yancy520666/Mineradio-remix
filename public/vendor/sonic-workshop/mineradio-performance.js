@@ -51,7 +51,7 @@
         else if (time - lastDrawReport >= 1000) {
           send('mineradio-sonic-performance-draw', {}); lastDrawReport = time;
         }
-        var sample = meter.frame(time, config.target, config.eligible && !document.hidden);
+        var sample = meter.frame(time, config.target, config.eligible && !document.hidden, config.lossTarget);
         if (sample) send('mineradio-sonic-performance-sample', { sample: sample });
       }
       return result;
