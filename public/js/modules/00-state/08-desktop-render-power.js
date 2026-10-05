@@ -18,7 +18,8 @@ var desktopRuntimeState = {
   focused: true,
   fullscreen: false,
   embedded: false,
-  interactive: false
+  interactive: false,
+  displayHz: 0
 };
 var desktopRuntimeStateRevision = 0;
 var renderPowerState = { mode: '', width: 0, height: 0, pixelRatio: 0 };
@@ -442,6 +443,7 @@ function updateDesktopRuntimeState(state) {
   desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen);
   desktopRuntimeState.embedded = state.isDesktopEmbedded === true;
   desktopRuntimeState.interactive = state.isDesktopInteractive === true;
+  desktopRuntimeState.displayHz = Number(state.displayFrequency) >= 24 ? Number(state.displayFrequency) : 0;
   updateRenderPowerClasses();
   applyRendererPowerMode();
   if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('desktop-runtime-state');
