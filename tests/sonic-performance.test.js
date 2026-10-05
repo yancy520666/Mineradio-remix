@@ -56,6 +56,7 @@ test('measurement excludes warmup, background, resume and deliberate frame caps'
 });
 test('sustained load lowers only opted-in visuals; recovery is slow and bounded', () => {
   const g = policy.createGovernor(), slow = { fps: 20, target: 60, duration: 12000 };
+  assert.equal(g.sample(slow, 8000, 'balanced', false), '');
   assert.equal(g.sample(slow, 20000, 'balanced', false), 'recommend');
   assert.equal(g.reduction(), 0);
   assert.equal(g.sample(slow, 20000, 'balanced', true), 'lower');
@@ -70,7 +71,7 @@ test('sustained load lowers only opted-in visuals; recovery is slow and bounded'
 });
 
 function controller(storage = new Map()) {
-  const nodes = new Map(), events = {}, frameWindow = { postMessage() {} };
+  const nodes = new Map(), events = {}, flags = new Set(), frameWindow = { postMessage() {} };
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, { hidden: true, textContent: '', attrs: {},
       setAttribute(k, v) { this.attrs[k] = v; }, classList: { toggle() {} } });
@@ -78,18 +79,20 @@ function controller(storage = new Map()) {
   };
   let tick, time = 20000, focused = true;
   const doc = { hidden: false, hasFocus: () => focused,
-    body: { classList: { contains: () => false } }, getElementById: node,
+    body: { classList: { contains: name => flags.has(name) } }, getElementById: node,
     querySelector: () => ({ contentWindow: frameWindow }) };
   const window = { fx: { preset: 8, performanceQuality: 'eco', foregroundFpsMode: 'vsync' },
     MineradioSonicPerformancePolicy: policy,
-    addEventListener: (name, fn) => { events[name] = fn; } };
+    addEventListener: (name, fn) => { events[name] = fn; },
+    classifyRendererGpu: vm.runInNewContext(fs.readFileSync(path.join(__dirname,
+      '../public/js/modules/00-state/08a-first-run-quality.js'), 'utf8') + '\nclassifyRendererGpu') };
   const context = { window, document: doc,
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     location: { origin: 'http://localhost' }, performance: { now: () => time },
     setInterval: fn => { tick = fn; } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/sonic-performance.js'), 'utf8'), context);
   tick();
-  return { api: window.MineradioSonicPerformance, window, node, tick, storage,
+  return { api: window.MineradioSonicPerformance, window, node, tick, storage, flags,
     runTicks: ms => { for (let elapsed = 0; elapsed < ms; elapsed += 500) { time += 500; tick(); } },
     focus: value => { focused = value; }, hide: value => { doc.hidden = value; }, advance: ms => { time += ms; },
     emit: (data, source = frameWindow) => events.message({ source, origin: 'http://localhost', data }) };
@@ -100,7 +103,8 @@ test('keep-current is remembered; opt-in/disable restores the saved visual witho
   const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 12000 } };
   c.emit(slow, {}); assert.equal(c.api.snapshot().recommendation, false, 'reject old/foreign iframe');
   c.focus(false); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
-  c.focus(true); c.emit(slow); assert.equal(c.api.snapshot().recommendation, true);
+  c.focus(true); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
+  c.emit(slow); assert.equal(c.api.snapshot().recommendation, true);
   c.api.dismiss(); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
   const reopened = controller(c.storage); reopened.emit(slow);
   assert.equal(reopened.api.snapshot().recommendation, false);
@@ -117,11 +121,14 @@ test('a healthy window clears the recommendation without dismissing future load 
   const c = controller();
   const emit = fps => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target: 60, duration: 12000 } });
   emit(42);
+  assert.equal(c.api.snapshot().recommendation, false);
+  emit(42);
   assert.equal(c.api.snapshot().recommendation, true);
   emit(60);
   assert.equal(c.api.snapshot().recommendation, false);
   assert.equal(c.node('sonic-performance-notice').hidden, true);
   assert.equal(c.api.snapshot().preferences.dismissed, false);
+  emit(42);
   emit(42);
   assert.equal(c.api.snapshot().recommendation, true);
 });
@@ -129,6 +136,7 @@ test('a healthy window clears the recommendation without dismissing future load 
 test('changing the requested FPS clears old advice and rejects late samples for the old target', () => {
   const c = controller();
   const emit = (fps, target) => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target, duration: 12000 } });
+  emit(42, 60);
   emit(42, 60);
   c.window.fx.foregroundFpsMode = '30'; c.tick();
   assert.equal(c.api.snapshot().recommendation, false);
@@ -180,4 +188,139 @@ test('missing successful draws fail even after ready; current draws recover and 
   c.focus(true); c.tick();
   for (let i = 0; i < 20; i++) { c.runTicks(1000); c.emit(draw); }
   assert.equal(c.api.snapshot().health[8].state, 'ready');
+});
+
+test('severe sustained drops take the fast path after warmup and two independent short windows', () => {
+  const samples = runFrames(policy.createMeter(), 100, 12, 15, 60);
+  assert.equal(samples.length, 1);
+  assert.equal(samples[0].early, true);
+  assert(samples[0].duration >= 6000 && samples[0].duration < 6200);
+  assert(Math.abs(samples[0].fps - 15) < 0.1);
+  assert.equal(policy.createGovernor().sample(samples[0], 12000, 'ultra', false), 'recommend');
+  assert.equal(policy.createGovernor().sample(samples[0], 12000, 'ultra', true), 'lower');
+  const c = controller();
+  c.emit({ type: 'mineradio-sonic-performance-sample', sample: samples[0] });
+  assert.equal(c.api.snapshot().recommendationReason, 'load');
+});
+
+test('borderline loss keeps long-window confirmation; brief freezes and alternating load do not trigger fast advice', () => {
+  const borderline = runFrames(policy.createMeter(), 100, 18, 42, 60)[0];
+  assert(!borderline.early);
+  const g = policy.createGovernor();
+  assert.equal(borderline.sustained, true);
+  assert.equal(g.sample(borderline, 18000, 'ultra', false), 'recommend');
+  for (const freezeAt of [7900, 8100, 10900]) {
+    const meter = policy.createMeter(), samples = [];
+    for (let now = 100; now < 18000; now += 1000 / 60) {
+      if (now >= freezeAt && now < freezeAt + 800) continue;
+      const sample = meter.frame(now, 60, true);
+      if (sample) samples.push(sample);
+    }
+    assert(samples.every(sample => !sample.early), 'one freeze must not trigger the fast path');
+  }
+  const meter = policy.createMeter(), alternating = [];
+  let now = 100;
+  for (const [seconds, fps] of [[8, 60], [3, 15], [3, 60], [3, 15], [3, 60]]) {
+    for (let i = 0; i < seconds * fps; i++) {
+      now += 1000 / fps;
+      const sample = meter.frame(now, 60, true);
+      if (sample) alternating.push(sample);
+    }
+  }
+  assert(alternating.every(sample => !sample.early));
+  assert.equal(policy.validSample({ fps: 15, target: 60, duration: 5999, early: true }), false);
+  assert.equal(policy.validSample({ fps: 42, target: 60, duration: 6000, early: true }), false);
+});
+
+test('hardware advice uses the active background renderer, waits for visible readiness and is shown once', () => {
+  const c = controller();
+  c.api.snapshot().gpu[7] = 'Intel UHD Graphics 620';
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'NVIDIA GeForce RTX 4070' });
+  c.runTicks(6000);
+  assert.equal(c.api.snapshot().recommendation, false, 'an unused integrated renderer must not influence the workshop');
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
+  c.focus(false); c.runTicks(6000);
+  assert.equal(c.api.snapshot().recommendation, false);
+  c.focus(true); c.runTicks(5000);
+  assert.equal(c.api.snapshot().recommendation, false);
+  c.runTicks(1000);
+  assert.equal(c.api.snapshot().recommendationReason, 'gpu');
+  assert.equal(c.window.fx.performanceQuality, 'eco', 'advice must not change a saved quality');
+  c.api.closeNotice();
+  const reopened = controller(c.storage);
+  reopened.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
+  reopened.runTicks(6000);
+  assert.equal(reopened.api.snapshot().recommendation, false);
+  assert.equal(reopened.api.snapshot().preferences.dismissed, true);
+});
+
+test('manual disable stays disabled across restart; opting back in permits adaptation', () => {
+  const c = controller();
+  c.api.setEnabled(true); c.api.setEnabled(false);
+  const reopened = controller(c.storage);
+  const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 12000 } };
+  reopened.emit(slow); reopened.emit(slow);
+  assert.equal(reopened.api.snapshot().recommendation, false);
+  assert.equal(reopened.api.snapshot().preferences.enabled, false);
+  reopened.api.setEnabled(true);
+  reopened.emit({ ...slow, sample: { ...slow.sample, target: 30 } });
+  assert.equal(reopened.api.profile().tier, 0);
+});
+
+test('guides, background interruptions and target changes break consecutive evidence', () => {
+  const c = controller();
+  const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 42, target: 60, duration: 12000 } };
+  c.emit(slow);
+  c.flags.add('visual-guide-active'); c.tick(); c.emit(slow);
+  assert.equal(c.api.snapshot().recommendation, false);
+  c.flags.clear(); c.emit(slow);
+  assert.equal(c.api.snapshot().recommendation, false);
+  c.hide(true); c.tick(); c.hide(false); c.emit(slow);
+  assert.equal(c.api.snapshot().recommendation, false);
+  c.window.fx.foregroundFpsMode = '30'; c.tick();
+  c.emit({ ...slow, sample: { fps: 20, target: 30, duration: 12000 } });
+  assert.equal(c.api.snapshot().recommendation, false);
+});
+
+test('recovery returns to original detail and relaxes its FPS limit while honoring a manual cap', () => {
+  const g = policy.createGovernor();
+  g.sample({ fps: 20, target: 144, duration: 12000 }, 20000, 'ultra', true);
+  assert.equal(policy.fpsLimit('vsync', policy.profile('ultra', true, g.reduction()), 144), 60);
+  for (let i = 0; i < 5; i++) g.sample({ fps: 60, target: 60, duration: 12000 }, 40000 + i * 12000, 'ultra', true);
+  assert.equal(g.reduction(), 0);
+  const restored = policy.profile('ultra', true, g.reduction());
+  assert.equal(restored.gridSize, 320);
+  assert.equal(policy.fpsLimit('vsync', restored, 144), 0);
+  assert.equal(policy.fpsLimit('30', restored, 144), 30);
+});
+
+test('reduced-motion advice skips animation and closes immediately with remembered intent', () => {
+  const c = controller();
+  c.window.matchMedia = () => ({ matches: true });
+  const banner = c.node('sonic-performance-notice');
+  banner.animate = () => { throw new Error('reduced-motion users must not receive entrance animations'); };
+  c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 6000, early: true } });
+  assert.equal(banner.hidden, false);
+  assert.equal(banner.inert, false);
+  c.api.closeNotice();
+  assert.equal(banner.hidden, true);
+  assert.equal(banner.inert, true);
+  assert.equal(c.api.snapshot().preferences.dismissed, true);
+});
+
+test('hardware advice hidden by another settings tab does not consume the one-time prompt', () => {
+  const c = controller();
+  const panel = c.node('fx-panel');
+  panel.classList.contains = name => name === 'peek';
+  panel.getAttribute = () => 'motion';
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
+  c.runTicks(6000);
+  assert.equal(c.node('sonic-performance-notice').hidden, true);
+  assert.equal(c.api.snapshot().preferences.hardwarePrompted, false);
+  c.window.fx.preset = 0; c.tick();
+  panel.classList.contains = () => false;
+  c.window.fx.preset = 8; c.tick(); c.runTicks(6000);
+  assert.equal(c.api.snapshot().recommendationReason, 'gpu');
+  assert.equal(c.node('sonic-performance-notice').hidden, false);
+  assert.equal(c.api.snapshot().preferences.hardwarePrompted, true);
 });

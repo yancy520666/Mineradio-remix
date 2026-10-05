@@ -44,7 +44,13 @@
   }
   function createMeter() {
     var previous = 0, warmUntil = 0, start = 0, frames = 0, target = 0;
-    function reset(now) { previous = 0; start = 0; frames = 0; warmUntil = now + 5000; }
+    var fastStart = 0, fastFrames = 0, fastSlow = 0, sustainedSlow = 0;
+    var fastDuration = 0, fastCount = 0, fastReported = false;
+    function reset(now) {
+      previous = 0; start = 0; frames = 0; warmUntil = now + 5000;
+      fastStart = 0; fastFrames = 0; fastSlow = 0; sustainedSlow = 0;
+      fastDuration = 0; fastCount = 0; fastReported = false;
+    }
     return {
       reset: reset,
       frame: function (now, nextTarget, eligible) {
@@ -53,26 +59,53 @@
         }
         previous = now;
         if (now < warmUntil) return null;
-        if (!start) { start = now; frames = 0; return null; }
-        frames++;
+        if (!start) { start = now; fastStart = now; frames = 0; return null; }
+        frames++; fastFrames++;
+        var shortElapsed = now - fastStart;
+        if (shortElapsed >= 3000) {
+          // Two consecutive 3s windows below 60% confirm severe sustained loss.
+          // Borderline drops still use the full 12s measurement windows.
+          var shortFps = fastFrames * 1000 / shortElapsed;
+          sustainedSlow = shortFps < target * 0.8 ? sustainedSlow + 1 : 0;
+          if (shortFps < target * 0.6) {
+            fastSlow++; fastDuration += shortElapsed; fastCount += fastFrames;
+          } else { fastSlow = 0; fastDuration = 0; fastCount = 0; }
+          fastStart = now; fastFrames = 0;
+          if (fastSlow >= 2 && !fastReported) {
+            fastReported = true;
+            var early = { fps: fastCount * 1000 / fastDuration, target: target, duration: fastDuration, early: true };
+            start = now; frames = 0; sustainedSlow = 0;
+            return early;
+          }
+        }
         var elapsed = now - start;
         if (elapsed < 12000) return null;
-        var sample = { fps: frames * 1000 / elapsed, target: target, duration: elapsed };
-        start = now; frames = 0;
+        var sample = { fps: frames * 1000 / elapsed, target: target, duration: elapsed,
+          sustained: sustainedSlow >= 3 };
+        start = now; frames = 0; sustainedSlow = 0;
         return sample;
       }
     };
   }
+  function validSample(sample) {
+    if (!sample || !Number.isFinite(sample.fps) || sample.fps < 0 ||
+        !Number.isFinite(sample.target) || sample.target < 1 || !Number.isFinite(sample.duration)) return false;
+    return sample.duration >= 12000 ||
+      (sample.early === true && sample.duration >= 6000 && sample.fps < sample.target * 0.6);
+  }
   function createGovernor() {
-    var reduction = 0, goodWindows = 0, nextChange = 0;
+    var reduction = 0, goodWindows = 0, slowWindows = 0, nextChange = 0;
     return {
       reduction: function () { return reduction; },
-      reset: function () { reduction = 0; goodWindows = 0; nextChange = 0; },
+      reset: function () { reduction = 0; goodWindows = 0; slowWindows = 0; nextChange = 0; },
+      clearEvidence: function () { goodWindows = 0; slowWindows = 0; },
       sample: function (sample, now, quality, enabled) {
-        if (!sample || !Number.isFinite(sample.fps) || sample.fps < 0 ||
-            !Number.isFinite(sample.target) || sample.target < 1 || sample.duration < 12000) return '';
+        if (!validSample(sample)) return '';
         var slow = sample.fps < sample.target * 0.8;
-        if (!enabled) return slow ? 'recommend' : '';
+        if (!enabled) {
+          slowWindows = slow ? (sample.early === true || sample.sustained === true ? 2 : slowWindows + 1) : 0;
+          return slowWindows >= 2 ? 'recommend' : '';
+        }
         goodWindows = sample.fps >= sample.target * 0.94 ? goodWindows + 1 : 0;
         if (now < nextChange) return '';
         if (slow && reduction < ceiling(quality)) {
@@ -86,7 +119,7 @@
     };
   }
   var api = { profile: profile, pixelRatio: pixelRatio, targetFps: targetFps, fpsLimit: fpsLimit,
-    createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor };
+    createVisibleClock: createVisibleClock, createMeter: createMeter, createGovernor: createGovernor, validSample: validSample };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MineradioSonicPerformancePolicy = api;
 })(typeof window === 'undefined' ? globalThis : window);
