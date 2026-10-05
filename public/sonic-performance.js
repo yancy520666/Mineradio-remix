@@ -10,7 +10,7 @@
   } catch (_) {}
   var governor = policy.createGovernor(), meter = policy.createMeter();
   var active = 0, latest = null, recommendation = '', health = {}, gpu = {};
-  var lastConfig = '', stageAttached = false, stageRestore = null;
+  var lastConfig = '', lastTarget = '', stageAttached = false, stageRestore = null;
   var noticeUntil = 0, noticeText = '';
   var healthClocks = {};
   var hardwareClock = policy.createVisibleClock(), noticeVisible = false, noticeAnimation = null;
@@ -49,9 +49,21 @@
       return Math.abs(hz - display) < Math.abs(best - display) ? hz : best;
     }, 60);
     var mode = global.fx && global.fx.foregroundFpsMode;
-    return { profile: p, target: policy.targetFps(mode, p, display), fpsLimit: policy.fpsLimit(mode, p, display),
+    var target = policy.targetFps(mode, p, display);
+    return { profile: p, target: target, fpsLimit: policy.fpsLimit(mode, p, display),
+      lossTarget: policy.loadTarget(target, policy.smoothnessFloor(mode), preferences.enabled && governor.reduction() < 1),
       eligible: eligible(), paused: typeof global.isDeepBackgroundMode === 'function'
         ? global.isDeepBackgroundMode() : !!document.hidden };
+  }
+  function syncTarget(c) {
+    var next = c.target + ':' + String(global.fx && global.fx.foregroundFpsMode);
+    if (lastTarget && lastTarget !== next) {
+      // Keep the current detail while discarding the old goal's recovery history.
+      governor.retarget(); meter.reset(now()); latest = null;
+      if (recommendation === 'load') recommendation = '';
+      lastConfig = ''; noticeUntil = 0;
+    }
+    lastTarget = next;
   }
   function readGpu(gl) {
     try {
@@ -61,7 +73,7 @@
   }
   function refresh() {
     governor.reset(); meter.reset(now()); hardwareClock.reset(now());
-    latest = null; recommendation = ''; lastConfig = ''; noticeUntil = 0;
+    latest = null; recommendation = ''; lastConfig = ''; lastTarget = ''; noticeUntil = 0;
     if (global.MineradioSonicWorkshop) global.MineradioSonicWorkshop.pushProperties(true);
     renderUi();
   }
@@ -74,18 +86,24 @@
   function qualityChanged() { preferences.manualQuality = true; save(); refresh(); }
   function sample(value) {
     if (!preset() || !eligible() || !policy.validSample(value)) return;
-    var target = config().target;
+    var c = config(); syncTarget(c);
+    var target = c.target;
     if (preset() === 7) target = Math.round(Math.min(target,
       global.renderPerfState && global.renderPerfState.targetFps || target));
     if (value.target !== target) return;
+    var lossTarget = Math.min(target, c.lossTarget);
+    if (value.duration < 12000 && (value.lossTarget == null ? value.target : value.lossTarget) !== lossTarget) return;
     latest = value;
     var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled,
       policy.smoothnessFloor(global.fx.foregroundFpsMode));
     if (action === 'recommend' && !preferences.dismissed && !snoozed) recommendation = 'load';
     else if (recommendation === 'load') recommendation = '';
-    if (action === 'lower' || action === 'restore') {
-      noticeText = action === 'lower' ? '已降低一级背景细节。运行稳定后会逐步恢复。' : '画面运行稳定，已恢复一级背景细节。';
-      noticeUntil = now() + 8000;
+    if (action === 'lower' || action === 'restore' || action === 'rollback') {
+      noticeText = action === 'lower' ? '已降低背景细节，优先保持流畅。稳定后会小幅恢复。' :
+        action === 'rollback' ? '已回到刚才稳定的画质，稍后会小幅尝试恢复。' :
+        governor.reduction() === 0 ? '画面运行稳定，已恢复所选画质。' : '画面运行稳定，正在逐步恢复细节。';
+      // Small probes update the settings status without repeatedly opening a card.
+      if (action === 'lower' || (action === 'restore' && governor.reduction() === 0)) noticeUntil = now() + 8000;
       meter.reset(now()); lastConfig = '';
       if (global.MineradioSonicWorkshop) global.MineradioSonicWorkshop.pushProperties(true);
     }
@@ -145,11 +163,13 @@
     if (!health[7] || health[7].state !== 'ready') status(7, 'ready');
     healthClocks[7].reset(now());
     var c = config();
+    syncTarget(c);
     // The main scene's own fixed cadence can be slower than the wallpaper target.
     var actualTarget = Math.min(c.target, global.renderPerfState && global.renderPerfState.targetFps || c.target);
     // Adaptive mode lowers its own cadence on purpose, so it is not a frame drop.
     var adaptive = global.fx && String(global.fx.foregroundFpsMode) === 'adaptive';
-    var result = meter.frame(now(), Math.round(actualTarget), c.eligible && !adaptive);
+    var result = meter.frame(now(), Math.round(actualTarget), c.eligible && !adaptive,
+      Math.min(Math.round(actualTarget), c.lossTarget));
     if (result) sample(result);
   }
   function retry() {
@@ -223,7 +243,7 @@
     var p = which === 7 ? stageProfile() : currentProfile();
     var detail = !which ? '适用于两款音域回响；导入的 Wallpaper Engine 壁纸独立运行。' :
       (preferences.enabled ? '自适应已开启' : '自适应已关闭') + ' · ' +
-      (p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
+      (p && p.tier % 1 ? '细节平衡中' : p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
     setText(statusEl, detail);
     var banner = document.getElementById('sonic-performance-notice');
@@ -270,17 +290,15 @@
     var next = preset();
     if (next !== active) {
       active = next; governor.reset(); meter.reset(now()); hardwareClock.reset(now());
-      latest = null; recommendation = ''; lastConfig = ''; noticeUntil = 0;
+      latest = null; recommendation = ''; lastConfig = ''; lastTarget = ''; noticeUntil = 0;
     }
     if (!active) { sceneAdvice(); renderUi(); return; }
     attachStage();
     var c = config(), frame = document.querySelector('#sonic-workshop-layer iframe');
+    syncTarget(c);
     if (active === 8 && frame && frame.contentWindow) {
       var signature = JSON.stringify(c);
       if (signature !== lastConfig) {
-        if (latest && latest.target !== c.target) {
-          latest = null; if (recommendation === 'load') recommendation = ''; governor.clearEvidence();
-        }
         lastConfig = signature;
         frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: c }, location.origin);
       }
