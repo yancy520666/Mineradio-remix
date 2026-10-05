@@ -1910,6 +1910,9 @@ function getDisplayState(win) {
     isPrimaryDisplay: !!(display && primary && display.id === primary.id),
     hasDisplayOnLeft,
     hasDisplayOnRight,
+    // The renderer's rAF-gap estimate is unreliable while the main scene idles
+    // (e.g. Sonic WE draws in its own iframe); this is the display's own rate.
+    displayFrequency: Math.round(Number(display && display.displayFrequency) || 0),
     displayBounds: bounds ? {
       x: bounds.x,
       y: bounds.y,

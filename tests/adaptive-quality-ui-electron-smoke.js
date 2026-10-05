@@ -15,7 +15,8 @@ async function probe() {
       if (read()) return;
       await wait(100);
     }
-    throw new Error(label);
+    throw new Error(label + ' ' + JSON.stringify({ performance: MineradioSonicPerformance.snapshot(),
+      config: MineradioSonicPerformance.config(), body: document.body.className }));
   };
   closeVisualGuide(true); markVisualGuideSeen();
   document.hasFocus = () => true;
@@ -47,10 +48,24 @@ async function probe() {
       'active renderer advice was missing');
   }
   const hardwareReason = MineradioSonicPerformance.snapshot().recommendationReason;
+  // From here on only controlled reports reach the governor: a healthy real
+  // window (fast GPUs) would rightly cancel synthetic load advice mid-check.
+  // Capture listeners on the target run before the controller's own listener.
+  window.addEventListener('message', event => {
+    const data = event.data || {};
+    if (data.type === 'mineradio-sonic-performance-sample' && !data.qaControlled) event.stopImmediatePropagation();
+  }, true);
   const emit = sample => frame().eval('parent.postMessage(' + JSON.stringify({
-    type: 'mineradio-sonic-performance-sample', sample
+    type: 'mineradio-sonic-performance-sample', sample, qaControlled: true
   }) + ',location.origin)');
-  emit({ fps: 15, target: MineradioSonicPerformance.config().target, duration: 4000, early: true });
+  // The controller ignores reports while the window is still settling (not
+  // yet visible/focused); inject only once it would accept a real one.
+  await until(() => MineradioSonicPerformance.config().eligible, 'controller never became eligible');
+  await wait(300);
+  // Synthetic reports must carry the loss threshold the real meter would use;
+  // the estimated refresh rate (and so the target) varies between QA runs.
+  emit({ fps: 15, target: MineradioSonicPerformance.config().target,
+    lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
   await until(() => MineradioSonicPerformance.snapshot().recommendationReason === 'load', 'fast evidence did not reach the UI');
   const notice = document.getElementById('sonic-performance-notice');
   await wait(300);
@@ -73,7 +88,7 @@ async function probe() {
   document.getElementById('sonic-performance-toggle').click();
   await until(() => workshop()?.config.profile?.tier === 4, 'enable reduced original detail before any load evidence');
   const target = MineradioSonicPerformance.config().target;
-  emit({ fps: target / 4, target, duration: 4000, early: true });
+  emit({ fps: Math.min(target, 60) / 4, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
   await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
   const lowered = workshop();
   check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
@@ -92,7 +107,7 @@ async function probe() {
     partial = workshop();
     check(partial.triangles > lowered.triangles && partial.triangles < original.triangles, 'recovery jumped to original detail');
     controlledNow += 11000;
-    emit({ fps: target * 2 / 3, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 8000, sustained: true });
+    emit({ fps: Math.min(target, 60) * 2 / 3, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 8000, sustained: true });
     await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles === lowered.triangles,
       'failed probe did not roll back just its small step');
   } finally { Object.defineProperty(performance, 'now', { configurable: true, value: nativeNow }); }
@@ -102,7 +117,7 @@ async function probe() {
   check(JSON.parse(localStorage.getItem('mineradio-sonic-performance-v1')).dismissed, 'manual disable did not suppress repeated advice');
   // Finish on adaptive feedback for optional screenshots of both window sizes.
   MineradioSonicPerformance.setEnabled(true);
-  emit({ fps: target / 4, target, duration: 4000, early: true });
+  emit({ fps: Math.min(target, 60) / 4, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
   await until(() => !notice.hidden, 'adaptive feedback did not appear');
   if (innerWidth < 1000) {
     // Keep this QA panel open even if the human moves the system pointer away.

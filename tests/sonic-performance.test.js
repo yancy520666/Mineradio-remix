@@ -73,7 +73,7 @@ test('sustained load lowers only opted-in visuals without stacked cooldowns; rec
   g.reset(); assert.equal(g.reduction(), 0);
 });
 
-test('failed recovery rolls back just the probe and retries a smaller step within a minute', () => {
+test('failed recovery rolls back just the probe; repeated failures back off up to 10 minutes', () => {
   const g = policy.createGovernor();
   assert.equal(g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true), 'lower');
   assert.equal(g.reduction(), 2);
@@ -82,17 +82,30 @@ test('failed recovery rolls back just the probe and retries a smaller step withi
   while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
   assert.equal(g.reduction(), 1.75);
   assert(now - 10000 >= 30000 && now - 10000 < 45000);
-  for (let attempt = 0; attempt < 12; attempt++) {
+  const waits = [];
+  for (let attempt = 0; attempt < 7; attempt++) {
     now += 11000;
     assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, now, 'ultra', true), 'rollback');
     assert.equal(g.reduction(), 2, 'the last stable detail is retained');
     const failedAt = now;
     action = '';
-    while (action !== 'restore' && now - failedAt <= 72000) { now += 12000; action = g.sample(good, now, 'ultra', true); }
+    while (action !== 'restore' && now - failedAt <= 700000) { now += 12000; action = g.sample(good, now, 'ultra', true); }
     assert.equal(action, 'restore');
-    assert(now - failedAt <= 60000, 'repeated failures never grow into a long lock');
     assert.equal(g.reduction(), 1.875, 'the next probe is only an eighth tier');
+    waits.push(now - failedAt);
   }
+  // Consecutive failures double the wait: about 1, 2, 4, 8 minutes, then 10 at most.
+  for (let i = 0; i < 4; i++) assert(waits[i] >= 60000 * 2 ** i && waits[i] < 60000 * 2 ** i + 24000, JSON.stringify(waits));
+  assert(waits.slice(4).every(w => w >= 600000 && w < 624000), 'the wait is capped at 10 minutes');
+  // One successful probe returns to the normal 30s rhythm and quarter-tier steps.
+  now += 11000;
+  let ok = '';
+  for (let i = 0; i < 3; i++) { now += 12000; ok = g.sample(good, now, 'ultra', true); }
+  action = '';
+  const settledAt = now;
+  while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
+  assert(now - settledAt < 60000, 'success resets the backoff');
+  assert.equal(g.reduction(), 1.625, 'success restores the quarter-tier step');
   g.reset();
   g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true);
   now = 10000; action = '';
@@ -544,4 +557,18 @@ test('ordinary-scene advice skips discrete GPUs, manual quality choices and keep
   assert.equal(software.api.snapshot().recommendation, false);
   assert.equal(software.api.snapshot().preferences.dismissed, false, 'keeping ultra does not refuse Sonic adaptive advice');
   assert.equal(software.window.fx.performanceQuality, 'ultra');
+});
+
+test('the FPS goal follows the display rate reported by Electron, not the main loop estimate', () => {
+  const c = controller();
+  c.window.estimatedDisplayRefreshHz = () => 48;
+  assert.equal(c.api.config().target, 60, 'without a reported rate the snapped estimate is used');
+  c.window.desktopRuntimeState = { displayHz: 144, focused: true, visible: true };
+  assert.equal(c.api.config().target, 144);
+  c.window.estimatedDisplayRefreshHz = () => 238;
+  assert.equal(c.api.config().target, 144, 'estimate swings cannot move the goal');
+  c.window.desktopRuntimeState.displayHz = 100;
+  assert.equal(c.api.config().target, 100, 'uncommon rates are used as reported');
+  c.window.fx.foregroundFpsMode = '60';
+  assert.equal(c.api.config().target, 60);
 });
