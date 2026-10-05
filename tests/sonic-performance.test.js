@@ -16,7 +16,7 @@ test('opt-in budgets preserve legacy defaults and stay below the saved quality',
   assert(3840 * 2160 * dpr * dpr <= p.pixels + 1);
   assert.equal(policy.targetFps('30', null, 144), 30);
   assert.equal(policy.targetFps('120', null, 60), 60);
-  assert.equal(policy.targetFps('vsync', p, 144), 30);
+  assert.equal(policy.targetFps('vsync', p, 144), 144, 'lower detail never lowers the frame-rate goal');
 });
 
 test('ultra is the original wallpaper and default vsync leaves the renderer uncapped', () => {
@@ -28,7 +28,8 @@ test('ultra is the original wallpaper and default vsync leaves the renderer unca
   assert.equal(policy.fpsLimit('vsync', null, 100), 0);
   assert.equal(policy.fpsLimit('vsync', ultra, 144), 0);
   assert.equal(policy.fpsLimit('45', null, 144), 45);
-  assert.equal(policy.fpsLimit('vsync', policy.profile('eco', true, 0), 144), 30);
+  assert.equal(policy.fpsLimit('vsync', policy.profile('eco', true, 0), 144), 0, 'no tier caps FPS under follow-screen');
+  assert.equal(policy.fpsLimit('60', policy.profile('eco', true, 3), 144), 60, 'a fixed cap stays the user cap');
 });
 
 function runFrames(meter, start, seconds, fps, target, eligible = true) {
@@ -71,7 +72,7 @@ test('sustained load lowers only opted-in visuals without stacked cooldowns; rec
   g.reset(); assert.equal(g.reduction(), 0);
 });
 
-test('very slow frames drop two tiers; a restore that brings load back doubles the next stable wait', () => {
+test('very slow frames drop two tiers; a tier whose restore brings load back is not retried for a while', () => {
   const g = policy.createGovernor();
   assert.equal(g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true), 'lower');
   assert.equal(g.reduction(), 2);
@@ -79,13 +80,47 @@ test('very slow frames drop two tiers; a restore that brings load back doubles t
   let now = 10000, action = '';
   while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
   assert.equal(g.reduction(), 1);
+  assert(now - 10000 >= 60000 && now - 10000 < 75000, 'first restore after about a minute');
   assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, now + 10000, 'ultra', true), 'lower');
   const loweredAt = now + 10000;
   let restoredAt = 0;
-  for (let t = loweredAt + 12000; !restoredAt && t < loweredAt + 400000; t += 12000) {
+  for (let t = loweredAt + 12000; !restoredAt && t < loweredAt + 3600000; t += 12000) {
     if (g.sample(good, t, 'ultra', true) === 'restore') restoredAt = t;
   }
-  assert(restoredAt - loweredAt >= 120000, 'flapping restores back off to ten stable windows');
+  assert(restoredAt - loweredAt >= 600000, 'the failed tier waits at least 10 minutes');
+  assert.equal(g.sample({ fps: 40, target: 60, duration: 8000, sustained: true }, restoredAt + 10000, 'ultra', true), 'lower');
+  const again = restoredAt + 10000;
+  let next = 0;
+  for (let t = again + 12000; !next && t < again + 7200000; t += 12000) {
+    if (g.sample(good, t, 'ultra', true) === 'restore') next = t;
+  }
+  assert(next - again >= 1200000, 'repeated failures double the wait');
+  g.reset();
+  g.sample({ fps: 25, target: 60, duration: 4000, early: true }, 10000, 'ultra', true);
+  now = 10000; action = '';
+  while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
+  assert(now - 10000 < 75000, 'a reset (new target, preset or opt-in) forgets old blocks');
+});
+
+test('follow-screen trades at most one tier for refresh above 60 FPS; fixed caps are honored fully', () => {
+  const floor = policy.smoothnessFloor('vsync');
+  assert.equal(floor, 60);
+  assert.equal(policy.smoothnessFloor('120'), 0);
+  const g = policy.createGovernor();
+  const at = fps => ({ fps, target: 144, duration: 12000 });
+  assert.equal(g.sample(at(100), 1000, 'ultra', true, floor), 'lower', 'original detail chases the screen rate');
+  assert.equal(g.reduction(), 1);
+  assert.equal(g.sample(at(100), 20000, 'ultra', true, floor), '', 'below the top tier, 100 FPS is smooth enough');
+  assert.equal(g.sample(at(45), 30000, 'ultra', true, floor), 'lower', 'under the 60 FPS floor detail still drops');
+  assert.equal(g.reduction(), 2);
+  const fixed = policy.createGovernor();
+  fixed.sample(at(100), 1000, 'ultra', true, policy.smoothnessFloor('120'));
+  assert.equal(fixed.sample({ fps: 80, target: 120, duration: 12000 }, 20000, 'ultra', true, 0), 'lower',
+    'an explicit 120 FPS cap is the goal at every tier');
+  const advice = policy.createGovernor();
+  assert.equal(advice.sample({ ...at(100), sustained: true, duration: 8000 }, 1000, 'ultra', false, floor), '',
+    '100 FPS on a 144 Hz screen is not reported as frame loss');
+  assert.equal(advice.sample({ ...at(40), sustained: true, duration: 8000 }, 2000, 'ultra', false, floor), 'recommend');
 });
 
 function controller(storage = new Map()) {
@@ -127,7 +162,7 @@ test('keep-current is remembered; opt-in/disable restores the saved visual witho
   const reopened = controller(c.storage); reopened.emit(slow);
   assert.equal(reopened.api.snapshot().recommendation, false);
   reopened.api.setEnabled(true); assert.equal(reopened.api.profile().gridSize, 112);
-  reopened.emit({ ...slow, sample: { ...slow.sample, target: 30 } });
+  reopened.emit(slow);
   assert.equal(reopened.api.profile().gridSize, 80);
   assert.equal(reopened.window.fx.performanceQuality, 'eco');
   reopened.api.setEnabled(false); assert.equal(reopened.api.profile(), null);
@@ -289,7 +324,7 @@ test('manual disable stays disabled across restart; opting back in permits adapt
   assert.equal(reopened.api.snapshot().recommendation, false);
   assert.equal(reopened.api.snapshot().preferences.enabled, false);
   reopened.api.setEnabled(true);
-  reopened.emit({ ...slow, sample: { ...slow.sample, target: 30 } });
+  reopened.emit(slow);
   assert.equal(reopened.api.profile().tier, 0);
 });
 
@@ -308,13 +343,14 @@ test('guides, background interruptions and target changes break consecutive evid
   assert.equal(c.api.snapshot().recommendation, false);
 });
 
-test('recovery returns to original detail and relaxes its FPS limit while honoring a manual cap', () => {
+test('recovery returns to original detail without any FPS cap and honors a manual cap', () => {
   const g = policy.createGovernor();
   g.sample({ fps: 100, target: 144, duration: 12000 }, 20000, 'ultra', true);
-  assert.equal(policy.fpsLimit('vsync', policy.profile('ultra', true, g.reduction()), 144), 60);
-  for (let i = 0; i < 5; i++) g.sample({ fps: 60, target: 60, duration: 12000 }, 30000 + i * 12000, 'ultra', true);
+  assert.equal(g.reduction(), 1);
+  assert.equal(policy.fpsLimit('vsync', policy.profile('ultra', true, g.reduction()), 144), 0);
+  for (let i = 0; i < 5; i++) g.sample({ fps: 144, target: 144, duration: 12000 }, 30000 + i * 12000, 'ultra', true);
   assert.equal(g.reduction(), 1, 'restoring waits at least 60s after lowering');
-  g.sample({ fps: 60, target: 60, duration: 12000 }, 92000, 'ultra', true);
+  g.sample({ fps: 144, target: 144, duration: 12000 }, 92000, 'ultra', true);
   assert.equal(g.reduction(), 0);
   const restored = policy.profile('ultra', true, g.reduction());
   assert.equal(restored.gridSize, 320);

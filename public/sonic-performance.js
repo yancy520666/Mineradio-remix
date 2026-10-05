@@ -79,7 +79,8 @@
       global.renderPerfState && global.renderPerfState.targetFps || target));
     if (value.target !== target) return;
     latest = value;
-    var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled);
+    var action = governor.sample(value, now(), global.fx.performanceQuality, preferences.enabled,
+      policy.smoothnessFloor(global.fx.foregroundFpsMode));
     if (action === 'recommend' && !preferences.dismissed && !snoozed) recommendation = 'load';
     else if (recommendation === 'load') recommendation = '';
     if (action === 'lower' || action === 'restore') {
@@ -177,6 +178,17 @@
     var parent = inline ? controls : document.body;
     if (banner.parentElement !== parent && parent.appendChild) parent.appendChild(banner);
     banner.classList.toggle('sonic-performance-inline', inline);
+    // Sit above the bottom bar's resting edge (layout size, not its show/hide
+    // transform), so the card neither covers it nor jumps when it auto-hides.
+    var bar = !inline && document.getElementById('bottom-bar');
+    var lift = '';
+    if (bar && bar.offsetHeight && global.getComputedStyle) {
+      lift = Math.round((parseFloat(global.getComputedStyle(bar).bottom) || 0) + bar.offsetHeight + 12) + 'px';
+    }
+    if (banner.style && banner.style.bottom !== lift) {
+      banner.style.bottom = lift;
+      banner.style.maxHeight = lift ? 'calc(100dvh - ' + lift + ' - 16px)' : '';
+    }
     return !open || inline;
   }
   function setNoticeVisible(banner, value) {
