@@ -64,7 +64,10 @@ async function probe() {
   const goal = MineradioSonicPerformance.config().lossTarget;
   check(goal === Math.min(target, 60), 'following the screen must judge against 60 FPS');
   emit({ fps: goal / 4, target, lossTarget: goal, duration: 4000, early: true });
-  await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
+  // The config arrives before the next WebGL frame rebuilds its mesh. Wait
+  // for both so a slow/software GPU cannot expose the old geometry here.
+  await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles < original.triangles,
+    'very slow frames did not drop two tiers in the real renderer');
   const lowered = workshop();
   check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
   const notice = document.getElementById('sonic-performance-notice');
@@ -97,7 +100,8 @@ async function probe() {
       emit({ fps: target, target, lossTarget: goal, duration: 12000 });
       await wait(100);
     }
-    await until(() => workshop()?.config.profile?.tier === 2.25, 'small recovery probe did not reach real geometry');
+    await until(() => workshop()?.config.profile?.tier === 2.25 && workshop()?.triangles > lowered.triangles,
+      'small recovery probe did not reach real geometry');
     partial = workshop();
     check(partial.triangles > lowered.triangles && partial.triangles < original.triangles, 'recovery jumped to original detail');
     controlledNow += 11000;
@@ -108,7 +112,8 @@ async function probe() {
     // GPU) is undone in the real renderer instead of sinking to minimum.
     controlledNow += 11000;
     emit({ fps: goal * 2 / 3, target, lossTarget: goal, duration: 8000, sustained: true });
-    await until(() => workshop()?.config.profile?.tier === 1, 'sustained loss did not lower one more tier');
+    await until(() => workshop()?.config.profile?.tier === 1 && workshop()?.triangles < lowered.triangles,
+      'sustained loss did not lower one more tier');
     controlledNow += 11000;
     emit({ fps: goal * 2 / 3, target, lossTarget: goal, duration: 8000, sustained: true });
     await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles === lowered.triangles,

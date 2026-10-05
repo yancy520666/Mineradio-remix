@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Draft version, for example v2.4.1
+        description: Draft version, for example v2.4.2
         required: true
       ref:
         description: Commit SHA to validate and build (manual draft preparation)
