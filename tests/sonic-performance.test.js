@@ -56,21 +56,45 @@ test('measurement excludes warmup, background, resume and deliberate frame caps'
   assert(Math.abs(slow.fps - 20) < 0.1, 'measure actual throughput rather than the cap');
   assert.equal(policy.createGovernor().sample(slow, 12100, 'eco', true), 'lower');
 });
-test('sustained load lowers only opted-in visuals without stacked cooldowns; recovery is slow and bounded', () => {
-  const g = policy.createGovernor(), slow = { fps: 40, target: 60, duration: 12000 };
-  assert.equal(g.sample(slow, 8000, 'balanced', false), '');
-  assert.equal(g.sample(slow, 20000, 'balanced', false), 'recommend');
-  assert.equal(g.reduction(), 0);
-  assert.equal(g.sample(slow, 20000, 'balanced', true), 'lower');
-  assert.equal(g.sample(slow, 21000, 'balanced', true), '', 'a report already in flight is not new evidence');
-  assert.equal(g.sample(slow, 27000, 'balanced', true), 'lower', 'the next fresh report may lower again');
-  assert.equal(g.sample(slow, 62000, 'balanced', true), '');
+test('sustained load lowers detail while it helps; reports in flight are ignored; recovery is slow and bounded', () => {
+  const g = policy.createGovernor();
+  const at = (fps, duration = 12000) => ({ fps, target: 60, duration });
+  assert.equal(g.sample(at(40), 8000, 'balanced', false), '', 'a switched-off governor never acts');
+  assert.equal(g.sample(at(40), 20000, 'balanced', true), 'lower');
+  assert.equal(g.sample(at(40), 21000, 'balanced', true), '', 'a report already in flight is not new evidence');
+  assert.equal(g.sample(at(45), 27000, 'balanced', true), 'lower', 'lowering helped (+10%) but is not enough yet');
+  assert.equal(g.sample(at(50), 62000, 'balanced', true), '', 'better than before, and already at the lowest tier');
   assert.equal(g.reduction(), 2);
-  const good = { fps: 60, target: 60, duration: 12000 };
+  const good = at(60);
   assert.equal(g.sample(good, 74000, 'balanced', true), '');
   assert.equal(g.sample(good, 86000, 'balanced', true), 'restore');
   assert.equal(g.reduction(), 1.75, 'a stable renderer probes just a quarter tier');
   g.reset(); assert.equal(g.reduction(), 0);
+});
+
+test('a lowering that does not help is undone and further lowering pauses, doubling while it repeats', () => {
+  const g = policy.createGovernor();
+  const at = (fps, extra) => ({ fps, target: 60, duration: 12000, ...extra });
+  assert.equal(g.sample(at(40), 1000, 'ultra', true), 'lower');
+  assert.equal(g.reduction(), 1);
+  assert.equal(g.sample(at(41), 14000, 'ultra', true), 'ineffective', 'CPU-bound or contended: detail was not the cause');
+  assert.equal(g.reduction(), 0, 'the original detail comes back');
+  for (let t = 27000; t < 314000; t += 12000) assert.equal(g.sample(at(40), t, 'ultra', true), '', 'lowering is paused');
+  assert.equal(g.sample(at(40), 315000, 'ultra', true), 'lower', 'after 5 minutes it may try again');
+  assert.equal(g.sample(at(40), 328000, 'ultra', true), 'ineffective');
+  assert.equal(g.sample(at(40), 328000 + 590000, 'ultra', true), '', 'the second pause lasts 10 minutes');
+  assert.equal(g.sample(at(40), 328000 + 601000, 'ultra', true), 'lower');
+  // Fewer long frames also counts as help, even if average FPS barely moves.
+  const j = policy.createGovernor();
+  assert.equal(j.sample(at(55, { jank: true, duration: 8000, long: 4 }), 1000, 'ultra', true), 'lower');
+  assert.equal(j.sample(at(56, { jank: true, duration: 8000, long: 2 }), 12000, 'ultra', true), 'lower',
+    'long frames halved: keep going rather than undo');
+  assert.equal(j.reduction(), 2);
+  // A good report after lowering simply confirms it.
+  const ok = policy.createGovernor();
+  ok.sample(at(40), 1000, 'ultra', true);
+  assert.equal(ok.sample(at(60), 14000, 'ultra', true), '');
+  assert.equal(ok.reduction(), 1);
 });
 
 test('failed recovery rolls back just the probe; repeated failures back off up to 10 minutes', () => {
@@ -98,9 +122,6 @@ test('failed recovery rolls back just the probe; repeated failures back off up t
   for (let i = 0; i < 4; i++) assert(waits[i] >= 60000 * 2 ** i && waits[i] < 60000 * 2 ** i + 24000, JSON.stringify(waits));
   assert(waits.slice(4).every(w => w >= 600000 && w < 624000), 'the wait is capped at 10 minutes');
   // One successful probe returns to the normal 30s rhythm and quarter-tier steps.
-  now += 11000;
-  let ok = '';
-  for (let i = 0; i < 3; i++) { now += 12000; ok = g.sample(good, now, 'ultra', true); }
   action = '';
   const settledAt = now;
   while (action !== 'restore') { now += 12000; action = g.sample(good, now, 'ultra', true); }
@@ -113,25 +134,41 @@ test('failed recovery rolls back just the probe; repeated failures back off up t
   assert.equal(g.reduction(), 1.75, 'a reset returns to the normal probe size');
 });
 
-test('follow-screen trades at most one tier for refresh above 60 FPS; fixed caps are honored fully', () => {
+test('following the screen never trades detail for refresh above 60 FPS; a fixed cap is the goal', () => {
   const floor = policy.smoothnessFloor('vsync');
   assert.equal(floor, 60);
   assert.equal(policy.smoothnessFloor('120'), 0);
+  assert.equal(policy.loadTarget(240, 60), 60);
+  assert.equal(policy.loadTarget(50, 60), 50, 'a slower screen is its own goal');
+  assert.equal(policy.loadTarget(120, 0), 120);
   const g = policy.createGovernor();
   const at = fps => ({ fps, target: 144, duration: 12000 });
-  assert.equal(g.sample(at(100), 1000, 'ultra', true, floor), 'lower', 'original detail chases the screen rate');
-  assert.equal(g.reduction(), 1);
-  assert.equal(g.sample(at(100), 20000, 'ultra', true, floor), '', 'below the top tier, 100 FPS is smooth enough');
-  assert.equal(g.sample(at(45), 30000, 'ultra', true, floor), 'lower', 'under the 60 FPS floor detail still drops');
-  assert.equal(g.reduction(), 2);
+  assert.equal(g.sample(at(80), 1000, 'ultra', true, floor), '', '80 FPS on 144 Hz keeps original detail');
+  assert.equal(g.reduction(), 0);
+  assert.equal(g.sample(at(45), 20000, 'ultra', true, floor), 'lower', 'under 80% of 60 FPS detail drops');
   const fixed = policy.createGovernor();
-  fixed.sample(at(100), 1000, 'ultra', true, policy.smoothnessFloor('120'));
-  assert.equal(fixed.sample({ fps: 80, target: 120, duration: 12000 }, 20000, 'ultra', true, 0), 'lower',
-    'an explicit 120 FPS cap is the goal at every tier');
-  const advice = policy.createGovernor();
-  assert.equal(advice.sample({ ...at(100), sustained: true, duration: 8000 }, 1000, 'ultra', false, floor), '',
-    '100 FPS on a 144 Hz screen is not reported as frame loss');
-  assert.equal(advice.sample({ ...at(40), lossTarget: 60, sustained: true, duration: 8000 }, 2000, 'ultra', false, floor), 'recommend');
+  assert.equal(fixed.sample({ fps: 80, target: 120, duration: 12000 }, 1000, 'ultra', true, 0), 'lower',
+    'an explicit 120 FPS cap is the goal');
+  const thirty = policy.createGovernor();
+  assert.equal(thirty.sample({ fps: 29, target: 30, duration: 12000 }, 1000, 'ultra', true, 0), '',
+    'a 30 FPS cap that is met is not frame loss');
+});
+
+test('repeated long frames count as stutter even when average FPS looks fine', () => {
+  const m = policy.createMeter(); let now = 100, sample = null, n = 0;
+  // About 70 FPS on a 144 Hz screen, but every 20th frame takes 60 ms.
+  while (!sample && now < 20000) { n++; now += n % 20 === 0 ? 60 : 1000 / 75; sample = m.frame(now, 144, true, 60); }
+  assert(sample && sample.jank === true, JSON.stringify(sample));
+  assert(sample.fps > 60 && now < 13000, 'reported in about 11s without an FPS drop');
+  assert(sample.long >= 2);
+  assert.equal(policy.createGovernor().sample(sample, now, 'ultra', true, 60), 'lower');
+  // One long frame per second is not "repeated" stutter; nor is a single hitch.
+  const calm = policy.createMeter(); now = 100; n = 0; const reports = [];
+  while (now < 30000) { n++; now += n % 75 === 0 ? 60 : 1000 / 75; const r = calm.frame(now, 144, true, 60); if (r) reports.push(r); }
+  assert(reports.every(r => !r.jank && !r.early && !r.sustained), JSON.stringify(reports));
+  assert(reports.length >= 2 && reports.every(r => r.long > 0 && r.long < 1.5));
+  assert.equal(policy.validSample({ fps: 70, target: 144, lossTarget: 60, duration: 7599, jank: true }), false);
+  assert.equal(policy.validSample({ fps: 70, target: 144, lossTarget: 60, duration: 8000, jank: true }), true);
 });
 
 function controller(storage = new Map()) {
@@ -161,40 +198,50 @@ function controller(storage = new Map()) {
     focus: value => { focused = value; }, hide: value => { doc.hidden = value; }, advance: ms => { time += ms; },
     emit: (data, source = frameWindow) => events.message({ source, origin: 'http://localhost', data }) };
 }
-test('keep-current is remembered; opt-in/disable restores the saved visual without writing fx', () => {
+test('adaptive quality is on by default; switching it off is remembered and restores the saved visual', () => {
   const c = controller();
-  assert.equal(c.api.profile(), null);
+  assert.equal(c.api.snapshot().preferences.enabled, true);
+  assert.equal(c.api.profile().gridSize, 112, 'eco ceiling without any load');
   const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 12000 } };
-  c.emit(slow, {}); assert.equal(c.api.snapshot().recommendation, false, 'reject old/foreign iframe');
-  c.focus(false); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
-  c.focus(true); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
-  c.emit(slow); assert.equal(c.api.snapshot().recommendation, true);
-  c.api.dismiss(); c.emit(slow); assert.equal(c.api.snapshot().recommendation, false);
-  const reopened = controller(c.storage); reopened.emit(slow);
-  assert.equal(reopened.api.snapshot().recommendation, false);
-  reopened.api.setEnabled(true); assert.equal(reopened.api.profile().gridSize, 112);
-  reopened.emit(slow);
-  assert.equal(reopened.api.profile().gridSize, 80);
-  assert.equal(reopened.window.fx.performanceQuality, 'eco');
-  reopened.api.setEnabled(false); assert.equal(reopened.api.profile(), null);
+  c.emit(slow, {}); assert.equal(c.api.profile().gridSize, 112, 'reject old/foreign iframe');
+  c.focus(false); c.emit(slow); assert.equal(c.api.profile().gridSize, 112, 'unfocused reports do not count');
+  c.focus(true); c.emit(slow);
+  assert.equal(c.api.profile().gridSize, 80);
+  assert.equal(c.window.fx.performanceQuality, 'eco', 'the saved quality is never written');
+  c.api.setEnabled(false);
+  assert.equal(c.api.profile(), null);
+  const reopened = controller(c.storage);
+  assert.equal(reopened.api.snapshot().preferences.enabled, false, 'switching off survives restart');
+  reopened.emit(slow); assert.equal(reopened.api.profile(), null);
   reopened.api.qualityChanged(); assert.equal(reopened.api.profile().gridSize, 112);
   assert.equal(reopened.api.stageProfile(), null, 'quality choice alone leaves the topography stage unchanged');
   assert.equal(controller(c.storage).api.profile().gridSize, 112, 'manual-quality intent survives restart');
+  reopened.api.setEnabled(true);
+  assert.equal(controller(c.storage).api.snapshot().preferences.enabled, true);
 });
-test('a healthy window clears the recommendation without dismissing future load reports', () => {
+
+test('older saved preferences: untouched users are switched on, an earlier refusal stays off', () => {
+  const stored = value => new Map([['mineradio-sonic-performance-v1', JSON.stringify(value)]]);
+  assert.equal(controller(stored({ enabled: false, dismissed: false, hardwarePrompted: true })).api.snapshot().preferences.enabled, true);
+  assert.equal(controller(stored({ enabled: false, dismissed: true })).api.snapshot().preferences.enabled, false,
+    '"keep current" on the 2.4.1 advice or a manual switch-off is respected');
+  assert.equal(controller(stored({ enabled: true })).api.snapshot().preferences.enabled, true);
+});
+test('Sonic shows no opt-in advice; the first automatic lowering says where to switch it off', () => {
   const c = controller();
-  const emit = fps => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target: 60, duration: 12000 } });
-  emit(42);
-  assert.equal(c.api.snapshot().recommendation, false);
-  emit(42);
-  assert.equal(c.api.snapshot().recommendation, true);
-  emit(60);
-  assert.equal(c.api.snapshot().recommendation, false);
-  assert.equal(c.node('sonic-performance-notice').hidden, true);
-  assert.equal(c.api.snapshot().preferences.dismissed, false);
-  emit(42);
-  emit(42);
-  assert.equal(c.api.snapshot().recommendation, true);
+  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
+  c.runTicks(8000);
+  assert.equal(c.api.snapshot().recommendation, false, 'no integrated-GPU card: adaptation is already on');
+  const slow = fps => c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps, target: 60, duration: 12000 } });
+  c.window.fx.performanceQuality = 'ultra'; c.api.refresh();
+  slow(40);
+  assert.match(c.node('sonic-performance-message').textContent, /关闭自适应/);
+  assert.equal(c.node('sonic-performance-notice').hidden, false);
+  c.advance(13000); slow(45);
+  assert.doesNotMatch(c.node('sonic-performance-message').textContent, /关闭自适应/, 'the hint is shown once per run');
+  c.advance(13000); slow(45);
+  assert.match(c.node('sonic-performance-message').textContent, /没有让画面更流畅/);
+  assert.equal(c.node('sonic-performance-enable').hidden, true, 'no action buttons on Sonic notices');
 });
 
 test('changing the requested FPS clears old advice and rejects late samples for the old target', () => {
@@ -260,11 +307,10 @@ test('severe sustained drops are reported after warmup and four slow seconds', (
   assert.equal(samples[0].early, true);
   assert(samples[0].duration >= 4000 && samples[0].duration < 4200);
   assert(Math.abs(samples[0].fps - 15) < 0.1);
-  assert.equal(policy.createGovernor().sample(samples[0], 7200, 'ultra', false), 'recommend');
   assert.equal(policy.createGovernor().sample(samples[0], 7200, 'ultra', true), 'lower');
   const c = controller();
   c.emit({ type: 'mineradio-sonic-performance-sample', sample: samples[0] });
-  assert.equal(c.api.snapshot().recommendationReason, 'load');
+  assert.equal(c.api.profile().gridSize, 80);
 });
 
 test('borderline loss keeps long-window confirmation; brief freezes and alternating load do not trigger fast advice', () => {
@@ -273,7 +319,7 @@ test('borderline loss keeps long-window confirmation; brief freezes and alternat
   assert(borderline.duration >= 8000 && borderline.duration < 8200, 'about 11s including warmup');
   const g = policy.createGovernor();
   assert.equal(borderline.sustained, true);
-  assert.equal(g.sample(borderline, 18000, 'ultra', false), 'recommend');
+  assert.equal(g.sample(borderline, 18000, 'ultra', true), 'lower');
   for (const freezeAt of [7900, 8100, 10900]) {
     const meter = policy.createMeter(), samples = [];
     for (let now = 100; now < 18000; now += 1000 / 60) {
@@ -299,33 +345,6 @@ test('borderline loss keeps long-window confirmation; brief freezes and alternat
   assert.equal(policy.validSample({ fps: 50, target: 60, duration: 8000, sustained: true }), false);
 });
 
-test('hardware advice uses the active background renderer, waits for visible readiness and is shown once', () => {
-  const c = controller();
-  c.api.snapshot().gpu[7] = 'Intel UHD Graphics 620';
-  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'NVIDIA GeForce RTX 4070' });
-  c.runTicks(6000);
-  assert.equal(c.api.snapshot().recommendation, false, 'an unused integrated renderer must not influence the workshop');
-  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
-  c.focus(false); c.runTicks(6000);
-  assert.equal(c.api.snapshot().recommendation, false);
-  c.focus(true); c.runTicks(5000);
-  assert.equal(c.api.snapshot().recommendation, false);
-  c.runTicks(1000);
-  assert.equal(c.api.snapshot().recommendationReason, 'gpu');
-  assert.equal(c.window.fx.performanceQuality, 'eco', 'advice must not change a saved quality');
-  c.api.closeNotice();
-  const reopened = controller(c.storage);
-  reopened.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
-  reopened.runTicks(6000);
-  assert.equal(reopened.api.snapshot().recommendation, false, 'the GPU tip is shown once');
-  assert.equal(reopened.api.snapshot().preferences.dismissed, false, 'closing is not a remembered refusal');
-  const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 4000, early: true } };
-  reopened.emit(slow);
-  assert.equal(reopened.api.snapshot().recommendationReason, 'load', 'real load can still be suggested later');
-  reopened.api.keep();
-  assert.equal(reopened.api.snapshot().preferences.dismissed, true);
-});
-
 test('manual disable stays disabled across restart; opting back in permits adaptation', () => {
   const c = controller();
   c.api.setEnabled(true); c.api.setEnabled(false);
@@ -339,19 +358,18 @@ test('manual disable stays disabled across restart; opting back in permits adapt
   assert.equal(reopened.api.profile().tier, 0);
 });
 
-test('guides, background interruptions and target changes break consecutive evidence', () => {
+test('guides, background interruptions and target changes keep reports from counting', () => {
   const c = controller();
   const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 42, target: 60, duration: 12000 } };
-  c.emit(slow);
   c.flags.add('visual-guide-active'); c.tick(); c.emit(slow);
-  assert.equal(c.api.snapshot().recommendation, false);
-  c.flags.clear(); c.emit(slow);
-  assert.equal(c.api.snapshot().recommendation, false);
-  c.hide(true); c.tick(); c.hide(false); c.emit(slow);
-  assert.equal(c.api.snapshot().recommendation, false);
-  c.window.fx.foregroundFpsMode = '30'; c.tick();
+  assert.equal(c.api.profile().gridSize, 112, 'a guide is on screen');
+  c.flags.clear(); c.hide(true); c.tick(); c.emit(slow);
+  assert.equal(c.api.profile().gridSize, 112, 'hidden window');
+  c.hide(false); c.window.fx.foregroundFpsMode = '30'; c.tick();
+  c.emit(slow);
+  assert.equal(c.api.profile().gridSize, 112, 'a report for the old 60 FPS target');
   c.emit({ ...slow, sample: { fps: 20, target: 30, duration: 12000 } });
-  assert.equal(c.api.snapshot().recommendation, false);
+  assert.equal(c.api.profile().gridSize, 80, 'the new 30 FPS goal counts');
 });
 
 test('recovery returns to original detail without any FPS cap and honors a manual cap', () => {
@@ -387,8 +405,7 @@ test('fractional recovery smoothly increases actual 4K resolution and geometry w
 });
 
 test('a one-second hitch on a 144Hz screen cannot borrow severe evidence from the wrong threshold', () => {
-  const m = policy.createMeter(), off = policy.createGovernor(), on = policy.createGovernor();
-  on.sample({ fps: 100, target: 144, duration: 12000 }, 0, 'ultra', true, 60);
+  const m = policy.createMeter(), on = policy.createGovernor();
   let now = 100, fast = 0;
   while (now < 18000) {
     now += now >= 6000 && now < 7000 ? 200 : 1000 / 60;
@@ -396,20 +413,18 @@ test('a one-second hitch on a 144Hz screen cannot borrow severe evidence from th
     if (!sample) continue;
     if (sample.early || sample.sustained) fast++;
     assert.equal(sample.lossTarget, 60); assert.equal(sample.target, 144);
-    assert.equal(off.sample(sample, now, 'ultra', false, 60), '');
     assert.equal(on.sample(sample, now, 'ultra', true, 60), '');
   }
-  assert.equal(fast, 0); assert.equal(on.reduction(), 1);
+  assert.equal(fast, 0); assert.equal(on.reduction(), 0, '60 FPS on a 144 Hz screen keeps original detail');
   const old = { fps: 46.5, target: 144, duration: 4067, early: true };
-  assert.equal(off.sample(old, now, 'ultra', false, 60), '', 'stale flags from 144Hz are rejected');
-  assert.equal(on.sample(old, now, 'ultra', true, 60), '');
+  assert.equal(on.sample(old, now, 'ultra', true, 60), '', 'stale flags from 144Hz are rejected');
 });
 
 test('high-refresh floor still detects actual sustained low FPS quickly', () => {
   const m = policy.createMeter(), g = policy.createGovernor(); let now = 100, sample;
   while (!sample && now < 10000) { now += 1000 / 15; sample = m.frame(now, 144, true, 60); }
   assert(sample.early); assert(now < 8000);
-  assert.equal(g.sample(sample, now, 'ultra', false, 60), 'recommend');
+  assert.equal(g.sample(sample, now, 'ultra', true, 60), 'lower');
   assert.equal(policy.validSample({ ...sample, lossTarget: 145 }), false);
 });
 
@@ -444,17 +459,6 @@ test('the topography stage uses the same recovery and target-reset path without 
   draw(30, 41); assert.equal(c.api.stageProfile().tier, 3.25);
 });
 
-test('a confirmed probe at the high-refresh floor is not rolled back long after success', () => {
-  const g = policy.createGovernor();
-  g.sample({ fps: 25, target: 144, duration: 12000 }, 1000, 'ultra', true, 60);
-  let now = 1000;
-  while (g.reduction() > 1 && now < 300000) { now += 12000; g.sample({ fps: 144, target: 144, duration: 12000 }, now, 'ultra', true, 60); }
-  assert.equal(g.reduction(), 1);
-  for (let i = 0; i < 5; i++) { now += 12000; g.sample({ fps: 60, target: 144, duration: 12000 }, now, 'ultra', true, 60); }
-  assert.equal(g.sample({ fps: 40, target: 144, lossTarget: 60, duration: 8000, sustained: true }, now + 11000, 'ultra', true, 60), 'lower');
-  assert.equal(g.reduction(), 2, 'confirmed detail is no longer an unresolved trial');
-});
-
 test('background gaps and repeated copies of a sample cannot fabricate stable recovery time', () => {
   const g = policy.createGovernor(), good = { fps: 60, target: 60, duration: 12000 };
   g.sample({ fps: 40, target: 60, duration: 12000 }, 1000, 'ultra', true);
@@ -465,51 +469,18 @@ test('background gaps and repeated copies of a sample cannot fabricate stable re
   assert.equal(g.reduction(), 0.75);
 });
 
-test('confirming an eighth-tier probe cannot reuse floor evidence for a larger high-refresh step', () => {
-  const g = policy.createGovernor(); let now = 1000;
-  const at = (fps, duration = 12000) => ({ fps, target: 144, lossTarget: 60, duration, sustained: duration < 12000 });
-  g.sample(at(25), now, 'ultra', true, 60);
-  while (g.reduction() > 1 && now < 300000) { now += 12000; g.sample(at(144), now, 'ultra', true, 60); }
-  now += 11000; assert.equal(g.sample(at(40, 8000), now, 'ultra', true, 60), 'rollback');
-  while (g.reduction() === 1.25 && now < 400000) { now += 12000; g.sample(at(60), now, 'ultra', true, 60); }
-  assert.equal(g.reduction(), 1.125);
-  g.clearEvidence(); now += 120000;
-  for (let i = 0; i < 4; i++) { now += 12000; assert.equal(g.sample(at(60), now, 'ultra', true, 60), ''); }
-  assert.equal(g.reduction(), 1.125, '60FPS stability cannot authorize a new 144FPS goal');
-});
-
-test('reduced-motion advice skips animation; closing snoozes without a remembered refusal', () => {
+test('reduced-motion notices skip animation; closing only hides the card', () => {
   const c = controller();
   c.window.matchMedia = () => ({ matches: true });
   const banner = c.node('sonic-performance-notice');
   banner.animate = () => { throw new Error('reduced-motion users must not receive entrance animations'); };
-  const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 4000, early: true } };
-  c.emit(slow);
+  c.emit({ type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 4000, early: true } });
   assert.equal(banner.hidden, false);
   assert.equal(banner.inert, false);
   c.api.closeNotice();
   assert.equal(banner.hidden, true);
   assert.equal(banner.inert, true);
-  assert.equal(c.api.snapshot().preferences.dismissed, false, 'closing only snoozes');
-  c.emit(slow);
-  assert.equal(c.api.snapshot().recommendation, false, 'snoozed for the rest of this run');
-});
-
-test('hardware advice hidden by another settings tab does not consume the one-time prompt', () => {
-  const c = controller();
-  const panel = c.node('fx-panel');
-  panel.classList.contains = name => name === 'peek';
-  panel.getAttribute = () => 'motion';
-  c.emit({ type: 'mineradio-sonic-performance-health', state: 'ready', gpu: 'Intel Iris Xe Graphics' });
-  c.runTicks(6000);
-  assert.equal(c.node('sonic-performance-notice').hidden, true);
-  assert.equal(c.api.snapshot().preferences.hardwarePrompted, false);
-  c.window.fx.preset = 0; c.tick();
-  panel.classList.contains = () => false;
-  c.window.fx.preset = 8; c.tick(); c.runTicks(6000);
-  assert.equal(c.api.snapshot().recommendationReason, 'gpu');
-  assert.equal(c.node('sonic-performance-notice').hidden, false);
-  assert.equal(c.api.snapshot().preferences.hardwarePrompted, true);
+  assert.equal(c.api.snapshot().preferences.enabled, true, 'closing a notice does not switch adaptation off');
 });
 
 test('ordinary scenes on an integrated GPU suggest a lower quality tier once, without changing it unasked', () => {
@@ -555,7 +526,7 @@ test('ordinary-scene advice skips discrete GPUs, manual quality choices and keep
   assert.equal(software.node('sonic-performance-enable').textContent, '调到低画质');
   software.api.keep();
   assert.equal(software.api.snapshot().recommendation, false);
-  assert.equal(software.api.snapshot().preferences.dismissed, false, 'keeping ultra does not refuse Sonic adaptive advice');
+  assert.equal(software.api.snapshot().preferences.enabled, true, 'keeping ultra does not switch Sonic adaptation off');
   assert.equal(software.window.fx.performanceQuality, 'ultra');
 });
 

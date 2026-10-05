@@ -53,36 +53,46 @@
       }
     };
   }
-  // Frames are counted in 1s buckets after a 3s warmup. A report needs most of
-  // the recent buckets to be slow, so one hitch (song change, cover decode, GC)
-  // cannot trigger it on its own:
-  //   severe: all of the last 4 buckets below 60%          -> about 7s
-  //   load:   7 of the last 8 below 80% and their mean too -> about 11s
-  // Every 12s a plain window is also reported for recovery decisions.
-  var WARMUP = 3000, SEVERE = 4, LOAD = 8, LOAD_SLOW = 7, WINDOW = 12000;
-  function loadTarget(target, floor, original) {
-    return original ? target : Math.min(target, Number(floor) > 0 ? Number(floor) : target);
+  // The smoothness goal is the same for every tier and for default-on or
+  // manual adaptation: 60 FPS (or the screen, if slower) when following the
+  // screen, otherwise the user's fixed cap. Running below a high refresh rate
+  // is never frame loss on its own; only falling under this goal or repeated
+  // long frames are.
+  function loadTarget(target, floor) {
+    return Math.min(target, Number(floor) > 0 ? Number(floor) : target);
   }
+  // Frames are counted in 1s buckets after a 3s warmup. A report needs most of
+  // the recent buckets to be bad, so one hitch (song change, cover decode, GC)
+  // cannot trigger it on its own:
+  //   severe: all of the last 4 buckets below 60% of the goal       -> about 7s
+  //   load:   7 of the last 8 below 80% and their mean too         -> about 11s
+  //   jank:   6 of the last 8 with 2+ long frames (> 2.5 intervals) -> about 11s
+  // Every 12s a plain window is also reported for recovery decisions. Each
+  // report carries `long`, the long frames per second it saw.
+  var WARMUP = 3000, SEVERE = 4, LOAD = 8, LOAD_SLOW = 7, JANK_BUCKETS = 6, JANK_FRAMES = 2, WINDOW = 12000;
   function createMeter() {
-    var previous = 0, warmUntil = 0, target = 0, lossTarget = 0;
-    var start = 0, frames = 0, bucketStart = 0, bucketFrames = 0, buckets = [];
+    var previous = 0, warmUntil = 0, target = 0, lossTarget = 0, longMs = Infinity;
+    var start = 0, frames = 0, longFrames = 0, bucketStart = 0, bucketFrames = 0, bucketLong = 0, buckets = [];
     function reset(now) {
       previous = 0; warmUntil = now + WARMUP;
-      start = 0; frames = 0; bucketStart = 0; bucketFrames = 0; buckets = [];
+      start = 0; frames = 0; longFrames = 0; bucketStart = 0; bucketFrames = 0; bucketLong = 0; buckets = [];
     }
     function recent(count) {
-      var list = buckets.slice(-count), time = 0, n = 0;
-      list.forEach(function (b) { time += b.time; n += b.frames; });
-      return { list: list, fps: time ? n * 1000 / time : 0, duration: time };
+      var list = buckets.slice(-count), time = 0, n = 0, long = 0;
+      list.forEach(function (b) { time += b.time; n += b.frames; long += b.long; });
+      return { list: list, fps: time ? n * 1000 / time : 0, long: time ? long * 1000 / time : 0, duration: time };
     }
     function below(list, ratio) {
       return list.filter(function (b) { return b.frames * 1000 / b.time < lossTarget * ratio; }).length;
     }
+    function janky(list) {
+      return list.filter(function (b) { return b.long >= JANK_FRAMES; }).length;
+    }
     function report(window, flag) {
-      var sample = { fps: window.fps, target: target, lossTarget: lossTarget, duration: window.duration };
+      var sample = { fps: window.fps, target: target, lossTarget: lossTarget, duration: window.duration, long: window.long };
       sample[flag] = true;
       // The next report needs fresh evidence; the plain window restarts too.
-      buckets = []; start = previous; frames = 0;
+      buckets = []; start = previous; frames = 0; longFrames = 0;
       return sample;
     }
     return {
@@ -90,27 +100,32 @@
       frame: function (now, nextTarget, eligible, nextLossTarget) {
         nextLossTarget = Math.min(nextTarget, Number(nextLossTarget) || nextTarget);
         if (!eligible || nextTarget !== target || nextLossTarget !== lossTarget || !previous || now - previous > 1500) {
-          reset(now); target = nextTarget; lossTarget = nextLossTarget; previous = now; return null;
+          reset(now); target = nextTarget; lossTarget = nextLossTarget; longMs = 2500 / Math.max(1, lossTarget);
+          previous = now; return null;
         }
+        var gap = now - previous;
         previous = now;
         if (now < warmUntil) return null;
-        if (!start) { start = bucketStart = now; frames = bucketFrames = 0; return null; }
+        if (!start) { start = bucketStart = now; frames = bucketFrames = longFrames = bucketLong = 0; return null; }
         frames++; bucketFrames++;
+        if (gap > longMs) { longFrames++; bucketLong++; }
         if (now - bucketStart >= 1000) {
-          buckets.push({ frames: bucketFrames, time: now - bucketStart });
+          buckets.push({ frames: bucketFrames, time: now - bucketStart, long: bucketLong });
           if (buckets.length > LOAD) buckets.shift();
-          bucketStart = now; bucketFrames = 0;
+          bucketStart = now; bucketFrames = 0; bucketLong = 0;
           var severe = recent(SEVERE);
           if (severe.list.length === SEVERE && below(severe.list, 0.6) === SEVERE) return report(severe, 'early');
           var load = recent(LOAD);
           if (load.list.length === LOAD && below(load.list, 0.8) >= LOAD_SLOW && load.fps < lossTarget * 0.8) {
             return report(load, 'sustained');
           }
+          if (load.list.length === LOAD && janky(load.list) >= JANK_BUCKETS) return report(load, 'jank');
         }
         var elapsed = now - start;
         if (elapsed < WINDOW) return null;
-        var sample = { fps: frames * 1000 / elapsed, target: target, lossTarget: lossTarget, duration: elapsed };
-        start = bucketStart = now; frames = bucketFrames = 0; buckets = [];
+        var sample = { fps: frames * 1000 / elapsed, target: target, lossTarget: lossTarget, duration: elapsed,
+          long: longFrames * 1000 / elapsed };
+        start = bucketStart = now; frames = bucketFrames = longFrames = bucketLong = 0; buckets = [];
         return sample;
       }
     };
@@ -120,31 +135,35 @@
         !Number.isFinite(sample.target) || sample.target < 1 || !Number.isFinite(sample.duration)) return false;
     var evidenceTarget = sample.lossTarget == null ? sample.target : sample.lossTarget;
     if (!Number.isFinite(evidenceTarget) || evidenceTarget < 1 || evidenceTarget > sample.target) return false;
+    if (sample.long != null && !(Number(sample.long) >= 0)) return false;
     if (sample.duration >= WINDOW) return true;
     if (sample.early === true) return sample.duration >= 3800 && sample.fps < evidenceTarget * 0.6;
+    if (sample.jank === true) return sample.duration >= 7600;
     return sample.sustained === true && sample.duration >= 7600 && sample.fps < evidenceTarget * 0.8;
   }
   // Lowering may happen again as soon as a fresh report arrives: the meter
-  // restarts with its warmup after each change. Restoring probes only a quarter
-  // tier after 24s of stable evidence and at least 30s since the last change.
-  // A failed probe rolls back just that step, then tries an eighth tier. Each
-  // consecutive failure doubles the wait (60s, 2, 4, 8, then 10 min max), so
-  // step-like load (e.g. a dense chorus) cannot cause a stutter every minute;
-  // a successful probe or a new target resets it to 30s.
+  // restarts with its warmup after each change. Each lowering is checked by the
+  // next report: if frames are still bad and neither FPS (+10%) nor long frames
+  // (-30%) improved, detail was not the bottleneck (CPU work, another program
+  // on the GPU), so the step is undone and lowering pauses for 5 minutes,
+  // doubling up to 20 while it keeps happening.
   //
-  // `floor` is the smoothness worth trading detail for below the user's
-  // ceiling tier. Following a high-refresh screen may cost one tier; below that
-  // only drops under the floor (60 FPS) count. Fixed FPS caps pass their target.
+  // Restoring probes only a quarter tier after 24s of stable evidence and at
+  // least 30s since the last change. A failed probe rolls back just that step,
+  // then tries an eighth tier. Each consecutive failure doubles the wait (60s,
+  // 2, 4, 8, then 10 min max), so step-like load (e.g. a dense chorus) cannot
+  // cause a stutter every minute; a successful probe or a new goal resets it.
   function createGovernor() {
-    var reduction = 0, goodMs = 0, slowWindows = 0, lowerAfter = 0, restoreAfter = 0;
+    var reduction = 0, goodMs = 0, lowerAfter = 0, restoreAfter = 0;
     var probe = null, restoreStep = 0.25, retryWait = 30000, lastSampleAt = null, targetKey = '';
+    var pending = null, pauseUntil = 0, pauseWait = 300000;
     function clearEvidence() {
-      goodMs = 0; slowWindows = 0; lastSampleAt = null;
+      goodMs = 0; lastSampleAt = null; pending = null;
       if (probe) probe.goodMs = 0;
     }
     function retarget() {
       clearEvidence(); probe = null; restoreStep = 0.25; retryWait = 30000;
-      lowerAfter = restoreAfter = 0; targetKey = '';
+      lowerAfter = restoreAfter = 0; targetKey = ''; pauseUntil = 0; pauseWait = 300000;
     }
     return {
       reduction: function () { return reduction; },
@@ -154,47 +173,48 @@
       retarget: retarget,
       clearEvidence: clearEvidence,
       sample: function (sample, now, quality, enabled, floor) {
-        if (!validSample(sample)) return '';
+        if (!validSample(sample) || !enabled) return '';
         var nextKey = sample.target + ':' + (Number(floor) || 0);
         if (targetKey && targetKey !== nextKey) retarget();
         targetKey = nextKey;
-        var relaxed = Math.min(sample.target, Number(floor) > 0 ? Number(floor) : sample.target);
-        function goal(level) { return loadTarget(sample.target, floor, level < 1); }
-        var lossGoal = enabled ? goal(reduction) : relaxed;
+        var goal = loadTarget(sample.target, floor);
         // Fast flags are valid only for the threshold that actually counted
-        // the slow buckets. Never promote 144Hz evidence into a 60FPS verdict.
-        if (sample.duration < WINDOW && (sample.lossTarget == null ? sample.target : sample.lossTarget) !== lossGoal) return '';
+        // the bad buckets. Never promote 144Hz evidence into a 60FPS verdict.
+        if (sample.duration < WINDOW && (sample.lossTarget == null ? sample.target : sample.lossTarget) !== goal) return '';
+        // Reports already in flight before the last change are not new evidence.
+        if (now < lowerAfter) return '';
         var freshMs = lastSampleAt === null ? Math.min(WINDOW, sample.duration) :
           Math.max(0, Math.min(WINDOW, sample.duration, now - lastSampleAt));
         lastSampleAt = now;
-        if (!enabled) {
-          var slowForAdvice = sample.fps < relaxed * 0.8;
-          slowWindows = slowForAdvice ? (sample.early === true || sample.sustained === true ? 2 : slowWindows + 1) : 0;
-          return slowWindows >= 2 ? 'recommend' : '';
+        var long = Number(sample.long) || 0;
+        var bad = sample.fps < goal * 0.8 || sample.jank === true;
+        if (pending) {
+          var improved = sample.fps >= pending.fps * 1.1 || (pending.long > 0 && long <= pending.long * 0.7);
+          var lowered = pending;
+          pending = null;
+          if (bad && !improved) {
+            reduction = lowered.from; probe = null; goodMs = 0;
+            pauseUntil = now + pauseWait; pauseWait = Math.min(1200000, pauseWait * 2);
+            lowerAfter = now + 2500; restoreAfter = now + 30000;
+            return 'ineffective';
+          }
+          if (improved) pauseWait = 300000;
         }
-        var slow = sample.fps < lossGoal * 0.8;
-        goodMs = (reduction > 0 || probe) && sample.fps >= goal(Math.max(0, reduction - restoreStep)) * 0.94 ? goodMs + freshMs : 0;
-        if (slow && probe) {
-          if (now < lowerAfter) return '';
+        var good = !bad && sample.fps >= goal * 0.94 && long < 0.5;
+        goodMs = (reduction > 0 || probe) && good ? goodMs + freshMs : 0;
+        if (bad && probe) {
           reduction = probe.from; probe = null; goodMs = 0;
           restoreStep = 0.125; retryWait = Math.min(600000, retryWait * 2);
           lowerAfter = now + 2500; restoreAfter = now + retryWait;
           return 'rollback';
         }
         if (probe) {
-          probe.goodMs = sample.fps >= lossGoal * 0.94 ? probe.goodMs + freshMs : 0;
-          if (probe.goodMs >= 24000) {
-            probe = null;
-            // A larger next step may cross from the 60FPS floor to high refresh.
-            // Evidence collected for the smaller step cannot authorize it.
-            if (restoreStep !== 0.25) goodMs = 0;
-            restoreStep = 0.25; retryWait = 30000;
-          }
+          probe.goodMs = good ? probe.goodMs + freshMs : 0;
+          if (probe.goodMs >= 24000) { probe = null; restoreStep = 0.25; retryWait = 30000; }
         }
-        if (slow && reduction < ceiling(quality)) {
-          // Reports already in flight before the last change are not new evidence.
-          if (now < lowerAfter) return '';
-          reduction = Math.min(ceiling(quality), reduction + (sample.fps < relaxed * 0.5 ? 2 : 1));
+        if (bad && reduction < ceiling(quality) && now >= pauseUntil) {
+          pending = { from: reduction, fps: sample.fps, long: long };
+          reduction = Math.min(ceiling(quality), reduction + (sample.fps < goal * 0.5 ? 2 : 1));
           goodMs = 0; lowerAfter = now + 2500; restoreAfter = now + 30000;
           return 'lower';
         }
@@ -208,8 +228,8 @@
       }
     };
   }
-  // Adaptive quality never caps FPS by itself; under "follow the screen" it aims
-  // for the display rate, with detail traded down to keep at least this much.
+  // Adaptive quality never caps FPS by itself. Following the screen, detail is
+  // traded only to keep 60 FPS; a fixed cap (30/45/.../120) is its own goal.
   function smoothnessFloor(mode) {
     return /^(30|45|60|75|90|120)$/.test(String(mode)) ? 0 : 60;
   }

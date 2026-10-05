@@ -22,7 +22,7 @@ async function probe() {
   document.hasFocus = () => true;
   Object.defineProperty(desktopRuntimeState, 'focused', { configurable: true, get: () => true, set() {} });
   check(fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync', 'fresh profile lost original defaults');
-  check(!MineradioSonicPerformance.snapshot().preferences.enabled, 'adaptation must be opt-in');
+  check(MineradioSonicPerformance.snapshot().preferences.enabled, 'adaptive quality must be on by default');
   check(renderer.getPixelRatio() === Math.min(devicePixelRatio, 2), 'main renderer still compresses original resolution');
   const initialDpr = renderer.getPixelRatio();
   // Ordinary scenes: an integrated/software renderer gets a one-time tier suggestion.
@@ -32,24 +32,20 @@ async function probe() {
     await until(() => /^scene-/.test(MineradioSonicPerformance.snapshot().recommendationReason), 'scene GPU advice was missing');
     check(fx.performanceQuality === 'ultra', 'scene advice changed quality on its own');
     document.getElementById('sonic-performance-keep').click();
-    check(fx.performanceQuality === 'ultra' && !MineradioSonicPerformance.snapshot().preferences.dismissed,
-      'keeping ultra changed quality or refused Sonic advice');
+    check(fx.performanceQuality === 'ultra' && MineradioSonicPerformance.snapshot().preferences.enabled,
+      'keeping ultra changed quality or switched Sonic adaptation off');
   }
   setPreset(8);
   const frame = () => document.querySelector('#sonic-workshop-layer iframe').contentWindow;
   const workshop = () => frame().__mineradioWorkshopPerformance?.snapshot();
   await until(() => workshop()?.state === 'ready', 'workshop did not initialize');
   const original = workshop();
-  check(original.triangles > 1000000 && original.config.fpsLimit === 0, 'original wallpaper was reduced');
-  const activeGpuClass = classifyRendererGpu(original.gpu);
-  if (['integrated', 'software'].includes(activeGpuClass)) {
-    // Advice is state-driven: real sustained loss may replace the GPU card.
-    await until(() => ['gpu', 'software', 'load'].includes(MineradioSonicPerformance.snapshot().recommendationReason),
-      'active renderer advice was missing');
-  }
+  check(original.triangles > 1000000 && original.config.fpsLimit === 0 && original.config.profile?.tier === 4,
+    'default adaptation reduced the original wallpaper without load');
   const hardwareReason = MineradioSonicPerformance.snapshot().recommendationReason;
+  check(!hardwareReason, 'Sonic must not show opt-in advice while adaptation is already on');
   // From here on only controlled reports reach the governor: a healthy real
-  // window (fast GPUs) would rightly cancel synthetic load advice mid-check.
+  // window (fast GPUs) would otherwise be judged alongside synthetic load.
   // Capture listeners on the target run before the controller's own listener.
   window.addEventListener('message', event => {
     const data = event.data || {};
@@ -62,62 +58,71 @@ async function probe() {
   // yet visible/focused); inject only once it would accept a real one.
   await until(() => MineradioSonicPerformance.config().eligible, 'controller never became eligible');
   await wait(300);
-  // Synthetic reports must carry the loss threshold the real meter would use;
-  // the estimated refresh rate (and so the target) varies between QA runs.
-  emit({ fps: 15, target: MineradioSonicPerformance.config().target,
-    lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
-  await until(() => MineradioSonicPerformance.snapshot().recommendationReason === 'load', 'fast evidence did not reach the UI');
+  // Synthetic reports carry the goal the real meter would use: 60 FPS while
+  // following the screen, whatever the (variable) display rate is.
+  const target = MineradioSonicPerformance.config().target;
+  const goal = MineradioSonicPerformance.config().lossTarget;
+  check(goal === Math.min(target, 60), 'following the screen must judge against 60 FPS');
+  emit({ fps: goal / 4, target, lossTarget: goal, duration: 4000, early: true });
+  await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
+  const lowered = workshop();
+  check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
   const notice = document.getElementById('sonic-performance-notice');
+  await until(() => !notice.hidden, 'automatic lowering notice did not appear');
   await wait(300);
-  check(!notice.hidden && !notice.inert && notice.getAttribute('aria-hidden') === 'false', 'visible advice is inaccessible');
-  check(document.getElementById('sonic-performance-enable').textContent === '开启自适应', 'action label is misleading');
+  check(!notice.inert && notice.getAttribute('aria-hidden') === 'false', 'visible notice is inaccessible');
+  check(/关闭自适应/.test(document.getElementById('sonic-performance-message').textContent), 'first lowering does not say where to switch off');
+  check(document.getElementById('sonic-performance-enable').hidden, 'Sonic notices must not offer opt-in buttons');
   check(isPointerOverUi({ clientX: notice.getBoundingClientRect().x + 20,
     clientY: notice.getBoundingClientRect().y + 20 }), 'notice clicks leak into scene gestures');
-  document.getElementById('sonic-performance-keep').focus();
-  document.getElementById('sonic-performance-keep').click();
-  check(notice.inert && notice.getAttribute('aria-hidden') === 'true', 'exiting advice still receives keyboard input');
-  await until(() => notice.hidden, 'advice exit animation did not finish');
-  check(!MineradioSonicPerformance.snapshot().preferences.enabled, 'keep-current enabled adaptation');
-  check(JSON.parse(localStorage.getItem('mineradio-sonic-performance-v1')).dismissed, 'keep-current was not saved');
+  document.getElementById('sonic-performance-close').focus();
+  document.getElementById('sonic-performance-close').click();
+  check(notice.inert && notice.getAttribute('aria-hidden') === 'true', 'exiting notice still receives keyboard input');
+  await until(() => notice.hidden, 'notice exit animation did not finish');
+  check(MineradioSonicPerformance.snapshot().preferences.enabled, 'closing a notice switched adaptation off');
   applyDiyMode(true, { save: false });
   toggleFxPanel(true);
   setFxPanelTab('system');
   const group = document.querySelector('[data-fx-console-group="performance"]');
   group.classList.add('open');
   group.querySelector('button').setAttribute('aria-expanded', 'true');
-  document.getElementById('sonic-performance-toggle').click();
-  await until(() => workshop()?.config.profile?.tier === 4, 'enable reduced original detail before any load evidence');
-  const target = MineradioSonicPerformance.config().target;
-  emit({ fps: Math.min(target, 60) / 4, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
-  await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
-  const lowered = workshop();
-  check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
   // Advance only the controller's clock. Frames, geometry and DPR still come
-  // from real WebGL; these reports exercise recovery without waiting a minute.
+  // from real WebGL; these reports exercise recovery without waiting minutes.
   const nativeNow = performance.now.bind(performance);
   let controlledNow = nativeNow(), partial;
   Object.defineProperty(performance, 'now', { configurable: true, value: () => controlledNow });
   try {
     for (let i = 0; i < 3; i++) {
       controlledNow += 12000;
-      emit({ fps: target, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 12000 });
+      emit({ fps: target, target, lossTarget: goal, duration: 12000 });
       await wait(100);
     }
     await until(() => workshop()?.config.profile?.tier === 2.25, 'small recovery probe did not reach real geometry');
     partial = workshop();
     check(partial.triangles > lowered.triangles && partial.triangles < original.triangles, 'recovery jumped to original detail');
     controlledNow += 11000;
-    emit({ fps: Math.min(target, 60) * 2 / 3, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 8000, sustained: true });
+    emit({ fps: goal * 2 / 3, target, lossTarget: goal, duration: 8000, sustained: true });
     await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles === lowered.triangles,
       'failed probe did not roll back just its small step');
+    // A lowering that changes nothing (CPU-bound or another program on the
+    // GPU) is undone in the real renderer instead of sinking to minimum.
+    controlledNow += 11000;
+    emit({ fps: goal * 2 / 3, target, lossTarget: goal, duration: 8000, sustained: true });
+    await until(() => workshop()?.config.profile?.tier === 1, 'sustained loss did not lower one more tier');
+    controlledNow += 11000;
+    emit({ fps: goal * 2 / 3, target, lossTarget: goal, duration: 8000, sustained: true });
+    await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles === lowered.triangles,
+      'an ineffective lowering was not undone');
+    check(/没有让画面更流畅/.test(document.getElementById('sonic-performance-message').textContent),
+      'undoing an ineffective lowering is not explained');
   } finally { Object.defineProperty(performance, 'now', { configurable: true, value: nativeNow }); }
   document.getElementById('sonic-performance-toggle').click();
   await until(() => workshop()?.config.profile === null && workshop().triangles === original.triangles,
-    'manual disable did not restore original detail');
-  check(JSON.parse(localStorage.getItem('mineradio-sonic-performance-v1')).dismissed, 'manual disable did not suppress repeated advice');
+    'switching off did not restore original detail');
+  check(JSON.parse(localStorage.getItem('mineradio-sonic-performance-v1')).dismissed, 'switching off was not remembered');
   // Finish on adaptive feedback for optional screenshots of both window sizes.
   MineradioSonicPerformance.setEnabled(true);
-  emit({ fps: Math.min(target, 60) / 4, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 4000, early: true });
+  emit({ fps: goal / 4, target, lossTarget: goal, duration: 4000, early: true });
   await until(() => !notice.hidden, 'adaptive feedback did not appear');
   if (innerWidth < 1000) {
     // Keep this QA panel open even if the human moves the system pointer away.

@@ -1027,7 +1027,7 @@
               aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
               <span>音域回响自适应画质</span><span class="dot" aria-hidden="true"></span>
             </button>
-            <p class="fx-sub" id="sonic-performance-help">默认保留原始细节。开启后，音域回响会在持续掉帧时降低细节，稳定后逐步恢复；以你选择的画质和帧率为上限。</p>
+            <p class="fx-sub" id="sonic-performance-help">默认开启。画面不卡时保持所选画质；音域回响持续低于流畅目标（跟随屏幕时为 60 FPS，固定帧率时为所选帧率）或反复卡顿时，小幅降低细节，稳定后逐步恢复。降低细节无效时会恢复画质。</p>
             <p class="fx-sub" id="sonic-performance-status" role="status"></p>
           </div>
           <div class="fx-section-label">前台帧率上限</div>
@@ -1971,8 +1971,8 @@
     </div>
     <p id="sonic-performance-message" role="status"></p>
     <div class="sonic-performance-actions">
-      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.accept()">开启自适应</button>
-      <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.keep()">保持当前画质</button>
+      <button type="button" id="sonic-performance-enable" onclick="MineradioSonicPerformance.accept()">调到中画质</button>
+      <button type="button" id="sonic-performance-keep" onclick="MineradioSonicPerformance.keep()">保持超高</button>
       <button type="button" id="sonic-performance-retry" onclick="MineradioSonicPerformance.retry()">重试壁纸</button>
       <button type="button" id="sonic-performance-diagnostics-button" onclick="MineradioSonicPerformance.diagnostics()">查看诊断</button>
     </div>
