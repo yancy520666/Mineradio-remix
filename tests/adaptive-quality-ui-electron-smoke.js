@@ -10,10 +10,14 @@ async function probe() {
   const check = (value, message) => { if (!value) throw new Error(message); };
   const until = async (read, label) => {
     const end = Date.now() + 12000;
-    while (Date.now() < end) { if (read()) return; await wait(100); }
+    while (Date.now() < end) {
+      if (visualGuideActive) { closeVisualGuide(true); markVisualGuideSeen(); }
+      if (read()) return;
+      await wait(100);
+    }
     throw new Error(label);
   };
-  closeVisualGuide(true);
+  closeVisualGuide(true); markVisualGuideSeen();
   document.hasFocus = () => true;
   Object.defineProperty(desktopRuntimeState, 'focused', { configurable: true, get: () => true, set() {} });
   check(fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync', 'fresh profile lost original defaults');
@@ -34,14 +38,15 @@ async function probe() {
   const frame = () => document.querySelector('#sonic-workshop-layer iframe').contentWindow;
   const workshop = () => frame().__mineradioWorkshopPerformance?.snapshot();
   await until(() => workshop()?.state === 'ready', 'workshop did not initialize');
-  await wait(6000);
   const original = workshop();
   check(original.triangles > 1000000 && original.config.fpsLimit === 0, 'original wallpaper was reduced');
-  const hardwareReason = MineradioSonicPerformance.snapshot().recommendationReason;
   const activeGpuClass = classifyRendererGpu(original.gpu);
   if (['integrated', 'software'].includes(activeGpuClass)) {
-    check(['gpu', 'software'].includes(hardwareReason), 'active GPU advice was missing');
+    // Advice is state-driven: real sustained loss may replace the GPU card.
+    await until(() => ['gpu', 'software', 'load'].includes(MineradioSonicPerformance.snapshot().recommendationReason),
+      'active renderer advice was missing');
   }
+  const hardwareReason = MineradioSonicPerformance.snapshot().recommendationReason;
   const emit = sample => frame().eval('parent.postMessage(' + JSON.stringify({
     type: 'mineradio-sonic-performance-sample', sample
   }) + ',location.origin)');
@@ -72,6 +77,25 @@ async function probe() {
   await until(() => workshop()?.config.profile?.tier === 2, 'very slow frames did not drop two tiers in the real renderer');
   const lowered = workshop();
   check(lowered.triangles < original.triangles && fx.performanceQuality === 'ultra', 'lowering did not reduce geometry or overwrote saved quality');
+  // Advance only the controller's clock. Frames, geometry and DPR still come
+  // from real WebGL; these reports exercise recovery without waiting a minute.
+  const nativeNow = performance.now.bind(performance);
+  let controlledNow = nativeNow(), partial;
+  Object.defineProperty(performance, 'now', { configurable: true, value: () => controlledNow });
+  try {
+    for (let i = 0; i < 3; i++) {
+      controlledNow += 12000;
+      emit({ fps: target, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 12000 });
+      await wait(100);
+    }
+    await until(() => workshop()?.config.profile?.tier === 2.25, 'small recovery probe did not reach real geometry');
+    partial = workshop();
+    check(partial.triangles > lowered.triangles && partial.triangles < original.triangles, 'recovery jumped to original detail');
+    controlledNow += 11000;
+    emit({ fps: target * 2 / 3, target, lossTarget: MineradioSonicPerformance.config().lossTarget, duration: 8000, sustained: true });
+    await until(() => workshop()?.config.profile?.tier === 2 && workshop()?.triangles === lowered.triangles,
+      'failed probe did not roll back just its small step');
+  } finally { Object.defineProperty(performance, 'now', { configurable: true, value: nativeNow }); }
   document.getElementById('sonic-performance-toggle').click();
   await until(() => workshop()?.config.profile === null && workshop().triangles === original.triangles,
     'manual disable did not restore original detail');
@@ -100,7 +124,7 @@ async function probe() {
     check(styles.position === 'static', 'inline advice still floats over controls');
   }
   return { viewport: [innerWidth, innerHeight], gpu: original.gpu, hardwareReason,
-    initialDpr, originalTriangles: original.triangles, loweredTriangles: lowered.triangles,
+    initialDpr, originalTriangles: original.triangles, loweredTriangles: lowered.triangles, partialTriangles: partial.triangles,
     notice: { x: rect.x, y: rect.y, width: rect.width, height: rect.height,
       radius: styles.borderRadius, background: styles.backgroundColor }, status: toggle.getAttribute('aria-pressed') };
 }
