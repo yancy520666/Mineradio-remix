@@ -543,3 +543,45 @@ test('the FPS goal follows the display rate reported by Electron, not the main l
   c.window.fx.foregroundFpsMode = '60';
   assert.equal(c.api.config().target, 60);
 });
+
+test('a saved non-ultra tier that the user never picked is reset to ultra once, through the normal save path', () => {
+  const stored = value => new Map([['mineradio-sonic-performance-v1', JSON.stringify(value)]]);
+  const run = (prefs, quality) => {
+    const c = controller(prefs);
+    const applied = [];
+    c.window.fx.performanceQuality = quality;
+    c.window.setPerformanceQualityMode = (q, silent) => { applied.push([q, silent]); c.window.fx.performanceQuality = q; c.api.qualityChanged(); };
+    c.tick();
+    return { c, applied, prefs: c.api.snapshot().preferences };
+  };
+  const auto = run(stored({ enabled: false, dismissed: false }), 'balanced');
+  assert.deepEqual(auto.applied, [['ultra', true]], '2.4.1 GPU pick or 2.4.0 default');
+  assert.equal(auto.c.window.fx.performanceQuality, 'ultra');
+  assert.equal(auto.prefs.manualQuality, false, 'not recorded as a manual choice');
+  assert.equal(auto.prefs.qualityReset, true);
+  const again = run(auto.c.storage, 'balanced');
+  assert.deepEqual(again.applied, [], 'only once: a later choice of medium is kept');
+  const manual = run(stored({ manualQuality: true }), 'high');
+  assert.deepEqual(manual.applied, [], 'a tier the user picked is kept');
+  assert.equal(manual.c.window.fx.performanceQuality, 'high');
+  const fresh = run(new Map(), 'ultra');
+  assert.deepEqual(fresh.applied, []);
+  assert.equal(fresh.prefs.qualityReset, true);
+});
+
+test('a reset attempted before later scripts are ready retries without being mistaken for a manual choice', () => {
+  const c = controller(new Map([['mineradio-sonic-performance-v1', JSON.stringify({ dismissed: false })]]));
+  c.window.fx.performanceQuality = 'eco';
+  let ready = false;
+  c.window.setPerformanceQualityMode = q => {
+    c.window.fx.performanceQuality = q; c.api.qualityChanged();
+    if (!ready) throw new Error('saveLyricLayout dependencies not loaded yet');
+  };
+  c.tick();
+  assert.equal(c.api.snapshot().preferences.qualityReset, false);
+  assert.equal(c.api.snapshot().preferences.manualQuality, false);
+  ready = true; c.tick();
+  assert.equal(c.window.fx.performanceQuality, 'ultra');
+  assert.equal(c.api.snapshot().preferences.qualityReset, true, 'the retry still saves the reset');
+  assert.equal(c.api.snapshot().preferences.manualQuality, false);
+});

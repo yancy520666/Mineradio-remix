@@ -2,7 +2,8 @@
   'use strict';
   var policy = global.MineradioSonicPerformancePolicy;
   var key = 'mineradio-sonic-performance-v1';
-  var preferences = { enabled: false, manualQuality: false, dismissed: false, sceneQualityPrompted: false };
+  var preferences = { enabled: false, manualQuality: false, dismissed: false, sceneQualityPrompted: false,
+    qualityReset: false };
   try {
     var saved = JSON.parse(localStorage.getItem(key) || '{}');
     Object.keys(preferences).forEach(function (name) { preferences[name] = saved[name] === true; });
@@ -125,6 +126,29 @@
     if (state !== 'ready') { governor.clearEvidence(); hardwareClock.reset(now()); }
     if (state === 'ready') meter.reset(now());
     renderUi();
+  }
+  // One-time: 2.4.0 defaulted to "low" and 2.4.1 picked "medium/low" by GPU on
+  // first launch; neither was the user's choice. Without a recorded manual
+  // choice (tracked since 2.4.1), start from ultra like a new install. Runs
+  // from the first tick, once every script has loaded, and saves through the
+  // quality buttons' own path so the on-disk copy cannot bring the old tier back.
+  var qualityResetNeeded = null;
+  function resetAutomaticQuality() {
+    if (preferences.qualityReset || !global.fx || typeof global.setPerformanceQualityMode !== 'function') return;
+    // Decide once, before the button path marks the tier as a manual choice.
+    if (qualityResetNeeded === null) {
+      qualityResetNeeded = !preferences.manualQuality && global.fx.performanceQuality !== 'ultra';
+    }
+    try {
+      if (qualityResetNeeded) global.setPerformanceQualityMode('ultra', true);
+    } catch (_) {
+      // Later scripts not ready yet: undo the side effect and retry next tick.
+      if (qualityResetNeeded) { preferences.manualQuality = false; save(); }
+      return;
+    }
+    // This was not the user's choice either; keep later tier tips possible.
+    if (qualityResetNeeded) preferences.manualQuality = false;
+    preferences.qualityReset = true; save();
   }
   function sceneRendererName() {
     if (sceneGpu === null && global.renderer && global.renderer.getContext) sceneGpu = readGpu(global.renderer.getContext());
@@ -284,6 +308,7 @@
       '。WebGL 初始化或恢复失败时，降低画质未必能解决；可检查显卡驱动及系统图形设置。');
   }
   function tick() {
+    resetAutomaticQuality();
     var next = preset();
     if (next !== active) {
       active = next; governor.reset(); meter.reset(now()); hardwareClock.reset(now());
