@@ -1027,7 +1027,7 @@
               aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
               <span>音域回响自适应画质</span><span class="dot" aria-hidden="true"></span>
             </button>
-            <p class="fx-sub" id="sonic-performance-help">默认开启。画面不卡时保持所选画质；音域回响持续低于流畅目标（跟随屏幕时为 60 FPS，固定帧率时为所选帧率）或反复卡顿时，小幅降低细节，稳定后逐步恢复。降低细节无效时会恢复画质。</p>
+            <p class="fx-sub" id="sonic-performance-help">默认开启。先保持所选画质，按当前机器的稳定表现判断持续掉帧与反复卡顿，再调整细节；固定帧率时以所选帧率为目标。稳定后逐步恢复，降低细节无效时会撤回。</p>
             <p class="fx-sub" id="sonic-performance-status" role="status"></p>
           </div>
           <div class="fx-section-label">前台帧率上限</div>
