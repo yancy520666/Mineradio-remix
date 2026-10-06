@@ -3,7 +3,11 @@
   "productName": "Mineradio Remix",
   "version": "2.4.2",
   "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
-  "author": "Mineradio",
+  "author": "yancy520666",
+  "contributors": [
+    { "name": "Codex" },
+    { "name": "Claude" }
+  ],
   "license": "GPL-3.0-only",
   "main": "desktop/main.js",
   "private": true,
