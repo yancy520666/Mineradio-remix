@@ -1016,19 +1016,17 @@
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
           <div class="fx-section-label">画质档位</div>
-          <div class="fx-seg" id="performance-quality-seg" aria-describedby="performance-quality-help" title="统一调整画面与歌单架细节。高、超高更细腻，低、中更省资源；手动选择后重启仍保留">
+          <div class="fx-seg" id="performance-quality-seg" title="统一调整画面与歌单架细节。高、超高更细腻，低、中更省资源；手动选择后重启仍保留">
             <button data-performance-quality="eco">低</button>
             <button data-performance-quality="balanced">中</button>
             <button data-performance-quality="high">高</button>
             <button data-performance-quality="ultra">超高</button>
           </div>
-          <p class="fx-sub" id="performance-quality-help">同时调整歌单架清晰度。高、超高让文字、细边框与高光更细腻；低、中更省资源。</p>
           <div id="sonic-performance-controls">
             <button type="button" class="fx-toggle" id="sonic-performance-toggle" aria-pressed="false"
-              aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">
+              aria-describedby="sonic-performance-status" onclick="MineradioSonicPerformance.toggle()">
               <span>音域回响自适应画质</span><span class="dot" aria-hidden="true"></span>
             </button>
-            <p class="fx-sub" id="sonic-performance-help">默认开启。画面不卡时保持所选画质；音域回响持续低于流畅目标（跟随屏幕时为 60 FPS，固定帧率时为所选帧率）或反复卡顿时，小幅降低细节，稳定后逐步恢复。降低细节无效时会恢复画质。</p>
             <p class="fx-sub" id="sonic-performance-status" role="status"></p>
           </div>
           <div class="fx-section-label">前台帧率上限</div>
