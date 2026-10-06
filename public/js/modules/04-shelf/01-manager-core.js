@@ -127,13 +127,14 @@ function makeShelfManager() {
 
   function drawCard(card, item) {
     if (card.disposed) return;
+    syncShelfCanvasQuality(card, 720, 360);
     item = item || card.item || {};
     var paintStarted = performance.now();
     var nextDrawKey = cardDrawSignature(card, item);
     if (card.drawKey === nextDrawKey) return;
     card.drawKey = nextDrawKey;
-    var cv = card.canvas, ctx = card.ctx;
-    var W = cv.width, H = cv.height;
+    var ctx = card.ctx;
+    var W = 720, H = 360;
     ctx.clearRect(0, 0, W, H);
     var pad = 18;
     var isNow = item.type === 'queue' && item.tag === '正在播放';
@@ -151,8 +152,8 @@ function makeShelfManager() {
       ctx.strokeStyle = shelfAccentRgba(0.72);
       ctx.lineWidth = 1.8 + Math.sin(uniforms.uTime.value * 3) * 0.28 + bass * 1.2;
     } else {
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 1.5;
     }
     ctx.stroke();
 
@@ -160,7 +161,7 @@ function makeShelfManager() {
       ctx.save();
       makeRoundRect(ctx, pad + 2, pad + 2, W - pad * 2 - 4, H - pad * 2 - 4, 30);
       ctx.shadowColor = shelfAccentRgba(0.58);
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 18 * card.textureScale;
       ctx.strokeStyle = shelfAccentRgba(0.72);
       ctx.lineWidth = 2.2;
       ctx.stroke();
@@ -198,7 +199,7 @@ function makeShelfManager() {
     wrapText(ctx, item.title || '', tx, pad + 78, W - tx - pad - 14, 36, 2);
 
     ctx.font = '400 17px Inter, Arial';
-    ctx.fillStyle = 'rgba(255,255,255,0.52)';
+    ctx.fillStyle = 'rgba(255,255,255,0.62)';
     wrapText(ctx, item.sub || '', tx, pad + 156, W - tx - pad - 14, 24, 2);
 
     // 律动进度条
@@ -851,6 +852,10 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       }
     },
     rebuild: rebuild,
+    refreshQuality: function () {
+      cards.forEach(function (c) { drawCard(c, c.item); });
+      if (contentList && contentList.refreshQuality) contentList.refreshQuality();
+    },
     refreshTheme: function () {
       cards.forEach(function (c) {
         c.drawKey = '';

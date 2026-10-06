@@ -19089,3 +19089,10 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
   font-size: 11px;
   white-space: nowrap;
 }
+
+#fx-panel #performance-quality-help {
+  color: var(--fc-ink-2);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 8px 0 10px;
+}

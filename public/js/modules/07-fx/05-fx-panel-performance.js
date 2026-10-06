@@ -205,6 +205,7 @@ function setPerformanceQualityMode(mode, silent) {
   updatePerformanceControls();
   applyRendererPowerMode();
   saveLyricLayout({ user: true, reason: 'performanceQuality' });
+  if (shelfManager && shelfManager.refreshQuality) shelfManager.refreshQuality();
   if (!silent) {
     var label = next === 'eco' ? '低' : (next === 'balanced' ? '中' : (next === 'ultra' ? '超高' : '高'));
     showToast('画质档位: ' + label);

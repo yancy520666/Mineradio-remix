@@ -1016,12 +1016,13 @@
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
           <div class="fx-section-label">画质档位</div>
-          <div class="fx-seg" id="performance-quality-seg" title="超高保留原始细节，渲染分辨率最高 2 倍；其他档位降低负载。手动选择后重启仍保留">
+          <div class="fx-seg" id="performance-quality-seg" aria-describedby="performance-quality-help" title="统一调整画面与歌单架细节。高、超高更细腻，低、中更省资源；手动选择后重启仍保留">
             <button data-performance-quality="eco">低</button>
             <button data-performance-quality="balanced">中</button>
             <button data-performance-quality="high">高</button>
             <button data-performance-quality="ultra">超高</button>
           </div>
+          <p class="fx-sub" id="performance-quality-help">同时调整歌单架清晰度。高、超高让文字、细边框与高光更细腻；低、中更省资源。</p>
           <div id="sonic-performance-controls">
             <button type="button" class="fx-toggle" id="sonic-performance-toggle" aria-pressed="false"
               aria-describedby="sonic-performance-help" onclick="MineradioSonicPerformance.toggle()">

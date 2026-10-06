@@ -1,6 +1,34 @@
 // ============================================================
 var shelfPinnedOpen = false;
 var shelfManager = null;
+function shelfTextureQualityProfile() {
+  var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
+  if (quality === 'ultra') return { scale: 2, anisotropy: 8 };
+  if (quality === 'high') return { scale: 1.5, anisotropy: 4 };
+  return { scale: 1, anisotropy: quality === 'balanced' ? 2 : 1 };
+}
+function syncShelfCanvasQuality(target, logicalWidth, logicalHeight) {
+  var quality = shelfTextureQualityProfile();
+  var capabilities = renderer.capabilities;
+  var scale = Math.min(quality.scale, capabilities.maxTextureSize / Math.max(logicalWidth, logicalHeight));
+  var width = Math.max(1, Math.round(logicalWidth * scale));
+  var height = Math.max(1, Math.round(logicalHeight * scale));
+  var resized = target.canvas.width !== width || target.canvas.height !== height;
+  if (resized) {
+    // Reallocate GPU storage only on a tier change; keep the mesh and interaction state.
+    target.texture.dispose();
+    target.canvas.width = width;
+    target.canvas.height = height;
+  }
+  var anisotropy = Math.min(quality.anisotropy, Math.max(1, capabilities.getMaxAnisotropy()));
+  var changed = resized || target.texture.anisotropy !== anisotropy;
+  target.texture.anisotropy = anisotropy;
+  target.textureScale = width / logicalWidth;
+  // Layout and hit areas stay in logical pixels, independent of texture density.
+  target.canvas.getContext('2d').setTransform(width / logicalWidth, 0, 0, height / logicalHeight, 0, 0);
+  if (changed) { target.drawKey = ''; target.texture.needsUpdate = true; }
+  return changed;
+}
 var shelfOpenAnimAt = -10;
 var shelfHoverCue = { target: 0, value: 0, x: 0, y: 0, lastAt: 0, enteredAt: 0, zoneActive: false, guide: false };
 var shelfVisibility = 0;  // 0..1, 侧栏自动隐藏的整体透明度系数
