@@ -18933,6 +18933,7 @@ html.control-glass-svg-ok #playlist-panel .panel-tabs.has-indicator .panel-tab.a
 #sonic-performance-controls { min-width: 0; width: 100%; }
 #sonic-performance-controls .fx-toggle { width: 100%; font-family: inherit; font-size: 12px; color: inherit; text-align: left; }
 #sonic-performance-controls .fx-sub { color: var(--fc-ink-2); font-size: 12px; line-height: 1.65; margin: 8px 0 0; }
+#sonic-performance-status:empty { display: none; }
 #sonic-performance-status { font-variant-numeric: tabular-nums; color: var(--fc-ink) !important; }
 #sonic-performance-notice {
   position: fixed; right: 24px; bottom: 108px; z-index: 610;
@@ -19088,11 +19089,4 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
   padding: 0 10px;
   font-size: 11px;
   white-space: nowrap;
-}
-
-#fx-panel #performance-quality-help {
-  color: var(--fc-ink-2);
-  font-size: 12px;
-  line-height: 1.65;
-  margin: 8px 0 10px;
 }
