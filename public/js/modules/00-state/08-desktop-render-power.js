@@ -430,6 +430,8 @@ function applyRendererPowerMode() {
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(width, height, false);
   if (typeof uniforms !== 'undefined' && uniforms && uniforms.uPixel) uniforms.uPixel.value = renderer.getPixelRatio();
+  // Shelf texture density follows on-screen size; it only reallocates when its step changes.
+  if (typeof shelfManager !== 'undefined' && shelfManager && shelfManager.refreshQuality) shelfManager.refreshQuality();
 }
 function updateDesktopRuntimeState(state) {
   state = state || {};

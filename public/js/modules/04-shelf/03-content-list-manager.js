@@ -97,7 +97,7 @@ function makeContentListManager() {
   function drawPanel() {
     ensurePanel();
     if (!panel) return;
-    syncShelfCanvasQuality(panel, 900, 1024);
+    syncShelfCanvasQuality(panel, 900, 1024, SHELF_TEXTURE_VIEWPORT.panel);
     var ctx = panel.canvas.getContext('2d');
     var W = 900, H = 1024;
     ctx.clearRect(0, 0, W, H);
@@ -326,7 +326,7 @@ function makeContentListManager() {
 
   function drawRow(row, song, isCenter) {
     if (row.disposed) return;
-    syncShelfCanvasQuality(row, 800, 104);
+    syncShelfCanvasQuality(row, 800, 104, SHELF_TEXTURE_VIEWPORT.row);
     var cv = row.canvas, ctx = cv.getContext('2d');
     var W = 800, H = 104;
     var isPodcastRadio = !!(song && song.type === 'podcast-radio');
@@ -644,9 +644,9 @@ function makeContentListManager() {
     isOpen: function () { return open; },
     refreshQuality: function () {
       if (!open || !group) return;
-      if (panel && syncShelfCanvasQuality(panel, 900, 1024)) panelDirty = true;
+      if (panel && syncShelfCanvasQuality(panel, 900, 1024, SHELF_TEXTURE_VIEWPORT.panel)) panelDirty = true;
       rows.forEach(function (row) {
-        if (syncShelfCanvasQuality(row, 800, 104)) drawRow(row, row.song, !!row.lastCenter);
+        if (syncShelfCanvasQuality(row, 800, 104, SHELF_TEXTURE_VIEWPORT.row)) drawRow(row, row.song, !!row.lastCenter);
       });
       drawPanelIfNeeded(false);
     },
