@@ -307,7 +307,7 @@
     var error = h && ['failed', 'lost', 'recovering'].indexOf(h.state) >= 0;
     var statusEl = document.getElementById('sonic-performance-status');
     var p = which === 7 ? stageProfile() : currentProfile();
-    var detail = !which ? '适用于两款音域回响；导入的 Wallpaper Engine 壁纸独立运行。' :
+    var detail = !which ? '' :
       (preferences.enabled ? '自适应已开启' : '自适应已关闭') + ' · ' +
       (p && p.tier % 1 ? '细节平衡中' : p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
