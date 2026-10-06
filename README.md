@@ -42,6 +42,8 @@
 
 ## 下载与安装
 
+下个版本（开发中）：全局画质将同时调整歌单架的纹理精度，改善高、超高档位的文字、细边框与高光清晰度，低、中保持基础纹理。当前 2.4.2 安装包尚未包含此改动。
+
 当前版本为 **2.4.2**（2026-10-05 发布），提供 Windows x64 安装包。
 
 1. 在本仓库 [最新 Release](https://github.com/yancy520666/Mineradio-remix/releases/latest) 页面下载 `Mineradio-Remix-2.4.2-Setup.exe`；
