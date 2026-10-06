@@ -19090,3 +19090,16 @@ body.desktop-shell.visual-guide-active.visual-guide-titlebar #desktop-titlebar {
   font-size: 11px;
   white-space: nowrap;
 }
+
+/* Performance settings: adaptive detail reads as a sub-option of the quality tier,
+   and the frame-rate choices form two even rows instead of leaving 120 alone. */
+#fx-panel .fx-console-group-body #sonic-performance-controls {
+  margin: 8px 0 2px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--fc-ink-2) 32%, transparent);
+  box-sizing: border-box;
+}
+#fx-panel .foreground-fps-seg { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+#fx-panel .foreground-fps-seg button:first-child { grid-column: 1 / -1; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+#fx-panel .foreground-fps-seg button:not(:first-child) { border-bottom: none; border-right: 1px solid rgba(255, 255, 255, .05); }
+#fx-panel .foreground-fps-seg button:last-child { border-right: none; }

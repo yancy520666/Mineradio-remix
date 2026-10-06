@@ -1,21 +1,28 @@
 // ============================================================
 var shelfPinnedOpen = false;
 var shelfManager = null;
+// Share of the viewport height each shelf texture's width covers at rest. Measured in
+// the real player; it does not depend on aspect because the camera's vertical FOV is fixed.
+var SHELF_TEXTURE_VIEWPORT = { card: 0.43, panel: 0.85, row: 0.92 };
 function shelfTextureQualityProfile() {
   var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
-  if (quality === 'ultra') return { scale: 2, anisotropy: 8 };
-  if (quality === 'high') return { scale: 1.5, anisotropy: 4 };
-  return { scale: 1, anisotropy: quality === 'balanced' ? 2 : 1 };
+  if (quality === 'ultra') return { maxScale: 2, anisotropy: 8 };
+  if (quality === 'high') return { maxScale: 1.5, anisotropy: 4 };
+  return { maxScale: 1, anisotropy: quality === 'balanced' ? 2 : 1 };
 }
-function syncShelfCanvasQuality(target, logicalWidth, logicalHeight) {
+function syncShelfCanvasQuality(target, logicalWidth, logicalHeight, viewportFraction) {
   var quality = shelfTextureQualityProfile();
   var capabilities = renderer.capabilities;
-  var scale = Math.min(quality.scale, capabilities.maxTextureSize / Math.max(logicalWidth, logicalHeight));
+  // Aim for ~1.5 texels per on-screen pixel; the tier only caps it. These textures
+  // have no mipmaps, so enlarging an already dense one adds shimmer, not detail.
+  var screenPx = viewportFraction * Math.max(1, innerHeight) * renderer.getPixelRatio();
+  var wanted = Math.max(1, Math.round(screenPx * 1.5 / logicalWidth * 2) / 2);
+  var scale = Math.min(quality.maxScale, wanted, capabilities.maxTextureSize / Math.max(logicalWidth, logicalHeight));
   var width = Math.max(1, Math.round(logicalWidth * scale));
   var height = Math.max(1, Math.round(logicalHeight * scale));
   var resized = target.canvas.width !== width || target.canvas.height !== height;
   if (resized) {
-    // Reallocate GPU storage only on a tier change; keep the mesh and interaction state.
+    // Reallocate GPU storage only when the density step changes; keep the mesh and interaction state.
     target.texture.dispose();
     target.canvas.width = width;
     target.canvas.height = height;
