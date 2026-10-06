@@ -267,8 +267,8 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false)
       ] },
       { key: 'performance', title: '性能与后台', hint: '画质档位、后台渲染和直播保持', items: [
-        fxConsoleItem('sonic-performance-controls', '音域回响自适应画质', '核显 自适应 掉帧 壁纸 流畅 流畅优先', false),
         fxConsoleItem('performance-quality-seg', '画质档位', '低配 中 高 超高 渲染质量'),
+        fxConsoleItem('sonic-performance-controls', '音域回响自适应画质', '核显 自适应 掉帧 壁纸 流畅 流畅优先', false),
         fxConsoleItem('foreground-fps-seg', '前台帧率上限', 'FPS 跟随屏幕 垂直同步 VSync 高刷 节能 30 45 60 75 90 120'),
         fxConsoleItem('t-lyricLiveViewportFit', '歌词实时边界', '逐帧 投影 长歌词 屏幕余量 性能'),
         fxConsoleItem('t-lyricContextHighQuality', '上下句高清纹理', '歌词 高清 预热 GPU 显存'),
@@ -409,6 +409,15 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
     state.toggleGrid.appendChild(node);
   } else {
     state.toggleGrid = null;
+    // Button groups carry no text of their own; the classic panel's section label
+    // stays behind when the control moves, so give it its console title instead.
+    if (node.classList.contains('fx-seg')) {
+      var label = document.createElement('div');
+      label.className = 'fx-section-label fx-console-item-label';
+      label.textContent = item.title;
+      body.appendChild(label);
+      if (!node.hasAttribute('aria-label') && !node.hasAttribute('aria-labelledby')) node.setAttribute('aria-label', item.title);
+    }
     body.appendChild(node);
   }
   var entry = {
@@ -495,9 +504,11 @@ function organizeFxConsoleWorkspace() {
     var fallbackMeta = { key: 'other', title: '其他设置', hint: '尚未归入明确分类的兼容项' };
     var fallbackBody = fxConsoleMakeGroup(pages.system, { key: 'system', label: '系统' }, fallbackMeta);
     residual.forEach(function (node, index) {
+      var prev = node.previousElementSibling;
+      var legacyLabel = prev && prev.classList.contains('fx-section-label') ? String(prev.textContent || '').trim() : '';
       fxConsoleAppendItem(fallbackBody, { key: 'system', label: '系统' }, fallbackMeta, {
         ref: { element: node },
-        title: String(node.textContent || '兼容设置').trim().slice(0, 40) || '兼容设置',
+        title: legacyLabel || String(node.textContent || '兼容设置').trim().slice(0, 40) || '兼容设置',
         aliases: '其他 兼容',
         history: true
       }, { toggleGrid: null });

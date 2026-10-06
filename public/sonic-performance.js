@@ -307,9 +307,10 @@
     var error = h && ['failed', 'lost', 'recovering'].indexOf(h.state) >= 0;
     var statusEl = document.getElementById('sonic-performance-status');
     var p = which === 7 ? stageProfile() : currentProfile();
+    // Describe the adjustment relative to the chosen quality tier, so it is not read as a tier itself.
     var detail = !which ? '' :
-      (preferences.enabled ? '自适应已开启' : '自适应已关闭') + ' · ' +
-      (p && p.tier % 1 ? '细节平衡中' : p && p.tier < 4 ? ['最低', '低', '中', '高'][p.tier] + '细节' : '原始细节') +
+      (!preferences.enabled ? '自适应已关闭' :
+        (p && p.tier % 1 ? '正在调整细节' : p && p.tier < 4 ? '已降到' + ['最低', '低', '中', '高'][p.tier] + '细节' : '未降低细节')) +
       (latest ? ' · ' + Math.round(latest.fps) + ' / ' + Math.round(latest.target) + ' FPS' : '');
     setText(statusEl, detail);
     var banner = document.getElementById('sonic-performance-notice');

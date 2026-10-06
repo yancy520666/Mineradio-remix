@@ -127,7 +127,7 @@ function makeShelfManager() {
 
   function drawCard(card, item) {
     if (card.disposed) return;
-    syncShelfCanvasQuality(card, 720, 360);
+    syncShelfCanvasQuality(card, 720, 360, SHELF_TEXTURE_VIEWPORT.card);
     item = item || card.item || {};
     var paintStarted = performance.now();
     var nextDrawKey = cardDrawSignature(card, item);

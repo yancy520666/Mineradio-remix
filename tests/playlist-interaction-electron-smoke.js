@@ -215,7 +215,9 @@ if (!process.argv.includes('--child')) {
             const before=row.texture.version;
             const expires=performance.now()+10000;
             while(performance.now()<expires && !(playlistCoverCache[target].loaded && row.texture.version>before)) await new Promise(r=>setTimeout(r,30));
-            const pixel=Array.from(row.canvas.getContext('2d').getImageData(110,52,1,1).data);
+            // Row canvases can be denser than their logical 800x104 layout; sample the same logical point.
+            const s=row.textureScale||1;
+            const pixel=Array.from(row.canvas.getContext('2d').getImageData(Math.round(110*s),Math.round(52*s),1,1).data);
             const idle={loaded:playlistCoverCache[target].loaded,before,after:row.texture.version,pixel,waiters:playlistCoverCache[target].waiters.length};
             return {coldMs,cachedMs,textureSubmitMs,metrics:playlistCoverCache[cover].metrics,idle};
           } finally {detail.close();apiJson=api;}
