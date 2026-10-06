@@ -97,8 +97,9 @@ function makeContentListManager() {
   function drawPanel() {
     ensurePanel();
     if (!panel) return;
+    syncShelfCanvasQuality(panel, 900, 1024);
     var ctx = panel.canvas.getContext('2d');
-    var W = panel.canvas.width, H = panel.canvas.height;
+    var W = 900, H = 1024;
     ctx.clearRect(0, 0, W, H);
     makeRoundRect(ctx, 24, 28, W - 48, H - 56, 34);
     var bg = ctx.createLinearGradient(0, 0, W, H);
@@ -107,8 +108,8 @@ function makeContentListManager() {
     bg.addColorStop(0.42, 'rgba(0,0,0,' + panelBgAlpha.toFixed(3) + ')');
     bg.addColorStop(1, 'rgba(0,0,0,' + Math.max(0.20, panelBgAlpha - 0.04).toFixed(3) + ')');
     ctx.fillStyle = bg; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1.6;
     ctx.stroke();
     ctx.font = '800 38px Inter, "Microsoft YaHei", Arial';
     ctx.fillStyle = 'rgba(255,246,220,0.94)';
@@ -324,8 +325,10 @@ function makeContentListManager() {
   }
 
   function drawRow(row, song, isCenter) {
+    if (row.disposed) return;
+    syncShelfCanvasQuality(row, 800, 104);
     var cv = row.canvas, ctx = cv.getContext('2d');
-    var W = cv.width, H = cv.height;
+    var W = 800, H = 104;
     var isPodcastRadio = !!(song && song.type === 'podcast-radio');
     var playable = !!(song && song.id && !isPodcastRadio);
     var actionReady = playable || isPodcastRadio;
@@ -344,13 +347,13 @@ function makeContentListManager() {
     }
     if (isCenter) {
       ctx.shadowColor = canvasAccent(0.20);
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 18 * row.textureScale;
     }
     ctx.fillStyle = rowGrad;
     ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = isCenter ? canvasAccent(0.48) : 'rgba(255,255,255,0.10)';
-    ctx.lineWidth = isCenter ? 1.6 : 1;
+    ctx.strokeStyle = isCenter ? canvasAccent(0.48) : 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = isCenter ? 1.6 : 1.25;
     ctx.stroke();
     ctx.font = '700 18px Inter, Arial';
     ctx.fillStyle = isCenter ? canvasAccent(0.95) : 'rgba(255,255,255,0.34)';
@@ -639,6 +642,14 @@ function makeContentListManager() {
 
   return {
     isOpen: function () { return open; },
+    refreshQuality: function () {
+      if (!open || !group) return;
+      if (panel && syncShelfCanvasQuality(panel, 900, 1024)) panelDirty = true;
+      rows.forEach(function (row) {
+        if (syncShelfCanvasQuality(row, 800, 104)) drawRow(row, row.song, !!row.lastCenter);
+      });
+      drawPanelIfNeeded(false);
+    },
     refreshTheme: function () {
       panelDirty = true;
       rowsDirty = true;
