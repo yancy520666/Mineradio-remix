@@ -3774,6 +3774,32 @@ async function fetchQQTypedSearch(type, keywords, limit) {
   }).filter(item => item.id && item.name);
 }
 
+// NetEase "综合" search (type 1018) returns artists, albums and playlists in one call;
+// the renderer shows them above the song list without extra round trips.
+function neteaseOverviewFromBody(body) {
+  const result = (body && body.result) || {};
+  const pick = (block, key) => (block && Array.isArray(block[key]) ? block[key] : []);
+  const map = (type, list, max) => list.map(raw => neteaseTypedSearchItem(type, raw)).filter(item => item.id && item.name).slice(0, max);
+  return {
+    artists: map('artist', pick(result.artist, 'artists'), 2),
+    albums: map('album', pick(result.album, 'albums'), 4),
+    playlists: map('playlist', pick(result.playList, 'playLists'), 6),
+  };
+}
+
+async function handleSearchOverview(keywords) {
+  const kw = String(keywords || '').trim();
+  if (!kw) return { artists: [], albums: [], playlists: [] };
+  const key = ['netease-overview', searchCookieScope(userCookie), kw.toLowerCase()].join(':');
+  const value = await typedSearchCache.wrap(key, async () => {
+    const r = await cloudsearch({ keywords: kw, type: 1018, limit: 6, cookie: userCookie, timestamp: Date.now() });
+    const overview = neteaseOverviewFromBody(r && r.body);
+    // The cache keeps arrays only; an empty overview is retried next time.
+    return overview.artists.length || overview.albums.length || overview.playlists.length ? [overview] : [];
+  });
+  return value[0] || { artists: [], albums: [], playlists: [] };
+}
+
 async function handleTypedSearch(provider, type, keywords, limit, offset) {
   const kw = String(keywords || '').trim();
   if (!kw || TYPED_SEARCH_TYPES.indexOf(type) < 0) return { provider, type, items: [], supported: false };
@@ -5089,6 +5115,16 @@ const server = http.createServer(async (req, res) => {
       const songs = await handleSearch(kw, limit, offset);
       sendJSON(res, { songs, offset, limit, nextOffset: offset + songs.length, hasMore: songs.length >= limit });
     } catch (err) { console.error('[Search]', err); sendJSON(res, { error: err.message, songs: [] }, 500); }
+    return;
+  }
+
+  if (pn === '/api/search/overview') {
+    try {
+      sendJSON(res, Object.assign({ provider: 'netease' }, await handleSearchOverview(url.searchParams.get('keywords') || '')));
+    } catch (err) {
+      console.error('[SearchOverview]', err.message);
+      sendJSON(res, { provider: 'netease', error: err.message, artists: [], albums: [], playlists: [] }, 500);
+    }
     return;
   }
 
