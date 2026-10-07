@@ -3700,6 +3700,98 @@ async function fetchQQSearch(kw, limit, offset) {
   });
 }
 
+// ---------- Typed search (artist / album / playlist / user) ----------
+// Only requested when the user picks that tab, so song search keeps its speed.
+const TYPED_SEARCH_TYPES = ['artist', 'album', 'playlist', 'user'];
+const NETEASE_TYPED_SEARCH_CODES = { artist: 100, album: 10, playlist: 1000, user: 1002 };
+const QQ_TYPED_SEARCH_TYPES = ['artist', 'album'];
+const typedSearchCache = createSearchResultCache(120);
+
+function neteaseTypedSearchItem(type, raw) {
+  raw = raw || {};
+  if (type === 'artist') {
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.picUrl || raw.img1v1Url || raw.avatar || '',
+      alias: Array.isArray(raw.alias) ? raw.alias.filter(Boolean).slice(0, 2).join(' / ') : '',
+      songCount: Number(raw.musicSize) || 0, albumCount: Number(raw.albumSize) || 0,
+    };
+  }
+  if (type === 'album') {
+    const artists = Array.isArray(raw.artists) && raw.artists.length ? raw.artists : (raw.artist ? [raw.artist] : []);
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.picUrl || raw.blurPicUrl || '',
+      artist: artists.map(a => a && a.name).filter(Boolean).join(' / '),
+      artistId: artists[0] && artists[0].id ? String(artists[0].id) : '',
+      songCount: Number(raw.size) || 0, publishTime: Number(raw.publishTime) || 0,
+    };
+  }
+  if (type === 'playlist') {
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.coverImgUrl || raw.picUrl || '',
+      creator: (raw.creator && raw.creator.nickname) || '',
+      songCount: Number(raw.trackCount) || 0, playCount: Number(raw.playCount) || 0,
+    };
+  }
+  return {
+    provider: 'netease', type, id: String(raw.userId || raw.id || ''), name: raw.nickname || raw.name || '',
+    cover: raw.avatarUrl || '', signature: raw.signature || raw.description || '',
+    playlistCount: Number(raw.playlistCount) || 0,
+  };
+}
+
+function neteaseTypedSearchList(type, body) {
+  const result = (body && body.result) || {};
+  if (type === 'artist') return result.artists || [];
+  if (type === 'album') return result.albums || [];
+  if (type === 'playlist') return result.playlists || [];
+  return result.userprofiles || [];
+}
+
+async function fetchNeteaseTypedSearch(type, keywords, limit, offset) {
+  const r = await cloudsearch({ keywords, type: NETEASE_TYPED_SEARCH_CODES[type], limit, offset, cookie: userCookie, timestamp: Date.now() });
+  return neteaseTypedSearchList(type, r && r.body)
+    .map(raw => neteaseTypedSearchItem(type, raw))
+    .filter(item => item.id && item.name);
+}
+
+async function fetchQQTypedSearch(type, keywords, limit) {
+  const u = new URL(QQ_SMARTBOX_URL);
+  [['format', 'json'], ['key', keywords], ['g_tk', '5381'], ['loginUin', '0'], ['hostUin', '0'],
+    ['inCharset', 'utf8'], ['outCharset', 'utf-8'], ['notice', '0'], ['platform', 'yqq.json'], ['needNewCode', '0']]
+    .forEach(([k, v]) => u.searchParams.set(k, v));
+  const json = parseJSONText(await requestText(u.toString(), { headers: QQ_HEADERS, timeoutMs: 6000 }));
+  const block = json && json.data && (type === 'artist' ? json.data.singer : json.data.album);
+  const list = block && Array.isArray(block.itemlist) ? block.itemlist : [];
+  return list.slice(0, limit).map(raw => {
+    const mid = String(raw.mid || '');
+    if (type === 'artist') {
+      return { provider: 'qq', type, id: mid, mid, qqId: String(raw.id || ''), name: raw.name || raw.singer || '', cover: raw.pic || qqSingerAvatar(mid, 300) };
+    }
+    return { provider: 'qq', type, id: mid, mid, qqId: String(raw.id || ''), name: raw.name || '', cover: raw.pic || qqAlbumCover(mid, 300), artist: raw.singer || '' };
+  }).filter(item => item.id && item.name);
+}
+
+async function handleTypedSearch(provider, type, keywords, limit, offset) {
+  const kw = String(keywords || '').trim();
+  if (!kw || TYPED_SEARCH_TYPES.indexOf(type) < 0) return { provider, type, items: [], supported: false };
+  limit = Math.max(1, Math.min(30, Number(limit) || 18));
+  offset = Math.max(0, Number(offset) || 0);
+  if (provider === 'qq') {
+    if (QQ_TYPED_SEARCH_TYPES.indexOf(type) < 0) return { provider, type, items: [], supported: false };
+    // Smartbox returns one short page of suggestions and has no paging.
+    if (offset > 0) return { provider, type, items: [], supported: true, hasMore: false };
+    const items = await typedSearchCache.wrap(['qq', type, kw.toLowerCase(), limit].join(':'), () => fetchQQTypedSearch(type, kw, limit));
+    return { provider, type, items, supported: true, offset, nextOffset: items.length, hasMore: false };
+  }
+  if (provider !== 'netease') return { provider, type, items: [], supported: false };
+  const key = ['netease', searchCookieScope(userCookie), type, kw.toLowerCase(), limit, offset].join(':');
+  const items = await typedSearchCache.wrap(key, () => fetchNeteaseTypedSearch(type, kw, limit, offset));
+  return { provider, type, items, supported: true, offset, nextOffset: offset + items.length, hasMore: items.length >= limit };
+}
+
 function truthyQQPlaybackHint(value) {
   const text = String(value == null ? '' : value).trim().toLowerCase();
   return value === true || text === '1' || text === 'true' || text === 'yes' || text === 'vip';
@@ -4997,6 +5089,40 @@ const server = http.createServer(async (req, res) => {
       const songs = await handleSearch(kw, limit, offset);
       sendJSON(res, { songs, offset, limit, nextOffset: offset + songs.length, hasMore: songs.length >= limit });
     } catch (err) { console.error('[Search]', err); sendJSON(res, { error: err.message, songs: [] }, 500); }
+    return;
+  }
+
+  if (pn === '/api/search/type') {
+    const provider = String(url.searchParams.get('provider') || 'netease');
+    const type = String(url.searchParams.get('type') || '');
+    try {
+      const kw = url.searchParams.get('keywords') || '';
+      const limit = parseInt(url.searchParams.get('limit') || '18', 10) || 18;
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10) || 0;
+      sendJSON(res, await handleTypedSearch(provider, type, kw, limit, offset));
+    } catch (err) {
+      console.error('[TypedSearch]', provider, type, err.message);
+      sendJSON(res, { provider, type, error: err.message, items: [] }, 500);
+    }
+    return;
+  }
+
+  // Public playlists of a NetEase user found through search (not the logged-in account).
+  if (pn === '/api/search/user-playlists') {
+    try {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!/^\d+$/.test(uid)) { sendJSON(res, { error: 'Missing user id', playlists: [] }, 400); return; }
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const page = await fetchNeteaseUserPlaylistsPage(uid, 30, offset);
+      sendJSON(res, {
+        uid,
+        playlists: page.playlists.map(pl => mapNeteasePlaylistMeta(pl, pl && pl.id)).filter(pl => pl.id),
+        offset: page.offset, nextOffset: page.nextOffset, hasMore: page.hasMore, total: page.total,
+      });
+    } catch (err) {
+      console.error('[SearchUserPlaylists]', err.message);
+      sendJSON(res, { error: err.message, playlists: [] }, 500);
+    }
     return;
   }
 
