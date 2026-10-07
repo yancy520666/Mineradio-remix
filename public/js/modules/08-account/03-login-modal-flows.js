@@ -8,6 +8,13 @@ var loginProviderPointer = null;
 var loginProviderClickSuppressed = false;
 var loginWorkflowEdgeRenderFrame = 0;
 var loginWorkflowEdgeRenderTimers = [];
+var loginWorkflowPointerFrame = 0;
+var loginWorkflowPointerPoint = null;
+var loginWorkflowHoverProvider = '';
+var loginWorkflowRetracts = [];
+var loginWorkflowRetractFrame = 0;
+var loginWorkflowPendingLogout = null;
+var LOGIN_WORKFLOW_LOGOUT_DELAY_MS = 4000;
 var SPOTIFY_DEVELOPER_DASHBOARD_URL = 'https://developer.spotify.com/dashboard';
 var SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:43879/callback';
 var spotifySetupCallbackReady = false;
@@ -57,6 +64,7 @@ function saveLoginWorkflowConnections(list) {
 }
 function providerHasLiveLogin(provider) {
   provider = normalizeLoginProviderKey(provider);
+  if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider === provider) return false;
   if (loginWorkflowVerifiedSession && loginWorkflowVerifiedSession[provider]) return true;
   try { return typeof hasPlatformLogin === 'function' && hasPlatformLogin(provider); } catch (e) { return false; }
 }
@@ -91,6 +99,7 @@ function setLoginAuthDrawerOpen(open) {
   if (!open) {
     loginWorkflowPendingProvider = '';
     try { stopQrPoll(); } catch (e) { }
+    cancelInlineLoginQr();
   }
 }
 function markLoginNodeConnecting() {
@@ -128,10 +137,16 @@ function loginWorkflowMrTargetPoint(graph) {
   if (!graph) return null;
   return workflowPointForPort(graph.querySelector('[data-login-mr-target="mr"]'), graph);
 }
+// Near the MR port the loose end is pulled in gradually (smoothstep) instead
+// of jumping onto the port.
 function loginWorkflowSnapPoint(point, graph) {
   var mr = loginWorkflowMrTargetPoint(graph);
-  if (point && mr && workflowPointDistance(point, mr) <= 92) return mr;
-  return point;
+  if (!point || !mr) return point;
+  var d = workflowPointDistance(point, mr);
+  if (d >= 92) return point;
+  var k = 1 - d / 92;
+  k = k * k * (3 - 2 * k);
+  return { x: point.x + (mr.x - point.x) * k, y: point.y + (mr.y - point.y) * k };
 }
 function loginWorkflowNearMr(point, graph) {
   var mr = loginWorkflowMrTargetPoint(graph);
@@ -165,16 +180,152 @@ function renderLoginWorkflowEdges(tempPoint) {
   svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
   clearWorkflowSvg(svg);
   var mrIn = graph.querySelector('[data-login-mr-target="mr"]');
+  var unplugging = loginWorkflowDrag && loginWorkflowDrag.source === 'unplug' ? loginWorkflowDrag.provider : '';
   loginWorkflowConnectedProviders().forEach(function (provider) {
+    if (provider === unplugging) return;
     var providerOut = graph.querySelector('[data-login-provider-output="' + provider + '"]');
-    appendWorkflowPath(svg, workflowPointForPort(providerOut, graph), workflowPointForPort(mrIn, graph), 'workflow-link active' + (provider === loginProvider ? ' selected' : ''));
+    appendWorkflowPath(svg, workflowPointForPort(providerOut, graph), workflowPointForPort(mrIn, graph), 'workflow-link active' + (provider === loginProvider ? ' selected' : '') + (provider === loginWorkflowHoverProvider ? ' hover' : ''));
+  });
+  loginWorkflowRetracts.forEach(function (item) {
+    var out = graph.querySelector('[data-login-provider-output="' + item.provider + '"]');
+    var a = workflowPointForPort(out, graph);
+    if (!a || !item.point) return;
+    appendWorkflowPath(svg, a, item.point, 'workflow-link retract ' + (item.kind || 'temp'));
   });
   if (loginWorkflowPendingProvider && !providerHasLiveLogin(loginWorkflowPendingProvider)) {
     var pendingOut = graph.querySelector('[data-login-provider-output="' + loginWorkflowPendingProvider + '"]');
     appendWorkflowPath(svg, workflowPointForPort(pendingOut, graph), workflowPointForPort(mrIn, graph), 'workflow-link pending');
   }
   if (loginWorkflowDrag && tempPoint) {
-    appendWorkflowPath(svg, workflowPointForPort(loginWorkflowDrag.port, graph), loginWorkflowSnapPoint(tempPoint, graph), 'workflow-link temp');
+    appendWorkflowPath(svg, workflowPointForPort(loginWorkflowDrag.port, graph), loginWorkflowSnapPoint(tempPoint, graph), unplugging ? 'workflow-link active selected unplug' : 'workflow-link temp');
+  }
+}
+// Pointer moves can arrive faster than frames; draw at most once per frame.
+function scheduleLoginWorkflowPointerRender(point) {
+  loginWorkflowPointerPoint = point;
+  if (loginWorkflowPointerFrame) return;
+  loginWorkflowPointerFrame = requestAnimationFrame(function () {
+    loginWorkflowPointerFrame = 0;
+    if (loginWorkflowDrag) renderLoginWorkflowEdges(loginWorkflowPointerPoint);
+  });
+}
+function cancelLoginWorkflowPointerRender() {
+  if (loginWorkflowPointerFrame) cancelAnimationFrame(loginWorkflowPointerFrame);
+  loginWorkflowPointerFrame = 0;
+}
+function loginWorkflowReducedMotion() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+}
+// A released loose end slides back into its platform port instead of vanishing.
+function retractLoginWorkflowWire(provider, from, kind) {
+  var graph = document.getElementById('login-node-graph');
+  var out = graph && graph.querySelector('[data-login-provider-output="' + provider + '"]');
+  var to = workflowPointForPort(out, graph);
+  if (!graph || !from || !to || loginWorkflowReducedMotion()) {
+    scheduleLoginWorkflowEdges('retract-skip');
+    return;
+  }
+  loginWorkflowRetracts = loginWorkflowRetracts.filter(function (item) { return item.provider !== provider; });
+  loginWorkflowRetracts.push({ provider: provider, from: from, point: from, kind: kind || 'temp', start: performance.now(), duration: 240 });
+  if (loginWorkflowRetractFrame) return;
+  var step = function (now) {
+    loginWorkflowRetractFrame = 0;
+    var g = document.getElementById('login-node-graph');
+    loginWorkflowRetracts = loginWorkflowRetracts.filter(function (item) {
+      var port = g && workflowPointForPort(g.querySelector('[data-login-provider-output="' + item.provider + '"]'), g);
+      var t = Math.min(1, (now - item.start) / item.duration);
+      if (!port || t >= 1) return false;
+      var e = 1 - Math.pow(1 - t, 3);
+      item.point = { x: item.from.x + (port.x - item.from.x) * e, y: item.from.y + (port.y - item.from.y) * e };
+      return true;
+    });
+    renderLoginWorkflowEdges(loginWorkflowDrag ? loginWorkflowPointerPoint : null);
+    if (loginWorkflowRetracts.length) loginWorkflowRetractFrame = requestAnimationFrame(step);
+  };
+  loginWorkflowRetractFrame = requestAnimationFrame(step);
+}
+function workflowBezierPoint(a, b, t) {
+  var gap = Math.abs(b.x - a.x);
+  var dx = Math.max(18, Math.min(86, gap * 0.55));
+  var u = 1 - t;
+  var c1x = a.x + dx;
+  var c2x = b.x - dx;
+  return {
+    x: u * u * u * a.x + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * b.x,
+    y: u * u * u * a.y + 3 * u * u * t * a.y + 3 * u * t * t * b.y + t * t * t * b.y
+  };
+}
+// Which connected wire is under the pointer (within a few pixels)?
+function loginWorkflowWireAt(point, graph) {
+  if (!point || !graph) return '';
+  var mr = loginWorkflowMrTargetPoint(graph);
+  if (!mr) return '';
+  var best = '';
+  var bestDist = 9;
+  loginWorkflowConnectedProviders().forEach(function (provider) {
+    var a = workflowPointForPort(graph.querySelector('[data-login-provider-output="' + provider + '"]'), graph);
+    if (!a) return;
+    // Skip the stretch hidden under the platform card.
+    for (var i = 2; i <= 32; i += 1) {
+      var d = workflowPointDistance(point, workflowBezierPoint(a, mr, i / 32));
+      if (d < bestDist) { bestDist = d; best = provider; }
+    }
+  });
+  return best;
+}
+function setLoginWorkflowHoverProvider(provider) {
+  var graph = document.getElementById('login-node-graph');
+  if (graph) {
+    graph.classList.toggle('wire-hover', !!provider);
+    if (provider) graph.setAttribute('title', '拖开连线即可退出' + loginWorkflowProviderLabel(provider));
+    else graph.removeAttribute('title');
+  }
+  if (loginWorkflowHoverProvider === provider) return;
+  loginWorkflowHoverProvider = provider;
+  renderLoginWorkflowEdges();
+}
+function loginWorkflowShortLabel(provider) {
+  return provider === 'qq' ? ' QQ ' : (provider === 'kugou' ? '酷狗' : (provider === 'qishui' ? '汽水' : (provider === 'spotify' ? ' Spotify ' : '网易云')));
+}
+function loginWorkflowProviderLabel(provider) {
+  var meta = platformMeta(provider);
+  return meta && meta.label || provider;
+}
+// Unplugging a wire logs that platform out after a short delay; dragging it
+// back or pressing 撤销 in the MR card keeps the account.
+function scheduleLoginWorkflowLogout(provider) {
+  provider = normalizeLoginProviderKey(provider);
+  if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider !== provider) finishLoginWorkflowLogout();
+  if (loginWorkflowPendingLogout) clearTimeout(loginWorkflowPendingLogout.timer);
+  loginWorkflowPendingLogout = {
+    provider: provider,
+    timer: setTimeout(finishLoginWorkflowLogout, LOGIN_WORKFLOW_LOGOUT_DELAY_MS)
+  };
+  if (loginWorkflowPendingProvider === provider) loginWorkflowPendingProvider = '';
+  updateLoginProviderUi();
+}
+function undoLoginWorkflowLogout(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (!loginWorkflowPendingLogout) return;
+  clearTimeout(loginWorkflowPendingLogout.timer);
+  loginWorkflowPendingLogout = null;
+  markLoginNodeConnecting();
+  updateLoginProviderUi();
+}
+async function finishLoginWorkflowLogout() {
+  var pending = loginWorkflowPendingLogout;
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  var provider = pending.provider;
+  try {
+    if (typeof logoutProviderAccount === 'function') await logoutProviderAccount(provider);
+    showToast('已退出 ' + loginWorkflowProviderLabel(provider));
+  } catch (e) {
+    console.warn('Login wire logout failed:', e);
+    showToast('退出 ' + loginWorkflowProviderLabel(provider) + ' 未完成，请重试');
+  } finally {
+    if (loginWorkflowPendingLogout === pending) loginWorkflowPendingLogout = null;
+    updateLoginProviderUi();
   }
 }
 function scheduleLoginWorkflowEdges(reason) {
@@ -198,11 +349,12 @@ function selectLoginProviderNode(provider) {
   }
   provider = normalizeLoginProviderKey(provider);
   setLoginProvider(provider, true);
-  var drawerOpen = hasLoginWorkflowConnection(provider) || loginWorkflowPendingProvider === provider;
+  // Selecting a platform only selects it. The login drawer opens for a wire
+  // that is still waiting for its scan; a logged-in platform re-logs in only
+  // through the MR 扫码 button or by connecting again.
+  var drawerOpen = loginWorkflowPendingProvider === provider && !hasLoginWorkflowConnection(provider);
   setLoginAuthDrawerOpen(drawerOpen);
   updateLoginProviderUi();
-  // Selecting an already-connected QR provider opens the drawer directly;
-  // start the QR there too instead of leaving an empty card.
   if (drawerOpen) ensureLoginInlineQr();
 }
 function loginProviderUsesInlineQr(provider) {
@@ -223,6 +375,11 @@ function ensureLoginInlineQr() {
 }
 function connectLoginProviderToMr(provider) {
   provider = normalizeLoginProviderKey(provider);
+  if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider === provider) {
+    if (provider !== loginProvider) setLoginProvider(provider, true);
+    undoLoginWorkflowLogout();
+    return;
+  }
   if (provider !== loginProvider) setLoginProvider(provider, true);
   loginWorkflowPendingProvider = provider;
   setLoginAuthDrawerOpen(true);
@@ -239,13 +396,29 @@ function finishLoginWorkflowDrag(e) {
   var mrNode = target && target.closest ? target.closest('[data-login-node="mr"]') : null;
   var eventPoint = workflowPointFromEvent(e, graph);
   var nearMr = loginWorkflowNearMr(eventPoint, graph);
+  cancelLoginWorkflowPointerRender();
+  if (drag.source === 'unplug') {
+    loginWorkflowDrag = null;
+    graph.classList.remove('dragging-line', 'drop-ready', 'unplugging');
+    try { graph.releasePointerCapture(e.pointerId); } catch (_) { }
+    if (nearMr) {
+      scheduleLoginWorkflowEdges('wire-replug');
+      return;
+    }
+    retractLoginWorkflowWire(drag.provider, loginWorkflowSnapPoint(eventPoint, graph), 'unplugged');
+    scheduleLoginWorkflowLogout(drag.provider);
+    return;
+  }
+  var connected = false;
   if ((port && graph.contains(port)) || (mrNode && graph.contains(mrNode)) || nearMr) {
     var mrTarget = port && port.getAttribute('data-login-mr-target');
     if (drag.source === 'provider' && (mrTarget || mrNode || nearMr)) {
+      connected = true;
       connectLoginProviderToMr(drag.provider);
     }
   }
   loginWorkflowDrag = null;
+  if (!connected) retractLoginWorkflowWire(drag.provider, loginWorkflowSnapPoint(eventPoint, graph), 'temp');
   graph.classList.remove('dragging-line', 'drop-ready');
   try { graph.releasePointerCapture(e.pointerId); } catch (_) { }
   scheduleLoginWorkflowEdges('wire-finish');
@@ -259,6 +432,33 @@ function beforeLoginProviderForPointer(y) {
     if (y < rect.top + rect.height / 2) return nodes[i].getAttribute('data-login-provider') || '';
   }
   return '';
+}
+// Grab a connected wire (or the MR port, which takes the selected platform's
+// wire) and pull its MR end loose.
+function beginLoginWorkflowUnplug(graph, e) {
+  if (e.button !== 0) return false;
+  var target = e.target;
+  var onMrPort = target && target.closest && target.closest('.flow-port.in');
+  if (target && target.closest && target.closest('button') ) return false;
+  var point = workflowPointFromEvent(e, graph);
+  var provider = loginWorkflowWireAt(point, graph);
+  if (!provider && onMrPort) {
+    var connected = loginWorkflowConnectedProviders();
+    provider = connected.indexOf(loginProvider) >= 0 ? loginProvider : (connected[0] || '');
+  }
+  if (!provider) return false;
+  var port = graph.querySelector('[data-login-provider-output="' + provider + '"]');
+  if (!port) return false;
+  if (provider !== loginProvider) setLoginProvider(provider, true);
+  loginWorkflowDrag = { port: port, source: 'unplug', provider: provider };
+  loginWorkflowHoverProvider = '';
+  graph.classList.remove('wire-hover');
+  graph.removeAttribute('title');
+  graph.classList.add('dragging-line', 'unplugging');
+  loginProviderClickSuppressed = true;
+  try { graph.setPointerCapture(e.pointerId); } catch (_) { }
+  renderLoginWorkflowEdges(point);
+  return true;
 }
 function startLoginWorkflowPointerDrag(graph, state, e) {
   loginWorkflowDrag = {
@@ -409,7 +609,13 @@ function bindLoginWorkflowPointerEvents() {
       return;
     }
     var port = e.target && e.target.closest ? e.target.closest('.flow-port.out') : null;
-    if (!port || !graph.contains(port)) return;
+    if (!port || !graph.contains(port)) {
+      if (beginLoginWorkflowUnplug(graph, e)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
     var providerNode = port.closest('.login-node-providers [data-login-provider]');
     var provider = port.getAttribute('data-login-provider-output') || (providerNode && providerNode.getAttribute('data-login-provider')) || '';
     if (!provider) return;
@@ -421,7 +627,13 @@ function bindLoginWorkflowPointerEvents() {
     e.stopPropagation();
   });
   graph.addEventListener('pointermove', function (e) {
-    if (!loginProviderPointer && !loginWorkflowDrag) return;
+    if (!loginProviderPointer && !loginWorkflowDrag) {
+      if (e.pointerType === 'mouse' && !e.buttons) {
+        var overButton = e.target && e.target.closest && e.target.closest('button, .flow-port.out');
+        setLoginWorkflowHoverProvider(overButton ? '' : loginWorkflowWireAt(workflowPointFromEvent(e, graph), graph));
+      }
+      return;
+    }
     e.preventDefault();
     if (loginProviderPointer) {
       var dx = e.clientX - loginProviderPointer.startX;
@@ -442,14 +654,18 @@ function bindLoginWorkflowPointerEvents() {
     if (!loginWorkflowDrag) return;
     var point = workflowPointFromEvent(e, graph);
     graph.classList.toggle('drop-ready', loginWorkflowNearMr(point, graph));
-    renderLoginWorkflowEdges(point);
+    scheduleLoginWorkflowPointerRender(point);
+  });
+  graph.addEventListener('pointerleave', function () {
+    if (!loginWorkflowDrag) setLoginWorkflowHoverProvider('');
   });
   graph.addEventListener('pointerup', finishLoginProviderPointer);
   graph.addEventListener('pointercancel', function (e) {
     if (loginProviderPointer && loginProviderPointer.node) loginProviderPointer.node.classList.remove('sorting');
     loginProviderPointer = null;
     loginWorkflowDrag = null;
-    graph.classList.remove('dragging-line', 'drop-ready', 'sorting-provider');
+    cancelLoginWorkflowPointerRender();
+    graph.classList.remove('dragging-line', 'drop-ready', 'sorting-provider', 'unplugging');
     try { graph.releasePointerCapture(e.pointerId); } catch (_) { }
     scheduleLoginWorkflowEdges('pointer-cancel');
   });
@@ -493,7 +709,19 @@ function updateLoginNodeGraphUi() {
     cookie.classList.toggle('active', isManualCookieOpenForProvider(loginProvider));
   }
   var copy = graph && graph.querySelector('.login-node-copy');
-  if (copy) {
+  if (copy && loginWorkflowPendingLogout) {
+    var undoSub = copy.querySelector('small');
+    if (undoSub) {
+      undoSub.textContent = '已断开' + loginWorkflowShortLabel(loginWorkflowPendingLogout.provider) + ' · ';
+      var undoBtn = document.createElement('button');
+      undoBtn.type = 'button';
+      undoBtn.className = 'login-wire-undo';
+      undoBtn.textContent = '撤销';
+      undoBtn.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+      undoBtn.addEventListener('click', undoLoginWorkflowLogout);
+      undoSub.appendChild(undoBtn);
+    }
+  } else if (copy) {
     var meta = platformMeta(loginProvider);
     var copySub = copy.querySelector('small');
     var connectedCount = connected.length;
@@ -608,12 +836,14 @@ function showLoginModal(opts) {
 }
 function closeLoginModal() {
   stopQrPoll();
+  if (loginWorkflowPendingLogout) finishLoginWorkflowLogout();
   setLoginAuthDrawerOpen(false);
   closeGsapModal(document.getElementById('login-modal'));
   if (typeof maybeRunStartupVisualGuide === 'function') maybeRunStartupVisualGuide('login-close');
 }
 function setLoginProvider(provider, silent) {
   loginProvider = normalizeLoginProviderKey(provider);
+  if (inlineLoginQrProvider && inlineLoginQrProvider !== loginProvider) cancelInlineLoginQr();
   loginRefreshRequestSeq += 1;
   updateLoginProviderUi();
   if (!silent && document.getElementById('login-modal').classList.contains('show')) refreshQr();
@@ -1004,7 +1234,9 @@ function updateLoginProviderUi() {
   if (kugouBtn) kugouBtn.classList.toggle('active', isKugou);
   if (qishuiBtn) qishuiBtn.classList.toggle('active', isQishui);
   if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label);
-  if (desc) desc.innerHTML = isQQ
+  var inlineQrDesc = inlineLoginQrSupported() && (isQQ || isKugou || (isNetease && canOpenNeteaseWeb));
+  if (desc && inlineQrDesc) desc.innerHTML = '扫描 <b>' + meta.label + '官方登录页</b> 的二维码' + (isNetease ? '，避开接口二维码风控' : '') + '；成功后会自动同步账号会话。';
+  else if (desc) desc.innerHTML = isQQ
     ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
     : (isKugou
       ? '打开 <b>酷狗音乐官方网页登录窗口</b> 登录，成功后会自动同步账号会话。'
@@ -1057,6 +1289,11 @@ function updateLoginProviderUi() {
     var qqNeedsMembershipSync = isQQ && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(qqLoginStatus);
     refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码')));
     refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : (canOpenNeteaseWeb ? openNeteaseWebLogin : refreshQr)));
+    if (inlineLoginQrProvider && inlineLoginQrProvider === loginProvider) {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '官网登录';
+      refreshBtn.onclick = openInlineLoginInWindow;
+    }
   }
   updateLoginNodeGraphUi();
 }
@@ -1310,6 +1547,113 @@ function toggleQQCookiePanel() {
   setManualCookieOpenForProvider(loginProvider, !isManualCookieOpenForProvider(loginProvider));
   updateLoginProviderUi();
 }
+// Inline QR: the desktop shell runs the official login page offscreen and
+// sends its QR here, so the scan happens inside this drawer. If no QR shows up
+// the shell reports a fallback and the official window opens as before.
+var inlineLoginQrProvider = '';
+var inlineLoginQrWantsWindow = false;
+var inlineLoginQrUnsubscribe = null;
+function inlineLoginQrSupported() {
+  var api = window.desktopWindow;
+  return !!(api && typeof api.cancelInlineLogin === 'function' && typeof api.onInlineLoginQr === 'function');
+}
+function inlineLoginQrAppLabel(provider) {
+  if (provider === 'qq') return '手机 QQ ';
+  if (provider === 'kugou') return '酷狗音乐 App ';
+  return '网易云音乐 App ';
+}
+function setInlineLoginQrView(active) {
+  var shell = document.getElementById('qr-shell');
+  if (shell) shell.classList.toggle('inline-qr', !!active);
+}
+function handleInlineLoginQr(payload) {
+  if (!payload || !payload.provider || payload.provider !== inlineLoginQrProvider || payload.provider !== loginProvider) return;
+  var img = document.getElementById('qr-img');
+  var statusEl = document.getElementById('qr-status');
+  if (payload.stage === 'qr' && payload.image) {
+    setInlineLoginQrView(true);
+    showLoginQrImage(img, payload.image, loginWorkflowProviderLabel(payload.provider) + '登录二维码');
+    if (statusEl) {
+      statusEl.textContent = payload.expired ? '二维码已过期，点一下二维码刷新' : ('请使用' + inlineLoginQrAppLabel(payload.provider) + '扫码');
+      statusEl.className = payload.expired ? 'fail' : '';
+    }
+  } else if (payload.stage === 'scanned' && statusEl) {
+    statusEl.textContent = '已扫码，正在完成登录…';
+    statusEl.className = 'scan';
+  }
+}
+function bindInlineLoginQr() {
+  if (inlineLoginQrUnsubscribe || !inlineLoginQrSupported()) return;
+  inlineLoginQrUnsubscribe = window.desktopWindow.onInlineLoginQr(handleInlineLoginQr);
+  var img = document.getElementById('qr-img');
+  if (img && !img.__inlineLoginClickBound) {
+    img.__inlineLoginClickBound = true;
+    // Clicks on the copied QR go to the official page (e.g. 点击刷新).
+    img.addEventListener('click', function (e) {
+      var provider = inlineLoginQrProvider;
+      var api = window.desktopWindow;
+      if (!provider || img.getAttribute('data-qr-provider') !== provider || !api || typeof api.clickInlineLoginQr !== 'function') return;
+      var rect = img.getBoundingClientRect();
+      var cs = getComputedStyle(img);
+      var padX = parseFloat(cs.paddingLeft) || 0;
+      var padY = parseFloat(cs.paddingTop) || 0;
+      var w = rect.width - padX - (parseFloat(cs.paddingRight) || 0);
+      var h = rect.height - padY - (parseFloat(cs.paddingBottom) || 0);
+      if (w <= 0 || h <= 0) return;
+      api.clickInlineLoginQr(provider, (e.clientX - rect.left - padX) / w, (e.clientY - rect.top - padY) / h);
+    });
+  }
+}
+function resetInlineLoginQrView(provider) {
+  var img = document.getElementById('qr-img');
+  setInlineLoginQrView(false);
+  setLoginQrLoading(false);
+  if (img && img.getAttribute('data-qr-provider') === provider) clearLoginQrImage(img);
+}
+function cancelInlineLoginQr() {
+  var provider = inlineLoginQrProvider;
+  if (!provider) return;
+  var api = window.desktopWindow;
+  try { if (api && typeof api.cancelInlineLogin === 'function') api.cancelInlineLogin(provider); } catch (e) { }
+}
+function openInlineLoginInWindow() {
+  if (!inlineLoginQrProvider) return;
+  inlineLoginQrWantsWindow = true;
+  cancelInlineLoginQr();
+}
+// open(options) calls the desktop login bridge. Returns its result, or null
+// when the inline login was cancelled and nothing more should happen.
+async function openProviderLoginWithInlineQr(provider, open, options) {
+  options = options || {};
+  if (inlineLoginQrSupported()) {
+    bindInlineLoginQr();
+    inlineLoginQrProvider = provider;
+    inlineLoginQrWantsWindow = false;
+    clearLoginQrImage();
+    setInlineLoginQrView(true);
+    setLoginQrLoading(true);
+    updateLoginProviderUi();
+    var result = null;
+    try {
+      result = await open(Object.assign({}, options, { inline: true }));
+    } finally {
+      if (inlineLoginQrProvider === provider) inlineLoginQrProvider = '';
+      if (!result || !result.ok) resetInlineLoginQrView(provider);
+      updateLoginProviderUi();
+    }
+    var wantsWindow = inlineLoginQrWantsWindow;
+    inlineLoginQrWantsWindow = false;
+    if (!result || !result.inline) return result;
+    if (result.cancelled && !wantsWindow) return null;
+    if (!result.cancelled && !result.fallback) return result;
+    var statusEl = document.getElementById('qr-status');
+    if (statusEl && loginProvider === provider) {
+      statusEl.textContent = wantsWindow ? '已打开官方登录窗口' : '没能在软件内显示二维码，已改用官方登录窗口';
+      statusEl.className = 'preview';
+    }
+  }
+  return open(options);
+}
 function openProviderWebLogin() {
   if (loginProvider === 'qq') return openQQWebLogin();
   if (loginProvider === 'kugou') return openKugouWebLogin();
@@ -1383,9 +1727,10 @@ async function openNeteaseWebLogin() {
 
   neteaseWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '正在打开网易云官方登录页，二维码加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入网易云登录二维码…' : '正在打开网易云官方登录页，二维码加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
-    var result = await api.openNeteaseMusicLogin();
+    var result = await openProviderLoginWithInlineQr('netease', function (opts) { return api.openNeteaseMusicLogin(opts); });
+    if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || '网易云登录未完成');
     }
@@ -1431,11 +1776,12 @@ async function openQQWebLogin() {
 
   qqWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '已打开 QQ 音乐窗口，请扫码并确认登录…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入 QQ 音乐登录二维码…' : '已打开 QQ 音乐窗口，请扫码并确认登录…'; statusEl.className = 'preview'; }
   try {
-    var result = await api.openQQMusicLogin({
+    var result = await openProviderLoginWithInlineQr('qq', function (opts) { return api.openQQMusicLogin(opts); }, {
       forceReauth: !!(qqLoginStatus && qqLoginStatus.authorizationIncomplete && qqLoginStatus.playbackKeyReady === false)
     });
+    if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || 'QQ 登录未完成');
     }
@@ -1488,9 +1834,10 @@ async function openKugouWebLogin() {
 
   kugouWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '正在打开酷狗音乐官方登录页，加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入酷狗音乐登录二维码…' : '正在打开酷狗音乐官方登录页，加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
-    var result = await api.openKugouMusicLogin({ forceReauth: true });
+    var result = await openProviderLoginWithInlineQr('kugou', function (opts) { return api.openKugouMusicLogin(opts); }, { forceReauth: true });
+    if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || '酷狗登录未完成');
     }
