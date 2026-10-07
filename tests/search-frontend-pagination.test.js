@@ -311,7 +311,9 @@ test('account platform order picks the shown copy without beating a better match
   ];
   const sandbox = { order: ['qq', 'netease', 'kugou', 'qishui'] };
   vm.runInNewContext(functionBundle(names, `
-    var SEARCH_PROVIDER_PREFERENCE_STEP = 8;
+    var SEARCH_PROVIDER_PREFERENCE_STEP = 11;
+    var SEARCH_CROSS_PLATFORM_BONUS = 30;
+    var SEARCH_ORIGINAL_ARTIST_BONUS = 90;
     var SEARCH_PROVIDER_RUN_PENALTY = 36;
     var SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS = 3;
     var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
@@ -335,17 +337,36 @@ test('account platform order picks the shown copy without beating a better match
   merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], [], 10, '晴天');
   assert.equal(merged[0].provider, 'netease', 'platform preference must not lift a cover above the original');
 
-  // The preferred platform has more, slightly better songs; the other platform
+  // A lower platform has more, slightly better songs; the preferred platform
   // must still reach the first screen instead of starting after row 12.
-  sandbox.order = ['qq', 'netease', 'kugou', 'qishui'];
+  sandbox.order = ['netease', 'qq', 'kugou', 'qishui'];
   const titles = ['晴天', '稻香', '七里香', '夜曲', '青花瓷', '搁浅', '轨迹', '借口', '枫', '园游会', '以父之名', '半岛铁盒'];
-  const qqSongs = titles.map((name, i) => ({ provider: 'qq', mid: 'q' + i, name, artist: '周杰伦', album: name }));
+  const qishuiSongs = titles.map((name, i) => ({ provider: 'qishui', id: 'q' + i, name, artist: '周杰伦', album: name, popularity: 1e9 }));
   const neteaseSongs = ['屋顶', '布拉格广场', '刀马旦'].map((name, i) => ({ provider: 'netease', id: 'n' + i, name, artist: '周杰伦 / 温岚', album: name }));
-  merged = sandbox.merge(neteaseSongs, qqSongs, [], [], [], 30, '周杰伦');
+  merged = sandbox.merge(neteaseSongs, [], [], qishuiSongs, [], 30, '周杰伦');
   const firstNetease = merged.findIndex((song) => song.provider === 'netease');
-  assert.ok(firstNetease > 0 && firstNetease <= 3, 'another platform appears within the first rows, got index ' + firstNetease);
-  assert.equal(merged[0].provider, 'qq', 'the best match stays first');
+  assert.ok(firstNetease >= 0 && firstNetease <= 3, 'the preferred platform appears within the first rows, got index ' + firstNetease);
   assert.equal(merged.length, 15);
+
+  // Song title where the preferred platform only has covers (no rights): the
+  // overview's original singer lifts the lower platform's original to the top,
+  // and an uploader named after the song does not double-score.
+  sandbox.searchOriginalArtistHint = { query: '晴天', artist: '周杰伦' };
+  const covers = ['空匪', '梦里啥都有', 'Jay'].map((artist, i) => ({ provider: 'netease', id: 'c' + i, name: '晴天', artist, album: '', popularity: 100 }));
+  const qqOriginalSunny = { provider: 'qq', mid: 'o', name: '晴天', artist: '周杰伦', album: '叶惠美' };
+  const qqLive = { provider: 'qq', mid: 'l', name: '晴天', artist: '周杰伦', album: '地表最强演唱会 Live' };
+  const selfNamed = { provider: 'qishui', id: 'x', name: '晴天', artist: '晴天', album: '' };
+  merged = sandbox.merge(covers, [qqOriginalSunny, qqLive], [], [selfNamed], [], 30, '晴天');
+  assert.equal(merged[0].mid, 'o', 'the original singer\'s studio version leads');
+  assert.ok(merged.findIndex((song) => song.mid === 'l') > 1, 'the hint does not lift the live edition');
+  assert.ok(merged.findIndex((song) => song.id === 'x') > 0, 'a self-titled upload is not a best match');
+  sandbox.searchOriginalArtistHint = { query: '', artist: '' };
+
+  // The reverse never happens: a lower platform does not break up the preferred one's rows.
+  const neteaseMany = titles.map((name, i) => ({ provider: 'netease', id: 'n' + i, name, artist: '周杰伦', album: name }));
+  const qishuiFew = ['屋顶', '布拉格广场', '刀马旦'].map((name, i) => ({ provider: 'qishui', id: 's' + i, name, artist: '周杰伦 / 温岚', album: name }));
+  merged = sandbox.merge(neteaseMany, [], [], qishuiFew, [], 30, '周杰伦');
+  assert.equal(merged.findIndex((song) => song.provider === 'qishui'), 12, 'the bottom platform waits until the preferred one runs out');
 
   // Artist-name query: uploads merely titled "The Weeknd" must not bury the
   // artist's songs, and the preferred platform leads (reported with Qishui).

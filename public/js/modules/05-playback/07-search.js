@@ -1081,13 +1081,16 @@ function searchTitleMatchCredit(name, nq) {
 function searchQueryIsArtistName(q, lists) {
   var nq = simpleSearchNorm(q);
   if (!nq) return false;
-  var hits = 0;
+  var artistHits = 0;
+  var titleHits = 0;
   (lists || []).forEach(function (list) {
     (list || []).forEach(function (song) {
-      if (sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === nq; })) hits++;
+      if (sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === nq; })) artistHits++;
+      else if (simpleSearchNorm(song && song.name) === nq) titleHits++;
     });
   });
-  return hits >= 3;
+  // "晴天" is also some uploader's name, but far more results are titled 晴天.
+  return artistHits >= 3 && artistHits > titleHits;
 }
 function scoreSongSearchResult(song, q, sourceIndex, context) {
   var nq = simpleSearchNorm(q);
@@ -1104,11 +1107,17 @@ function scoreSongSearchResult(song, q, sourceIndex, context) {
   var score = 0;
   if (!artistQuery) score += searchTitleMatchCredit(name, nq);
   else if (!sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === nq; })) score -= 120;
-  if (artistMentioned || (artist && nq && nq.indexOf(artist) >= 0)) score += 88;
-  else if (artist && nq && artist.indexOf(nq) >= 0) score += 32;
+  // An uploader named after the song ("晴天 / 晴天") is a title match, not also an artist match.
+  var selfTitled = !artistQuery && !!(artist && artist === name && name === nq);
+  if (!selfTitled && (artistMentioned || (artist && nq && nq.indexOf(artist) >= 0))) score += 88;
+  else if (!selfTitled && artist && nq && artist.indexOf(nq) >= 0) score += 32;
   if (album && nq && (album === nq || nq.indexOf(album) >= 0)) score += 12;
+  if (context && context.originalArtist && name && name === nq && songVersion === queryVersion &&
+      sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === context.originalArtist; })) {
+    score += SEARCH_ORIGINAL_ARTIST_BONUS;
+  }
   if (coverage.total) {
-    score += coverage.titleMatched * 34 + coverage.artistMatched * 26;
+    score += coverage.titleMatched * 34 + (selfTitled ? 0 : coverage.artistMatched * 26);
     if (coverage.matched === coverage.total) score += 54;
     else score -= (coverage.total - coverage.matched) * 46;
   }
@@ -1127,7 +1136,12 @@ function scoreSongSearchResult(song, q, sourceIndex, context) {
 // kept out of scoreSongSearchResult: relevance decides first, and the bonus is
 // small enough that a cover or live cut from the preferred platform cannot pass
 // the original from another one.
-var SEARCH_PROVIDER_PREFERENCE_STEP = 8;
+var SEARCH_PROVIDER_PREFERENCE_STEP = 11;
+var SEARCH_CROSS_PLATFORM_BONUS = 30;
+// NetEase's overview (multi-match) names the original singer of a searched title,
+// e.g. 晴天 -> 周杰伦, even when NetEase itself only has covers of it.
+var SEARCH_ORIGINAL_ARTIST_BONUS = 90;
+var searchOriginalArtistHint = { query: '', artist: '' };
 function searchProviderPreferenceRanks() {
   var order = typeof contentProviderOrder === 'function' ? contentProviderOrder() : MUSIC_SEARCH_PROVIDER_ORDER;
   var ranks = {};
@@ -1148,14 +1162,24 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
   var providerSeen = {};
   var canonicalSeen = {};
   var ranks = searchProviderPreferenceRanks();
-  var context = { artistQuery: searchQueryIsArtistName(q, [neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs]) };
+  var hint = typeof searchOriginalArtistHint !== 'undefined' ? searchOriginalArtistHint : null;
+  var context = {
+    artistQuery: searchQueryIsArtistName(q, [neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs]),
+    originalArtist: hint && hint.query && hint.query === simpleSearchNorm(q) ? hint.artist : ''
+  };
+  var canonicalProviders = {};
   function push(song, sourceIndex) {
     if (!song || !song.name) return;
     var key = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
     if (providerSeen[key]) return;
     providerSeen[key] = true;
     song._searchScore = scoreSongSearchResult(song, q, sourceIndex, context) + searchProviderPreferenceBonus(ranks, song);
+    song._originalHintScored = !!context.originalArtist;
     var canonicalKey = searchCanonicalSongKey(song);
+    if (canonicalKey) {
+      canonicalProviders[canonicalKey] = canonicalProviders[canonicalKey] || {};
+      canonicalProviders[canonicalKey][songProviderKey(song)] = true;
+    }
     if (canonicalKey && canonicalSeen[canonicalKey] != null) {
       // The same recording on several platforms: keep the preferred platform's copy.
       var existingIndex = canonicalSeen[canonicalKey];
@@ -1178,19 +1202,29 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
   (kugouSongs || []).forEach(function (song, i) { push(song, i); });
   (qishuiSongs || []).forEach(function (song, i) { push(song, i); });
   (spotifySongs || []).forEach(function (song, i) { push(song, i); });
+  // The same title and artist on several platforms is almost always the original;
+  // re-sung uploads (common where a platform lacks the rights) exist on one.
+  out.forEach(function (song) {
+    var seenOn = Object.keys(canonicalProviders[searchCanonicalSongKey(song)] || {}).length;
+    song._searchScore = (song._searchScore || 0) + Math.min(2, Math.max(0, seenOn - 1)) * SEARCH_CROSS_PLATFORM_BONUS;
+  });
   out.sort(function (a, b) {
     return ((b._searchScore || 0) - (a._searchScore || 0)) ||
       (searchProviderPreferenceRank(ranks, a) - searchProviderPreferenceRank(ranks, b));
   });
   return interleaveSearchProviders(out).slice(0, limit);
 }
-// Without this, one platform with slightly higher scores fills the whole first
-// screen. Each extra row in a run from the same platform costs a growing (but
-// capped) penalty, so another platform's next result moves up only when it is
-// close in relevance; the best match always stays first.
+// Without this, a platform lower in the account order with slightly higher
+// scores (e.g. many Qishui uploads) fills the whole first screen. Each extra
+// row in such a run costs a growing (but capped) penalty while a platform
+// ranked above it still has results, so the preferred platform's next close
+// match moves up. Lower platforms never break up a preferred platform's run,
+// and the best match always stays first.
 var SEARCH_PROVIDER_RUN_PENALTY = 36;
 var SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS = 3;
 function interleaveSearchProviders(sorted) {
+  var ranks = searchProviderPreferenceRanks();
+  var rankOf = function (provider) { return ranks[provider] == null ? 99 : ranks[provider]; };
   var queues = {};
   var order = [];
   (sorted || []).forEach(function (song) {
@@ -1208,11 +1242,14 @@ function interleaveSearchProviders(sorted) {
   while (out.length < sorted.length) {
     var bestProvider = '';
     var bestValue = -Infinity;
+    var preferredWaiting = order.some(function (provider) {
+      return queues[provider].length && rankOf(provider) < rankOf(lastProvider);
+    });
     for (var i = 0; i < order.length; i++) {
       var head = queues[order[i]][0];
       if (!head) continue;
       var value = head._searchScore || 0;
-      if (order[i] === lastProvider) value -= SEARCH_PROVIDER_RUN_PENALTY * Math.min(SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS, Math.max(0, run - 1));
+      if (order[i] === lastProvider && preferredWaiting) value -= SEARCH_PROVIDER_RUN_PENALTY * Math.min(SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS, Math.max(0, run - 1));
       if (value > bestValue) {
         bestValue = value;
         bestProvider = order[i];
@@ -1933,11 +1970,43 @@ async function loadSearchOverview(q, mode, controller) {
       if (searchOverviewState.key !== key) return;
       searchOverviewState.byProvider[provider] = r || null;
       searchOverviewState.data = mergeSearchOverviewData(searchOverviewState.byProvider, providers);
+      var lead = provider === 'netease' && r && Array.isArray(r.artists) ? r.artists[0] : null;
+      if (lead && lead.name) {
+        searchOriginalArtistHint = { query: simpleSearchNorm(q), artist: simpleSearchNorm(lead.name) };
+        rerankSearchSongsForOriginalArtist(q, mode);
+      }
       applySearchOverview(key);
     }, function (err) {
       if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', provider, err);
     });
   }));
+}
+// Songs already shown were ranked before the hint arrived: lift the hinted
+// singer's copies of the searched title and present the list again.
+function rerankSearchSongsForOriginalArtist(q, mode) {
+  if (searchMusicRenderState.key !== searchResultKey(q, mode) || !searchMusicRenderState.songs.length) return;
+  var withHint = { originalArtist: searchOriginalArtistHint.artist };
+  var changed = false;
+  searchMusicRenderState.songs.forEach(function (song, index) {
+    if (song._originalHintScored) return;
+    song._originalHintScored = true;
+    var bonus = scoreSongSearchResult(song, q, index, withHint) - scoreSongSearchResult(song, q, index, {});
+    if (bonus > 0) {
+      song._searchScore = (song._searchScore || 0) + bonus;
+      changed = true;
+    }
+  });
+  if (!changed) return;
+  var ranks = searchProviderPreferenceRanks();
+  var songs = searchMusicRenderState.songs.slice().sort(function (a, b) {
+    return ((b._searchScore || 0) - (a._searchScore || 0)) ||
+      (searchProviderPreferenceRank(ranks, a) - searchProviderPreferenceRank(ranks, b));
+  });
+  presentSongSearchResults(q, mode, {
+    songs: interleaveSearchProviders(songs),
+    providerPages: searchMusicRenderState.providerPages,
+    hasMore: searchMusicRenderState.remoteHasMore
+  }, !searchMusicRenderState.partial);
 }
 function applySearchOverview(key) {
   if (searchResultType !== 'all') return;
