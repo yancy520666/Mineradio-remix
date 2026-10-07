@@ -70,7 +70,7 @@ var visualGuideSteps = [
     key: 'login', selector: '#login-node-graph', place: 'below', login: true, nextLabel: '去连线登录',
     kicker: 'Connect',
     title: '最后，连线登录音乐平台',
-    body: '按住平台右边的小圆点，把线拖到中间的 MR 接口后松手，右侧就会出现官方二维码，用手机 App 扫码确认即可。',
+    body: '按住平台右边的小圆点，把线拖到中间的 MR 接口后松手，面板下方会展开官方二维码，用对应的手机 App 扫码确认即可。',
     hint: '右上角的“?”随时可以重看这份引导'
   }
 ];
