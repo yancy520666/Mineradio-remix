@@ -985,6 +985,21 @@ function lyricQualityEnsureCapacity(extraBytes, pinnedRow, tier) {
   return lyricQualityState.bytes + extraBytes <= budget && (pinnedResident || lyricQualityState.residents.length < maxRows);
 }
 
+var LYRIC_QUALITY_DRAG_REST_MS = 90;
+var lyricQualityDragTarget = { index: NaN, changedAt: 0 };
+
+function noteLyricQualityDragTarget(targetIndex) {
+  var index = Number(targetIndex);
+  if (index === lyricQualityDragTarget.index) return;
+  lyricQualityDragTarget.index = index;
+  lyricQualityDragTarget.changedAt = lyricQualityNowMs();
+}
+
+function lyricQualityDragBuildAllowed(job) {
+  if (!job || job.dragNear !== true) return false;
+  return lyricQualityNowMs() - lyricQualityDragTarget.changedAt >= LYRIC_QUALITY_DRAG_REST_MS;
+}
+
 function scheduleLyricQualityBuild(delay) {
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
   if (lyricQualityState.timer || lyricQualityState.idle || !lyricQualityState.queue.length) return;
@@ -999,16 +1014,28 @@ function scheduleLyricQualityBuild(delay) {
     lyricQualityState.idle = 0;
     if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
     if (!lyricQualityState.queue.length) return;
-    if ((typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive()) || lyricQualityInputPending()) {
+    var dragging = typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive();
+    if (lyricQualityInputPending()) {
       scheduleLyricQualityBuild(72);
       return;
     }
-    if (deadline && !deadline.didTimeout && typeof deadline.timeRemaining === 'function' && deadline.timeRemaining() < 5) {
+    if (deadline && !deadline.didTimeout && typeof deadline.timeRemaining === 'function' && deadline.timeRemaining() < (dragging ? 8 : 5)) {
       scheduleLyricQualityBuild(24);
       return;
     }
     lyricQualityState.queue.sort(function (a, b) { return a.priority - b.priority; });
-    var job = lyricQualityState.queue.shift();
+    // While dragging, only the rows beside the drag target may build, and only
+    // once the pointer has rested briefly; farther rows keep their base texture
+    // and upgrade after release, so the drag never waits on a far build.
+    var jobIndex = 0;
+    if (dragging) {
+      jobIndex = lyricQualityState.queue.findIndex(lyricQualityDragBuildAllowed);
+      if (jobIndex < 0) {
+        scheduleLyricQualityBuild(72);
+        return;
+      }
+    }
+    var job = lyricQualityState.queue.splice(jobIndex, 1)[0];
     var row = job && job.row;
     var now = lyricQualityNowMs();
     if (!row || job.globalGeneration !== lyricQualityState.generation || job.rowGeneration !== row.qualityGeneration || row.qualityQueuedKey !== job.key || row.qualityWanted !== true || Number(row.qualityHotUntil) <= now || !lyricQualityOwnerActive(job.data, row)) {
@@ -1058,12 +1085,20 @@ function scheduleLyricQualityBuild(delay) {
   }
 }
 
-function queueLyricRowQuality(data, row, tier, priority) {
+function queueLyricRowQuality(data, row, tier, priority, dragNear) {
   if (!lyricQualityOwnerActive(data, row) || !row.lineMask || tier <= 1 || row.qualityWanted !== true || Number(row.qualityHotUntil) <= lyricQualityNowMs()) return;
   var target = lyricQualityTargetMetrics(row.lineMask, tier);
   if (!target) return;
   var key = target.tier + 'x|' + target.width + 'x' + target.height + '|' + (Number(row.lineMask.stoneSeed) || 0);
-  if ((row.qualityTexture && row.qualityTier === tier && row.qualityRasterKey === key) || (row.qualityPendingTexture && row.qualityPendingTier === tier && row.qualityPendingKey === key) || row.qualityQueuedKey === key) return;
+  if ((row.qualityTexture && row.qualityTier === tier && row.qualityRasterKey === key) || (row.qualityPendingTexture && row.qualityPendingTier === tier && row.qualityPendingKey === key)) return;
+  if (row.qualityQueuedKey === key) {
+    if (dragNear === true) {
+      for (var queuedIndex = 0; queuedIndex < lyricQualityState.queue.length; queuedIndex++) {
+        if (lyricQualityState.queue[queuedIndex].row === row) lyricQualityState.queue[queuedIndex].dragNear = true;
+      }
+    }
+    return;
+  }
   row.qualityGeneration = (Number(row.qualityGeneration) || 0) + 1;
   row.qualityQueuedKey = key;
   lyricQualityState.queue.push({
@@ -1072,6 +1107,7 @@ function queueLyricRowQuality(data, row, tier, priority) {
     tier: tier,
     key: key,
     priority: Number(priority) || 50,
+    dragNear: dragNear === true,
     bytes: target.bytes,
     rowGeneration: row.qualityGeneration,
     globalGeneration: lyricQualityState.generation
@@ -1162,7 +1198,8 @@ function registerLyricQualityCandidates(data, candidates, tier, rootPriority, bu
       tier: tier,
       priority: rootPriority + (Number(candidate.priority) || 50),
       hotMs: Number(candidate.hotMs) || 620,
-      buildDeferred: buildDeferred === true
+      buildDeferred: buildDeferred === true && candidate.dragNear !== true,
+      dragNear: buildDeferred === true && candidate.dragNear === true
     });
   }
 }
@@ -1305,7 +1342,7 @@ function finalizeLyricQualitySelectionFrame() {
   }
   for (var buildIndex = 0; buildIndex < buildCandidates.length; buildIndex++) {
     var buildCandidate = buildCandidates[buildIndex];
-    queueLyricRowQuality(buildCandidate.data, buildCandidate.row, buildCandidate.tier, buildCandidate.priority);
+    queueLyricRowQuality(buildCandidate.data, buildCandidate.row, buildCandidate.tier, buildCandidate.priority, buildCandidate.dragNear);
   }
   pruneLyricQualityQueue(now);
   commitDeferredLyricQualityRows();
@@ -1341,6 +1378,54 @@ function consumeLyricRenderUploadFrameBudget() {
     };
   }
   return true;
+}
+
+// A jump of more than a line and a half (clicking the progress bar, a
+// keyboard seek) glides the shared track like the playlist's back-to-top:
+// fast at first, then a quart ease-out that stops exactly on the target.
+// A new target mid-glide restarts it from where the track is now.
+var LYRIC_TRACK_GLIDE_MIN_ROWS = 1.5;
+
+function lyricTrackGlideEase(t) {
+  t = clampRange(Number(t) || 0, 0, 1);
+  return 1 - Math.pow(1 - t, 4);
+}
+
+function lyricTrackGlideOffset(data, targetIndex, slotStep, nowMs, suspended) {
+  var glide = data.trackGlide;
+  var current = Number(data.trackScrollOffset);
+  if (suspended || !isFinite(current) || !isFinite(Number(targetIndex))) {
+    data.trackGlide = null;
+    return null;
+  }
+  slotStep = Math.max(0.25, Number(slotStep) || 1);
+  if (!glide || glide.to !== targetIndex) {
+    var rows = Math.abs(targetIndex - current) / slotStep;
+    if (rows < LYRIC_TRACK_GLIDE_MIN_ROWS) {
+      data.trackGlide = null;
+      return null;
+    }
+    glide = data.trackGlide = {
+      from: current,
+      to: targetIndex,
+      startedAt: nowMs,
+      durationMs: Math.round(clampRange(300 + rows * 12, 300, 500))
+    };
+  }
+  var t = (nowMs - glide.startedAt) / glide.durationMs;
+  if (t >= 1) {
+    data.trackGlide = null;
+    return targetIndex;
+  }
+  return glide.from + (glide.to - glide.from) * lyricTrackGlideEase(t);
+}
+
+// Per-frame bound multiplier for following a far target without a glide
+// (mainly while dragging). Within about three rows it stays 1, so ordinary
+// line changes keep their exact timing.
+function lyricTrackFarFollowScale(remaining, slotStep) {
+  var rows = Math.abs(Number(remaining) || 0) / Math.max(0.25, Number(slotStep) || 1);
+  return Math.max(1, rows * 0.24 / 0.68);
 }
 
 function updateLyricRowLayers(data, opts) {
@@ -1422,17 +1507,26 @@ function updateLyricRowLayers(data, opts) {
     (isFinite(Number(data.trackScrollSnapUntil)) && nowMs <= Number(data.trackScrollSnapUntil)) ||
     Math.abs(targetIndex - currentScrollOffset) > Math.max(3.2, visibleRadiusForSnap * 1.85)
   ));
+  var trackGlideOffset = null;
   if (needsScrollSnap) {
     data.trackScrollOffset = targetIndex;
     data.trackScrollPrimed = true;
+    data.trackGlide = null;
   } else {
     var trackStep = (targetIndex - data.trackScrollOffset) * trackEase;
     if (data.usesTrack && persistentPrimedTrack) {
+      trackGlideOffset = lyricTrackGlideOffset(data, targetIndex, continuousTrackSlotStep, nowMs, previewMotionLock || editPreview);
+    }
+    if (trackGlideOffset != null) {
+      trackStep = trackGlideOffset - data.trackScrollOffset;
+    } else if (data.usesTrack && persistentPrimedTrack) {
       // Bound the shared phase, not individual meshes: no rendered frame may
       // skip across a complete primary lyric row, while normal adjacent-line
-      // easing keeps exactly the same timing as before.
+      // easing keeps exactly the same timing as before. A far drag target is
+      // the exception: the bound grows with the distance left, so the track
+      // closes in quickly and still decelerates into the last rows.
       var continuousTrackMaxRowsPerFrame = 0.68;
-      var continuousTrackMaxStep = continuousTrackSlotStep * continuousTrackMaxRowsPerFrame;
+      var continuousTrackMaxStep = continuousTrackSlotStep * continuousTrackMaxRowsPerFrame * lyricTrackFarFollowScale(targetIndex - data.trackScrollOffset, continuousTrackSlotStep);
       trackStep = clampRange(trackStep, -continuousTrackMaxStep, continuousTrackMaxStep);
     }
     data.trackScrollOffset += trackStep;
@@ -1464,6 +1558,7 @@ function updateLyricRowLayers(data, opts) {
   var lyricQualityTier = lyricTextureClarityScale();
   var contextHighQualityEnabled = !fx || fx.lyricContextHighQuality !== false;
   var qualityBuildDeferred = typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive();
+  if (qualityBuildDeferred) noteLyricQualityDragTarget(targetIndex);
   var lyricQualityCandidates = [];
   var revealOffsets = lyricDisplayOffsetsForMode(displayMode);
   var revealPrewarmMinOffset = 0;
@@ -1566,7 +1661,12 @@ function updateLyricRowLayers(data, opts) {
       lyricQualityCandidates.push({
         row: row,
         priority: qualityPriority,
-        hotMs: renderWindowActive ? 1100 : 620
+        hotMs: renderWindowActive ? 1100 : 620,
+        // The drag target line and its neighbours (with translations) are the
+        // budgeted set that may build while the progress bar is held.
+        dragNear: qualityBuildDeferred && rowLineIndex != null
+          ? Math.abs(rowLineIndex - targetLineIndex) <= 1
+          : (qualityBuildDeferred && (isActive || currentTranslation))
       });
     }
     var rowRevealAt = Number(row.renderRevealAt) || nowMs;
@@ -1664,7 +1764,13 @@ function updateLyricRowLayers(data, opts) {
       if (data.usesTrack && persistentPrimedTrack) {
         var continuousRowMaxRowsPerFrame = 0.66;
         var continuousRowMaxStepWorld = continuousTrackSlotStep * lineStepWorld * continuousRowMaxRowsPerFrame;
-        rowYStep = clampRange(rowYStep, -continuousRowMaxStepWorld, continuousRowMaxStepWorld);
+        // A seek glide already eases the shared track, so rows ride it
+        // exactly; a second lagging ease would blur the precise stop.
+        if (trackGlideOffset != null) rowYStep = rowYTarget - row.mesh.position.y;
+        else {
+          continuousRowMaxStepWorld *= lyricTrackFarFollowScale((rowYTarget - row.mesh.position.y) / Math.max(0.0001, lineStepWorld), continuousTrackSlotStep);
+          rowYStep = clampRange(rowYStep, -continuousRowMaxStepWorld, continuousRowMaxStepWorld);
+        }
       }
       row.mesh.position.y += rowYStep;
       row.mesh.position.z += (zTarget - row.mesh.position.z) * ease;
