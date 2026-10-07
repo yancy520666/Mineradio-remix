@@ -1418,7 +1418,7 @@ function checkLyricScrollPerformanceGuard() {
   if (!/var multiLineLoad = stageLyricMultiLineWarmupLoad\(\)/.test(stageText) || !/if \(payload\.trackLightweight\) return false;/.test(stageText) || !/if \(!multiLineLoad && lyricsLines\.length < 24\) return false;/.test(stageText) || !/if \(options\.noSyncBuild\) \{[\s\S]{0,100}requestStageLyricDemandPrewarm\(payload\);[\s\S]{0,60}return false;/.test(stageText) || /allowLightweightSyncBuild/.test(stageText)) {
     fail('multi-line lyrics must defer both lightweight and full mesh builds off the animation tick');
   }
-  if (!/function beginLyricRowLayerGroupBuild/.test(rowText) || !/function appendLyricRowLayerBuildPhase/.test(rowText) || !/function stepLyricRowLayerGroupBuild/.test(rowText) || !/function beginCooperativeLyricMeshBuild/.test(meshText) || !/function stepCooperativeLyricMeshBuild/.test(meshText) || !/stepCooperativeLyricMeshBuild\(job\.state, 1, 4\.2\)/.test(stageText) || !/stageLyricPrewarm\.workTimer/.test(stageText)) {
+  if (!/function beginLyricRowLayerGroupBuild/.test(rowText) || !/function appendLyricRowLayerBuildPhase/.test(rowText) || !/function stepLyricRowLayerGroupBuild/.test(rowText) || !/function beginCooperativeLyricMeshBuild/.test(meshText) || !/function stepCooperativeLyricMeshBuild/.test(meshText) || !/stepCooperativeLyricMeshBuild\(job\.state, 1, budgetMs\)/.test(stageText) || !/phase < 4/.test(stageText) || !/stageLyricNowMs\(\) - startedAt >= budgetMs/.test(stageText) || !/stageLyricPrewarm\.workTimer/.test(stageText)) {
     fail('multi-line lyric meshes must be built cooperatively in bounded row sub-phases');
   }
   if (!/function beginLyricReadabilityTextureBuild/.test(maskText) || !/function stepLyricReadabilityTextureBuild/.test(maskText) || !/LYRIC_READABILITY_BUILD_PHASES = 4/.test(maskText) || !/function beginLyricGlowTextureBuild/.test(maskText) || !/function stepLyricGlowTextureBuild/.test(maskText) || !/LYRIC_GLOW_BUILD_PHASES = 12/.test(maskText) || !/row-readability-/.test(rowText) || !/row-glow-/.test(rowText)) {
@@ -2491,7 +2491,7 @@ function checkSearchGlassEntranceGuard() {
   const searchBoxSourceMergeCount = (searchBoxFilterText.match(/<feMergeNode in="SourceGraphic"/g) || []).length;
   const searchPillSourceMergeCount = (searchPillFilterText.match(/<feMergeNode in="SourceGraphic"/g) || []).length;
   const searchBoxFilterMatchesSavedRgbGlass =
-    /css\/index\.css\?v=20260716-we-continuity-vsync/.test(indexText) &&
+    /css\/index\.css\?v=20261008-aero-input-safety/.test(indexText) &&
     /x="-24%"\s+y="-34%"\s+width="158%"/.test(searchBoxFilterText) &&
     /height="168%"/.test(searchBoxFilterText) &&
     /id="search-box-glass-map"\s+x="-10%"\s+y="-4%"\s+width="120%"\s+height="108%"/.test(searchBoxFilterText) &&

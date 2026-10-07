@@ -26,6 +26,7 @@
     'js/modules/02-visual/00-pointer-cover-particles.js',
     'js/modules/02-visual/01-float-skull-backcover.js',
     'js/modules/02-visual/02-lyrics-state-layout.js',
+    'js/modules/02-visual/02a-lyric-work-scheduler.js',
     'js/modules/02-visual/03-lyrics-star-river.js',
     'js/modules/02-visual/04-visual-settings-persistence.js',
     'js/modules/02-visual/05-lyrics-fonts-texture.js',

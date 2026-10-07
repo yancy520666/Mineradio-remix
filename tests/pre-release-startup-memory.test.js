@@ -35,13 +35,15 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
     },
     $input: null,
     startVisualGuide: (options) => shown.push(options),
-    maybeRunStartupLoginGuide: () => shown.push('login')
+    maybeRunStartupLoginGuide: () => shown.push('login'),
+    renderVisualGuideDemo: () => {},
+    setVisualGuideLogin: () => {}
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'public/js/modules/00-state/02a-onboarding-state.js'), 'utf8'), context);
   const file = 'public/js/modules/09a-onboarding-guide.js';
   vm.runInContext(source(file, 'function visualGuideWasSeen()', 'function startVisualGuide(opts)'), context);
-  vm.runInContext(source(file, 'function closeVisualGuide(markSeen)', 'function handleVisualGuideSurfaceClick(e)'), context);
+  vm.runInContext(source(file, 'function closeVisualGuide(markSeen, opts)', 'function handleVisualGuideSurfaceClick(e)'), context);
 
   context.originalProfileImportPending = true;
   assert.equal(context.maybeRunStartupVisualGuide('splash'), false);

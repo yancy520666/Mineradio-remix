@@ -154,10 +154,10 @@ function updatePerformanceControls() {
 }
 var SONIC_ORIGINAL_FX_CONTROL_IDS = [
   'fx-sonic-ground-section', 'fx-sonicamp', 'fx-sonicspeed', 'fx-sonicdensity', 'fx-sonicrange', 'fx-soniclower', 'fx-sonicdepth', 'fx-sonicautorotate',
-  'fx-sonic-audio-section', 'sonic-audio-toggle-grid', 'sonic-audio-monitor', 'fx-sonicaudiosensitivity', 'fx-sonicaudiobandstart', 'fx-sonicaudiobandend', 'fx-sonicaudiothreshold', 'fx-sonicaudiopulse',
+  'fx-sonic-audio-section', 'sonic-audio-toggle-grid', 't-sonicAudioMonitorEnabled', 't-sonicAudioAutoTrack', 'sonic-audio-monitor', 'fx-sonicaudiosensitivity', 'fx-sonicaudiobandstart', 'fx-sonicaudiobandend', 'fx-sonicaudiothreshold', 'fx-sonicaudiopulse',
   'fx-sonicsubbass', 'fx-sonicbass', 'fx-soniclowmid', 'fx-sonicmid', 'fx-sonichighmid', 'fx-sonicpresence', 'fx-sonicbrilliance', 'fx-sonicair',
   'fx-sonic-color-section', 'sonic-ground-base-row', 'sonic-ground-cool-row', 'sonic-ground-warm-row', 'sonic-ground-accent-row', 'fx-sonicglow',
-  'fx-sonic-floating-section', 'sonic-floating-toggle-grid', 'fx-sonicfloatcount', 'fx-sonicfloatintensity', 'fx-sonicfloatmin', 'fx-sonicfloatmax', 'fx-sonicfloatspeed'
+  'fx-sonic-floating-section', 'sonic-floating-toggle-grid', 't-sonicGroundFloatingEnabled', 'fx-sonicfloatcount', 'fx-sonicfloatintensity', 'fx-sonicfloatmin', 'fx-sonicfloatmax', 'fx-sonicfloatspeed'
 ];
 var SONIC_WORKSHOP_FX_CONTROL_IDS = [
   'fx-sonic-workshop-section', 'fx-sonicwegain', 'fx-sonicweaudio', 'fx-sonicwerange', 'fx-sonicwepeak',
@@ -167,6 +167,8 @@ var SONIC_WORKSHOP_FX_CONTROL_IDS = [
 function fxPanelControlBlockById(id) {
   var el = document.getElementById(id);
   if (!el) return null;
+  // The visual console moves toggles out of their original grid, so hide them individually.
+  if (el.classList && el.classList.contains('fx-toggle')) return el;
   if (el.classList && (el.classList.contains('fx-section-label') || el.classList.contains('fx-slider') || el.classList.contains('fx-toggle-grid') || el.classList.contains('sonic-audio-monitor') || el.classList.contains('lyric-color-row') || el.classList.contains('fx-seg'))) return el;
   return el.closest ? el.closest('.fx-slider,.fx-toggle-grid,.sonic-audio-monitor,.lyric-color-row,.fx-seg,.fx-section-label') : null;
 }
@@ -183,6 +185,7 @@ function updateSonicSeriesControlVisibility() {
   setFxPanelControlsHidden(SONIC_ORIGINAL_FX_CONTROL_IDS, !original);
   setFxPanelControlsHidden(SONIC_WORKSHOP_FX_CONTROL_IDS, !workshop);
   setFxPanelControlsHidden(['fx-lyricbgadapt-row', 'fx-lyricbgadapt'], false);
+  if (typeof updateFxConsolePresetHints === 'function') updateFxConsolePresetHints();
 }
 function setPerformanceBackgroundMode(mode, silent) {
   var next = normalizePerformanceBackgroundMode(mode, false);
@@ -359,6 +362,14 @@ function updateFxInputs() {
   if (lyricContextHighQualityToggle) lyricContextHighQualityToggle.classList.toggle('on', fx.lyricContextHighQuality !== false);
   var lyricBackdropAdaptToggle = document.getElementById('t-lyricBackdropAdapt');
   if (lyricBackdropAdaptToggle) lyricBackdropAdaptToggle.classList.toggle('on', fx.lyricBackdropAdapt !== false);
+  var aeroWaterThemeToggle = document.getElementById('t-aeroWaterTheme');
+  if (aeroWaterThemeToggle) aeroWaterThemeToggle.classList.toggle('on', fx.aeroWaterTheme === true);
+  document.querySelectorAll('#aero-water-palette-seg [data-aero-palette]').forEach(function (btn) {
+    var active = btn.getAttribute('data-aero-palette') === normalizeAeroWaterPalette(fx.aeroWaterPalette);
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (typeof applyAeroWaterTheme === 'function') applyAeroWaterTheme();
   var coverBackdropAdaptToggle = document.getElementById('t-coverBackdropAdapt');
   if (coverBackdropAdaptToggle) coverBackdropAdaptToggle.classList.toggle('on', fx.coverBackdropAdapt !== false);
   var lyricPauseHoldToggle = document.getElementById('t-lyricPauseHold');
