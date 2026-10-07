@@ -23,7 +23,7 @@ var SEARCH_RESULT_TYPES = [
 ];
 // Platforms whose typed search the backend supports (see handleTypedSearch).
 var TYPED_SEARCH_PROVIDERS = { artist: ['netease', 'qq'], album: ['netease', 'qq'], playlist: ['netease'], user: ['netease'] };
-var typedSearchState = { key: '', items: [], user: null, userPlaylists: [] };
+var typedSearchState = { key: '', items: [], user: null, userPlaylists: [], providerPages: {}, partial: false, loadingMore: false };
 var searchOverviewState = { key: '', data: null };
 var pendingSearchProviderPages = null;
 var searchMusicRenderState = {
@@ -466,6 +466,13 @@ $results.addEventListener('click', function (e) {
     appendNextSearchResults();
     return;
   }
+  var typedMore = e.target && e.target.closest ? e.target.closest('[data-typed-load-more]') : null;
+  if (typedMore) {
+    e.preventDefault();
+    e.stopPropagation();
+    loadNextTypedSearchPage();
+    return;
+  }
   var clearBtn = e.target && e.target.closest ? e.target.closest('[data-clear-history]') : null;
   if (clearBtn) {
     e.preventDefault();
@@ -485,6 +492,12 @@ $results.addEventListener('click', function (e) {
 $results.addEventListener('pointerdown', function () { searchMusicRenderState.engaged = true; }, true);
 $results.addEventListener('wheel', function () { searchMusicRenderState.engaged = true; }, { passive: true });
 $results.addEventListener('keydown', function (e) {
+  var typedMore = e.target && e.target.closest ? e.target.closest('[data-typed-load-more]') : null;
+  if (typedMore && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    loadNextTypedSearchPage();
+    return;
+  }
   var tab = e.target && e.target.closest ? e.target.closest('[data-search-type]') : null;
   if (tab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) {
     // Tab moves focus in and out of the bar; arrow keys switch between types.
@@ -511,7 +524,10 @@ $results.addEventListener('keydown', function (e) {
 });
 $results.addEventListener('scroll', function () {
   if (!$results.classList.contains('show')) return;
-  if ($results.scrollTop + $results.clientHeight >= $results.scrollHeight - 96) appendNextSearchResults();
+  if ($results.scrollTop + $results.clientHeight >= $results.scrollHeight - 96) {
+    if (searchResultType !== 'all' && searchResultType !== 'song' && searchMode !== 'podcast') loadNextTypedSearchPage();
+    else appendNextSearchResults();
+  }
 }, { passive: true });
 document.addEventListener('click', function (e) {
   var searchArea = document.getElementById('search-area');
@@ -1270,18 +1286,52 @@ function mergeUniqueSearchSongPools(existing, incoming) {
   var out = [];
   var providerSeen = {};
   var canonicalSeen = {};
+  var ranks = searchProviderPreferenceRanks();
   function push(song) {
-    if (!song || !song.name || out.length >= MUSIC_SEARCH_MAX_RESULTS) return;
+    if (!song || !song.name) return;
     var providerKey = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
     var canonicalKey = searchCanonicalSongKey(song);
-    if (providerSeen[providerKey] || (canonicalKey && canonicalSeen[canonicalKey])) return;
+    if (providerSeen[providerKey]) return;
     providerSeen[providerKey] = true;
-    if (canonicalKey) canonicalSeen[canonicalKey] = true;
+    if (canonicalKey && canonicalSeen[canonicalKey] != null) {
+      var index = canonicalSeen[canonicalKey];
+      if (searchProviderPreferenceRank(ranks, song) < searchProviderPreferenceRank(ranks, out[index])) out[index] = song;
+      return;
+    }
+    if (out.length >= MUSIC_SEARCH_MAX_RESULTS) return;
+    if (canonicalKey) canonicalSeen[canonicalKey] = out.length;
     out.push(song);
   }
   (existing || []).forEach(push);
   (incoming || []).forEach(push);
   return out;
+}
+// Update the source in place: retain row positions and the existing action buttons.
+function refreshSearchSongSources(previousSongs) {
+  var rows = $results.querySelectorAll('.search-result[data-song-key]');
+  for (var i = 0; i < Math.min(rows.length, previousSongs.length); i++) {
+    var song = searchMusicRenderState.songs[i];
+    if (!song || searchSongRowKey(song) === searchSongRowKey(previousSongs[i])) continue;
+    var row = rows[i];
+    row.classList.remove(songProviderKey(previousSongs[i]) + '-source');
+    row.classList.add(songProviderKey(song) + '-source');
+    row.setAttribute('data-song-key', searchSongRowKey(song));
+    row.querySelector('.search-result-title').innerHTML = escHtml(song.name) + songSourceTagHtml(song) + songVipTagHtml(song);
+    row.querySelector('.search-result-meta').innerHTML = searchResultMetaHtml(song, i);
+    var image = row.querySelector('img');
+    var cover = songCoverSrc(song, 80);
+    if (image && cover) {
+      image.style.opacity = '';
+      image.src = cover;
+    }
+    var like = row.querySelector('[data-like-index]');
+    if (like) {
+      var liked = isSongLiked(song);
+      like.classList.toggle('liked', liked);
+      like.title = liked ? '取消红心' : '红心喜欢';
+    }
+  }
+  syncLikeStatusForSongs(searchMusicRenderState.songs.slice(0, rows.length));
 }
 async function fetchMusicSearchResults(q, mode, previousPages, opts) {
   opts = opts || {};
@@ -1470,12 +1520,13 @@ async function loadNextMusicSearchPage(expectedKey) {
     var page = await fetchMusicSearchResults(q, mode, searchMusicRenderState.providerPages);
     if (requestSeq !== searchRequestSeq || expectedKey !== searchMusicRenderState.key || expectedKey !== searchLastResultQuery || searchMode !== mode || $input.value.trim() !== q) return false;
     var before = searchMusicRenderState.songs.length;
+    var previousSongs = searchMusicRenderState.songs;
     var merged = mergeUniqueSearchSongPools(searchMusicRenderState.songs, page.songs || []);
     searchMusicRenderState.providerPages = page.providerPages || {};
     searchMusicRenderState.songs = merged;
     playlist = merged;
+    refreshSearchSongSources(previousSongs);
     searchMusicRenderState.remoteHasMore = !!page.hasMore && merged.length < MUSIC_SEARCH_MAX_RESULTS;
-    if (merged.length === before) searchMusicRenderState.remoteHasMore = false;
     searchMusicRenderState.loadingMore = false;
     if (merged.length > before) return appendNextSearchResults(expectedKey);
     refreshSearchLoadMoreSentinel();
@@ -1619,12 +1670,14 @@ function presentSongSearchResults(q, mode, data, final) {
   }
   var keep = Math.min(searchRowsOnScreenCount(), searchMusicRenderState.visibleCount);
   var visible = searchMusicRenderState.songs.slice(0, keep);
+  var previousSongs = searchMusicRenderState.songs;
   var merged = mergeUniqueSearchSongPools(visible, songs);
   searchMusicRenderState.songs = merged;
   searchMusicRenderState.providerPages = plan.providerPages;
   searchMusicRenderState.remoteHasMore = plan.hasMore && merged.length < MUSIC_SEARCH_MAX_RESULTS;
   searchMusicRenderState.partial = plan.partial;
   playlist = merged;
+  refreshSearchSongSources(previousSongs.slice(0, keep));
   rerenderSearchRowsAfter(keep);
   refreshSearchLoadMoreSentinel();
 }
@@ -1668,6 +1721,9 @@ async function doSearch(q, opts) {
     if (isStale()) return;
     if (!songs.length) {
       resetSearchMusicRenderState();
+      searchMusicRenderState.key = searchResultKey(q, mode);
+      searchMusicRenderState.query = q;
+      searchMusicRenderState.mode = mode;
       playlist = [];
       searchLastResultQuery = '';
       $results.innerHTML = searchTypeBarHtml() + searchOverviewHtml(searchResultKey(q, mode)) + '<div class="search-empty">' + escHtml(searchProviderNotice || '没有找到相关歌曲') + '</div>';
@@ -1831,11 +1887,76 @@ function renderTypedSearchResults(items, message, opts) {
     ? typedSearchState.items.map(typedSearchRowHtml).join('')
     : '<div class="search-empty">' + escHtml(message || '没有找到相关内容') + '</div>';
   if (typedSearchState.items.length && message) body += '<div class="search-empty search-load-more" role="status">' + escHtml(message) + '</div>';
+  if (!typedSearchState.user && !typedSearchState.partial && typedSearchState.items.length < MUSIC_SEARCH_MAX_RESULTS &&
+      searchProviderPagesHaveMore(typedSearchState.providerPages)) {
+    body += '<div class="search-empty search-load-more" data-typed-load-more="1" role="button" tabindex="0" aria-disabled="' + !!typedSearchState.loadingMore + '">' +
+      (typedSearchState.loadingMore ? '正在加载更多…' : '继续滚动或点击加载更多') + '</div>';
+  }
   var focusedType = focusedSearchTypeTab();
+  var scrollTop = opts.preserveScroll ? $results.scrollTop : 0;
   $results.innerHTML = head + body;
   $results.classList.add('show');
+  $results.scrollTop = scrollTop;
   restoreSearchTypeTabFocus(focusedType);
   if (window.gsap && opts.animate) animateListItems($results, '.search-typed-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
+}
+async function fetchTypedSearchProviderPage(provider, type, q, previous, signal) {
+  var offset = previous ? previous.nextOffset : 0;
+  var limit = 18;
+  var url = '/api/search/type?provider=' + provider + '&type=' + type + '&keywords=' + encodeURIComponent(q) + '&limit=' + limit + '&offset=' + offset;
+  var r = await apiJson(url, { timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS, signal: signal });
+  var items = r && Array.isArray(r.items) ? r.items : [];
+  var nextOffset = Number(r && r.nextOffset);
+  if (!isFinite(nextOffset) || nextOffset <= offset) nextOffset = offset + items.length;
+  return { items: items, page: { nextOffset: nextOffset, hasMore: !!(r && r.hasMore && items.length && nextOffset > offset) } };
+}
+function typedSearchRequestIsCurrent(state) {
+  return typedSearchState === state && state.requestSeq === searchRequestSeq &&
+    state.mode === searchMode && state.type === searchResultType && $input.value.trim() === state.query;
+}
+async function loadNextTypedSearchPage() {
+  var state = typedSearchState;
+  if (!typedSearchRequestIsCurrent(state) || state.user || state.partial || state.loadingMore || state.items.length >= MUSIC_SEARCH_MAX_RESULTS) return false;
+  var providers = Object.keys(state.providerPages).filter(function (provider) { return state.providerPages[provider].hasMore; });
+  if (!providers.length) return false;
+  state.loadingMore = true;
+  var itemsBefore = state.items.slice();
+  renderTypedSearchResults(state.items, '', { preserveScroll: true });
+  var controller = window.AbortController ? new AbortController() : null;
+  searchAbortController = controller;
+  var byProvider = {};
+  try {
+    await Promise.all(providers.map(async function (provider) {
+      try {
+        var result = await fetchTypedSearchProviderPage(provider, state.type, state.query, state.providerPages[provider], controller ? controller.signal : undefined);
+        if (!typedSearchRequestIsCurrent(state)) return;
+        state.providerPages[provider] = result.page;
+        byProvider[provider] = result.items;
+      } catch (err) {
+        if (!typedSearchRequestIsCurrent(state)) return;
+        state.providerPages[provider].hasMore = false;
+        console.warn('[TypedSearchLoadMore]', provider, err);
+      }
+    }));
+    if (!typedSearchRequestIsCurrent(state)) return false;
+    var seen = {};
+    itemsBefore.forEach(function (item) { seen[item.provider + ':' + item.id] = true; });
+    var incoming = mergeTypedSearchItems(byProvider, providers, state.query).filter(function (item) {
+      var key = item.provider + ':' + item.id;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+    // Keep indexes and scroll position stable as subsequent pages arrive.
+    var merged = itemsBefore.concat(incoming).slice(0, MUSIC_SEARCH_MAX_RESULTS);
+    if (state.user) state.userPlaylists = merged;
+    else state.items = merged;
+    return true;
+  } finally {
+    state.loadingMore = false;
+    if (searchAbortController === controller) searchAbortController = null;
+    if (typedSearchRequestIsCurrent(state) && !state.user) renderTypedSearchResults(state.items, '', { preserveScroll: true });
+  }
 }
 async function doTypedSearch(q) {
   var type = searchResultType;
@@ -1847,12 +1968,13 @@ async function doTypedSearch(q) {
   playlist = [];
   var controller = window.AbortController ? new AbortController() : null;
   searchAbortController = controller;
-  typedSearchState.user = null;
   var key = type + '|' + searchResultKey(q, mode);
-  typedSearchState.key = key;
+  var state = { key: key, query: q, type: type, mode: mode, requestSeq: requestSeq, items: [], user: null, userPlaylists: [], providerPages: {}, partial: true, loadingMore: false };
+  typedSearchState = state;
   var providers = typedSearchProvidersFor(type, mode);
   var label = searchResultTypeLabel(type);
   if (!providers.length) {
+    state.partial = false;
     renderTypedSearchResults([], (searchModeProvider(mode) ? (typeof platformMeta === 'function' ? (platformMeta(mode).label || mode) : mode) + ' ' : '当前平台') + '暂不支持搜索' + label);
     return;
   }
@@ -1864,9 +1986,11 @@ async function doTypedSearch(q) {
   var pending = providers.length;
   var shown = false;
   await Promise.all(providers.map(function (provider) {
-    var url = '/api/search/type?provider=' + provider + '&type=' + type + '&keywords=' + encodeURIComponent(q) + '&limit=18';
-    return apiJson(url, { timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS, signal: controller ? controller.signal : undefined })
-      .then(function (r) { itemsByProvider[provider] = (r && Array.isArray(r.items)) ? r.items : []; })
+    return fetchTypedSearchProviderPage(provider, type, q, null, controller ? controller.signal : undefined)
+      .then(function (r) {
+        itemsByProvider[provider] = r.items;
+        if (!isStale()) state.providerPages[provider] = r.page;
+      })
       .catch(function (err) {
         if (!(controller && controller.signal.aborted)) console.warn('[TypedSearch]', provider, type, err);
         itemsByProvider[provider] = [];
@@ -1874,6 +1998,7 @@ async function doTypedSearch(q) {
       .then(function () {
         pending--;
         if (isStale()) return;
+        state.partial = pending > 0;
         var merged = mergeTypedSearchItems(itemsByProvider, providers, q);
         if (!merged.length && pending > 0) return;
         // Once the user starts pointing at the list, later platforms only append.
@@ -1882,7 +2007,7 @@ async function doTypedSearch(q) {
           typedSearchState.items.forEach(function (item) { seen[item.provider + ':' + item.id] = true; });
           merged = typedSearchState.items.concat(merged.filter(function (item) { return !seen[item.provider + ':' + item.id]; }));
         }
-        renderTypedSearchResults(merged, pending > 0 ? '其他平台的结果还在路上…' : (merged.length ? '' : '没有找到相关' + label), { animate: !shown });
+        renderTypedSearchResults(merged, pending > 0 ? '其他平台的结果还在路上…' : (merged.length ? '' : '没有找到相关' + label), { animate: !shown, preserveScroll: shown });
         shown = shown || merged.length > 0;
       });
   }));
@@ -1960,6 +2085,7 @@ function mergeSearchOverviewData(byProvider, providers) {
 }
 async function loadSearchOverview(q, mode, controller) {
   var key = searchResultKey(q, mode);
+  var requestSeq = searchRequestSeq;
   searchOverviewState = { key: key, data: null, byProvider: {} };
   var providers = typedSearchProvidersFor('artist', mode);
   await Promise.all(providers.map(function (provider) {
@@ -1967,7 +2093,7 @@ async function loadSearchOverview(q, mode, controller) {
       timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS,
       signal: controller ? controller.signal : undefined
     }).then(function (r) {
-      if (searchOverviewState.key !== key) return;
+      if (searchOverviewState.key !== key || requestSeq !== searchRequestSeq || (controller && controller.signal.aborted)) return;
       searchOverviewState.byProvider[provider] = r || null;
       searchOverviewState.data = mergeSearchOverviewData(searchOverviewState.byProvider, providers);
       var lead = provider === 'netease' && r && Array.isArray(r.artists) ? r.artists[0] : null;
@@ -2018,15 +2144,33 @@ function applySearchOverview(key) {
       var old = $results.querySelector('.search-overview');
       if (old && html && old.outerHTML === html) return;
       var hadSection = !!old;
-      if (old) old.remove();
-      if (!html) return;
       var scrolled = $results.scrollTop > 4;
+      var scrollBefore = $results.scrollTop;
       var heightBefore = $results.scrollHeight;
       var positions = scrolled ? null : captureSearchRowPositions();
+      var anchor = null;
+      var anchorTop = 0;
+      if (scrolled) {
+        var viewportTop = $results.getBoundingClientRect().top;
+        var rows = $results.querySelectorAll('[data-song-key]');
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].getBoundingClientRect().bottom > viewportTop) {
+            anchor = rows[i];
+            anchorTop = anchor.getBoundingClientRect().top;
+            break;
+          }
+        }
+      }
+      if (old) old.remove();
       var bar = $results.querySelector('.search-type-bar');
-      if (bar) bar.insertAdjacentHTML('afterend', html);
-      else $results.insertAdjacentHTML('afterbegin', html);
-      if (scrolled) $results.scrollTop += $results.scrollHeight - heightBefore;
+      if (html) {
+        if (bar) bar.insertAdjacentHTML('afterend', html);
+        else $results.insertAdjacentHTML('afterbegin', html);
+      }
+      if (scrolled) {
+        if (anchor) $results.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+        else $results.scrollTop = scrollBefore + $results.scrollHeight - heightBefore;
+      }
       var section = $results.querySelector('.search-overview');
       if (section && !scrolled && !searchMotionReduced() && typeof section.animate === 'function') {
         // A second platform refining an existing section only fades, without the drop-in.
