@@ -48,10 +48,10 @@ test('late old cover cannot recolor a new song; other presets keep their existin
 });
 
 test('bridge gradually finishes a theme, ignores repeated targets, and cancels an obsolete transition', () => {
-  let now = 0, next = 0, shown;
+  let now = 0, next = 0, shown, lastKeys, applies = 0;
   const timers = new Map();
   const window = { addEventListener() {}, wallpaperPropertyListener: {
-    applyUserProperties: props => { shown = props.mineradioCustomTheme.value; },
+    applyUserProperties: props => { shown = props.mineradioCustomTheme.value; lastKeys = Object.keys(props).sort(); applies++; },
   } };
   const c = vm.createContext({ window, parent: { postMessage() {} }, performance: { now: () => now },
     setTimeout() {}, setInterval: fn => { timers.set(++next, fn); return next; },
@@ -66,9 +66,13 @@ test('bridge gradually finishes a theme, ignores repeated targets, and cancels a
   apply('#000000'); apply('#ffffff');
   tick(100);
   assert.notEqual(shown.__primaryColor, '#000000'); assert.notEqual(shown.__primaryColor, '#ffffff');
+  assert.deepEqual(lastKeys, ['mineradioCustomTheme', 'schemecolor'], 'transition steps send only the colours');
   apply('#ffffff'); // Repeated property messages must not extend the transition indefinitely.
   tick(800);
   assert.equal(shown.__primaryColor, '#ffffff'); assert.equal(timers.size, 0);
+  const settledApplies = applies;
+  apply('#ffffff');
+  assert.equal(applies, settledApplies, 'an unchanged re-send does not re-apply every property');
   apply('#ff0000'); tick(900);
   const before = shown.__primaryColor;
   apply('#00ff00');
