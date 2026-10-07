@@ -250,6 +250,18 @@
           return true;
         }
 
+        // Transition steps change only the colours. Re-sending every property
+        // each step makes the wallpaper re-run all of its setters 30 times a
+        // second during the fade, which is what made theme changes stutter.
+        function applyThemeColorProperties() {
+          if (!window.wallpaperPropertyListener || typeof window.wallpaperPropertyListener.applyUserProperties !== 'function') return false;
+          window.wallpaperPropertyListener.applyUserProperties({
+            mineradioCustomTheme: valueBox(defaultProperties.mineradioCustomTheme),
+            schemecolor: valueBox(defaultProperties.schemecolor)
+          });
+          return true;
+        }
+
         function applyThemeTransition(targetTheme) {
           targetTheme = cloneMineradioTheme(targetTheme);
           if (!targetTheme) {
@@ -275,6 +287,7 @@
           }
           var fromTheme = cloneMineradioTheme(displayedTheme || defaultProperties.mineradioCustomTheme) || targetTheme;
           var startedAt = performance.now();
+          var firstStep = true;
           stopThemeTransition();
           themeTransitionTarget = targetKey;
           function stepThemeTransition() {
@@ -283,7 +296,12 @@
             displayedTheme = shown;
             defaultProperties.mineradioCustomTheme = shown;
             defaultProperties.schemecolor = schemeColorFromHex(shown.__primaryColor);
-            if (propertyReady) applyDefaultProperties();
+            // The first step also carries any non-colour changes sent with the theme.
+            if (propertyReady) {
+              if (firstStep) applyDefaultProperties();
+              else applyThemeColorProperties();
+            }
+            firstStep = false;
             if (raw >= 1) stopThemeTransition();
           }
           stepThemeTransition();
@@ -326,13 +344,28 @@
         window.__mineradioApplyProperties = function (patch) {
           patch = patch || {};
           var hasThemePatch = Object.prototype.hasOwnProperty.call(patch, 'mineradioCustomTheme');
+          var changed = false;
           Object.keys(patch).forEach(function (key) {
             if (key === 'mineradioCustomTheme') return;
             if (hasThemePatch && key === 'schemecolor') return;
-            if (Object.prototype.hasOwnProperty.call(defaultProperties, key)) defaultProperties[key] = patch[key];
+            if (!Object.prototype.hasOwnProperty.call(defaultProperties, key)) return;
+            if (JSON.stringify(defaultProperties[key]) !== JSON.stringify(patch[key])) changed = true;
+            defaultProperties[key] = patch[key];
           });
-          if (hasThemePatch) applyThemeTransition(patch.mineradioCustomTheme);
-          else if (propertyReady) applyDefaultProperties();
+          // The host re-sends unchanged properties about once a second; only
+          // a real change should make the wallpaper re-apply everything.
+          if (hasThemePatch) {
+            var themeTarget = cloneMineradioTheme(patch.mineradioCustomTheme);
+            var themeKey = themeTarget ? mineradioThemeSignature(themeTarget) : '';
+            var shownKey = themeTransitionTimer
+              ? themeTransitionTarget
+              : (displayedTheme ? mineradioThemeSignature(displayedTheme) : '');
+            if (themeKey === shownKey) {
+              if (changed && propertyReady) applyDefaultProperties();
+              return;
+            }
+            applyThemeTransition(patch.mineradioCustomTheme);
+          } else if (changed && propertyReady) applyDefaultProperties();
         };
 
         window.addEventListener('message', function (event) {

@@ -606,7 +606,8 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
     if (cv.width > 128 || cv.height > 128) {
       paletteCanvas = document.createElement('canvas');
       paletteCanvas.width = paletteCanvas.height = 128;
-      paletteCanvas.getContext('2d').drawImage(cv, 0, 0, 128, 128);
+      var paletteContext = typeof coverCpuContext === 'function' ? coverCpuContext(paletteCanvas) : paletteCanvas.getContext('2d');
+      paletteContext.drawImage(cv, 0, 0, 128, 128);
     }
     updateLyricPaletteFromCover(paletteCanvas);
     paletteReady = true;
