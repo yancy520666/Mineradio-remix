@@ -103,20 +103,29 @@ function deactivateHomeWallpaperPreview(playback) {
     setPreset(nextPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true });
   }
 }
-function switchPlaybackVisualToEmily() {
+function switchPlaybackVisualToEmily(opts) {
+  opts = opts || {};
+  var visualChanged = false;
   if (homeVisualPresetActive) {
     deactivateHomeWallpaperPreview(true);
+    visualChanged = true;
   }
   document.body.classList.remove('home-wallpaper-preview');
   var targetPreset = typeof playbackVisualPreset === 'number' ? playbackVisualPreset : fxDefaults.preset;
   startupVisualPreviewActive = false;
   if (typeof setPreset === 'function' && fx.preset !== targetPreset) {
     setPreset(targetPreset, { silent: true, preserveCamera: false, noSave: true });
+    visualChanged = true;
   } else if (typeof syncFxUniforms === 'function') {
     syncFxUniforms();
   }
   if (typeof updateRenderPowerClasses === 'function') updateRenderPowerClasses();
-  if (typeof recoverVisualsAfterBackground === 'function' && !isDeepBackgroundMode()) recoverVisualsAfterBackground('playback-visual');
+  // In the foreground with an unchanged scene (resume or track switch) the
+  // background recovery is not needed: it would rebuild the old lyric line and
+  // add a 1.1 s interaction frame-rate boost right when the new song starts.
+  var sceneKept = !visualChanged
+    && typeof playbackWindowInForeground === 'function' && playbackWindowInForeground();
+  if (!sceneKept && typeof recoverVisualsAfterBackground === 'function' && !isDeepBackgroundMode()) recoverVisualsAfterBackground('playback-visual');
 }
 function updateEmptyHomeVisibility(opts) {
   opts = opts || {};
