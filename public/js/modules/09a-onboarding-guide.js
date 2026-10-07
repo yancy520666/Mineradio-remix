@@ -67,11 +67,11 @@ var visualGuideSteps = [
     body: '“歌单架”页可以选两种摆法：侧栏把歌单卡片收在画面右侧，不挡歌词；舞台让卡片在画面下方横向铺开，中间那张最醒目。'
   },
   {
-    key: 'shelf-summon', center: true, demo: 'shelf-summon',
+    key: 'shelf-summon', center: true, demo: 'shelf-summon', songScene: true,
     kicker: 'Right Click',
     title: '右键空白处，呼出歌单架',
-    body: '侧栏模式下，在播放画面的空白处点鼠标右键，歌单架会从右侧滑出；再点一次右键就收起。舞台模式保持横向展示，不使用这个右键开关。',
-    hint: '歌单架被关掉时，右键也会把它切回侧栏'
+    body: '看看右边：在歌曲画面的空白处点右键，3D 歌单架就会滑出来；再点一次便收起。现在为你演示，下一步会收起。舞台模式不使用这个右键开关。',
+    hint: '未登录时展示演示卡片；不播放歌曲，也不保存临时布局'
   },
   {
     key: 'login', selector: '#login-node-graph', place: 'below', login: true, nextLabel: '去连线登录',
@@ -260,6 +260,7 @@ function prepareVisualGuideStep(step) {
   document.body.classList.toggle('visual-guide-titlebar', !!(step && step.key === 'diy'));
   if (typeof setShelfGuideCueActive === 'function') setShelfGuideCueActive(false);
   setVisualGuideConsole(step && step.console || '');
+  setVisualGuideShelfDemo(!!(step && step.songScene));
   setVisualGuideLogin(!!(step && step.login));
   if (step && step.selector === '#search-box') setPeek(search, true, 'search');
   else if (search && !visualGuideState.searchWasPeek && document.activeElement !== $input) setPeek(search, false, 'search');
@@ -285,10 +286,7 @@ var visualGuideDemos = {
     '<div class="vg-mini is-side"><div class="vg-mini-screen"><i></i><i></i><i></i></div><span>侧栏</span></div>' +
     '<div class="vg-mini is-stage"><div class="vg-mini-screen"><i></i><i></i><i></i><i></i><i></i></div><span>舞台</span></div>' +
     '</div>',
-  'shelf-summon': '<div class="vg-demo vg-demo-summon" aria-hidden="true">' +
-    '<div class="vg-mini-screen"><span class="vg-mouse"><b></b></span><span class="vg-click"></span>' +
-    '<span class="vg-shelf"><i></i><i></i><i></i></span></div>' +
-    '</div>'
+  'shelf-summon': '<div class="vg-aero-choice"><button type="button" onclick="replayVisualGuideShelfDemo()">再示范一次</button><span id="visual-guide-shelf-status" role="status">准备右键示范…</span></div>'
 };
 function renderVisualGuideDemo(name) {
   var slot = document.getElementById('visual-guide-demo');
@@ -529,6 +527,7 @@ function visibleGuideRect(target) {
 }
 // Card goes on the preferred side if it fits, otherwise on whichever side has room.
 function visualGuideCardPosition(rect, step, cardW, cardH) {
+  if (step && step.songScene) return { left: 16, top: Math.max(16, (innerHeight - cardH) / 2) };
   var gap = 18, margin = 16;
   if (step && step.center) return { left: (innerWidth - cardW) / 2, top: (innerHeight - cardH) / 2 };
   var spots = {
@@ -572,7 +571,7 @@ function positionVisualGuideStep() {
   var cardW = card.offsetWidth || 340;
   var cardH = card.offsetHeight || 190;
   var ringRect = { left: left, top: top, width: width, height: height, right: left + width, bottom: top + height };
-  var spot = visualGuideCardPosition(ringRect, center ? { center: true } : step, cardW, cardH);
+  var spot = visualGuideCardPosition(ringRect, center ? { center: true, songScene: !!step.songScene } : step, cardW, cardH);
   // When the illustration makes the card too tall to sit beside its target
   // (small windows, full-width console), drop the illustration, not the target.
   var demo = document.getElementById('visual-guide-demo');
@@ -673,6 +672,7 @@ function closeVisualGuide(markSeen, opts) {
   }
   if (card) card.classList.remove('is-ready', 'is-swapping', 'is-hero');
   renderVisualGuideDemo('');
+  setVisualGuideShelfDemo(false);
   if (visualGuideState) setVisualGuideLogin(false, opts.keepLogin);
   document.body.classList.remove('visual-guide-active', 'visual-guide-bottom', 'visual-guide-titlebar');
   document.body.classList.remove('fullscreen-diy-peek');
@@ -701,3 +701,50 @@ function handleVisualGuideSurfaceClick(e) {
   var guide = document.getElementById('visual-guide');
   if (guide) guide.addEventListener('click', handleVisualGuideSurfaceClick);
 })();
+
+var visualGuideShelfDemo = null;
+function replayVisualGuideShelfDemo() {
+  var state = visualGuideShelfDemo;
+  if (!state || !visualGuideActive || activeVisualGuideSteps()[visualGuideStep].key !== 'shelf-summon') return;
+  clearTimeout(state.timer);
+  setShelfPinnedOpen(false, false, false);
+  fx.shelfPinnedOpen = state.savedPinnedPreference;
+  var status = document.getElementById('visual-guide-shelf-status');
+  if (status) status.textContent = '右键一下，歌单架滑出…';
+  state.timer = setTimeout(function () {
+    if (visualGuideShelfDemo !== state || !visualGuideActive || activeVisualGuideSteps()[visualGuideStep].key !== 'shelf-summon') return;
+    setShelfPinnedOpen(true, false, false);
+    fx.shelfPinnedOpen = state.savedPinnedPreference;
+    if (typeof markRenderInteraction === 'function') markRenderInteraction('guide-shelf-open', 1800);
+    var status = document.getElementById('visual-guide-shelf-status');
+    if (status) status.textContent = '已呼出 · 下一步自动收起';
+  }, 650);
+}
+function setVisualGuideShelfDemo(on) {
+  if (on) {
+    if (visualGuideShelfDemo || !shelfManager || !shelfManager.setGuidePreview) return;
+    visualGuideShelfDemo = { timer: 0, savedPinned: shelfPinnedOpen,
+      savedPinnedPreference: fx.shelfPinnedOpen, homeForced: homeForcedOpen, homeSuppressed: homeSuppressed,
+      homeLocked: document.body.classList.contains('home-controls-locked'), trackToken: trackSwitchToken, focus: focusHover.wantType };
+    homeForcedOpen = false; homeSuppressed = true;
+    shelfManager.setGuidePreview(true);
+    updateEmptyHomeVisibility({ forceLoad: false });
+    replayVisualGuideShelfDemo();
+    if (typeof markRenderInteraction === 'function') markRenderInteraction('guide-shelf-scene', 1800);
+    return;
+  }
+  var state = visualGuideShelfDemo;
+  if (!state) return;
+  visualGuideShelfDemo = null;
+  clearTimeout(state.timer);
+  setShelfPinnedOpen(false, false, false);
+  shelfManager.setGuidePreview(false);
+  if (state.trackToken === trackSwitchToken) {
+    homeForcedOpen = state.homeForced; homeSuppressed = state.homeSuppressed;
+  }
+  if (state.savedPinned) setShelfPinnedOpen(true, true, false);
+  fx.shelfPinnedOpen = state.savedPinnedPreference;
+  updateEmptyHomeVisibility({ forceLoad: false });
+  if (state.trackToken === trackSwitchToken) setHomeControlsLocked(state.homeLocked);
+  if (typeof setFocusZone === 'function') setFocusZone(state.focus || null, false);
+}

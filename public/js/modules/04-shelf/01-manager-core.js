@@ -11,6 +11,7 @@ function makeShelfManager() {
   var paneSwitchAt = -10;
   var paneSwitchDir = 1;
   var mode = 'side';
+  var guidePreview = false, guidePreviewSaved = null;
   var lastSig = '';
   var lastUpdate = 0;
   var lastCardRedrawAt = -10;
@@ -65,6 +66,11 @@ function makeShelfManager() {
   }
 
   function currentItems() {
+    if (guidePreview && !userPlaylists.length && !playQueue.length) return [
+      { type: 'guideDemo', title: '每日灵感', sub: '演示歌单 · 登录后展示你的歌单', tag: '右键呼出', cover: podcastDefaultCover('created') },
+      { type: 'guideDemo', title: '夜间漫游', sub: '演示歌单 · 不会添加到收藏', tag: '3D 歌单架', cover: podcastDefaultCover('liked') },
+      { type: 'guideDemo', title: '收藏瞬间', sub: '演示歌单 · 不播放歌曲', tag: '侧栏模式', cover: podcastDefaultCover('subscribed') }
+    ];
     if (userPlaylists.length || (hasAnyPlatformLogin() && myPodcastCollections.length)) {
       var source = activePlaylists();
       var items = source.map(function (pl) {
@@ -178,7 +184,7 @@ function makeShelfManager() {
       if (rec && rec.loaded && rec.img) {
         ctx.save(); makeRoundRect(ctx, cx, cy, coverSize, coverSize, 26); ctx.clip();
         ctx.drawImage(rec.img, cx, cy, coverSize, coverSize); ctx.restore();
-      } else if (!rec || card.coverWaitUrl !== item.cover || rec && rec.failed && rec.session !== playlistCoverSession) {
+      } else if (!rec || card.coverWaitUrl !== item.cover || playlistCoverCanRetry(rec)) {
         card.coverWaitUrl = item.cover;
         requestPlaylistCover(item.cover, function () { if (!card.disposed && card.item === item) { drawCard(card, item); requestShelfCoverFrame(); } }, { priority: card.isCenter ? 0 : 1 });
       }
@@ -451,10 +457,10 @@ function makeShelfManager() {
 
     if (modeIs === 'side') {
       // 右侧 3D 架: 恢复更靠近、更斜切的打开姿态，让卡片有真正的前后层次。
-      var detailOpenSide = contentList && contentList.isOpen();
+      var detailOpenSide = !guidePreview && contentList && contentList.isOpen();
       var nowT = uniforms.uTime.value;
       var hoverBreath = (!shelfPinnedOpen && !detailOpenSide) ? shelfVisibility : 0;
-      var passiveAlways = shelfAlwaysVisible() && !shelfPinnedOpen && !detailOpenSide;
+      var passiveAlways = (!guidePreview && shelfAlwaysVisible()) && !shelfPinnedOpen && !detailOpenSide;
       var liftTarget = card.selected && shelfPointerSelectionForegroundActive() && !detailOpenSide ? 1 : 0;
       var liftRate = liftTarget > (card.floatMix || 0) ? 0.20 : 0.13;
       card.floatMix = (card.floatMix || 0) + (liftTarget - (card.floatMix || 0)) * liftRate;
@@ -535,7 +541,7 @@ function makeShelfManager() {
       card.mesh.rotation.y = -delta * 0.22 + parX * 0.050 * parWeight;
       card.mesh.rotation.x = 0.10 - absD * 0.04 - parY * 0.028 * parWeight;
       card.mesh.scale.setScalar(scaleS);
-      var disabledStage = contentList && contentList.isOpen();
+      var disabledStage = !guidePreview && contentList && contentList.isOpen();
       var opS = absD < 0.5 ? 1.0 : Math.max(0.18, 1.0 - absD * 0.32);
       if (disabledStage) {
         opS *= card.index === openCardIdx ? 0.16 : 0.08;
@@ -756,6 +762,20 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       var asyncCards = mode === 'side' && document.body.classList.contains('splash-active');
       rebuild(asyncCards);
     },
+    setGuidePreview: function (on) {
+      on = !!on;
+      if (on === guidePreview) return;
+      if (on) guidePreviewSaved = { mode: mode, target: centerTarget, smooth: centerSmooth, selected: selectedIdx };
+      guidePreview = on;
+      if (contentList && contentList.setGuideHidden) contentList.setGuideHidden(on);
+      this.setMode(on ? 'side' : guidePreviewSaved.mode);
+      rebuild(false);
+      if (!on) {
+        centerTarget = guidePreviewSaved.target; centerSmooth = guidePreviewSaved.smooth;
+        syncRenderedWindow(true, false); applySelectedIndex(guidePreviewSaved.selected);
+        guidePreviewSaved = null;
+      }
+    },
     getMode: function () { return mode; },
     update: function (dt) {
       if (!group) return;
@@ -770,11 +790,11 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (!appRevealed) {
         targetVis = 0;
       } else if (mode === 'side') {
-        var contentOpen = contentList && contentList.isOpen();
+        var contentOpen = !guidePreview && contentList && contentList.isOpen();
         var switchGuard = typeof shelfPlaybackSwitchGuardActive === 'function' && shelfPlaybackSwitchGuardActive();
         if (!allItems.length && !contentOpen) targetVis = 0;
         else if (switchGuard && !contentOpen && !shelfPinnedOpen) targetVis = 0;
-        else targetVis = (contentOpen || shelfPinnedOpen || shelfAlwaysVisible()) ? 1.0 : (cueVis > 0.01 ? Math.max(0.16, cueVis * 0.88) : 0);
+        else targetVis = (contentOpen || shelfPinnedOpen || (!guidePreview && shelfAlwaysVisible())) ? 1.0 : (cueVis > 0.01 ? Math.max(0.16, cueVis * 0.88) : 0);
       } else {
         targetVis = allItems.length ? 1.0 : 0;
       }
@@ -784,18 +804,18 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
         : Math.max(0.05, summonVis.closeDuration * 0.65);
       shelfVisibility += (targetVis - shelfVisibility) * durationEaseFactor(visDuration, dt);
       if (shelfVisibility < 0.01 && targetVis === 0) shelfVisibility = 0;
-      group.visible = appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (contentList && contentList.isOpen()));
+      group.visible = appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (!guidePreview && contentList && contentList.isOpen()));
       if (connectorParticles) connectorParticles.visible = group.visible && mode === 'stage';
       if (mode === 'side') {
-        var contentOpenForLayer = !!(contentList && contentList.isOpen());
-        var passiveAlwaysGroup = shelfAlwaysVisible() && !shelfPinnedOpen && !contentOpenForLayer;
+        var contentOpenForLayer = !!(!guidePreview && contentList && contentList.isOpen());
+        var passiveAlwaysGroup = (!guidePreview && shelfAlwaysVisible()) && !shelfPinnedOpen && !contentOpenForLayer;
         var pointerSelectionForeground = shelfPointerSelectionForegroundActive();
         var liftedCardActive = passiveAlwaysGroup && cards.some(function (c) {
           return (pointerSelectionForeground && c.selected) || (c.floatMix || 0) > 0.025;
         });
         group.renderOrder = (contentOpenForLayer || shelfPinnedOpen || liftedCardActive) ? 300 : 30;
         group.position.set(0, 0, 0);
-        var bindToCover = (shelfAlwaysVisible() || shelfPinnedOpen || shelfVisibility > 0.06) && particles && particles.rotation && !(contentList && contentList.isOpen());
+        var bindToCover = ((!guidePreview && shelfAlwaysVisible()) || shelfPinnedOpen || shelfVisibility > 0.06) && particles && particles.rotation && !(!guidePreview && contentList && contentList.isOpen());
         if (bindToCover) {
           var bindEase = uniforms.uTime.value < coverBindResumeUntil ? 0.18 : 0.075;
           group.rotation.x += ((particles.rotation.x - py * 0.010) - group.rotation.x) * bindEase;
@@ -841,7 +861,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
     },
     onCoverChange: function () {
       coverBindResumeUntil = uniforms && uniforms.uTime ? uniforms.uTime.value + 1.2 : coverBindResumeUntil;
-      if (group && mode === 'side' && (shelfAlwaysVisible() || shelfPinnedOpen || shelfVisibility > 0.06) && particles && particles.rotation && !(contentList && contentList.isOpen())) {
+      if (group && mode === 'side' && ((!guidePreview && shelfAlwaysVisible()) || shelfPinnedOpen || shelfVisibility > 0.06) && particles && particles.rotation && !(!guidePreview && contentList && contentList.isOpen())) {
         group.rotation.x += (particles.rotation.x - group.rotation.x) * 0.28;
         group.rotation.y += (particles.rotation.y - group.rotation.y) * 0.28;
         group.rotation.z += (particles.rotation.z - group.rotation.z) * 0.28;
@@ -935,7 +955,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (typeof setFocusZone === 'function') setFocusZone(shelfPinnedOpen ? 'shelf-side' : null, true);
       if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility({ forceLoad: false });
     },
-    hasOpenContent: function () { return contentList && contentList.isOpen(); },
+    hasOpenContent: function () { return !guidePreview && contentList && contentList.isOpen(); },
     getContentList: function () { return contentList; },
     getOpenContentIndex: function () { return openCardIdx; },
     canInteract: function () { return mode !== 'off' && allItems.length > 0; }

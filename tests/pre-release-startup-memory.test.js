@@ -37,7 +37,7 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
     startVisualGuide: (options) => shown.push(options),
     maybeRunStartupLoginGuide: () => shown.push('login'),
     renderVisualGuideDemo: () => {},
-    setVisualGuideLogin: () => {}
+    setVisualGuideLogin: () => {}, setVisualGuideShelfDemo: () => {}
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'public/js/modules/00-state/02a-onboarding-state.js'), 'utf8'), context);

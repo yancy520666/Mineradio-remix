@@ -10,6 +10,7 @@ function makeContentListManager() {
   var CONTENT_PREFETCH_AHEAD = Math.max(24, Math.floor((typeof PLAYLIST_LAZY_BATCH_SIZE === 'number' ? PLAYLIST_LAZY_BATCH_SIZE : 48) * 0.75));
   var CONTENT_COVER_PREFETCH_LIMIT = 18;
   var open = false;
+  var guideHidden = false;
   var centerTarget = 0, centerSmooth = 0;
   var playlistTitle = '';
   var contentKind = 'playlist';
@@ -22,6 +23,7 @@ function makeContentListManager() {
   var requestToken = 0;
   var contentWarmPrefetchTimer = 0;
   var contentCoverPrefetchKey = '';
+  var contentCoverPrefetchCenter = 0, contentCoverPrefetchDirection = 1;
   var openAnimAt = -10;
   var rowAnimAt = -10;
   var panelDirty = true, rowsDirty = true;
@@ -139,7 +141,7 @@ function makeContentListManager() {
         ctx.clip();
         ctx.drawImage(coverRec.img, coverX, coverY, coverSize, coverSize);
         ctx.restore();
-      } else if (!coverRec || panel.coverWaitRecord !== coverRec || coverRec.failed && coverRec.session !== playlistCoverSession) {
+      } else if (!coverRec || panel.coverWaitRecord !== coverRec || playlistCoverCanRetry(coverRec)) {
         var waitingPanel = panel, panelToken = requestToken;
         requestPlaylistCover(coverUrl, function () {
           if (!open || panelToken !== requestToken || panel !== waitingPanel || !sourceCard || sourceCard.item.cover !== coverUrl) return;
@@ -210,7 +212,7 @@ function makeContentListManager() {
     }
   }
 
-  function prefetchContentCoversFrom(start, count) {
+  function prefetchContentCoversFrom(start, count, priority) {
     if (!allTracks.length) return;
     start = Math.max(0, Math.round(Number(start) || 0));
     count = Math.max(1, Math.round(Number(count) || CONTENT_COVER_PREFETCH_LIMIT));
@@ -218,11 +220,11 @@ function makeContentListManager() {
     var issued = 0;
     for (var i = start; i < end && issued < CONTENT_COVER_PREFETCH_LIMIT; i++) {
       var song = allTracks[i];
-      var url = songCoverSrc(song, 80);
+      var url = shelfSongCoverSrc(song);
       if (!url) continue;
       var rec = playlistCoverCache[url];
-      if (rec && (rec.loaded || rec.loading || rec.failed)) continue;
-      requestPlaylistCover(url);
+      if (rec && (rec.loaded || rec.failed && !playlistCoverCanRetry(rec))) continue;
+      requestPlaylistCover(url, null, { priority: priority === 0 ? 0 : 1, scope: 'content' });
       issued++;
     }
   }
@@ -233,9 +235,17 @@ function makeContentListManager() {
     var key = center + '|' + allTracks.length + '|' + (reason || '');
     if (key === contentCoverPrefetchKey) return;
     contentCoverPrefetchKey = key;
-    prefetchContentCoversFrom(Math.max(0, center - 2), CONTENT_COVER_PREFETCH_LIMIT);
-    prefetchContentCoversFrom(Math.max(0, center + CONTENT_VISIBLE_RADIUS), CONTENT_COVER_PREFETCH_LIMIT);
-    prefetchContentCoversFrom(Math.max(0, allTracks.length - CONTENT_PREFETCH_AHEAD), Math.ceil(CONTENT_COVER_PREFETCH_LIMIT * 0.75));
+    if (center !== contentCoverPrefetchCenter) contentCoverPrefetchDirection = center < contentCoverPrefetchCenter ? -1 : 1;
+    var direction = contentCoverPrefetchDirection;
+    contentCoverPrefetchCenter = center;
+    var start = Math.max(0, Math.min(center - CONTENT_VISIBLE_RADIUS, allTracks.length - CONTENT_MAX_RENDER));
+    var end = Math.min(allTracks.length, start + CONTENT_MAX_RENDER);
+    var ahead = direction > 0 ? end : Math.max(0, start - CONTENT_COVER_PREFETCH_LIMIT);
+    var covers = function (from, count) { return allTracks.slice(from, from + count).map(function (song) { return shelfSongCoverSrc(song); }).filter(Boolean); };
+    updatePlaylistCoverViewport(covers(start, end - start), covers(ahead, CONTENT_COVER_PREFETCH_LIMIT));
+    prefetchContentCoversFrom(start, end - start, 0);
+    prefetchContentCoversFrom(center, 1, 0);
+    prefetchContentCoversFrom(ahead, CONTENT_COVER_PREFETCH_LIMIT, 1);
   }
 
   function scheduleContentWarmPrefetch(token) {
@@ -363,7 +373,7 @@ function makeContentListManager() {
     var coverSize = 54;
     var coverX = 84;
     var coverY = H / 2 - coverSize / 2;
-    var songCover = songCoverSrc(song, 80);
+    var songCover = shelfSongCoverSrc(song);
     var hasSongCover = !!songCover;
     if (actionReady || hasSongCover) {
       makeRoundRect(ctx, coverX, coverY, coverSize, coverSize, 13);
@@ -377,12 +387,12 @@ function makeContentListManager() {
           ctx.clip();
           ctx.drawImage(songCoverRec.img, coverX, coverY, coverSize, coverSize);
           ctx.restore();
-        } else if (!songCoverRec || row.coverWaitRecord !== songCoverRec || songCoverRec.failed && songCoverRec.session !== playlistCoverSession) {
+        } else if (!songCoverRec || row.coverWaitRecord !== songCoverRec || playlistCoverCanRetry(songCoverRec)) {
           var rowToken = requestToken;
           requestPlaylistCover(songCover, function () {
-            if (!open || rowToken !== requestToken || row.disposed || row.song !== song || songCoverSrc(row.song, 80) !== songCover) return;
+            if (!open || rowToken !== requestToken || row.disposed || row.song !== song || shelfSongCoverSrc(row.song) !== songCover) return;
             drawRow(row, row.song, !!row.lastCenter); requestShelfCoverFrame();
-          }, { priority: isCenter ? 0 : 1 });
+          }, { priority: 0, scope: 'content' });
           row.coverWaitRecord = playlistCoverCache[songCover];
         }
       }
@@ -677,6 +687,7 @@ function makeContentListManager() {
       contentLoadingMore = false;
       clearContentWarmPrefetch();
       contentCoverPrefetchKey = '';
+      contentCoverPrefetchCenter = 0; contentCoverPrefetchDirection = 1;
       if (!group) {
         group = new THREE.Group();
         group.renderOrder = 320;
@@ -851,8 +862,9 @@ function makeContentListManager() {
         disposeCapturedDetail(targetGroup, targetRows, targetPanel);
       }
     },
+    setGuideHidden: function (on) { guideHidden = !!on; if (group) group.visible = !guideHidden; },
     update: function (dt) {
-      if (!group || !open) return;
+      if (!group || !open || guideHidden) return;
       var intro = group.userData.detailIntro || 0;
       var parX = pointerParallax.x || 0;
       var parY = pointerParallax.y || 0;
