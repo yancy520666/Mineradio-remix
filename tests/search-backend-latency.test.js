@@ -64,3 +64,18 @@ test('typed search maps NetEase artists, albums, playlists and users into one ro
   assert.equal(sandbox.list('user', { result: { userprofiles: [{ userId: 1 }] } }).length, 1);
   assert.equal(sandbox.list('playlist', {}).length, 0);
 });
+
+test('overview search keeps a few artists, albums and playlists from one NetEase call', () => {
+  const sandbox = {};
+  vm.runInNewContext(`${topLevelFunction('neteaseTypedSearchItem')}\n${topLevelFunction('neteaseOverviewFromBody')}\nthis.overview = neteaseOverviewFromBody;`, sandbox);
+  const playLists = Array.from({ length: 9 }, (_, i) => ({ id: i + 1, name: '歌单' + i }));
+  const overview = sandbox.overview({ result: {
+    artist: { artists: [{ id: 1, name: '周杰伦' }] },
+    album: { albums: [{ id: 2, name: '叶惠美', artist: { id: 1, name: '周杰伦' } }] },
+    playList: { playLists },
+  } });
+  assert.equal(overview.artists[0].name, '周杰伦');
+  assert.equal(overview.albums[0].artist, '周杰伦');
+  assert.equal(overview.playlists.length, 6);
+  assert.equal(sandbox.overview({}).playlists.length, 0);
+});
