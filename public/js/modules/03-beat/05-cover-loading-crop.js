@@ -10,6 +10,11 @@ function hideAIDepthChip() {
   document.getElementById('ai-depth-chip').classList.remove('show');
 }
 
+// Readback canvases retain the selected resolution in CPU memory.
+function coverCpuContext(cv) {
+  return cv.getContext('2d', { willReadFrequently: true }) || cv.getContext('2d');
+}
+
 var coverUrlLoad = null;
 var COVER_ATTEMPT_TIMEOUT_MS = 10000;
 var COVER_RETRY_DELAY_MS = 700;
@@ -249,7 +254,7 @@ function makeSquareCoverCanvas(img, size, crop) {
   size = size || 512;
   var cv = document.createElement('canvas');
   cv.width = cv.height = size;
-  var cx = cv.getContext('2d');
+  var cx = coverCpuContext(cv);
   cx.clearRect(0, 0, size, size);
   var iw = img.naturalWidth || img.width;
   var ih = img.naturalHeight || img.height;

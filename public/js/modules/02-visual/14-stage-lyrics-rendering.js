@@ -1536,6 +1536,25 @@ function upgradeCurrentStageLyricFromPreparedTrack(reason) {
   return true;
 }
 
+// True while a line change is still moving on screen: an outgoing line is
+// fading, the current line is entering, or the shared track has not reached
+// its target. Pausing mid-change must let that motion finish at full rate;
+// the time bound stops a held transition from keeping a paused player there.
+function stageLyricsMotionSettling() {
+  if (!stageLyrics) return false;
+  if (stageLyricNowMs() - (Number(stageLyrics.lineChangedAt) || 0) > 2000) return false;
+  if (stageLyrics.outgoing && stageLyrics.outgoing.length) return true;
+  var mesh = stageLyrics.current;
+  var ud = mesh && mesh.userData;
+  if (!ud) return false;
+  if (ud.state === 'in' && (Number(ud.age) || 0) < 0.9) return true;
+  var data = ud.lyric;
+  if (data && data.usesTrack && isFinite(Number(data.trackScrollOffset)) && isFinite(Number(data.trackTargetVirtualIndex))) {
+    return Math.abs(Number(data.trackTargetVirtualIndex) - Number(data.trackScrollOffset)) > 0.004;
+  }
+  return false;
+}
+
 function stageLyricProgressPreviewActive() {
   return typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive();
 }
@@ -1979,12 +1998,36 @@ function scheduleStageLyricFullTrackWarmup(reason, delay) {
   return true;
 }
 
+var STAGE_LYRIC_SWITCH_HANDOFF = 0.6;
+var STAGE_LYRIC_SWITCH_HANDOFF_MAX_MS = 520;
+
+function stageLyricOutgoingStillVisible(exitSeconds) {
+  var exit = Math.max(0.05, Number(exitSeconds) || 0.46);
+  var list = stageLyrics && stageLyrics.outgoing;
+  if (!list || !list.length) return false;
+  for (var i = 0; i < list.length; i++) {
+    var ud = list[i] && list[i].userData;
+    if (ud && !ud.lyricRevealSuccessor && (Number(ud.age) || 0) < exit * STAGE_LYRIC_SWITCH_HANDOFF) return true;
+  }
+  return false;
+}
+
+function stageLyricEntranceWaitsForOutgoing(mesh, exitSeconds) {
+  var ud = mesh && mesh.userData;
+  var since = ud && Number(ud.enterAfterOutgoingSince);
+  if (!since) return false;
+  if (stageLyricNowMs() - since < STAGE_LYRIC_SWITCH_HANDOFF_MAX_MS && stageLyricOutgoingStillVisible(exitSeconds)) return true;
+  ud.enterAfterOutgoingSince = 0;
+  return false;
+}
+
 function showStageLine(text, redrawOnly, options) {
   options = options || {};
   createLyricsParticles();
   if (!stageLyrics.group) return false;
   var payload = normalizeStageLyricPayload(text);
   if (!payload) { clearStageLyrics(); return false; }
+  if (!redrawOnly) stageLyrics.lineChangedAt = stageLyricNowMs();
   var lineStep = clampRange(Number(stageLyrics.transitionLineStep) || 0, -2, 2);
   var exitDir = lineStep > 0 ? 1 : (lineStep < 0 ? -1 : 0);
   if (!redrawOnly && stageLyrics.current && setLyricTrackTarget(stageLyrics.current, payload)) {
@@ -2017,6 +2060,10 @@ function showStageLine(text, redrawOnly, options) {
     markRenderInteraction('lyric-swap', 360);
   }
   var outgoingMesh = stageLyrics.current;
+  // After a song switch the old lyrics were already retired and are fading
+  // out on their own; the new lyrics wait for most of that exit instead of
+  // fading in on top of it.
+  var enterAfterOutgoing = !redrawOnly && !outgoingMesh && stageLyricOutgoingStillVisible(lyricMotionProfile().exit);
   var holdOutgoingForReveal = options.holdOutgoing === true || (!redrawOnly && stageLyricShouldHoldOutgoingForReveal(outgoingMesh, mesh));
   releaseStageLyricRevealHoldsForSuccessor(outgoingMesh);
   if (redrawOnly && !options.holdOutgoing && stageLyrics.current) {
@@ -2034,9 +2081,10 @@ function showStageLine(text, redrawOnly, options) {
   stageLyrics.currentPayload = payload;
   resetPreparedStageLyricMesh(mesh, payload, lineStep);
   mesh.userData.enterDirection = lineStep > 0 ? -1 : (lineStep < 0 ? 1 : 0);
+  mesh.userData.enterAfterOutgoingSince = enterAfterOutgoing ? stageLyricNowMs() : 0;
   if (!redrawOnly) {
     var primeAmount = singleLinePayload ? 0 : (Math.abs(lineStep) > 0 ? 0.34 : 0.24);
-    primeLyricMeshOpacity(mesh, primeAmount);
+    primeLyricMeshOpacity(mesh, enterAfterOutgoing ? 0 : primeAmount);
   }
   stageLyrics.group.add(mesh);
   stageLyrics.current = mesh;
@@ -2292,7 +2340,9 @@ function updateStageLyrics3D(dt) {
         mesh.userData.age = 0;
       }
     }
-    if (!holdingForLyricReveal) mesh.userData.age += dt;
+    var entranceHeld = isCurrent && stageLyricEntranceWaitsForOutgoing(mesh, lyricMotion.exit);
+    if (entranceHeld) mesh.userData.age = 0;
+    else if (!holdingForLyricReveal) mesh.userData.age += dt;
     var a = Math.min(1, mesh.userData.age / (isCurrent ? lyricMotion.enter : lyricMotion.exit));
     a = a * a * (3 - 2 * a);
     var data = mesh.userData.lyric || {};
@@ -2423,7 +2473,7 @@ function updateStageLyrics3D(dt) {
     var opacity = 0;
     if (isCurrent) {
       var shelfDetailLyricDim = shelfDetailLyricProfile.bloom;
-      var lyricOpacityTarget = shelfDetailLyricProfile.opacity;
+      var lyricOpacityTarget = entranceHeld ? 0 : shelfDetailLyricProfile.opacity;
       if (!isFinite(Number(data.globalOpacity))) data.globalOpacity = data.textMat && data.textMat.uniforms && data.textMat.uniforms.uOpacity ? Number(data.textMat.uniforms.uOpacity.value) || 0 : 0;
       var currentOpacity = data.globalOpacity;
       var opacityEase = shelfDetailOpen && currentOpacity > lyricOpacityTarget ? shelfDetailLyricProfile.easeDown : 0.16;
