@@ -63,6 +63,7 @@ const tls = require('tls');
 const { createCookieStore } = require('./cookie-storage');
 const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
 const { createSpillRelay, cleanupStaleSpillFiles, defaultSpillDirectory } = require('./audio-spill-relay');
+const { createCoverCache } = require('./cover-cache');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -862,6 +863,43 @@ function promiseWithTimeout(promise, timeoutMs, code) {
     if (timer) clearTimeout(timer);
   });
 }
+// Covers are downloaded whole before answering, so a broken upstream stream
+// becomes a clean 502 instead of a half image, and a finished image can be
+// shared by every place that shows it (see cover-cache.js).
+const COVER_MAX_BYTES = 16 * 1024 * 1024;
+const coverCache = createCoverCache();
+async function downloadCover(coverUrl) {
+  const resp = await fetchPublicResource(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
+  const upstreamType = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  // NetEase's image CDN also labels valid JPEGs with this legacy alias.
+  const contentType = upstreamType === 'image/jpg' ? 'image/jpeg' : upstreamType;
+  const declared = Number(resp.headers.get('content-length')) || 0;
+  let status = resp.status;
+  if (resp.status === 200 && !SAFE_COVER_CONTENT_TYPES.has(contentType)) status = 415;
+  else if (resp.status === 200 && declared > COVER_MAX_BYTES) status = 413;
+  if (status !== 200 || !resp.body) {
+    if (resp.body) { try { await resp.body.cancel(); } catch (_) {} }
+    return { status: status === 200 ? 502 : status };
+  }
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const c = await readStreamChunkWithTimeout(reader, 12000);
+      if (c.done) break;
+      size += c.value.length;
+      if (size > COVER_MAX_BYTES) throw Object.assign(new Error('COVER_TOO_LARGE'), { code: 'COVER_TOO_LARGE' });
+      chunks.push(Buffer.from(c.value));
+    }
+  } catch (error) {
+    try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+    throw error;
+  }
+  if (declared && size !== declared) throw Object.assign(new Error('COVER_INCOMPLETE'), { code: 'COVER_INCOMPLETE' });
+  return { status: 200, contentType, body: Buffer.concat(chunks, size) };
+}
+
 async function readStreamChunkWithTimeout(reader, timeoutMs) {
   let timer = null;
   try {
@@ -6943,37 +6981,20 @@ const server = http.createServer(async (req, res) => {
         res.end('Invalid cover url');
         return;
       }
-      const resp = await fetchPublicResource(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
-      const upstreamType = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-      // NetEase's image CDN also labels valid JPEGs with this legacy alias.
-      const ct = upstreamType === 'image/jpg' ? 'image/jpeg' : upstreamType;
-      if (!SAFE_COVER_CONTENT_TYPES.has(ct)) {
-        if (resp.body) await resp.body.cancel();
-        res.writeHead(415, { 'X-Content-Type-Options': 'nosniff' });
-        res.end('Unsupported cover type');
+      const cover = await coverCache.load(coverUrl, () => downloadCover(coverUrl));
+      if (cover.status !== 200 || !cover.body) {
+        res.writeHead(cover.status || 502, { 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
+        res.end(cover.status === 415 ? 'Unsupported cover type' : undefined);
         return;
       }
-      const cl  = resp.headers.get('content-length');
-      const hdr = {
-        'Content-Type': ct,
+      res.writeHead(200, {
+        'Content-Type': cover.contentType,
+        'Content-Length': cover.body.length,
         'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'public, max-age=86400',
-      };
-      if (cl) hdr['Content-Length'] = cl;
-      res.writeHead(resp.status, hdr);
-      if (!resp.body) { res.end(); return; }
-      const reader = resp.body.getReader();
-      const cancelCover = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} };
-      res.once('close', cancelCover);
-      try {
-        while (!res.destroyed) {
-          const c = await readStreamChunkWithTimeout(reader, 12000);
-          if (c.done) break;
-          res.write(c.value);
-        }
-      } finally { res.removeListener('close', cancelCover); }
-      res.end();
+      });
+      res.end(cover.body);
     } catch (err) {
       console.warn('[Cover]', err && (err.code || err.name || 'COVER_PROXY_FAILED'));
       if (res.headersSent) res.destroy();

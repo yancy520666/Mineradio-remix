@@ -247,6 +247,7 @@ function visibleMotionFollowVsync(now) {
   if (mode !== 'vsync') return false;
   if (typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive()) return true;
   if (mainLoopInteractionActive(now)) return true;
+  if (typeof stageLyricsMotionSettling === 'function' && stageLyricsMotionSettling()) return true;
   return !!(playing && audio && !audio.paused);
 }
 function capMainLoopFpsToDisplay(fps) {
@@ -281,6 +282,7 @@ function targetMainLyricsParticleFps(now) {
   if (!fx || fx.particleLyrics === false) return 12;
   if (visibleMotionFollowVsync(now)) return 0;
   if (mainLoopInteractionActive(now)) return capMainLoopFpsForBudget(120, 72);
+  if (typeof stageLyricsMotionSettling === 'function' && stageLyricsMotionSettling()) return capMainLoopFpsForBudget(60, 48);
   return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 24;
 }
 function targetMainStageLyricsFps(now) {
@@ -288,6 +290,7 @@ function targetMainStageLyricsFps(now) {
   if (!fx || fx.particleLyrics === false) return 12;
   if (visibleMotionFollowVsync(now)) return 0;
   if (mainLoopInteractionActive(now)) return capMainLoopFpsForBudget(120, 72);
+  if (typeof stageLyricsMotionSettling === 'function' && stageLyricsMotionSettling()) return capMainLoopFpsForBudget(60, 48);
   return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 24;
 }
 function targetMainSkullParticleFps(now) {
