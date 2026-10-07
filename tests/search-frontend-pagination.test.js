@@ -304,3 +304,20 @@ test('account platform order picks the shown copy without beating a better match
   merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], [], 10, '晴天');
   assert.equal(merged[0].provider, 'netease', 'platform preference must not lift a cover above the original');
 });
+
+test('typed results put the closest name first, then the account platform order', () => {
+  const sandbox = { order: ['qq', 'netease'] };
+  vm.runInNewContext(functionBundle([
+    'simpleSearchNorm', 'searchProviderPreferenceRanks', 'typedSearchMatchScore', 'mergeTypedSearchItems',
+  ], `
+    var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
+    function contentProviderOrder() { return order.concat('spotify'); }
+  `, 'this.merge = mergeTypedSearchItems;'), sandbox);
+  const merged = sandbox.merge({
+    netease: [{ provider: 'netease', name: '周杰伦的床边故事' }, { provider: 'netease', name: '周杰伦' }],
+    qq: [{ provider: 'qq', name: '周杰伦' }],
+  }, ['qq', 'netease'], '周杰伦');
+  assert.deepEqual(Array.from(merged, (item) => item.provider + ':' + item.name), ['qq:周杰伦', 'netease:周杰伦', 'netease:周杰伦的床边故事']);
+  assert.match(searchSource, /role="tablist" aria-label="搜索类型"/);
+  assert.match(searchSource, /tabindex="' \+ \(active \? '0' : '-1'\)/, 'only the active type tab is in the Tab order');
+});

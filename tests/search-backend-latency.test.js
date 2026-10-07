@@ -47,3 +47,20 @@ test('QQ search only asks for song details when the search row is incomplete', (
   assert.equal(sandbox.complete({ ...full, singer: [] }), false);
   assert.match(topLevelFunction('fetchQQSearch'), /_qqSearchComplete\) return item/);
 });
+
+test('typed search maps NetEase artists, albums, playlists and users into one row shape', () => {
+  const sandbox = {};
+  vm.runInNewContext(`${topLevelFunction('neteaseTypedSearchItem')}\n${topLevelFunction('neteaseTypedSearchList')}\nthis.item = neteaseTypedSearchItem; this.list = neteaseTypedSearchList;`, sandbox);
+  const artist = sandbox.item('artist', { id: 6452, name: '周杰伦', picUrl: 'a.jpg', alias: ['Jay Chou'], musicSize: 560, albumSize: 40 });
+  assert.equal(artist.id, '6452');
+  assert.equal(artist.alias, 'Jay Chou');
+  const album = sandbox.item('album', { id: 1, name: '叶惠美', picUrl: 'b.jpg', artists: [{ id: 6452, name: '周杰伦' }], size: 11 });
+  assert.equal(album.artist, '周杰伦');
+  assert.equal(album.artistId, '6452');
+  const playlist = sandbox.item('playlist', { id: 9, name: '精选', coverImgUrl: 'c.jpg', trackCount: 30, creator: { nickname: '某人' } });
+  assert.equal(playlist.creator, '某人');
+  const user = sandbox.item('user', { userId: 77, nickname: '听歌的人', avatarUrl: 'd.jpg' });
+  assert.equal(user.id, '77');
+  assert.equal(sandbox.list('user', { result: { userprofiles: [{ userId: 1 }] } }).length, 1);
+  assert.equal(sandbox.list('playlist', {}).length, 0);
+});
