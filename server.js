@@ -1375,9 +1375,48 @@ async function requireLogin(res) {
 // ---------- 业务: 搜索 ----------
 //   优先用 cloudsearch (新接口, 字段更全, picUrl 更稳定)
 //   对于仍然缺失封面的歌曲, 用 song_detail 批量补齐
+// Short-lived search cache: retyping or paging back to a query reuses the result,
+// and identical in-flight requests share one upstream call. Empty results are not cached.
+const SEARCH_RESULT_CACHE_TTL_MS = 2 * 60 * 1000;
+function createSearchResultCache(maxEntries) {
+  const store = new Map();
+  const inflight = new Map();
+  return {
+    async wrap(key, fn) {
+      const hit = store.get(key);
+      if (hit && Date.now() - hit.at <= SEARCH_RESULT_CACHE_TTL_MS) return hit.value;
+      if (hit) store.delete(key);
+      if (inflight.has(key)) return inflight.get(key);
+      const promise = Promise.resolve().then(fn).then((value) => {
+        if (Array.isArray(value) && value.length) {
+          store.set(key, { at: Date.now(), value });
+          if (store.size > maxEntries) store.delete(store.keys().next().value);
+        }
+        return value;
+      }).finally(() => inflight.delete(key));
+      inflight.set(key, promise);
+      return promise;
+    },
+    clear() {
+      store.clear();
+      inflight.clear();
+    },
+  };
+}
+const neteaseSearchCache = createSearchResultCache(80);
+const qqSearchCache = createSearchResultCache(80);
+function searchCookieScope(cookie) {
+  return cookie ? crypto.createHash('sha1').update(String(cookie)).digest('hex').slice(0, 12) : 'guest';
+}
+
 async function handleSearch(keywords, limit, offset) {
   limit = Math.max(1, Math.min(50, Number(limit) || 20));
   offset = Math.max(0, Number(offset) || 0);
+  const key = searchCookieScope(userCookie) + ':' + String(keywords || '').trim().toLowerCase() + ':' + limit + ':' + offset;
+  return neteaseSearchCache.wrap(key, () => fetchNeteaseSearch(keywords, limit, offset));
+}
+
+async function fetchNeteaseSearch(keywords, limit, offset) {
   console.log('[Search]', keywords, 'limit:', limit, 'offset:', offset);
   const result = await cloudsearch({ keywords, limit, offset, cookie: userCookie });
   const songs = result.body && result.body.result && result.body.result.songs ? result.body.result.songs : [];
@@ -3501,7 +3540,12 @@ async function qqFullSongSearch(keywords, limit, offset) {
   const body = data && (data.body || data);
   const items = body && (body.item_song || body.song && body.song.list || body.list);
   return (Array.isArray(items) ? items : [])
-    .map(item => mapQQTrack(item && (item.track_info || item.songInfo || item.songinfo || item.song) || item, {}))
+    .map(item => {
+      const track = item && (item.track_info || item.songInfo || item.songinfo || item.song) || item;
+      const song = mapQQTrack(track, {});
+      if (song && qqSearchTrackComplete(track)) Object.defineProperty(song, '_qqSearchComplete', { value: true });
+      return song;
+    })
     .filter(song => song && song.name && (song.mid || song.id));
 }
 
@@ -3617,6 +3661,20 @@ async function handleQQSearch(keywords, limit, offset) {
   if (!kw) return [];
   limit = Math.max(1, Math.min(30, Number(limit) || 12));
   offset = Math.max(0, Number(offset) || 0);
+  return qqSearchCache.wrap(kw.toLowerCase() + ':' + limit + ':' + offset, () => fetchQQSearch(kw, limit, offset));
+}
+
+// A full-search row already carries the same track_info that the detail API returns.
+// Only rows missing playback or display fields (e.g. Smartbox fallback) need a detail call.
+function qqSearchTrackComplete(track) {
+  return !!(track && track.mid && track.name &&
+    track.file && track.file.media_mid &&
+    Array.isArray(track.singer) && track.singer.length &&
+    track.album && (track.album.mid || track.album.pmid) &&
+    track.pay && Number(track.interval) > 0);
+}
+
+async function fetchQQSearch(kw, limit, offset) {
   console.log('[QQSearch]', kw, 'limit:', limit, 'offset:', offset);
   let base = [];
   try {
@@ -3626,6 +3684,7 @@ async function handleQQSearch(keywords, limit, offset) {
   }
   if (!base.length && offset === 0) base = await qqSmartboxSearch(kw, limit);
   const detailed = await Promise.all(base.map(async item => {
+    if (item && item._qqSearchComplete) return item;
     try { return await qqSongDetail(item.mid, item); }
     catch (e) {
       console.warn('[QQSearch] detail failed:', item.mid, e.message);
@@ -3639,6 +3698,156 @@ async function handleQQSearch(keywords, limit, offset) {
     seen.add(key);
     return !!song.name;
   });
+}
+
+// ---------- Typed search (artist / album / playlist / user) ----------
+// Only requested when the user picks that tab, so song search keeps its speed.
+const TYPED_SEARCH_TYPES = ['artist', 'album', 'playlist', 'user'];
+const NETEASE_TYPED_SEARCH_CODES = { artist: 100, album: 10, playlist: 1000, user: 1002 };
+const QQ_TYPED_SEARCH_TYPES = ['artist', 'album'];
+const typedSearchCache = createSearchResultCache(120);
+
+function neteaseTypedSearchItem(type, raw) {
+  raw = raw || {};
+  if (type === 'artist') {
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.picUrl || raw.img1v1Url || raw.avatar || '',
+      alias: Array.isArray(raw.alias) ? raw.alias.filter(Boolean).slice(0, 2).join(' / ') : '',
+      songCount: Number(raw.musicSize) || 0, albumCount: Number(raw.albumSize) || 0,
+    };
+  }
+  if (type === 'album') {
+    const artists = Array.isArray(raw.artists) && raw.artists.length ? raw.artists : (raw.artist ? [raw.artist] : []);
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.picUrl || raw.blurPicUrl || '',
+      artist: artists.map(a => a && a.name).filter(Boolean).join(' / '),
+      artistId: artists[0] && artists[0].id ? String(artists[0].id) : '',
+      songCount: Number(raw.size) || 0, publishTime: Number(raw.publishTime) || 0,
+    };
+  }
+  if (type === 'playlist') {
+    return {
+      provider: 'netease', type, id: String(raw.id || ''), name: raw.name || '',
+      cover: raw.coverImgUrl || raw.picUrl || '',
+      creator: (raw.creator && raw.creator.nickname) || '',
+      songCount: Number(raw.trackCount) || 0, playCount: Number(raw.playCount) || 0,
+    };
+  }
+  return {
+    provider: 'netease', type, id: String(raw.userId || raw.id || ''), name: raw.nickname || raw.name || '',
+    cover: raw.avatarUrl || '', signature: raw.signature || raw.description || '',
+    playlistCount: Number(raw.playlistCount) || 0,
+  };
+}
+
+function neteaseTypedSearchList(type, body) {
+  const result = (body && body.result) || {};
+  if (type === 'artist') return result.artists || [];
+  if (type === 'album') return result.albums || [];
+  if (type === 'playlist') return result.playlists || [];
+  return result.userprofiles || [];
+}
+
+async function fetchNeteaseTypedSearch(type, keywords, limit, offset) {
+  const r = await cloudsearch({ keywords, type: NETEASE_TYPED_SEARCH_CODES[type], limit, offset, cookie: userCookie, timestamp: Date.now() });
+  return neteaseTypedSearchList(type, r && r.body)
+    .map(raw => neteaseTypedSearchItem(type, raw))
+    .filter(item => item.id && item.name);
+}
+
+async function fetchQQTypedSearch(type, keywords, limit) {
+  const u = new URL(QQ_SMARTBOX_URL);
+  [['format', 'json'], ['key', keywords], ['g_tk', '5381'], ['loginUin', '0'], ['hostUin', '0'],
+    ['inCharset', 'utf8'], ['outCharset', 'utf-8'], ['notice', '0'], ['platform', 'yqq.json'], ['needNewCode', '0']]
+    .forEach(([k, v]) => u.searchParams.set(k, v));
+  const json = parseJSONText(await requestText(u.toString(), { headers: QQ_HEADERS, timeoutMs: 6000 }));
+  const block = json && json.data && (type === 'artist' ? json.data.singer : json.data.album);
+  const list = block && Array.isArray(block.itemlist) ? block.itemlist : [];
+  return list.slice(0, limit).map(raw => {
+    const mid = String(raw.mid || '');
+    if (type === 'artist') {
+      return { provider: 'qq', type, id: mid, mid, qqId: String(raw.id || ''), name: raw.name || raw.singer || '', cover: raw.pic || qqSingerAvatar(mid, 300) };
+    }
+    return { provider: 'qq', type, id: mid, mid, qqId: String(raw.id || ''), name: raw.name || '', cover: raw.pic || qqAlbumCover(mid, 300), artist: raw.singer || '' };
+  }).filter(item => item.id && item.name);
+}
+
+// NetEase "综合" search (type 1018) returns artists, albums and playlists in one call;
+// the renderer shows them above the song list without extra round trips.
+function neteaseOverviewFromBody(body) {
+  const result = (body && body.result) || {};
+  const pick = (block, key) => (block && Array.isArray(block[key]) ? block[key] : []);
+  const map = (type, list, max) => list.map(raw => neteaseTypedSearchItem(type, raw)).filter(item => item.id && item.name).slice(0, max);
+  return {
+    artists: map('artist', pick(result.artist, 'artists'), 2),
+    albums: map('album', pick(result.album, 'albums'), 4),
+    playlists: map('playlist', pick(result.playList, 'playLists'), 6),
+  };
+}
+
+function overviewHasItems(overview) {
+  return !!(overview && (overview.artists.length || overview.albums.length || overview.playlists.length));
+}
+
+async function fetchNeteaseOverview(kw) {
+  let overview = { artists: [], albums: [], playlists: [] };
+  try {
+    const r = await cloudsearch({ keywords: kw, type: 1018, limit: 6, cookie: userCookie, timestamp: Date.now() });
+    overview = neteaseOverviewFromBody(r && r.body);
+  } catch (err) {
+    console.warn('[SearchOverview] netease 1018 failed:', err.message);
+  }
+  if (overviewHasItems(overview)) return overview;
+  // The combined endpoint can come back empty; fall back to the per-type searches.
+  const [artists, albums, playlists] = await Promise.all([
+    fetchNeteaseTypedSearch('artist', kw, 3, 0).catch(() => []),
+    fetchNeteaseTypedSearch('album', kw, 4, 0).catch(() => []),
+    fetchNeteaseTypedSearch('playlist', kw, 6, 0).catch(() => []),
+  ]);
+  return { artists: artists.slice(0, 2), albums: albums.slice(0, 4), playlists: playlists.slice(0, 6) };
+}
+
+async function fetchQQOverview(kw) {
+  const [artists, albums] = await Promise.all([
+    fetchQQTypedSearch('artist', kw, 3).catch(() => []),
+    fetchQQTypedSearch('album', kw, 4).catch(() => []),
+  ]);
+  return { artists: artists.slice(0, 2), albums, playlists: [] };
+}
+
+async function handleSearchOverview(keywords, provider) {
+  const kw = String(keywords || '').trim();
+  provider = provider === 'qq' ? 'qq' : 'netease';
+  const empty = { provider, artists: [], albums: [], playlists: [] };
+  if (!kw) return empty;
+  const scope = provider === 'netease' ? searchCookieScope(userCookie) : 'public';
+  const key = [provider + '-overview', scope, kw.toLowerCase()].join(':');
+  const value = await typedSearchCache.wrap(key, async () => {
+    const overview = provider === 'qq' ? await fetchQQOverview(kw) : await fetchNeteaseOverview(kw);
+    // The cache keeps arrays only; an empty overview is retried next time.
+    return overviewHasItems(overview) ? [overview] : [];
+  });
+  return Object.assign({ provider }, value[0] || empty);
+}
+
+async function handleTypedSearch(provider, type, keywords, limit, offset) {
+  const kw = String(keywords || '').trim();
+  if (!kw || TYPED_SEARCH_TYPES.indexOf(type) < 0) return { provider, type, items: [], supported: false };
+  limit = Math.max(1, Math.min(30, Number(limit) || 18));
+  offset = Math.max(0, Number(offset) || 0);
+  if (provider === 'qq') {
+    if (QQ_TYPED_SEARCH_TYPES.indexOf(type) < 0) return { provider, type, items: [], supported: false };
+    // Smartbox returns one short page of suggestions and has no paging.
+    if (offset > 0) return { provider, type, items: [], supported: true, hasMore: false };
+    const items = await typedSearchCache.wrap(['qq', type, kw.toLowerCase(), limit].join(':'), () => fetchQQTypedSearch(type, kw, limit));
+    return { provider, type, items, supported: true, offset, nextOffset: items.length, hasMore: false };
+  }
+  if (provider !== 'netease') return { provider, type, items: [], supported: false };
+  const key = ['netease', searchCookieScope(userCookie), type, kw.toLowerCase(), limit, offset].join(':');
+  const items = await typedSearchCache.wrap(key, () => fetchNeteaseTypedSearch(type, kw, limit, offset));
+  return { provider, type, items, supported: true, offset, nextOffset: offset + items.length, hasMore: items.length >= limit };
 }
 
 function truthyQQPlaybackHint(value) {
@@ -4938,6 +5147,50 @@ const server = http.createServer(async (req, res) => {
       const songs = await handleSearch(kw, limit, offset);
       sendJSON(res, { songs, offset, limit, nextOffset: offset + songs.length, hasMore: songs.length >= limit });
     } catch (err) { console.error('[Search]', err); sendJSON(res, { error: err.message, songs: [] }, 500); }
+    return;
+  }
+
+  if (pn === '/api/search/overview') {
+    try {
+      sendJSON(res, await handleSearchOverview(url.searchParams.get('keywords') || '', url.searchParams.get('provider') || 'netease'));
+    } catch (err) {
+      console.error('[SearchOverview]', err.message);
+      sendJSON(res, { provider: 'netease', error: err.message, artists: [], albums: [], playlists: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/search/type') {
+    const provider = String(url.searchParams.get('provider') || 'netease');
+    const type = String(url.searchParams.get('type') || '');
+    try {
+      const kw = url.searchParams.get('keywords') || '';
+      const limit = parseInt(url.searchParams.get('limit') || '18', 10) || 18;
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10) || 0;
+      sendJSON(res, await handleTypedSearch(provider, type, kw, limit, offset));
+    } catch (err) {
+      console.error('[TypedSearch]', provider, type, err.message);
+      sendJSON(res, { provider, type, error: err.message, items: [] }, 500);
+    }
+    return;
+  }
+
+  // Public playlists of a NetEase user found through search (not the logged-in account).
+  if (pn === '/api/search/user-playlists') {
+    try {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!/^\d+$/.test(uid)) { sendJSON(res, { error: 'Missing user id', playlists: [] }, 400); return; }
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const page = await fetchNeteaseUserPlaylistsPage(uid, 30, offset);
+      sendJSON(res, {
+        uid,
+        playlists: page.playlists.map(pl => mapNeteasePlaylistMeta(pl, pl && pl.id)).filter(pl => pl.id),
+        offset: page.offset, nextOffset: page.nextOffset, hasMore: page.hasMore, total: page.total,
+      });
+    } catch (err) {
+      console.error('[SearchUserPlaylists]', err.message);
+      sendJSON(res, { error: err.message, playlists: [] }, 500);
+    }
     return;
   }
 

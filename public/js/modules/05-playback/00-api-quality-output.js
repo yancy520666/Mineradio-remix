@@ -5,8 +5,19 @@ async function apiJson(url, opts) {
   var fetchOpts = Object.assign({}, opts);
   delete fetchOpts.timeoutMs;
   var timer = null;
-  if (timeoutMs && window.AbortController && !fetchOpts.signal) {
+  var externalSignal = null;
+  var forwardAbort = null;
+  if (timeoutMs && window.AbortController) {
+    // A caller's cancel signal and the timeout both abort the same request.
     var controller = new AbortController();
+    externalSignal = fetchOpts.signal || null;
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else {
+        forwardAbort = function () { controller.abort(); };
+        externalSignal.addEventListener('abort', forwardAbort);
+      }
+    }
     fetchOpts.signal = controller.signal;
     timer = setTimeout(function () { controller.abort(); }, timeoutMs);
   }
@@ -15,6 +26,7 @@ async function apiJson(url, opts) {
     return await res.json();
   } finally {
     if (timer) clearTimeout(timer);
+    if (externalSignal && forwardAbort) externalSignal.removeEventListener('abort', forwardAbort);
   }
 }
 function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
