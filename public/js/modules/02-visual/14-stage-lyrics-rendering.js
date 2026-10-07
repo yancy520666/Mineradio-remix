@@ -3254,7 +3254,17 @@ function restoreCurrentStageLyrics(reason, forceRebuild) {
     : buildStageLyricDisplayPayload(index, { lightweightTrack: true });
   if (!payload || media !== audio || token !== trackSwitchToken) return false;
   stageLyrics.transitionLineStep = 0;
-  if (!showStageLine(payload, true) || media !== audio || token !== trackSwitchToken) return false;
+  var currentData = currentAttached && stageLyrics.current.userData.lyric;
+  var reusedTrack = !forceRebuild && currentData && currentData.trackPersistent && setLyricTrackTarget(stageLyrics.current, payload);
+  if (reusedTrack) {
+    // A seek may resume audio before its lyric tick commits the new index.
+    // Recover the existing track's target without replacing/snap-resetting it.
+    var normalized = normalizeStageLyricPayload(payload);
+    stageLyrics.currentPayload = normalized;
+    stageLyrics.currentDisplayKey = normalized.key;
+    stageLyrics.currentText = normalized.text;
+  } else if (!showStageLine(payload, true)) return false;
+  if (media !== audio || token !== trackSwitchToken) return false;
   if (stageLyrics.group.parent !== scene) scene.add(stageLyrics.group);
   stageLyrics.group.visible = true;
   stageLyrics.currentIdx = displayIndex;
