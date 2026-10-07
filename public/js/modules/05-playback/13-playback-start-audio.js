@@ -1123,6 +1123,8 @@ async function playQueueAt(idx, opts) {
     if (restoreResumeAt > 0 && typeof requestStageLyricRestoreWarmup === 'function') {
       requestStageLyricRestoreWarmup(restoreResumeAt, token, 'startup-restore');
     }
+    // Retire the old lyric state before a scene recovery can redraw it.
+    if (!qualitySwitch && typeof resetLyricsForTrackSwitch === 'function') resetLyricsForTrackSwitch(song, token);
     var playbackContext = opts.context || (song && song.radioContext) || null;
     activeRadioContext = playbackContext || null;
     safeRenderQueuePanel('play-queue-at-switch', { scrollCurrent: miniQueueOpen });
@@ -1156,8 +1158,7 @@ async function playQueueAt(idx, opts) {
         if (typeof markStageLyricsPlaybackResume === 'function') markStageLyricsPlaybackResume('quality-switch-preserve-lyrics');
         applyPreferredLyricsForCurrent(true);
       } else {
-        if (typeof resetLyricsForTrackSwitch === 'function') resetLyricsForTrackSwitch(song, token);
-        else {
+        if (typeof resetLyricsForTrackSwitch !== 'function') {
           var initialLyricLines = withLyricFallback([]);
           setOriginalLyricsState(initialLyricLines, false, 'fallback');
           applyPreferredLyricsForCurrent(true);

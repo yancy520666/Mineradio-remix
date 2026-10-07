@@ -122,7 +122,7 @@ function applyFetchedLyricResponse(song, token, response, options) {
   cancelPendingTrackFallbackLyrics();
   var state = parseLyricResponseToOriginalState(song, mergedResponse);
   setOriginalLyricsState(state.lines, state.hasNativeKaraoke, state.timingSource, state.translationLines, state.translationSource);
-  applyPreferredLyricsForCurrent(true);
+  applyPreferredLyricsForCurrent(true, { preserveSame: true, reason: 'lyric-fetch' });
   scheduleNeteaseLyricTranslationFallback(song, token, state);
   if (state.usableLyric && options.persist !== false) writePersistentLyricCache(song, mergedResponse);
   return state;
@@ -330,7 +330,7 @@ function scheduleTrackSwitchFallbackLyrics(song, token, delay) {
     if (token != null && token !== trackSwitchToken) return;
     if (hasUsableLyricLines(originalLyricsState && originalLyricsState.lines)) return;
     setOriginalLyricsState(withLyricFallbackForSong(song || currentLyricSong(), []), false, 'fallback', [], 'none');
-    applyPreferredLyricsForCurrent(true);
+    applyPreferredLyricsForCurrent(true, { preserveSame: true, reason: 'lyric-title-fallback' });
   }, Math.max(multiLineDelay, Number(delay) || 720));
 }
 async function fetchLyric(songOrId, token, attempt) {
@@ -355,7 +355,7 @@ async function fetchLyric(songOrId, token, attempt) {
     cancelPendingTrackFallbackLyrics();
     var fallbackLines = withLyricFallbackForSong(song || currentLyricSong(), []);
     setOriginalLyricsState(fallbackLines, false, 'fallback', [], 'none');
-    applyPreferredLyricsForCurrent(true);
+    applyPreferredLyricsForCurrent(true, { preserveSame: true, reason: 'lyric-fetch-failed' });
     if (shouldRetryStartupLyricFetch(song, token, attempt)) scheduleStartupLyricFetchRetry(song, token, attempt);
   }
 }
