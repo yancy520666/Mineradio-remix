@@ -336,6 +336,11 @@ function saveConfiguredCookieStore(store, value) {
   store.value = nextValue;
   return store.value;
 }
+const { createNeteaseLikeCache } = require('./netease-like-cache');
+const neteaseLikeCache = createNeteaseLikeCache({
+  fetchList: owner => likelist({ uid: owner.uid, cookie: owner.cookie, timestamp: Date.now() }),
+  onFailure: ({ code, retryAfterMs }) => console.warn('[LikeCheck] status ' + code + '; queries paused for ' + Math.ceil(retryAfterMs / 1000) + 's'),
+});
 let userCookie = '';
 function saveCookie(c) {
   userCookie = saveConfiguredCookieStore(configuredCookieStores.netease, normalizeCookieHeader(c) || rawCookieFallback(c));
@@ -4716,6 +4721,7 @@ async function fetchNeteaseLoginInfo() {
 const NETEASE_LOGIN_INFO_CACHE_TTL_MS = 30 * 1000;
 let neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 function clearNeteaseLoginInfoCache() {
+  neteaseLikeCache.reset();
   neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 }
 async function getLoginInfo() {
@@ -6614,39 +6620,18 @@ const server = http.createServer(async (req, res) => {
   // ---------- 红心状态 ----------
   if (pn === '/api/song/like/check') {
     try {
+      const cookieKey = userCookie;
       const info = await requireLogin(res);
       if (!info) return;
+      if (cookieKey !== userCookie) { sendJSON(res, { liked: {}, complete: false, code: 409 }); return; }
       const ids = String(url.searchParams.get('ids') || url.searchParams.get('id') || '')
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
+        .split(',').map(s => s.trim()).filter(Boolean);
       if (!ids.length) { sendJSON(res, { error: 'Missing song id', liked: {}, ids: [] }, 400); return; }
-      let likedIds = [];
-      try {
-        if (typeof song_like_check === 'function') {
-          const checked = await song_like_check({ ids: JSON.stringify(ids.map(Number).filter(Boolean)), cookie: userCookie, timestamp: Date.now() });
-          const data = (checked.body && (checked.body.data || checked.body.ids)) || checked.body || {};
-          if (Array.isArray(data)) likedIds = data.map(String);
-          else if (data && typeof data === 'object') {
-            ids.forEach(id => {
-              if (data[id] || data[String(id)] || data[Number(id)]) likedIds.push(String(id));
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[LikeCheck] direct check failed:', e.message);
-      }
-      if (!likedIds.length) {
-        const r = await likelist({ uid: info.userId, cookie: userCookie, timestamp: Date.now() });
-        likedIds = ((r.body && r.body.ids) || []).map(String);
-      }
-      const set = new Set(likedIds);
-      const liked = {};
-      ids.forEach(id => { liked[id] = set.has(String(id)); });
-      sendJSON(res, { loggedIn: true, ids, liked });
+      const state = await neteaseLikeCache.check({ uid: info.userId, cookie: cookieKey }, ids);
+      sendJSON(res, Object.assign({ loggedIn: true, ids }, state));
     } catch (err) {
-      console.error('[LikeCheck]', err);
-      sendJSON(res, { error: err.message }, 500);
+      console.warn('[LikeCheck] request unavailable');
+      sendJSON(res, { error: 'Like status temporarily unavailable', liked: {}, complete: false }, 503);
     }
     return;
   }
@@ -6654,14 +6639,17 @@ const server = http.createServer(async (req, res) => {
   // ---------- 红心/取消红心 ----------
   if (pn === '/api/song/like') {
     try {
+      const cookieKey = userCookie;
       const info = await requireLogin(res);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
       const id = body.id || url.searchParams.get('id');
       const nextLike = String(body.like != null ? body.like : (url.searchParams.get('like') || 'true')) !== 'false';
       if (!id) { sendJSON(res, { error: 'Missing song id' }, 400); return; }
-      const r = await like_song({ id, like: String(nextLike), cookie: userCookie, timestamp: Date.now() });
+      if (cookieKey !== userCookie) { sendJSON(res, { error: 'Account changed; please retry', code: 409 }, 409); return; }
+      const r = await like_song({ id, like: String(nextLike), cookie: cookieKey, timestamp: Date.now() });
       const code = (r.body && r.body.code) || r.code || 200;
+      if (Number(code) === 200 && cookieKey === userCookie) neteaseLikeCache.record({ uid: info.userId, cookie: cookieKey }, id, nextLike);
       sendJSON(res, { loggedIn: true, id, liked: nextLike, code, body: r.body || r });
     } catch (err) {
       console.error('[Like]', err);
