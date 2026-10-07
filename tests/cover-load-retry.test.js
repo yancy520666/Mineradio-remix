@@ -108,3 +108,24 @@ test('after a cover settles the next queued covers are warmed with the playback 
   s.fire();
   assert.equal(s.images.length, count, 'custom covers need no network warm-up');
 });
+
+test('failed and cancelled prefetches can retry; only loaded covers are marked done', () => {
+  const s = setup();
+  s.c.playQueue = [{ id: 1 }, { id: 2, cover: cdn }];
+  s.c.upcomingCoverPrefetch.token = 1;
+  s.c.runUpcomingCoverPrefetch(1);
+  s.last().onerror();
+  assert.equal(s.c.upcomingCoverPrefetch.done[proxied], undefined);
+  assert(s.c.upcomingCoverPrefetch.retryAfter[proxied] > Date.now());
+  assert.equal(s.c.upcomingCoverPrefetchUrls().length, 0, 'cooldown prevents a tight error loop');
+  s.c.upcomingCoverPrefetch.retryAfter[proxied] = Date.now() - 1;
+  s.c.runUpcomingCoverPrefetch(1);
+  assert.equal(s.images.length, 2);
+  const cancelled = s.last();
+  s.c.cancelUpcomingCoverPrefetch();
+  assert.equal(cancelled.onload, null);
+  s.c.runUpcomingCoverPrefetch(1);
+  s.last().onload();
+  assert.equal(s.c.upcomingCoverPrefetch.done[proxied], true);
+  assert.equal(s.c.upcomingCoverPrefetchUrls().length, 0);
+});

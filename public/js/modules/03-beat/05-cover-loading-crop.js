@@ -138,7 +138,8 @@ function loadCoverFromUrl(directUrl, opts) {
 
 // Warm the next songs' covers (the exact address playback will ask for) so a
 // switch can paint from cache. One at a time, after the current cover settles.
-var upcomingCoverPrefetch = { timer: 0, image: null, token: -1, done: {} , doneCount: 0 };
+var upcomingCoverPrefetch = { timer: 0, image: null, token: -1, done: {}, doneCount: 0, retryAfter: {} };
+var UPCOMING_COVER_PREFETCH_RETRY_MS = 15000;
 var UPCOMING_COVER_PREFETCH_DELAY_MS = 1500;
 var UPCOMING_COVER_PREFETCH_COUNT = 2;
 
@@ -150,7 +151,7 @@ function upcomingCoverPrefetchUrls() {
     var song = playQueue[(currentIdx + step) % playQueue.length];
     if (!song || !song.cover || getCustomCoverForSong(song)) continue;
     var src = coverProxySrc(coverUrlWithSize(song.cover, 400));
-    if (!src || isInlineCoverSrc(src) || upcomingCoverPrefetch.done[src]) continue;
+    if (!src || isInlineCoverSrc(src) || upcomingCoverPrefetch.done[src] || Number(upcomingCoverPrefetch.retryAfter[src]) > Date.now()) continue;
     urls.push(src);
   }
   return urls;
@@ -178,16 +179,21 @@ function runUpcomingCoverPrefetch(token) {
   if (typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
   var src = upcomingCoverPrefetchUrls()[0];
   if (!src) return;
-  if (upcomingCoverPrefetch.doneCount >= 64) { upcomingCoverPrefetch.done = {}; upcomingCoverPrefetch.doneCount = 0; }
-  upcomingCoverPrefetch.done[src] = true;
-  upcomingCoverPrefetch.doneCount++;
+  if (upcomingCoverPrefetch.doneCount >= 64) { upcomingCoverPrefetch.done = {}; upcomingCoverPrefetch.retryAfter = {}; upcomingCoverPrefetch.doneCount = 0; }
   // Same CORS mode as loadCoverFromUrl so the browser cache entry is reusable.
   var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
   upcomingCoverPrefetch.image = img;
-  function finish() {
+  function finish(ok) {
+    if (upcomingCoverPrefetch.image !== img) return;
     clearTimeout(upcomingCoverPrefetch.timer);
     upcomingCoverPrefetch.timer = 0;
-    if (upcomingCoverPrefetch.image !== img) return;
+    if (ok) {
+      upcomingCoverPrefetch.done[src] = true;
+      delete upcomingCoverPrefetch.retryAfter[src];
+    } else {
+      upcomingCoverPrefetch.retryAfter[src] = Date.now() + UPCOMING_COVER_PREFETCH_RETRY_MS;
+    }
+    upcomingCoverPrefetch.doneCount++;
     img.onload = img.onerror = null;
     upcomingCoverPrefetch.image = null;
     upcomingCoverPrefetch.timer = setTimeout(function () {
@@ -195,11 +201,12 @@ function runUpcomingCoverPrefetch(token) {
       runUpcomingCoverPrefetch(token);
     }, 200);
   }
-  img.onload = img.onerror = finish;
+  img.onload = function () { finish(true); };
+  img.onerror = function () { finish(false); };
   upcomingCoverPrefetch.timer = setTimeout(function () {
     // A failed warm-up may be tried again later; playback has its own retries.
-    delete upcomingCoverPrefetch.done[src];
-    cancelUpcomingCoverPrefetch();
+    img.removeAttribute('src');
+    finish(false);
   }, COVER_ATTEMPT_TIMEOUT_MS);
   img.src = src;
 }

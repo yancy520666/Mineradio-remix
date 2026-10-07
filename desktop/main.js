@@ -2649,7 +2649,7 @@ function attachInlineLogin(provider, loginWindow, options, finish) {
   const previous = inlineLoginSessions.get(provider);
   if (previous) previous.cancel();
   const session = createInlineQrSession(loginWindow, {
-    notify: (payload) => notify({ provider, ...payload }),
+    notify: (payload) => notify({ provider, requestId: options.requestId, ...payload }),
     onFail: (reason) => finish({ ok: false, fallback: true, inline: true, error: reason }),
   });
   const entry = { session, cancel: () => finish({ ok: false, cancelled: true, inline: true }) };

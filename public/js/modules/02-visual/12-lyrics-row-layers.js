@@ -985,19 +985,8 @@ function lyricQualityEnsureCapacity(extraBytes, pinnedRow, tier) {
   return lyricQualityState.bytes + extraBytes <= budget && (pinnedResident || lyricQualityState.residents.length < maxRows);
 }
 
-var LYRIC_QUALITY_DRAG_REST_MS = 90;
-var lyricQualityDragTarget = { index: NaN, changedAt: 0 };
-
-function noteLyricQualityDragTarget(targetIndex) {
-  var index = Number(targetIndex);
-  if (index === lyricQualityDragTarget.index) return;
-  lyricQualityDragTarget.index = index;
-  lyricQualityDragTarget.changedAt = lyricQualityNowMs();
-}
-
 function lyricQualityDragBuildAllowed(job) {
-  if (!job || job.dragNear !== true) return false;
-  return lyricQualityNowMs() - lyricQualityDragTarget.changedAt >= LYRIC_QUALITY_DRAG_REST_MS;
+  return !!(job && job.row && job.row.qualityWanted === true);
 }
 
 function scheduleLyricQualityBuild(delay) {
@@ -1024,9 +1013,8 @@ function scheduleLyricQualityBuild(delay) {
       return;
     }
     lyricQualityState.queue.sort(function (a, b) { return a.priority - b.priority; });
-    // While dragging, only the rows beside the drag target may build, and only
-    // once the pointer has rested briefly; farther rows keep their base texture
-    // and upgrade after release, so the drag never waits on a far build.
+    // Dragging retains the same quality selection as playback. Build one
+    // selected row per idle slice and keep the existing upload/memory budgets.
     var jobIndex = 0;
     if (dragging) {
       jobIndex = lyricQualityState.queue.findIndex(lyricQualityDragBuildAllowed);
@@ -1085,18 +1073,13 @@ function scheduleLyricQualityBuild(delay) {
   }
 }
 
-function queueLyricRowQuality(data, row, tier, priority, dragNear) {
+function queueLyricRowQuality(data, row, tier, priority) {
   if (!lyricQualityOwnerActive(data, row) || !row.lineMask || tier <= 1 || row.qualityWanted !== true || Number(row.qualityHotUntil) <= lyricQualityNowMs()) return;
   var target = lyricQualityTargetMetrics(row.lineMask, tier);
   if (!target) return;
   var key = target.tier + 'x|' + target.width + 'x' + target.height + '|' + (Number(row.lineMask.stoneSeed) || 0);
   if ((row.qualityTexture && row.qualityTier === tier && row.qualityRasterKey === key) || (row.qualityPendingTexture && row.qualityPendingTier === tier && row.qualityPendingKey === key)) return;
   if (row.qualityQueuedKey === key) {
-    if (dragNear === true) {
-      for (var queuedIndex = 0; queuedIndex < lyricQualityState.queue.length; queuedIndex++) {
-        if (lyricQualityState.queue[queuedIndex].row === row) lyricQualityState.queue[queuedIndex].dragNear = true;
-      }
-    }
     return;
   }
   row.qualityGeneration = (Number(row.qualityGeneration) || 0) + 1;
@@ -1107,7 +1090,6 @@ function queueLyricRowQuality(data, row, tier, priority, dragNear) {
     tier: tier,
     key: key,
     priority: Number(priority) || 50,
-    dragNear: dragNear === true,
     bytes: target.bytes,
     rowGeneration: row.qualityGeneration,
     globalGeneration: lyricQualityState.generation
@@ -1186,7 +1168,7 @@ function beginLyricQualitySelectionFrame(deferFinalize) {
   }
 }
 
-function registerLyricQualityCandidates(data, candidates, tier, rootPriority, buildDeferred) {
+function registerLyricQualityCandidates(data, candidates, tier, rootPriority) {
   if (!lyricQualityOwnerActive(data) || !Array.isArray(candidates) || !candidates.length || tier <= 1) return;
   rootPriority = Number(rootPriority) || 0;
   for (var i = 0; i < candidates.length; i++) {
@@ -1198,8 +1180,7 @@ function registerLyricQualityCandidates(data, candidates, tier, rootPriority, bu
       tier: tier,
       priority: rootPriority + (Number(candidate.priority) || 50),
       hotMs: Number(candidate.hotMs) || 620,
-      buildDeferred: buildDeferred === true && candidate.dragNear !== true,
-      dragNear: buildDeferred === true && candidate.dragNear === true
+      buildDeferred: false
     });
   }
 }
@@ -1342,7 +1323,7 @@ function finalizeLyricQualitySelectionFrame() {
   }
   for (var buildIndex = 0; buildIndex < buildCandidates.length; buildIndex++) {
     var buildCandidate = buildCandidates[buildIndex];
-    queueLyricRowQuality(buildCandidate.data, buildCandidate.row, buildCandidate.tier, buildCandidate.priority, buildCandidate.dragNear);
+    queueLyricRowQuality(buildCandidate.data, buildCandidate.row, buildCandidate.tier, buildCandidate.priority);
   }
   pruneLyricQualityQueue(now);
   commitDeferredLyricQualityRows();
@@ -1515,7 +1496,8 @@ function updateLyricRowLayers(data, opts) {
   } else {
     var trackStep = (targetIndex - data.trackScrollOffset) * trackEase;
     if (data.usesTrack && persistentPrimedTrack) {
-      trackGlideOffset = lyricTrackGlideOffset(data, targetIndex, continuousTrackSlotStep, nowMs, previewMotionLock || editPreview);
+      var clickSeekGlide = typeof progressLyricSeekGlideActive === 'function' && progressLyricSeekGlideActive();
+      trackGlideOffset = lyricTrackGlideOffset(data, targetIndex, continuousTrackSlotStep, nowMs, (previewMotionLock && !clickSeekGlide) || editPreview);
     }
     if (trackGlideOffset != null) {
       trackStep = trackGlideOffset - data.trackScrollOffset;
@@ -1557,8 +1539,6 @@ function updateLyricRowLayers(data, opts) {
   var renderRevealCandidates = [];
   var lyricQualityTier = lyricTextureClarityScale();
   var contextHighQualityEnabled = !fx || fx.lyricContextHighQuality !== false;
-  var qualityBuildDeferred = typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive();
-  if (qualityBuildDeferred) noteLyricQualityDragTarget(targetIndex);
   var lyricQualityCandidates = [];
   var revealOffsets = lyricDisplayOffsetsForMode(displayMode);
   var revealPrewarmMinOffset = 0;
@@ -1661,12 +1641,7 @@ function updateLyricRowLayers(data, opts) {
       lyricQualityCandidates.push({
         row: row,
         priority: qualityPriority,
-        hotMs: renderWindowActive ? 1100 : 620,
-        // The drag target line and its neighbours (with translations) are the
-        // budgeted set that may build while the progress bar is held.
-        dragNear: qualityBuildDeferred && rowLineIndex != null
-          ? Math.abs(rowLineIndex - targetLineIndex) <= 1
-          : (qualityBuildDeferred && (isActive || currentTranslation))
+        hotMs: renderWindowActive ? 1100 : 620
       });
     }
     var rowRevealAt = Number(row.renderRevealAt) || nowMs;
@@ -1866,7 +1841,7 @@ function updateLyricRowLayers(data, opts) {
       setLyricTextureMaterialOpacity(row.glowMat, initialTextRevealPending ? 0 : nextGlowOpacity);
     }
   }
-  registerLyricQualityCandidates(data, lyricQualityCandidates, lyricQualityTier, opts.qualityRootPriority, qualityBuildDeferred);
+  registerLyricQualityCandidates(data, lyricQualityCandidates, lyricQualityTier, opts.qualityRootPriority);
   var deferQualityCommit = lyricQualityState.deferFinalize;
   if (deferQualityCommit && renderRevealCandidates.length) {
     for (var deferredRevealIndex = 0; deferredRevealIndex < renderRevealCandidates.length; deferredRevealIndex++) {

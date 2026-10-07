@@ -14,6 +14,7 @@ var loginWorkflowHoverProvider = '';
 var loginWorkflowRetracts = [];
 var loginWorkflowRetractFrame = 0;
 var loginWorkflowPendingLogout = null;
+var loginWorkflowCommittingLogout = {};
 var LOGIN_WORKFLOW_LOGOUT_DELAY_MS = 4000;
 var SPOTIFY_DEVELOPER_DASHBOARD_URL = 'https://developer.spotify.com/dashboard';
 var SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:43879/callback';
@@ -65,6 +66,7 @@ function saveLoginWorkflowConnections(list) {
 function providerHasLiveLogin(provider) {
   provider = normalizeLoginProviderKey(provider);
   if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider === provider) return false;
+  if (loginWorkflowCommittingLogout[provider]) return false;
   if (loginWorkflowVerifiedSession && loginWorkflowVerifiedSession[provider]) return true;
   try { return typeof hasPlatformLogin === 'function' && hasPlatformLogin(provider); } catch (e) { return false; }
 }
@@ -295,6 +297,7 @@ function loginWorkflowProviderLabel(provider) {
 // back or pressing 撤销 in the MR card keeps the account.
 function scheduleLoginWorkflowLogout(provider) {
   provider = normalizeLoginProviderKey(provider);
+  if (loginWorkflowCommittingLogout[provider]) return;
   if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider !== provider) finishLoginWorkflowLogout();
   if (loginWorkflowPendingLogout) clearTimeout(loginWorkflowPendingLogout.timer);
   loginWorkflowPendingLogout = {
@@ -317,6 +320,10 @@ async function finishLoginWorkflowLogout() {
   if (!pending) return;
   clearTimeout(pending.timer);
   var provider = pending.provider;
+  // Consume the undoable state before starting an irreversible request.
+  loginWorkflowPendingLogout = null;
+  loginWorkflowCommittingLogout[provider] = true;
+  updateLoginProviderUi();
   try {
     if (typeof logoutProviderAccount === 'function') await logoutProviderAccount(provider);
     showToast('已退出 ' + loginWorkflowProviderLabel(provider));
@@ -324,7 +331,7 @@ async function finishLoginWorkflowLogout() {
     console.warn('Login wire logout failed:', e);
     showToast('退出 ' + loginWorkflowProviderLabel(provider) + ' 未完成，请重试');
   } finally {
-    if (loginWorkflowPendingLogout === pending) loginWorkflowPendingLogout = null;
+    delete loginWorkflowCommittingLogout[provider];
     updateLoginProviderUi();
   }
 }
@@ -375,6 +382,10 @@ function ensureLoginInlineQr() {
 }
 function connectLoginProviderToMr(provider) {
   provider = normalizeLoginProviderKey(provider);
+  if (loginWorkflowCommittingLogout[provider]) {
+    showToast('正在退出 ' + loginWorkflowProviderLabel(provider) + '，请稍后重新连接');
+    return;
+  }
   if (loginWorkflowPendingLogout && loginWorkflowPendingLogout.provider === provider) {
     if (provider !== loginProvider) setLoginProvider(provider, true);
     undoLoginWorkflowLogout();
@@ -1551,7 +1562,8 @@ function toggleQQCookiePanel() {
 // sends its QR here, so the scan happens inside this drawer. If no QR shows up
 // the shell reports a fallback and the official window opens as before.
 var inlineLoginQrProvider = '';
-var inlineLoginQrWantsWindow = false;
+var inlineLoginQrRequest = null;
+var inlineLoginQrRequestSeq = 0;
 var inlineLoginQrUnsubscribe = null;
 function inlineLoginQrSupported() {
   var api = window.desktopWindow;
@@ -1568,6 +1580,7 @@ function setInlineLoginQrView(active) {
 }
 function handleInlineLoginQr(payload) {
   if (!payload || !payload.provider || payload.provider !== inlineLoginQrProvider || payload.provider !== loginProvider) return;
+  if (!inlineLoginQrRequest || payload.requestId != null && payload.requestId !== inlineLoginQrRequest.id) return;
   var img = document.getElementById('qr-img');
   var statusEl = document.getElementById('qr-status');
   if (payload.stage === 'qr' && payload.image) {
@@ -1611,15 +1624,21 @@ function resetInlineLoginQrView(provider) {
   if (img && img.getAttribute('data-qr-provider') === provider) clearLoginQrImage(img);
 }
 function cancelInlineLoginQr() {
+  inlineLoginQrRequestSeq += 1;
   var provider = inlineLoginQrProvider;
   if (!provider) return;
+  inlineLoginQrProvider = '';
+  inlineLoginQrRequest = null;
+  resetInlineLoginQrView(provider);
   var api = window.desktopWindow;
   try { if (api && typeof api.cancelInlineLogin === 'function') api.cancelInlineLogin(provider); } catch (e) { }
 }
 function openInlineLoginInWindow() {
   if (!inlineLoginQrProvider) return;
-  inlineLoginQrWantsWindow = true;
+  var request = inlineLoginQrRequest;
+  if (request) request.wantsWindow = true;
   cancelInlineLoginQr();
+  if (request) request.fallbackGeneration = inlineLoginQrRequestSeq;
 }
 // open(options) calls the desktop login bridge. Returns its result, or null
 // when the inline login was cancelled and nothing more should happen.
@@ -1627,22 +1646,28 @@ async function openProviderLoginWithInlineQr(provider, open, options) {
   options = options || {};
   if (inlineLoginQrSupported()) {
     bindInlineLoginQr();
+    var request = { id: ++inlineLoginQrRequestSeq, wantsWindow: false };
+    inlineLoginQrRequest = request;
     inlineLoginQrProvider = provider;
-    inlineLoginQrWantsWindow = false;
     clearLoginQrImage();
     setInlineLoginQrView(true);
     setLoginQrLoading(true);
     updateLoginProviderUi();
     var result = null;
+    var current = false;
     try {
-      result = await open(Object.assign({}, options, { inline: true }));
+      result = await open(Object.assign({}, options, { inline: true, requestId: request.id }));
     } finally {
-      if (inlineLoginQrProvider === provider) inlineLoginQrProvider = '';
-      if (!result || !result.ok) resetInlineLoginQrView(provider);
-      updateLoginProviderUi();
+      current = inlineLoginQrRequest === request;
+      if (current) {
+        inlineLoginQrProvider = '';
+        inlineLoginQrRequest = null;
+        if (!result || !result.ok) resetInlineLoginQrView(provider);
+        updateLoginProviderUi();
+      }
     }
-    var wantsWindow = inlineLoginQrWantsWindow;
-    inlineLoginQrWantsWindow = false;
+    var wantsWindow = request.wantsWindow && request.fallbackGeneration === inlineLoginQrRequestSeq && loginProvider === provider && !inlineLoginQrRequest;
+    if (!current && !wantsWindow) return null;
     if (!result || !result.inline) return result;
     if (result.cancelled && !wantsWindow) return null;
     if (!result.cancelled && !result.fallback) return result;

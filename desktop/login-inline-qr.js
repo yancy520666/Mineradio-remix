@@ -131,7 +131,6 @@ function createInlineQrSession(win, options) {
   const onFail = typeof options.onFail === 'function' ? options.onFail : () => {};
   const timeoutMs = options.timeoutMs || 15000;
   const intervalMs = options.intervalMs || 700;
-  const startedAt = Date.now();
   const wc = win.webContents;
   let frame = null;
   let rect = null;
@@ -141,6 +140,7 @@ function createInlineQrSession(win, options) {
   let stopped = false;
   let failed = false;
   let timer = null;
+  let deadline = null;
   let busy = false;
 
   const onPaint = (_event, _dirty, image) => { frame = image; };
@@ -182,9 +182,6 @@ function createInlineQrSession(win, options) {
           lastHash = 'scanned';
           notify({ stage: 'scanned' });
         }
-      } else if (Date.now() - startedAt > timeoutMs) {
-        fail('QR_NOT_FOUND');
-        return;
       }
     } finally {
       busy = false;
@@ -195,11 +192,17 @@ function createInlineQrSession(win, options) {
     if (stopped) return;
     stopped = true;
     if (timer) clearInterval(timer);
+    if (deadline) clearTimeout(deadline);
     timer = null;
+    deadline = null;
     try { if (!wc.isDestroyed()) wc.removeListener('paint', onPaint); } catch (_) {}
   }
 
   timer = setInterval(() => { tick().catch(() => {}); }, intervalMs);
+  // Finding an element is insufficient: paint/cropping or a frame script
+  // may stall. The first usable QR must arrive before this independent limit.
+  deadline = setTimeout(() => { if (!seen) fail('QR_NOT_FOUND'); }, timeoutMs);
+  if (deadline && typeof deadline.unref === 'function') deadline.unref();
   if (timer && typeof timer.unref === 'function') timer.unref();
 
   return {
