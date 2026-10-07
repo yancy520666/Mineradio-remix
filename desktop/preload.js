@@ -88,7 +88,15 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   getCloseBehavior: () => ipcRenderer.invoke('desktop-window-get-close-behavior'),
   setCloseBehavior: (behavior) => ipcRenderer.invoke('desktop-window-set-close-behavior', behavior),
   clearAllLoginState: () => ipcRenderer.invoke('mineradio-clear-all-login'),
-  openNeteaseMusicLogin: () => ipcRenderer.invoke('netease-music-open-login'),
+  openNeteaseMusicLogin: (options) => ipcRenderer.invoke('netease-music-open-login', options || {}),
+  cancelInlineLogin: (provider) => ipcRenderer.invoke('provider-login-inline-cancel', String(provider || '')),
+  clickInlineLoginQr: (provider, fx, fy) => ipcRenderer.invoke('provider-login-inline-click', String(provider || ''), Number(fx) || 0, Number(fy) || 0),
+  onInlineLoginQr: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('provider-login-inline-qr', listener);
+    return () => ipcRenderer.removeListener('provider-login-inline-qr', listener);
+  },
   clearNeteaseMusicLogin: () => ipcRenderer.invoke('netease-music-clear-login'),
   openQQMusicLogin: (options) => ipcRenderer.invoke('qq-music-open-login', options || {}),
   clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),

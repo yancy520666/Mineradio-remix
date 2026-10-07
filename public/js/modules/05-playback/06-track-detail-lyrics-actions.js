@@ -709,6 +709,7 @@ function openTrackDetailModal(type, songOverride) {
       '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">专辑曲目</div><div class="detail-section-actions">' + renderAlbumCollectionButton(song) + renderAlbumGaplessButton() + '</div></div><div id="album-song-list">' +
       (albumUrl ? '<div class="detail-loading">正在载入专辑曲目...</div>' : '<div class="detail-empty">' + escHtml(albumDetailMissingText(song)) + '</div>') +
       '</div></div>';
+    bindCoverImageFallback(body.querySelector('.detail-cover'));
     syncAlbumCollectionState(song);
     if (albumUrl) {
       apiJson(albumUrl).then(function (r) {
