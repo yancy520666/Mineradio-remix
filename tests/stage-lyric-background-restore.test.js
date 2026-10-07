@@ -94,6 +94,25 @@ test('pause-hide preference keeps lyrics hidden while paused', () => {
   assert.equal(calls.filter((call) => call[0] === 'show').length, 0);
 });
 
+test('resume during a seek retargets a persistent track without snapping its scroll or rebuilding it', () => {
+  const { context, calls, stageLyrics, audio } = makeLyricsContext();
+  audio.paused = false;
+  const data = { trackPersistent: true, trackScrollOffset: 0.35, trackGlide: { from: 0, to: 1 } };
+  const mesh = { parent: stageLyrics.group, userData: { lyric: data } };
+  stageLyrics.current = mesh;
+  stageLyrics.currentIdx = 0;
+  context.normalizeStageLyricPayload = x => x;
+  context.setLyricTrackTarget = (target, payload) => { assert.equal(target, mesh); assert.equal(payload.text, '第二句'); return true; };
+  assert.equal(context.restoreStageLyricsAfterBackground('seek-resume'), true);
+  assert.equal(stageLyrics.current, mesh);
+  assert.equal(data.trackScrollOffset, 0.35);
+  assert.deepEqual(data.trackGlide, { from: 0, to: 1 });
+  assert.equal(stageLyrics.currentIdx, 1);
+  assert.equal(calls.filter(x => x[0] === 'show').length, 0);
+  assert.equal(context.restoreCurrentStageLyrics('explicit-style-rebuild', true), true);
+  assert.notEqual(stageLyrics.current, mesh, 'explicit rebuilds remain supported');
+});
+
 test('first play restores a detached lyric even when pause hold is disabled', () => {
   const { context, calls, audio, stageLyrics } = makeLyricsContext();
   audio.paused = false;
