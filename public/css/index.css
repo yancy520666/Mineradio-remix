@@ -11112,6 +11112,255 @@ body.login-guide-active #login-guide-canvas {
   }
 }
 
+/* Guide illustrations: shelf layouts, right-click summon and the login wire. */
+#visual-guide .visual-guide-demo {
+  margin-top: 12px
+}
+
+#visual-guide .visual-guide-card.is-compact .visual-guide-demo {
+  display: none
+}
+
+#visual-guide .vg-demo {
+  display: flex;
+  gap: 10px
+}
+
+#visual-guide .vg-mini {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: vg-mode-focus 5.2s var(--vg-ease) infinite
+}
+
+#visual-guide .vg-mini.is-stage {
+  animation-delay: -2.6s
+}
+
+#visual-guide .vg-mini > span {
+  color: rgba(255, 255, 255, .62);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em
+}
+
+#visual-guide .vg-mini-screen {
+  position: relative;
+  width: 100%;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: radial-gradient(circle at 38% 42%, rgba(126, 160, 220, .16), transparent 58%), rgba(255, 255, 255, .035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10);
+  perspective: 240px;
+  transition: box-shadow .45s var(--vg-ease)
+}
+
+#visual-guide .vg-mini-screen i {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(var(--vg-gold), .78), rgba(120, 150, 230, .55));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .22), 0 4px 10px rgba(0, 0, 0, .35)
+}
+
+/* Side: a slanted column on the right edge. */
+#visual-guide .vg-mini.is-side i {
+  right: 12px;
+  transform: rotateY(-34deg);
+  animation: vg-card-float 3.4s ease-in-out infinite
+}
+
+#visual-guide .vg-mini.is-side i:nth-child(1) { top: 6px; opacity: .55; transform: rotateY(-34deg) scale(.82) }
+#visual-guide .vg-mini.is-side i:nth-child(2) { top: 25px; right: 16px; animation-delay: -1.1s }
+#visual-guide .vg-mini.is-side i:nth-child(3) { top: 46px; opacity: .55; transform: rotateY(-34deg) scale(.82); animation-delay: -2.2s }
+
+/* Stage: a row along the bottom, the middle card in front. */
+#visual-guide .vg-mini.is-stage i {
+  bottom: 9px;
+  left: 50%;
+  margin-left: -11px
+}
+
+#visual-guide .vg-mini.is-stage i:nth-child(1) { transform: translateX(-52px) rotateY(36deg) scale(.7); opacity: .4 }
+#visual-guide .vg-mini.is-stage i:nth-child(2) { transform: translateX(-28px) rotateY(24deg) scale(.84); opacity: .7 }
+#visual-guide .vg-mini.is-stage i:nth-child(3) { transform: translateY(-4px) scale(1.18); z-index: 1 }
+#visual-guide .vg-mini.is-stage i:nth-child(4) { transform: translateX(28px) rotateY(-24deg) scale(.84); opacity: .7 }
+#visual-guide .vg-mini.is-stage i:nth-child(5) { transform: translateX(52px) rotateY(-36deg) scale(.7); opacity: .4 }
+
+/* Right-click: mouse in the open scene, shelf slides in, second click hides it. */
+#visual-guide .vg-demo-summon .vg-mini-screen {
+  height: 84px
+}
+
+#visual-guide .vg-mouse {
+  position: absolute;
+  left: 34%;
+  top: 26px;
+  width: 20px;
+  height: 30px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .62);
+  overflow: hidden
+}
+
+#visual-guide .vg-mouse::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1.5px;
+  height: 11px;
+  margin-left: -.75px;
+  background: rgba(255, 255, 255, .5)
+}
+
+#visual-guide .vg-mouse b {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 50%;
+  height: 11px;
+  background: rgb(var(--vg-gold));
+  opacity: 0;
+  animation: vg-right-press 4.2s linear infinite
+}
+
+#visual-guide .vg-click {
+  position: absolute;
+  left: calc(34% + 10px);
+  top: 32px;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(var(--vg-gold), .8);
+  opacity: 0;
+  animation: vg-click-ring 4.2s linear infinite
+}
+
+#visual-guide .vg-shelf {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(var(--vg-gold), .07));
+  perspective: 240px;
+  animation: vg-shelf-glow 4.2s linear infinite
+}
+
+#visual-guide .vg-shelf i {
+  right: 18px;
+  opacity: 0;
+  animation: vg-shelf-card 4.2s var(--vg-ease) infinite
+}
+
+#visual-guide .vg-shelf i:nth-child(1) { top: 8px; right: 24px; animation-delay: 0s }
+#visual-guide .vg-shelf i:nth-child(2) { top: 31px; right: 30px; width: 24px; height: 24px; animation-delay: .07s }
+#visual-guide .vg-shelf i:nth-child(3) { top: 56px; right: 24px; animation-delay: .14s }
+
+/* Ghost drag over the real login panel. */
+#visual-guide .visual-guide-wire {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0
+}
+
+#visual-guide .vg-wire-path {
+  fill: none;
+  stroke: rgba(255, 255, 255, .8);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 6 5;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, .3));
+  animation: vg-wire-dash 1s linear infinite
+}
+
+#visual-guide .vg-wire-path.is-linked {
+  stroke: rgba(var(--vg-gold), .92);
+  stroke-dasharray: none;
+  filter: drop-shadow(0 0 9px rgba(var(--vg-gold), .45))
+}
+
+#visual-guide .vg-wire-plug {
+  fill: #fff;
+  filter: drop-shadow(0 0 6px rgba(var(--vg-gold), .9))
+}
+
+#visual-guide .vg-wire-halo {
+  fill: none;
+  stroke: rgba(var(--vg-gold), .9);
+  stroke-width: 1.5
+}
+
+@keyframes vg-mode-focus {
+  0%, 46%, 100% { opacity: 1 }
+  54%, 92% { opacity: .42 }
+}
+
+@keyframes vg-card-float {
+  0%, 100% { margin-top: 0 }
+  50% { margin-top: -2px }
+}
+
+@keyframes vg-right-press {
+  0%, 9% { opacity: 0 }
+  11%, 16% { opacity: 1 }
+  19%, 69% { opacity: 0 }
+  71%, 76% { opacity: 1 }
+  79%, 100% { opacity: 0 }
+}
+
+@keyframes vg-click-ring {
+  0%, 10% { opacity: 0; transform: scale(.4) }
+  12% { opacity: 1; transform: scale(.5) }
+  24% { opacity: 0; transform: scale(1.3) }
+  70% { opacity: 0; transform: scale(.4) }
+  72% { opacity: 1; transform: scale(.5) }
+  84%, 100% { opacity: 0; transform: scale(1.3) }
+}
+
+@keyframes vg-shelf-card {
+  0%, 16% { opacity: 0; transform: translateX(46px) rotateY(-40deg) }
+  32%, 72% { opacity: 1; transform: rotateY(-30deg) }
+  86%, 100% { opacity: 0; transform: translateX(46px) rotateY(-40deg) }
+}
+
+@keyframes vg-shelf-glow {
+  0%, 16%, 88%, 100% { opacity: 0 }
+  32%, 72% { opacity: 1 }
+}
+
+@keyframes vg-wire-dash {
+  to { stroke-dashoffset: -22 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #visual-guide .vg-mini,
+  #visual-guide .vg-mini-screen i,
+  #visual-guide .vg-mouse b,
+  #visual-guide .vg-click,
+  #visual-guide .vg-shelf,
+  #visual-guide .vg-wire-path {
+    animation: none !important
+  }
+
+  #visual-guide .vg-shelf i {
+    animation: none !important;
+    opacity: 1;
+    transform: rotateY(-30deg)
+  }
+}
+
 /* ============================================================ */
 /*  控制台 — 简化版                                              */
 /* ============================================================ */
