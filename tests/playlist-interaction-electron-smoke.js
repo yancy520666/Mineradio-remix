@@ -204,7 +204,7 @@ if (!process.argv.includes('--child')) {
           const textureSubmitMs=performance.now()-uploadStart;
           const api=apiJson, detail=makeContentListManager();
           const tracks=Array.from({length:30},(_,i)=>({id:1000+i,name:'Idle cover '+i,artist:'Fixture',cover:${JSON.stringify(base)}+'/row'+i+'.svg',provider:'netease'}));
-          const target=songCoverSrc(tracks[16],80);
+          const target=shelfSongCoverSrc(tracks[16]);
           apiJson=async url=>url.startsWith('/api/playlist/tracks?id=992')?{tracks,hasMore:false,total:30}:api(url);
           try {
             // Start preloading before a row subscribes, then scroll and leave it idle.

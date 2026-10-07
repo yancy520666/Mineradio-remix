@@ -147,3 +147,36 @@ test('Aero is optional: entering the guide preserves the theme and only an expli
   ctx.toggleVisualGuideAeroTheme();
   assert.equal(toggles, 1);
 });
+
+test('fresh user defaults and captured archive both keep Aero off', () => {
+  const source = fs.readFileSync(path.join(root, 'public/js/modules/00-state/04-fx-defaults.js'), 'utf8');
+  const archive = JSON.parse(fs.readFileSync(path.join(root, 'public/default-user-fx-archive.json'), 'utf8'));
+  assert.match(source, /aeroWaterTheme: false/);
+  assert.equal(archive.snapshot.aeroWaterTheme, false);
+});
+test('leaving the shelf lesson cancels its delayed reveal and restores display preferences', () => {
+  const timers = [], events = [];
+  const classes = new Set(['home-controls-locked']);
+  const ctx = vm.createContext({ visualGuideShelfDemo:null, visualGuideActive:true, visualGuideStep:0,
+    activeVisualGuideSteps:()=>[{key:'shelf-summon'}], fx:{shelfPinnedOpen:false,shelf:'stage'}, shelfPinnedOpen:false,
+    homeForcedOpen:true, homeSuppressed:false, trackSwitchToken:1, focusHover:{wantType:null},
+    document:{body:{classList:{contains:key=>classes.has(key)}},getElementById:()=>null},
+    setTimeout(fn){const timer={fn,active:true}; timers.push(timer);return timer;},clearTimeout(t){if(t)t.active=false;},
+    shelfManager:{setGuidePreview:on=>events.push(['preview',on])}, updateEmptyHomeVisibility(){},
+    setHomeControlsLocked:on=>events.push(['lock',on]), setFocusZone(){},
+    setShelfPinnedOpen(on, immediate, persist){assert.equal(persist,false);ctx.shelfPinnedOpen=on;ctx.fx.shelfPinnedOpen=on;events.push(['pin',on]);}
+  });
+  loadFunctions(ctx, guideFile, ['setVisualGuideShelfDemo','replayVisualGuideShelfDemo']);
+  ctx.setVisualGuideShelfDemo(true);
+  assert.equal(ctx.homeSuppressed,true);
+  assert.equal(ctx.fx.shelfPinnedOpen,false);
+  ctx.setVisualGuideShelfDemo(false);
+  assert.equal(timers[0].active,false);
+  timers[0].fn();
+  assert.equal(ctx.shelfPinnedOpen,false);
+  assert.equal(ctx.homeForcedOpen,true);
+  assert.equal(ctx.homeSuppressed,false);
+  assert.equal(ctx.fx.shelf,'stage');
+  assert.equal(ctx.fx.shelfPinnedOpen,false);
+  assert.deepEqual(events.filter(e=>e[0]==='preview'),[['preview',true],['preview',false]]);
+});
