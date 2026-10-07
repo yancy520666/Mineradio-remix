@@ -271,3 +271,36 @@ test('song search shows each provider as it arrives and keeps engaged rows stabl
   assert.match(namedFunctionSource(searchSource, 'handleSearchInput'), /isComposing/);
   assert.match(searchSource, /addEventListener\('compositionend'/);
 });
+
+test('account platform order picks the shown copy without beating a better match', () => {
+  const names = [
+    'simpleSearchNorm', 'searchQueryTokens', 'searchVersionSignature', 'searchTokenCoverage',
+    'searchMentionsKnownArtist', 'searchLooksLikeDerivative', 'sourceSwitchArtistParts',
+    'searchPopularityScore', 'searchCanonicalSongKey', 'scoreSongSearchResult',
+    'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'searchProviderPreferenceBonus',
+    'mergeSongSearchResults',
+  ];
+  const sandbox = { order: ['qq', 'netease', 'kugou', 'qishui'] };
+  vm.runInNewContext(functionBundle(names, `
+    var SEARCH_PROVIDER_PREFERENCE_STEP = 8;
+    var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
+    var SEARCH_ORIGINAL_ARTIST_HINTS = [];
+    function contentProviderOrder() { return order.concat('spotify'); }
+    function songProviderKey(song) { return song.provider; }
+  `, 'this.merge = mergeSongSearchResults;'), sandbox);
+
+  const neteaseOriginal = { provider: 'netease', id: 1, name: '晴天', artist: '周杰伦', album: '叶惠美' };
+  const qqOriginal = { provider: 'qq', mid: 'a', name: '晴天', artist: '周杰伦', album: '叶惠美' };
+  let merged = sandbox.merge([neteaseOriginal], [qqOriginal], [], [], [], 10, '晴天');
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].provider, 'qq', 'the top account platform supplies the shared song');
+
+  sandbox.order = ['netease', 'qq', 'kugou', 'qishui'];
+  merged = sandbox.merge([{ ...neteaseOriginal }], [{ ...qqOriginal }], [], [], [], 10, '晴天');
+  assert.equal(merged[0].provider, 'netease', 'reordering accounts changes the preferred copy');
+
+  sandbox.order = ['kugou', 'netease', 'qq', 'qishui'];
+  const kugouCover = { provider: 'kugou', id: 'k', name: '晴天（翻唱）', artist: '其他歌手', album: '翻唱集' };
+  merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], [], 10, '晴天');
+  assert.equal(merged[0].provider, 'netease', 'platform preference must not lift a cover above the original');
+});
