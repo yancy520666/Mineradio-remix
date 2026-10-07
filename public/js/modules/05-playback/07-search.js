@@ -1949,8 +1949,7 @@ async function loadNextTypedSearchPage() {
     });
     // Keep indexes and scroll position stable as subsequent pages arrive.
     var merged = itemsBefore.concat(incoming).slice(0, MUSIC_SEARCH_MAX_RESULTS);
-    if (state.user) state.userPlaylists = merged;
-    else state.items = merged;
+    state.items = merged;
     return true;
   } finally {
     state.loadingMore = false;
