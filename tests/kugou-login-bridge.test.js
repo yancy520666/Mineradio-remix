@@ -14,13 +14,17 @@ const revealSource = main.slice(
   main.indexOf('function revealLoginWindowWhenReady('),
   main.indexOf('// music.163.com/#/login renders the QR itself'),
 );
+const inlineSource = main.slice(
+  main.indexOf('const inlineLoginSessions = new Map();'),
+  main.indexOf('async function openNeteaseMusicLoginWindow('),
+);
 const openSource = main.slice(
   main.indexOf('async function openKugouMusicLoginWindow('),
   main.indexOf('async function clearKugouMusicLoginSession('),
 );
 
 function loginHarness(initialCookie) {
-  const state = { cookie: initialCookie, clearCount: 0, windows: [], intervals: new Set() };
+  const state = { cookie: initialCookie, clearCount: 0, windows: [], intervals: new Set(), inlineSessions: [] };
   const cookieSession = {
     async clearStorageData(options) {
       assert.ok(options.storages.includes('cookies'));
@@ -32,6 +36,8 @@ function loginHarness(initialCookie) {
     constructor(options) {
       super();
       assert.equal(options.webPreferences.partition, 'synthetic-kugou-partition');
+      this.options = options;
+      this.shown = false;
       this.webContents = new EventEmitter();
       this.webContents.setWindowOpenHandler = () => {};
       this.webContents.executeJavaScript = async () => {};
@@ -40,7 +46,7 @@ function loginHarness(initialCookie) {
     }
     async loadURL(url) { this.url = url; }
     isDestroyed() { return this.destroyed; }
-    show() {}
+    show() { this.shown = true; }
     focus() {}
     close() {
       if (this.destroyed) return;
@@ -66,8 +72,13 @@ function loginHarness(initialCookie) {
     clearInterval: (callback) => state.intervals.delete(callback),
     setTimeout,
     clearTimeout,
+    createInlineQrSession: (win, options) => {
+      const session = { win, options, stopped: false, stop() { this.stopped = true; }, fail(reason) { options.onFail(reason); }, click() { return true; } };
+      state.inlineSessions.push(session);
+      return session;
+    },
   });
-  vm.runInContext(revealSource + openSource, context);
+  vm.runInContext(revealSource + inlineSource + openSource, context);
   return { state, open: context.openKugouMusicLoginWindow };
 }
 
@@ -129,7 +140,11 @@ test('Kugou renderer re-login options reach the main handler without an unlock s
     main.indexOf("ipcMain.handle('kugou-music-open-login'"),
     main.indexOf("ipcMain.handle('kugou-music-clear-login'"),
   );
-  vm.runInNewContext(handlerSource, {
+  const notifySource = main.slice(
+    main.indexOf('function withInlineLoginNotify('),
+    main.indexOf("ipcMain.handle('netease-music-open-login'"),
+  );
+  vm.runInNewContext(notifySource + handlerSource, {
     ipcMain: { handle: (_channel, callback) => { handler = callback; } },
     getSenderWindow: () => owner,
     openKugouMusicLoginWindow: async (receivedOwner, options) => {
@@ -155,4 +170,26 @@ test('Kugou renderer re-login options reach the main handler without an unlock s
   const result = await desktopApi.openKugouMusicLogin({ forceReauth: true });
   assert.equal(result.ok, true);
   assert.equal(calls.length, 3);
+});
+
+test('Kugou inline login runs offscreen, never shows, and falls back when no QR appears', async () => {
+  const harness = loginHarness('');
+  const notified = [];
+  const pending = harness.open(null, { inline: true, notify: (payload) => notified.push(payload) });
+  await new Promise((resolve) => setImmediate(resolve));
+  const [win] = harness.state.windows;
+  assert.equal(win.options.webPreferences.offscreen, true);
+  assert.equal(win.options.parent, undefined);
+  win.webContents.emit('dom-ready');
+  assert.equal(win.shown, false);
+  const [session] = harness.state.inlineSessions;
+  session.options.notify({ stage: 'qr', image: 'data:image/png;base64,AA' });
+  assert.deepEqual(JSON.parse(JSON.stringify(notified)), [{ provider: 'kugou', stage: 'qr', image: 'data:image/png;base64,AA' }]);
+  session.fail('QR_NOT_FOUND');
+  const result = await pending;
+  assert.equal(result.fallback, true);
+  assert.equal(result.inline, true);
+  assert.equal(win.destroyed, true);
+  assert.equal(session.stopped, true);
+  assert.equal(harness.state.intervals.size, 0);
 });
