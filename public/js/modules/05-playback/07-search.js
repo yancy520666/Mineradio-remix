@@ -1756,24 +1756,31 @@ function closeTypedUserPlaylists() {
 async function loadSearchOverview(q, mode, controller) {
   var key = searchResultKey(q, mode);
   searchOverviewState = { key: key, data: null };
-  if (activeSearchProvidersForMode(mode).indexOf('netease') < 0) return;
+  // The overview comes from the highest platform in the account panel that has one.
+  var provider = typedSearchProvidersFor('artist', mode)[0];
+  if (!provider) return;
   try {
-    var r = await apiJson('/api/search/overview?keywords=' + encodeURIComponent(q), {
+    var r = await apiJson('/api/search/overview?provider=' + provider + '&keywords=' + encodeURIComponent(q), {
       timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS,
       signal: controller ? controller.signal : undefined
     });
     if (searchOverviewState.key !== key || searchResultType !== 'all') return;
     searchOverviewState.data = r || null;
-    // Songs already on screen: add the section on top only while the user is
-    // not pointing at the list, so rows never jump under the cursor.
-    if (searchMusicRenderState.key === key && !searchResultsAreEngaged() && $results) {
+    // Songs already on screen: insert the section above them as soon as it
+    // arrives. When the list is scrolled, keep the rows in view where they were.
+    if (searchMusicRenderState.key === key && $results) {
       var html = searchOverviewHtml(key);
       var old = $results.querySelector('.search-overview');
       if (old) old.remove();
       if (!html) return;
+      var scrolled = $results.scrollTop > 4;
+      var heightBefore = $results.scrollHeight;
       var bar = $results.querySelector('.search-type-bar');
       if (bar) bar.insertAdjacentHTML('afterend', html);
       else $results.insertAdjacentHTML('afterbegin', html);
+      if (scrolled) $results.scrollTop += $results.scrollHeight - heightBefore;
+      var section = $results.querySelector('.search-overview');
+      if (section && window.gsap && !scrolled) gsap.fromTo(section, { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.2 });
     }
   } catch (err) {
     if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', err);
@@ -1783,7 +1790,7 @@ function searchOverviewPicks(key) {
   if (searchResultType !== 'all' || searchOverviewState.key !== key || !searchOverviewState.data) return null;
   var data = searchOverviewState.data;
   var q = key.split('|').slice(1).join('|');
-  var artist = (data.artists || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 2; })[0] || null;
+  var artist = (data.artists || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 1; })[0] || null;
   var albums = (data.albums || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 1; });
   var tiles = albums.slice(0, 2).concat(data.playlists || []).slice(0, 4);
   if (!artist && !tiles.length) return null;
