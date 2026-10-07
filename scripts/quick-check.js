@@ -2458,7 +2458,7 @@ function checkSearchGlassEntranceGuard() {
   const searchHistoryFrostedSurfaceOk =
     /function setSearchHistorySurface\(on\)\s*\{[\s\S]{0,120}classList\.toggle\('search-history-surface',\s*!!on\)/.test(searchText) &&
     /function renderSearchHistory\(\)\s*\{[\s\S]{0,900}setSearchHistorySurface\(true\)/.test(searchText) &&
-    /function renderSongSearchResults\(songs\)\s*\{[\s\S]{0,120}setSearchHistorySurface\(false\)/.test(searchText) &&
+    /function renderSongSearchResults\(songs(?:,\s*opts)?\)\s*\{[\s\S]{0,120}setSearchHistorySurface\(false\)/.test(searchText) &&
     /#search-results\.search-history-surface,[ \t]*\r?\nhtml\.control-glass-svg-ok\s+#search-results\.search-history-surface\s*\{[\s\S]{0,320}background:\s*linear-gradient\([\s\S]{0,180}!important[\s\S]{0,220}backdrop-filter:\s*blur\(34px\)\s+saturate\(1\.34\)\s+brightness\(1\.08\)\s*!important/.test(cssText) &&
     !/#search-results\.search-history-surface[\s\S]{0,260}background:\s*rgba\(0,\s*0,\s*0,\s*\.90\)/.test(cssText);
   const searchResultsFrostedSurfaceOk =
@@ -2468,7 +2468,7 @@ function checkSearchGlassEntranceGuard() {
     /function searchProviderCanSearch\(provider\)/.test(searchText) &&
     /function activeSearchProvidersForMode\(mode\)\s*\{[\s\S]{0,260}MUSIC_SEARCH_PROVIDER_ORDER\.filter\(searchProviderCanSearch\)/.test(searchText) &&
     /function searchProviderLoginNotice\(mode\)/.test(searchText) &&
-    /Promise\.allSettled\(fetchProviders\.map\(function\s*\(provider\)/.test(searchText) &&
+    /await Promise\.all\(fetchProviders\.map\(function\s*\(provider\)[\s\S]{0,900}applyProviderEntry\(provider,\s*entry\)[\s\S]{0,200}opts\.onProgress\(mergedSoFar\(\)\)/.test(searchText) &&
     /function loadNextMusicSearchPage\(expectedKey\)/.test(searchText) &&
     /new IntersectionObserver/.test(searchText) &&
     /mergeSongSearchResults\(neteaseSongs,\s*qqSongs,\s*kugouSongs,\s*qishuiSongs,\s*spotifySongs/.test(searchText);
