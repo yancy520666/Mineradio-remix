@@ -3134,8 +3134,23 @@ function resetStageLyricResumeFrameGates() {
 
 function markStageLyricsPlaybackResume(reason) {
   reason = reason || 'playback-resume';
-  if (typeof refreshDesktopRuntimeStateAfterWake === 'function') refreshDesktopRuntimeStateAfterWake(reason);
-  if (typeof wakeMainLoopFromBackground === 'function') wakeMainLoopFromBackground();
+  var resumeAt = stageLyricNowMs();
+  var resumeToken = typeof trackSwitchToken !== 'undefined' ? trackSwitchToken : 0;
+  var resumeMedia = typeof audio !== 'undefined' ? audio : null;
+  var last = markStageLyricsPlaybackResume.last;
+  var duplicateResume = !!(last && last.token === resumeToken && last.media === resumeMedia && resumeAt - last.at < 400);
+  markStageLyricsPlaybackResume.last = { at: resumeAt, token: resumeToken, media: resumeMedia };
+  if (duplicateResume && stageLyrics.current && stageLyrics.current.userData) {
+    // The same resume reported again (e.g. by play and playing events).
+    stageLyrics.current.userData.state = 'in';
+    return;
+  }
+  // A foreground resume already has a live main loop and current window state;
+  // an extra synchronous render here costs a full frame at the moment of the click.
+  if (typeof playbackWindowInForeground !== 'function' || !playbackWindowInForeground()) {
+    if (typeof refreshDesktopRuntimeStateAfterWake === 'function') refreshDesktopRuntimeStateAfterWake(reason);
+    if (typeof wakeMainLoopFromBackground === 'function') wakeMainLoopFromBackground();
+  }
   restoreStageLyricsAfterBackground(reason);
   stageLyricTrackSwitchBootstrapUntil = 0;
   if (stageLyrics.current && stageLyrics.current.userData) {

@@ -454,7 +454,7 @@ async function resumePausedAudioFast(opts) {
     await awaitMediaPlayWithTimeout(media, media.play(), token);
     if (!isSameAudioPlaybackTarget(media, src) || token !== trackSwitchToken) return false;
     if (media.paused || media.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
-    switchPlaybackVisualToEmily();
+    switchPlaybackVisualToEmily({ resume: true });
     playing = true; setPlayIcon(true);
     if (typeof markStageLyricsPlaybackResume === 'function') {
       setTimeout(function () {
@@ -501,6 +501,10 @@ async function attemptAudioPlay(opts) {
   opts = opts || {};
   var expectedMedia = opts.expectedMedia || audio;
   var expectedToken = opts.expectedToken == null ? trackSwitchToken : Number(opts.expectedToken);
+  // This request finishes the visual/lyric resume itself, once; the media
+  // play/playing events it triggers must not repeat that work.
+  var attemptMedia = expectedMedia;
+  if (attemptMedia) attemptMedia.__mineradioPlayAttemptActive = (Number(attemptMedia.__mineradioPlayAttemptActive) || 0) + 1;
   try {
     if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
     expectedMedia.__mineradioPlaybackExpected = true;
@@ -584,6 +588,8 @@ async function attemptAudioPlay(opts) {
     forcePlaybackControlsInteractive();
     if (!opts.silent && !opts.trackSwitch) showToast(opts.manual ? '播放启动失败, 请重新选择歌曲' : '播放被系统拦截, 请点击播放按钮');
     return false;
+  } finally {
+    if (attemptMedia) attemptMedia.__mineradioPlayAttemptActive = Math.max(0, (Number(attemptMedia.__mineradioPlayAttemptActive) || 0) - 1);
   }
 }
 async function playAudio(opts) {
@@ -591,7 +597,18 @@ async function playAudio(opts) {
   return attemptAudioPlay({ manual: !!opts.manual, silent: !!opts.silent || !!opts.startupAutoplay || !!opts.trackSwitch, startupAutoplay: !!opts.startupAutoplay, fade: opts.fade, preserveGain: !!opts.preserveGain, trackSwitch: !!opts.trackSwitch, resumeRecovery: !!opts.resumeRecovery, expectedMedia: opts.expectedMedia || audio, expectedToken: opts.expectedToken == null ? trackSwitchToken : opts.expectedToken });
 }
 async function togglePlay() {
-  if (playToggleBusy) return;
+  if (playToggleBusy) {
+    // A press during the short pause fade resumes at once instead of being
+    // dropped; cancelling the fade makes the pending pause report "not paused".
+    if (typeof pendingAudioPause !== 'undefined' && pendingAudioPause && audio && !audio.paused && !audio.ended) {
+      audio.__mineradioPlaybackExpected = true;
+      audioFadeSerial++;
+      rampAudioOutputGain(targetVolume, 60);
+      playing = true;
+      setPlayIcon(true);
+    }
+    return;
+  }
   playToggleBusy = true;
   try {
     forcePlaybackControlsInteractive();
@@ -609,7 +626,14 @@ async function togglePlay() {
     }
     if (!audio) return;
     if (audio.paused || audio.ended) {
-      await attemptAudioPlay({ manual: true });
+      // Show the new state immediately; the audio start and its short fade follow.
+      playing = true;
+      setPlayIcon(true);
+      var resumed = await attemptAudioPlay({ manual: true });
+      if (!resumed && (!audio || audio.paused || audio.ended)) {
+        playing = false;
+        setPlayIcon(false);
+      }
     } else {
       audio.__mineradioPlaybackExpected = false;
       if (typeof cuefieldAutoMixExecuting !== 'undefined' && cuefieldAutoMixExecuting && typeof resetCuefieldAutoMix === 'function') {
@@ -622,6 +646,8 @@ async function togglePlay() {
         && (albumGaplessState.preload.mixPending || albumGaplessState.preload.mixStarted)
         && typeof clearAlbumGaplessPreload === 'function'
       ) clearAlbumGaplessPreload('manual-pause');
+      // The icon flips at once; the short output fade only avoids a click.
+      setPlayIcon(false);
       if (!await fadeOutAndPauseAudio()) {
         playing = !!(audio && !audio.paused && !audio.ended);
         if (audio) audio.__mineradioPlaybackExpected = playing;
