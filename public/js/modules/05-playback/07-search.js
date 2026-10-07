@@ -1030,20 +1030,50 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (song && song.playable === false) score -= 6;
   return score;
 }
+// Platform preference follows the account panel order (top = preferred). It is
+// kept out of scoreSongSearchResult: relevance decides first, and the bonus is
+// small enough that a cover or live cut from the preferred platform cannot pass
+// the original from another one.
+var SEARCH_PROVIDER_PREFERENCE_STEP = 8;
+function searchProviderPreferenceRanks() {
+  var order = typeof contentProviderOrder === 'function' ? contentProviderOrder() : MUSIC_SEARCH_PROVIDER_ORDER;
+  var ranks = {};
+  (Array.isArray(order) ? order : []).forEach(function (provider, index) {
+    if (ranks[provider] == null) ranks[provider] = index;
+  });
+  return ranks;
+}
+function searchProviderPreferenceRank(ranks, song) {
+  var rank = ranks[songProviderKey(song)];
+  return rank == null ? 99 : rank;
+}
+function searchProviderPreferenceBonus(ranks, song) {
+  return Math.max(0, 3 - searchProviderPreferenceRank(ranks, song)) * SEARCH_PROVIDER_PREFERENCE_STEP;
+}
 function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs, limit, q) {
   var out = [];
   var providerSeen = {};
   var canonicalSeen = {};
+  var ranks = searchProviderPreferenceRanks();
   function push(song, sourceIndex) {
     if (!song || !song.name) return;
     var key = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
     if (providerSeen[key]) return;
     providerSeen[key] = true;
-    song._searchScore = scoreSongSearchResult(song, q, sourceIndex);
+    song._searchScore = scoreSongSearchResult(song, q, sourceIndex) + searchProviderPreferenceBonus(ranks, song);
     var canonicalKey = searchCanonicalSongKey(song);
     if (canonicalKey && canonicalSeen[canonicalKey] != null) {
+      // The same recording on several platforms: keep the preferred platform's copy.
       var existingIndex = canonicalSeen[canonicalKey];
-      if ((song._searchScore || 0) > (out[existingIndex]._searchScore || 0)) out[existingIndex] = song;
+      var existing = out[existingIndex];
+      var songRank = searchProviderPreferenceRank(ranks, song);
+      var existingRank = searchProviderPreferenceRank(ranks, existing);
+      if (songRank < existingRank) {
+        song._searchScore = Math.max(song._searchScore || 0, existing._searchScore || 0);
+        out[existingIndex] = song;
+      } else if (songRank === existingRank && (song._searchScore || 0) > (existing._searchScore || 0)) {
+        out[existingIndex] = song;
+      }
       return;
     }
     if (canonicalKey) canonicalSeen[canonicalKey] = out.length;
@@ -1054,7 +1084,10 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
   (kugouSongs || []).forEach(function (song, i) { push(song, i); });
   (qishuiSongs || []).forEach(function (song, i) { push(song, i); });
   (spotifySongs || []).forEach(function (song, i) { push(song, i); });
-  out.sort(function (a, b) { return (b._searchScore || 0) - (a._searchScore || 0); });
+  out.sort(function (a, b) {
+    return ((b._searchScore || 0) - (a._searchScore || 0)) ||
+      (searchProviderPreferenceRank(ranks, a) - searchProviderPreferenceRank(ranks, b));
+  });
   return out.slice(0, limit);
 }
 function searchProviderPagesHaveMore(providerPages) {
