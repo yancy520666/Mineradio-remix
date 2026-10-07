@@ -10,6 +10,13 @@ function hideAIDepthChip() {
   document.getElementById('ai-depth-chip').classList.remove('show');
 }
 
+// Cover canvases are read back for palettes, float colors and depth. A
+// GPU-backed canvas makes each read wait for all queued GPU work (the Sonic
+// scene included), so keep the decoded cover in CPU memory.
+function coverCpuContext(cv) {
+  return cv.getContext('2d', { willReadFrequently: true }) || cv.getContext('2d');
+}
+
 function loadCoverFromUrl(directUrl, opts) {
   opts = opts || {};
   var preserveOnSwitch = !!(opts.trackSwitch || opts.seamlessCover || opts.seamlessTrackSwitch);
@@ -48,7 +55,7 @@ function loadCoverFromUrl(directUrl, opts) {
     if (!coverApplyStillCurrent(opts)) return;
     var size = coverTextureSizeForResolution(fx.coverResolution);
     var cv = document.createElement('canvas'); cv.width = cv.height = size;
-    var cx = cv.getContext('2d');
+    var cx = coverCpuContext(cv);
     var iw = img.naturalWidth, ih = img.naturalHeight, s = Math.min(iw, ih);
     cx.drawImage(img, (iw - s) / 2, (ih - s) / 2, s, s, 0, 0, size, size);
     setAlbumBackground(proxiedUrl || directUrl);
@@ -60,7 +67,7 @@ function loadCoverFromUrl(directUrl, opts) {
       if (!coverApplyStillCurrent(opts)) return;
       var size = coverTextureSizeForResolution(fx.coverResolution);
       var cv = document.createElement('canvas'); cv.width = cv.height = size;
-      cv.getContext('2d').drawImage(img2, 0, 0, size, size);
+      coverCpuContext(cv).drawImage(img2, 0, 0, size, size);
       setAlbumBackground(directUrl);
       applyCoverCanvas(cv, directUrl, Object.assign({}, opts, { coverKey: directUrl || '', coverSourceKind: 'url', coverSource: directUrl }));
     };
@@ -128,7 +135,7 @@ function makeSquareCoverCanvas(img, size, crop) {
   size = size || 512;
   var cv = document.createElement('canvas');
   cv.width = cv.height = size;
-  var cx = cv.getContext('2d');
+  var cx = coverCpuContext(cv);
   cx.clearRect(0, 0, size, size);
   var iw = img.naturalWidth || img.width;
   var ih = img.naturalHeight || img.height;
