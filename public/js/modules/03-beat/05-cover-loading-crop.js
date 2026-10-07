@@ -10,8 +10,41 @@ function hideAIDepthChip() {
   document.getElementById('ai-depth-chip').classList.remove('show');
 }
 
+// Readback canvases retain the selected resolution in CPU memory.
+function coverCpuContext(cv) {
+  return cv.getContext('2d', { willReadFrequently: true }) || cv.getContext('2d');
+}
+
+var coverUrlLoad = null;
+var COVER_ATTEMPT_TIMEOUT_MS = 10000;
+var COVER_RETRY_DELAY_MS = 700;
+var COVER_LATE_RETRY_MS = 6000;
+
+function cancelCoverUrlLoad() {
+  var load = coverUrlLoad;
+  coverUrlLoad = null;
+  if (!load) return;
+  load.cancelled = true;
+  clearTimeout(load.timer);
+  if (load.image) {
+    load.image.onload = load.image.onerror = null;
+    load.image.removeAttribute('src');
+  }
+}
+
+function clearCurrentCoverDisplay() {
+  currentCoverSource = null;
+  coverProcessToken++;
+  uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
+  resetFloatColorsToIdle();
+  setAlbumBackground('');
+  document.getElementById('thumb-cover').removeAttribute('src');
+  setControlCoverSrc('');
+}
+
 function loadCoverFromUrl(directUrl, opts) {
   opts = opts || {};
+  cancelCoverUrlLoad();
   var preserveOnSwitch = !!(opts.trackSwitch || opts.seamlessCover || opts.seamlessTrackSwitch);
   if (!directUrl || typeof directUrl !== 'string' || (!/^https?:\/\//i.test(directUrl) && !/^mineradio-local:\/\/cover\//i.test(directUrl))) {
     if (!coverApplyStillCurrent(opts)) return;
@@ -23,13 +56,7 @@ function loadCoverFromUrl(directUrl, opts) {
       setAlbumBackground('', { preserve: true });
       return;
     }
-    currentCoverSource = null;
-    coverProcessToken++;
-    uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
-    resetFloatColorsToIdle();
-    setAlbumBackground('');
-    document.getElementById('thumb-cover').removeAttribute('src');
-    setControlCoverSrc('');
+    clearCurrentCoverDisplay();
     return;
   }
   var proxiedUrl = coverProxySrc(directUrl);
@@ -41,41 +68,147 @@ function loadCoverFromUrl(directUrl, opts) {
     setControlCoverSrc('');
     return;
   }
-  previewCurrentTrackCover(proxiedUrl, opts);
-  setAlbumBackground(proxiedUrl);
-  var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
-  img.onload = function () {
+  // While an older cover is on screen, keep every surface on it until the new
+  // image has really loaded, then switch them together. Without one, show the
+  // new address right away so the browser can paint it progressively.
+  var holdOldCover = preserveOnSwitch && uniforms.uHasCover.value > 0.5;
+  if (!holdOldCover) {
+    previewCurrentTrackCover(proxiedUrl, opts);
+    setAlbumBackground(proxiedUrl);
+  }
+  // Local proxy twice (a brief upstream hiccup is common), then the CDN directly.
+  var attempts = proxiedUrl === directUrl ? [proxiedUrl] : [proxiedUrl, proxiedUrl, directUrl];
+  var load = { cancelled: false, timer: 0, image: null };
+  coverUrlLoad = load;
+
+  function stillCurrent() {
+    return !load.cancelled && coverUrlLoad === load && coverApplyStillCurrent(opts);
+  }
+  function settle() {
+    clearTimeout(load.timer);
+    if (load.image) load.image.onload = load.image.onerror = null;
+    if (coverUrlLoad === load) coverUrlLoad = null;
+    if (opts.trackToken != null && !opts.fromResolutionChange) scheduleUpcomingCoverPrefetch(opts.trackToken);
+  }
+  function applyLoaded(img, src) {
+    settle();
     if (!coverApplyStillCurrent(opts)) return;
     var size = coverTextureSizeForResolution(fx.coverResolution);
-    var cv = document.createElement('canvas'); cv.width = cv.height = size;
-    var cx = cv.getContext('2d');
-    var iw = img.naturalWidth, ih = img.naturalHeight, s = Math.min(iw, ih);
-    cx.drawImage(img, (iw - s) / 2, (ih - s) / 2, s, s, 0, 0, size, size);
-    setAlbumBackground(proxiedUrl || directUrl);
-    applyCoverCanvas(cv, proxiedUrl || directUrl, Object.assign({}, opts, { coverKey: directUrl || proxiedUrl || '', coverSourceKind: 'url', coverSource: directUrl }));
-  };
-  img.onerror = function () {
-    var img2 = new Image(); img2.crossOrigin = 'anonymous'; img2.decoding = 'async';
-    img2.onload = function () {
-      if (!coverApplyStillCurrent(opts)) return;
-      var size = coverTextureSizeForResolution(fx.coverResolution);
-      var cv = document.createElement('canvas'); cv.width = cv.height = size;
-      cv.getContext('2d').drawImage(img2, 0, 0, size, size);
-      setAlbumBackground(directUrl);
-      applyCoverCanvas(cv, directUrl, Object.assign({}, opts, { coverKey: directUrl || '', coverSourceKind: 'url', coverSource: directUrl }));
+    var cv = makeSquareCoverCanvas(img, size);
+    previewCurrentTrackCover(src, opts);
+    setAlbumBackground(src);
+    applyCoverCanvas(cv, src, Object.assign({}, opts, { coverKey: directUrl, coverSourceKind: 'url', coverSource: directUrl }));
+  }
+  function failAll() {
+    settle();
+    if (!coverApplyStillCurrent(opts)) return;
+    // The old cover was only a bridge; never leave another song's art behind.
+    clearCurrentCoverDisplay();
+    if (opts.trackToken != null && !opts.lateRetry) {
+      setTimeout(function () {
+        if (!coverApplyStillCurrent(opts) || coverUrlLoad || uniforms.uHasCover.value > 0.5) return;
+        loadCoverFromUrl(directUrl, Object.assign({}, opts, { lateRetry: true, seamlessTrackSwitch: false }));
+      }, COVER_LATE_RETRY_MS);
+    }
+  }
+  function tryAttempt(index) {
+    if (!stillCurrent()) return;
+    if (index >= attempts.length) { failAll(); return; }
+    var src = attempts[index];
+    var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
+    load.image = img;
+    function next() {
+      clearTimeout(load.timer);
+      img.onload = img.onerror = null;
+      img.removeAttribute('src');
+      if (!stillCurrent()) return;
+      load.timer = setTimeout(function () { tryAttempt(index + 1); }, attempts[index + 1] === src ? COVER_RETRY_DELAY_MS : 0);
+    }
+    img.onload = function () {
+      if (!stillCurrent()) return;
+      if (!img.naturalWidth || !img.naturalHeight) { next(); return; }
+      applyLoaded(img, src);
     };
-    img2.onerror = function () {
-      if (!coverApplyStillCurrent(opts)) return;
-      if (preserveOnSwitch && uniforms.uHasCover.value > 0.5) return;
-      currentCoverSource = null;
-      uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
-      resetFloatColorsToIdle();
-      setAlbumBackground('');
-      setControlCoverSrc('');
-    };
-    img2.src = directUrl;
-  };
-  img.src = proxiedUrl;
+    img.onerror = next;
+    load.timer = setTimeout(next, COVER_ATTEMPT_TIMEOUT_MS);
+    img.src = src;
+  }
+  tryAttempt(0);
+}
+
+// Warm the next songs' covers (the exact address playback will ask for) so a
+// switch can paint from cache. One at a time, after the current cover settles.
+var upcomingCoverPrefetch = { timer: 0, image: null, token: -1, done: {}, doneCount: 0, retryAfter: {} };
+var UPCOMING_COVER_PREFETCH_RETRY_MS = 15000;
+var UPCOMING_COVER_PREFETCH_DELAY_MS = 1500;
+var UPCOMING_COVER_PREFETCH_COUNT = 2;
+
+function upcomingCoverPrefetchUrls() {
+  if (typeof playQueue === 'undefined' || !playQueue.length || currentIdx < 0) return [];
+  var urls = [];
+  var count = Math.min(UPCOMING_COVER_PREFETCH_COUNT, playQueue.length - 1);
+  for (var step = 1; step <= count; step++) {
+    var song = playQueue[(currentIdx + step) % playQueue.length];
+    if (!song || !song.cover || getCustomCoverForSong(song)) continue;
+    var src = coverProxySrc(coverUrlWithSize(song.cover, 400));
+    if (!src || isInlineCoverSrc(src) || upcomingCoverPrefetch.done[src] || Number(upcomingCoverPrefetch.retryAfter[src]) > Date.now()) continue;
+    urls.push(src);
+  }
+  return urls;
+}
+
+function cancelUpcomingCoverPrefetch() {
+  clearTimeout(upcomingCoverPrefetch.timer);
+  upcomingCoverPrefetch.timer = 0;
+  var img = upcomingCoverPrefetch.image;
+  upcomingCoverPrefetch.image = null;
+  if (img) { img.onload = img.onerror = null; img.removeAttribute('src'); }
+}
+
+function scheduleUpcomingCoverPrefetch(token) {
+  cancelUpcomingCoverPrefetch();
+  upcomingCoverPrefetch.token = token;
+  upcomingCoverPrefetch.timer = setTimeout(function () {
+    upcomingCoverPrefetch.timer = 0;
+    runUpcomingCoverPrefetch(token);
+  }, UPCOMING_COVER_PREFETCH_DELAY_MS);
+}
+
+function runUpcomingCoverPrefetch(token) {
+  if (token !== trackSwitchToken || upcomingCoverPrefetch.token !== token) return;
+  if (typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
+  var src = upcomingCoverPrefetchUrls()[0];
+  if (!src) return;
+  if (upcomingCoverPrefetch.doneCount >= 64) { upcomingCoverPrefetch.done = {}; upcomingCoverPrefetch.retryAfter = {}; upcomingCoverPrefetch.doneCount = 0; }
+  // Same CORS mode as loadCoverFromUrl so the browser cache entry is reusable.
+  var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
+  upcomingCoverPrefetch.image = img;
+  function finish(ok) {
+    if (upcomingCoverPrefetch.image !== img) return;
+    clearTimeout(upcomingCoverPrefetch.timer);
+    upcomingCoverPrefetch.timer = 0;
+    if (ok) {
+      upcomingCoverPrefetch.done[src] = true;
+      delete upcomingCoverPrefetch.retryAfter[src];
+    } else {
+      upcomingCoverPrefetch.retryAfter[src] = Date.now() + UPCOMING_COVER_PREFETCH_RETRY_MS;
+    }
+    upcomingCoverPrefetch.doneCount++;
+    img.onload = img.onerror = null;
+    upcomingCoverPrefetch.image = null;
+    upcomingCoverPrefetch.timer = setTimeout(function () {
+      upcomingCoverPrefetch.timer = 0;
+      runUpcomingCoverPrefetch(token);
+    }, 200);
+  }
+  img.onload = function () { finish(true); };
+  img.onerror = function () { finish(false); };
+  upcomingCoverPrefetch.timer = setTimeout(function () {
+    // A failed warm-up may be tried again later; playback has its own retries.
+    img.removeAttribute('src');
+    finish(false);
+  }, COVER_ATTEMPT_TIMEOUT_MS);
+  img.src = src;
 }
 
 function cssBackgroundUrl(src) {
@@ -128,7 +261,7 @@ function makeSquareCoverCanvas(img, size, crop) {
   size = size || 512;
   var cv = document.createElement('canvas');
   cv.width = cv.height = size;
-  var cx = cv.getContext('2d');
+  var cx = coverCpuContext(cv);
   cx.clearRect(0, 0, size, size);
   var iw = img.naturalWidth || img.width;
   var ih = img.naturalHeight || img.height;
@@ -152,6 +285,7 @@ function coverCanvasToDataUrl(cv) {
 function applyCoverDataUrl(dataUrl, opts) {
   opts = opts || {};
   if (!dataUrl) return;
+  cancelCoverUrlLoad();
   previewCurrentTrackCover(dataUrl, opts);
   setAlbumBackground(dataUrl);
   var img = new Image();

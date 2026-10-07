@@ -1,5 +1,9 @@
 var progressDragState = {
   active: false,
+  pointerStartX: 0,
+  pointerStartedAt: 0,
+  pointerMoved: false,
+  seekGlide: false,
   lastParticleAt: 0,
   previewTime: 0,
   previewDuration: 0,
@@ -34,6 +38,7 @@ function progressSeekPreviewVisualReady() {
 function clearProgressPreviewHold(serial) {
   if (serial && progressDragState.previewHoldSerial && serial !== progressDragState.previewHoldSerial) return false;
   progressDragState.previewHoldUntil = 0;
+  progressDragState.seekGlide = false;
   progressDragState.previewHoldSerial = 0;
   progressDragState.previewClockRunning = false;
   progressDragState.previewClockShouldRun = false;
@@ -44,6 +49,9 @@ function clearProgressPreviewHold(serial) {
   progressDragState.previewSettleMedia = null;
   progressDragState.previewSettleMediaSrc = '';
   return true;
+}
+function progressLyricSeekGlideActive() {
+  return !!(progressDragState && !progressDragState.active && progressDragState.seekGlide);
 }
 function isProgressDragPreviewActive() {
   if (!progressDragState || progressDragState.previewDuration <= 0) return false;
@@ -446,6 +454,10 @@ progressBar.addEventListener('pointerdown', function (e) {
     && typeof clearAlbumGaplessPreload === 'function'
   ) clearAlbumGaplessPreload('manual-seek');
   progressDragState.active = true;
+  progressDragState.pointerStartX = Number(e.clientX) || 0;
+  progressDragState.pointerStartedAt = performance.now();
+  progressDragState.pointerMoved = false;
+  progressDragState.seekGlide = false;
   progressDragState.media = audio;
   progressDragState.mediaSrc = audio.currentSrc || audio.src || '';
   progressDragState.resumeAfterSeek = !!(audio && !audio.paused && !audio.ended && playing);
@@ -463,10 +475,13 @@ progressBar.addEventListener('pointerdown', function (e) {
 });
 progressBar.addEventListener('pointermove', function (e) {
   if (!progressDragState.active) return;
+  if (Math.abs(Number(e.clientX) - progressDragState.pointerStartX) > 4) progressDragState.pointerMoved = true;
   queueProgressPointerPreview(e, true);
 });
 function endProgressDrag(e, commit) {
   if (!progressDragState.active) return;
+  if (e && Math.abs(Number(e.clientX) - progressDragState.pointerStartX) > 4) progressDragState.pointerMoved = true;
+  progressDragState.seekGlide = commit !== false && !progressDragState.pointerMoved && performance.now() - progressDragState.pointerStartedAt < 220;
   flushProgressPointerPreview(e);
   var targetTime = progressDragState.previewTime;
   var resumeAfterSeek = progressDragState.resumeAfterSeek;
