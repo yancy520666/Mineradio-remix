@@ -22,6 +22,7 @@ const { WallpaperLoopCache } = require('./wallpaper-engine-loop-cache');
 const { WallpaperLoopWindow } = require('./wallpaper-loop-window');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
+const { createInlineQrSession } = require('./login-inline-qr');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
 const { createSonicPreferencesStore } = require('./sonic-performance-preferences');
@@ -2634,7 +2635,38 @@ function neteaseLoginPageScript(clickLogin) {
 })(${clickLogin ? 'true' : 'false'})`;
 }
 
-async function openNeteaseMusicLoginWindow(owner) {
+// Inline QR login: the official login page runs offscreen and only its QR is
+// shown inside the player. One session per provider; a new one replaces it.
+const inlineLoginSessions = new Map();
+
+function loginWindowWebPreferences(base, inline) {
+  return inline ? { ...base, offscreen: true, backgroundThrottling: false } : base;
+}
+
+function attachInlineLogin(provider, loginWindow, options, finish) {
+  if (!options || !options.inline) return null;
+  const notify = typeof options.notify === 'function' ? options.notify : () => {};
+  const previous = inlineLoginSessions.get(provider);
+  if (previous) previous.cancel();
+  const session = createInlineQrSession(loginWindow, {
+    notify: (payload) => notify({ provider, ...payload }),
+    onFail: (reason) => finish({ ok: false, fallback: true, inline: true, error: reason }),
+  });
+  const entry = { session, cancel: () => finish({ ok: false, cancelled: true, inline: true }) };
+  inlineLoginSessions.set(provider, entry);
+  loginWindow.once('closed', () => {
+    session.stop();
+    if (inlineLoginSessions.get(provider) === entry) inlineLoginSessions.delete(provider);
+  });
+  loginWindow.webContents.on('did-fail-load', (_event, code, _desc, _url, isMainFrame) => {
+    if (isMainFrame && code !== -3) session.fail('LOAD_FAILED');
+  });
+  return entry;
+}
+
+async function openNeteaseMusicLoginWindow(owner, options) {
+  options = options || {};
+  const inline = !!options.inline;
   const cookieSession = session.fromPartition(NETEASE_LOGIN_PARTITION);
   const initialCookie = await readNeteaseLoginCookieHeader(cookieSession);
   if (neteaseCookieHasLogin(initialCookie)) return { ok: true, cookie: initialCookie, reused: true };
@@ -2648,19 +2680,19 @@ async function openNeteaseMusicLoginWindow(owner) {
       height: 760,
       minWidth: 780,
       minHeight: 580,
-      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      parent: !inline && owner && !owner.isDestroyed() ? owner : undefined,
       modal: false,
       show: false,
       autoHideMenuBar: true,
       title: '网易云音乐登录',
       backgroundColor: '#111111',
       icon: APP_ICON_ICO,
-      webPreferences: {
+      webPreferences: loginWindowWebPreferences({
         partition: NETEASE_LOGIN_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-      },
+      }, inline),
     });
 
     const finish = async (result) => {
@@ -2672,6 +2704,7 @@ async function openNeteaseMusicLoginWindow(owner) {
       }
       resolve(result);
     };
+    attachInlineLogin('netease', loginWindow, options, finish);
 
     const checkCookies = async () => {
       try {
@@ -2693,7 +2726,7 @@ async function openNeteaseMusicLoginWindow(owner) {
       return { action: 'deny' };
     });
 
-    const revealLoginWindow = revealLoginWindowWhenReady(loginWindow);
+    const revealLoginWindow = inline ? () => {} : revealLoginWindowWhenReady(loginWindow);
     let qrWatch = 0;
     const waitForLoginQr = async () => {
       const watch = ++qrWatch;
@@ -2731,6 +2764,7 @@ async function openNeteaseMusicLoginWindow(owner) {
 
 async function openQQMusicLoginWindow(owner, options) {
   options = options || {};
+  const inline = !!options.inline;
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const initialCookie = await readQQLoginCookieHeader(cookieSession);
   if (qqCookieHasPlaybackLogin(initialCookie)) {
@@ -2756,19 +2790,19 @@ async function openQQMusicLoginWindow(owner, options) {
       height: 720,
       minWidth: 760,
       minHeight: 560,
-      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      parent: !inline && owner && !owner.isDestroyed() ? owner : undefined,
       modal: false,
       show: false,
       autoHideMenuBar: true,
       title: 'QQ 音乐登录',
       backgroundColor: '#111111',
       icon: APP_ICON_ICO,
-      webPreferences: {
+      webPreferences: loginWindowWebPreferences({
         partition: QQ_LOGIN_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-      },
+      }, inline),
     });
 
     const closeAuxiliaryWindows = () => {
@@ -2802,9 +2836,10 @@ async function openQQMusicLoginWindow(owner, options) {
       }
       resolve(result);
     };
+    attachInlineLogin('qq', loginWindow, options, finish);
 
     const showLoginWindow = () => {
-      if (settled || !loginWindow || loginWindow.isDestroyed() || loginWindow.isVisible()) return;
+      if (inline || settled || !loginWindow || loginWindow.isDestroyed() || loginWindow.isVisible()) return;
       loginWindow.show();
       loginWindow.focus();
     };
@@ -2889,7 +2924,7 @@ async function openQQMusicLoginWindow(owner, options) {
               height: 640,
               parent: loginWindow,
               modal: false,
-              show: true,
+              show: !inline,
               autoHideMenuBar: true,
               backgroundColor: '#111111',
               icon: APP_ICON_ICO,
@@ -2965,6 +3000,7 @@ async function clearQQMusicLoginSession() {
 
 async function openKugouMusicLoginWindow(owner, options) {
   options = options && typeof options === 'object' ? options : {};
+  const inline = !!options.inline;
   const cookieSession = session.fromPartition(KUGOU_LOGIN_PARTITION);
   // Explicit re-login must discard the revoked session before considering reuse.
   // Cookie presence alone cannot establish whether the server still accepts it.
@@ -2986,19 +3022,19 @@ async function openKugouMusicLoginWindow(owner, options) {
       height: 720,
       minWidth: 760,
       minHeight: 560,
-      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      parent: !inline && owner && !owner.isDestroyed() ? owner : undefined,
       modal: false,
       show: false,
       autoHideMenuBar: true,
       title: '酷狗音乐登录',
       backgroundColor: '#111111',
       icon: APP_ICON_ICO,
-      webPreferences: {
+      webPreferences: loginWindowWebPreferences({
         partition: KUGOU_LOGIN_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-      },
+      }, inline),
     });
 
     const finish = async (result) => {
@@ -3008,6 +3044,7 @@ async function openKugouMusicLoginWindow(owner, options) {
       if (loginWindow && !loginWindow.isDestroyed()) loginWindow.close();
       resolve(result);
     };
+    attachInlineLogin('kugou', loginWindow, options, finish);
 
     const checkCookies = async () => {
       try {
@@ -3036,7 +3073,7 @@ async function openKugouMusicLoginWindow(owner, options) {
       return { action: 'deny' };
     });
 
-    const revealLoginWindow = revealLoginWindowWhenReady(loginWindow);
+    const revealLoginWindow = inline ? () => {} : revealLoginWindowWhenReady(loginWindow);
     // Content is usable at DOM ready; full load can stall on page resources.
     loginWindow.webContents.on('dom-ready', revealLoginWindow);
     loginWindow.webContents.on('did-finish-load', () => {
@@ -4994,8 +5031,29 @@ ipcMain.handle('mineradio-current-fx-autosave-save', async (_event, payload = {}
   return writeCurrentFxAutosaveFile(payload || {});
 });
 
-ipcMain.handle('netease-music-open-login', async (event) => {
-  return openNeteaseMusicLoginWindow(getSenderWindow(event));
+function withInlineLoginNotify(event, options) {
+  options = options && typeof options === 'object' ? { ...options } : {};
+  options.inline = options.inline === true;
+  const sender = event.sender;
+  options.notify = (payload) => {
+    if (sender && !sender.isDestroyed()) sender.send('provider-login-inline-qr', payload);
+  };
+  return options;
+}
+
+ipcMain.handle('netease-music-open-login', async (event, options) => {
+  return openNeteaseMusicLoginWindow(getSenderWindow(event), withInlineLoginNotify(event, options));
+});
+
+ipcMain.handle('provider-login-inline-cancel', async (_event, provider) => {
+  const entry = inlineLoginSessions.get(String(provider || ''));
+  if (entry) entry.cancel();
+  return { ok: true };
+});
+
+ipcMain.handle('provider-login-inline-click', async (_event, provider, fx, fy) => {
+  const entry = inlineLoginSessions.get(String(provider || ''));
+  return { ok: !!(entry && entry.session.click(fx, fy)) };
 });
 
 ipcMain.handle('mineradio-clear-all-login', async (event) => {
@@ -5009,7 +5067,7 @@ ipcMain.handle('netease-music-clear-login', async () => {
 });
 
 ipcMain.handle('qq-music-open-login', async (event, options) => {
-  return openQQMusicLoginWindow(getSenderWindow(event), options || {});
+  return openQQMusicLoginWindow(getSenderWindow(event), withInlineLoginNotify(event, options));
 });
 
 ipcMain.handle('qq-music-clear-login', async () => {
@@ -5017,7 +5075,7 @@ ipcMain.handle('qq-music-clear-login', async () => {
 });
 
 ipcMain.handle('kugou-music-open-login', async (event, options) => {
-  return openKugouMusicLoginWindow(getSenderWindow(event), options || {});
+  return openKugouMusicLoginWindow(getSenderWindow(event), withInlineLoginNotify(event, options));
 });
 
 ipcMain.handle('kugou-music-clear-login', async () => {

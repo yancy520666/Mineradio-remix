@@ -220,8 +220,11 @@ async function logoutAllAccounts() {
   }
 }
 
-async function logoutActiveAccount() {
-  if (activeAccountProvider === 'qishui') {
+// Clears one platform's session in the server, the desktop login window and
+// the renderer. Shared by the account modal and the login wires; it does not
+// touch any modal.
+async function logoutProviderAccount(provider) {
+  if (provider === 'qishui') {
     try { await apiJson('/api/qishui/logout'); } catch (e) { }
     try {
       if (window.desktopWindow && typeof window.desktopWindow.clearQishuiMusicLogin === 'function') {
@@ -236,12 +239,7 @@ async function logoutActiveAccount() {
     activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
     safeShelfRebuild('qishui-logout');
-    if (hasAnyPlatformLogin()) updateUserModalUi();
-    else closeUserModal();
-    showToast('已清除汽水音乐授权');
-    return;
-  }
-  if (activeAccountProvider === 'kugou') {
+  } else if (provider === 'kugou') {
     try { await apiJson('/api/kugou/logout'); } catch (e) { }
     try {
       if (window.desktopWindow && typeof window.desktopWindow.clearKugouMusicLogin === 'function') {
@@ -255,12 +253,7 @@ async function logoutActiveAccount() {
     dualAccountMode = false;
     activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
-    if (hasAnyPlatformLogin()) updateUserModalUi();
-    else closeUserModal();
-    showToast('已退出酷狗音乐');
-    return;
-  }
-  if (activeAccountProvider === 'qq') {
+  } else if (provider === 'qq') {
     try { await apiJson('/api/qq/logout'); } catch (e) { }
     try {
       if (window.desktopWindow && typeof window.desktopWindow.clearQQMusicLogin === 'function') {
@@ -275,14 +268,21 @@ async function logoutActiveAccount() {
     dualAccountMode = false;
     activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
-    if (hasAnyPlatformLogin()) updateUserModalUi();
-    else closeUserModal();
-    showToast('已退出 QQ 音乐');
-    return;
+  } else {
+    await clearNeteaseAccountState();
   }
-  doLogout();
+  if (typeof loginWorkflowVerifiedSession !== 'undefined' && loginWorkflowVerifiedSession) delete loginWorkflowVerifiedSession[provider || 'netease'];
 }
-async function doLogout() {
+
+async function logoutActiveAccount() {
+  var provider = activeAccountProvider;
+  if (provider !== 'qishui' && provider !== 'kugou' && provider !== 'qq') return doLogout();
+  await logoutProviderAccount(provider);
+  if (hasAnyPlatformLogin()) updateUserModalUi();
+  else closeUserModal();
+  showToast(provider === 'qishui' ? '已清除汽水音乐授权' : (provider === 'kugou' ? '已退出酷狗音乐' : '已退出 QQ 音乐'));
+}
+async function clearNeteaseAccountState() {
   await apiJson('/api/logout');
   try {
     if (window.desktopWindow && typeof window.desktopWindow.clearNeteaseMusicLogin === 'function') {
@@ -303,6 +303,9 @@ async function doLogout() {
   safeRenderQueuePanel('logout', { scrollCurrent: miniQueueOpen });
   renderUserBtn();
   safeShelfRebuild('logout');
+}
+async function doLogout() {
+  await clearNeteaseAccountState();
   closeUserModal();
   showToast('已退出登录');
 }
