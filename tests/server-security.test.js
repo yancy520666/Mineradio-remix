@@ -141,10 +141,9 @@ test('actual server rejects cross-site calls and every private media entry', asy
   const jpg = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/jpg'));
   assert.equal(jpg.status, 200); assert.equal(jpg.headers.get('content-type'), 'image/jpeg');
   assert.deepEqual(Buffer.from(await jpg.arrayBuffer()), Buffer.from([255,216,255,217]));
-  await assert.rejects(async () => {
-    const interrupted = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/broken'));
-    await interrupted.arrayBuffer();
-  });
+  // Covers are buffered whole, so a broken upstream stream is a clean failure, never a half image.
+  const interrupted = await fetch(base + '/api/cover?url=' + encodeURIComponent('https://fixture.invalid/broken'));
+  assert.equal(interrupted.status, 502);
   assert((await fetch(base + '/api/app/version')).ok, 'interrupted cover streams cannot crash or hang the server');
   const source = fs.readFileSync(path.join(__dirname, '../dj-analyzer.js'), 'utf8');
   assert(!/\bfetch\(audioUrl/.test(source), 'podcast alternate path uses the shared boundary');
