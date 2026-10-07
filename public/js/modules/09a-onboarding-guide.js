@@ -35,11 +35,18 @@ var visualGuideSteps = [
     body: '打开后会出现视觉控制台、歌单面板和完整的播放控制。接下来带你看看视觉预设、背景和歌单架。'
   },
   {
-    key: 'presets', selector: '#preset-grid', items: 4, console: 'home', place: 'left',
+    key: 'presets', selector: '#preset-grid', items: 4, compactItems: 2, console: 'home', place: 'left',
     kicker: 'Visual Presets',
     title: '一键换一套视觉',
     body: '“常用 › 视觉预设”里有星河、唱片、星球等整套场景，点一下，粒子、光效和背景氛围会一起换掉。',
     hint: '换完不满意，随时点回原来的预设'
+  },
+  {
+    key: 'aero', selector: '#t-aeroWaterTheme', console: 'interface', place: 'left', demo: 'aero-water',
+    kicker: 'Optional Theme',
+    title: '可选主题：Aero 水光',
+    body: '给按钮加上玻璃反光、弹性按压和水光效果。默认关闭，喜欢这种风格再开启；水光颜色里还能选择不同效果。',
+    hint: '界面 › 玻璃与左栏里随时可以开关；不会自动改变已保存的选择'
   },
   {
     key: 'background', selector: '#fx-panel .bg-media-row', console: 'interface', place: 'left',
@@ -63,7 +70,7 @@ var visualGuideSteps = [
     key: 'shelf-summon', center: true, demo: 'shelf-summon',
     kicker: 'Right Click',
     title: '右键空白处，呼出歌单架',
-    body: '在播放画面的空白处点鼠标右键，歌单架会从右侧滑出；再点一次右键就收起。登录平台后，这里会排满你的歌单。',
+    body: '侧栏模式下，在播放画面的空白处点鼠标右键，歌单架会从右侧滑出；再点一次右键就收起。舞台模式保持横向展示，不使用这个右键开关。',
     hint: '歌单架被关掉时，右键也会把它切回侧栏'
   },
   {
@@ -273,6 +280,7 @@ function prepareVisualGuideStep(step) {
 // Small looping illustrations inside the card, for things the guide cannot
 // show on the real screen (the 3D shelf is empty until there are playlists).
 var visualGuideDemos = {
+  'aero-water': '<div class="vg-aero-choice"><button id="visual-guide-aero-toggle" type="button" onclick="toggleVisualGuideAeroTheme()" aria-pressed="false">开启水光</button><span>可选 · 也可以直接下一步</span></div>',
   'shelf-modes': '<div class="vg-demo vg-demo-modes" aria-hidden="true">' +
     '<div class="vg-mini is-side"><div class="vg-mini-screen"><i></i><i></i><i></i></div><span>侧栏</span></div>' +
     '<div class="vg-mini is-stage"><div class="vg-mini-screen"><i></i><i></i><i></i><i></i><i></i></div><span>舞台</span></div>' +
@@ -286,12 +294,26 @@ function renderVisualGuideDemo(name) {
   var slot = document.getElementById('visual-guide-demo');
   if (!slot) return;
   var html = name && visualGuideDemos[name] || '';
-  if (slot.getAttribute('data-demo') === (name || '')) return;
+  if (slot.getAttribute('data-demo') === (name || '')) { updateVisualGuideAeroChoice(); return; }
   slot.setAttribute('data-demo', name || '');
   slot.innerHTML = html;
   slot.hidden = !html;
+  updateVisualGuideAeroChoice();
   var card = document.getElementById('visual-guide-card');
   if (card) card.classList.remove('is-compact');
+}
+function updateVisualGuideAeroChoice() {
+  var button = document.getElementById('visual-guide-aero-toggle');
+  if (!button) return;
+  var on = !!(typeof fx !== 'undefined' && fx && fx.aeroWaterTheme);
+  button.textContent = on ? '关闭水光' : '开启水光';
+  button.setAttribute('aria-pressed', String(on));
+}
+function toggleVisualGuideAeroTheme() {
+  if (!visualGuideActive || activeVisualGuideSteps()[visualGuideStep].key !== 'aero') return;
+  if (typeof toggleFx === 'function') toggleFx('aeroWaterTheme');
+  updateVisualGuideAeroChoice();
+  scheduleVisualGuidePositioning();
 }
 function visualGuideLoginProvider() {
   var order = typeof loginWorkflowProviderOrder === 'function' ? loginWorkflowProviderOrder() : ['netease', 'qq', 'kugou', 'qishui'];
@@ -466,7 +488,7 @@ function guideTargetRect(step) {
     // Frame the first few entries of a long list instead of the whole panel.
     var list = document.querySelector(step.selector);
     var union = null;
-    Array.prototype.slice.call(list ? list.children : [], 0, step.items).forEach(function (el) {
+    Array.prototype.slice.call(list ? list.children : [], 0, step.compactItems && innerHeight <= 620 ? step.compactItems : step.items).forEach(function (el) {
       var r = visibleGuideRect(el);
       if (!r) return;
       union = union ? { left: Math.min(union.left, r.left), top: Math.min(union.top, r.top), right: Math.max(union.right, r.right), bottom: Math.max(union.bottom, r.bottom) } : r;

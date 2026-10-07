@@ -2084,6 +2084,8 @@ function showStageLine(text, redrawOnly, options) {
     stageLyrics.currentText = payload.text;
     stageLyrics.currentDisplayKey = payload.key;
     stageLyrics.currentPayload = payload;
+    stageLyrics.currentTrackToken = trackSwitchToken;
+    stageLyrics.current.userData.stageLyricText = payload.text;
     stageLyrics.current.userData.enterDirection = lineStep > 0 ? -1 : (lineStep < 0 ? 1 : 0);
     stageLyrics.current.userData.lastTrackSwitchAt = uniforms && uniforms.uTime ? uniforms.uTime.value : 0;
     return true;
@@ -2139,6 +2141,8 @@ function showStageLine(text, redrawOnly, options) {
   stageLyrics.group.add(mesh);
   stageLyrics.current = mesh;
   initializeStageLyricPersistentTrack(mesh, payload);
+  stageLyrics.currentTrackToken = trackSwitchToken;
+  mesh.userData.stageLyricText = payload.text;
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && fxSliderEdit.trackToken !== trackSwitchToken) {
     fxSliderEdit.trackToken = trackSwitchToken;
     fxSliderEdit.rebuild = true;
@@ -3314,7 +3318,7 @@ function restoreCurrentStageLyrics(reason, forceRebuild) {
     stageLyrics.currentPayload = normalized;
     stageLyrics.currentDisplayKey = normalized.key;
     stageLyrics.currentText = normalized.text;
-  } else if (!showStageLine(payload, true)) return false;
+  } else if (!(index < 0 && stageLyricCanKeepIntroTitle(payload)) && !showStageLine(payload, true)) return false;
   if (media !== audio || token !== trackSwitchToken) return false;
   if (stageLyrics.group.parent !== scene) scene.add(stageLyrics.group);
   stageLyrics.group.visible = true;
@@ -3341,6 +3345,15 @@ function restoreStageLyricsAfterBackground(reason) {
   return restored;
 }
 
+// A fetched lyric can replace a temporary title with an intro before line 1.
+// Keep that already-visible title for this track, including its original texture.
+function stageLyricCanKeepIntroTitle(text) {
+  var mesh = stageLyrics && stageLyrics.current;
+  return !!(mesh && stageLyrics.group && mesh.parent === stageLyrics.group && mesh.userData
+    && !mesh.userData.__mineradioDisposeQueued && mesh.userData.state !== 'out'
+    && stageLyrics.currentTrackToken === trackSwitchToken
+    && stageLyrics.currentText === text && mesh.userData.stageLyricText === text);
+}
 function tickLyricsParticles() {
   if (!fx.particleLyrics) {
     if (stageLyrics.current || stageLyrics.currentText || (stageLyrics.outgoing && stageLyrics.outgoing.length)) clearStageLyrics();
@@ -3386,7 +3399,7 @@ function tickLyricsParticles() {
         }
         return;
       }
-      showStageLine(introText);
+      if (!stageLyricCanKeepIntroTitle(introText)) showStageLine(introText);
       if (lyricsLines && lyricsLines.length) {
         requestStageLyricWarmup('intro-first-line', 140);
         scheduleStageLyricPrewarmForIndex(0, 'intro-first-line', 24);

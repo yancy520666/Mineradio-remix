@@ -41,6 +41,7 @@
       "music-dns.js",
       "audio-spill-relay.js",
       "cover-cache.js",
+      "netease-like-cache.js",
       "cookie-storage.js",
       "*-api.js",
       "qishui-auth-v6.js",

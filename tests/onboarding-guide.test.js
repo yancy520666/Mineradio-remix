@@ -34,7 +34,7 @@ test('empty players explain when song-dependent controls become available', () =
 test('the guide tours quality, comments, visuals, the 3D shelf and login on elements that exist', () => {
   const steps = guideSteps();
   assert.deepEqual(steps.map(step => step.key),
-    ['welcome', 'search', 'quality', 'comments', 'diy', 'presets', 'background', 'wallpaper', 'shelf', 'shelf-summon', 'login']);
+    ['welcome', 'search', 'quality', 'comments', 'diy', 'presets', 'aero', 'background', 'wallpaper', 'shelf', 'shelf-summon', 'login']);
   const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
   const exists = selector => {
     const last = selector.trim().split(/\s+/).pop();
@@ -44,7 +44,7 @@ test('the guide tours quality, comments, visuals, the 3D shelf and login on elem
   for (const step of steps.filter(s => s.selector)) assert(exists(step.selector), step.key + ' points at a missing element: ' + step.selector);
   // Console steps open the interface tab, where background media and Wallpaper Engine live.
   assert.deepEqual(steps.filter(s => s.console).map(s => [s.key, s.console]),
-    [['presets', 'home'], ['background', 'interface'], ['wallpaper', 'interface'], ['shelf', 'shelf']]);
+    [['presets', 'home'], ['aero', 'interface'], ['background', 'interface'], ['wallpaper', 'interface'], ['shelf', 'shelf']]);
   // The login introduction comes last and leaves the panel open when finished.
   assert.equal(steps[steps.length - 1].login, true);
 });
@@ -122,4 +122,28 @@ test('a mode the user switches to during the guide is kept when the guide moves 
   assert.equal(calls.filter(c => c[0] === 'diy').length, 1);
   const prefs = fs.readFileSync(path.join(root, 'public/js/modules/00-state/02-preferences-ui-modes.js'), 'utf8');
   assert.match(prefs, /visualGuideState\.diyPreview = false;/);
+});
+
+test('Aero is optional: entering the guide preserves the theme and only an explicit click changes it', () => {
+  const steps = guideSteps();
+  const attrs = {};
+  const button = { textContent: '', setAttribute: (name,value) => { attrs[name] = value; } };
+  let toggles = 0;
+  const ctx = vm.createContext({ fx: { aeroWaterTheme: false }, visualGuideActive: true,
+    visualGuideStep: steps.findIndex(s => s.key === 'aero'), visualGuideSteps: steps,
+    document: { getElementById: () => button }, scheduleVisualGuidePositioning() {},
+    toggleFx(key) { assert.equal(key, 'aeroWaterTheme'); toggles++; ctx.fx.aeroWaterTheme = !ctx.fx.aeroWaterTheme; }
+  });
+  loadFunctions(ctx, guideFile, ['activeVisualGuideSteps', 'updateVisualGuideAeroChoice', 'toggleVisualGuideAeroTheme']);
+  ctx.updateVisualGuideAeroChoice();
+  assert.equal(ctx.fx.aeroWaterTheme, false);
+  assert.equal(toggles, 0);
+  ctx.toggleVisualGuideAeroTheme();
+  assert.equal(ctx.fx.aeroWaterTheme, true);
+  assert.equal(attrs['aria-pressed'], 'true');
+  ctx.updateVisualGuideAeroChoice();
+  assert.equal(ctx.fx.aeroWaterTheme, true);
+  ctx.visualGuideActive = false;
+  ctx.toggleVisualGuideAeroTheme();
+  assert.equal(toggles, 1);
 });

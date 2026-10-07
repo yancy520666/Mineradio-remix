@@ -94,7 +94,7 @@ if (!process.argv.includes('--child')) {
       if (state.key === 'comments' || state.key === 'quality') assert(state.bottomOpacity > .5, 'Control bar is hidden');
       if (state.key === 'quality') assert.match(state.body, /先搜索并播放/, 'Empty player suggests an existing track');
       if (state.key === 'comments') assert.match(state.hint, /无需先登录/, 'Empty player requires login to continue');
-      if (['presets', 'background', 'wallpaper', 'shelf'].includes(state.key)) assert(state.panelOpen && state.panelOpacity > .9, 'Console is hidden');
+      if (['presets', 'aero', 'background', 'wallpaper', 'shelf'].includes(state.key)) assert(state.panelOpen && state.panelOpacity > .9, 'Console is hidden');
       assert.equal(state.loginOpen, state.key === 'login', state.key + ' login panel state');
     };
     assert(await evaluate('!hasAnyPlatformLogin() && playQueue.length===0 && !currentCoverSong()'), 'QA must start without accounts or songs');

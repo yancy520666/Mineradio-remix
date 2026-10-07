@@ -19719,3 +19719,8 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   html.aero-water-on .aero-sheen-tint { animation: none; }
 }
+
+/* Optional theme choice inside the onboarding card. */
+#visual-guide .vg-aero-choice { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+#visual-guide .vg-aero-choice button { padding:8px 12px; border:1px solid rgba(var(--vg-gold),.38); border-radius:10px; background:rgba(var(--vg-gold),.12); color:#fff; cursor:pointer; font:inherit; font-size:12px; }
+#visual-guide .vg-aero-choice span { color:rgba(255,255,255,.5); font-size:11px; }
