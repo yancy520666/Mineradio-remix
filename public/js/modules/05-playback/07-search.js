@@ -12,8 +12,9 @@ var MUSIC_SEARCH_MAX_RESULTS = 180;
 var MUSIC_SEARCH_PROVIDER_TIMEOUT_MS = 8000;
 var searchLoadMoreObserver = null;
 var searchAbortController = null;
-var searchResultType = 'song';
+var searchResultType = 'all';
 var SEARCH_RESULT_TYPES = [
+  { key: 'all', label: '综合' },
   { key: 'song', label: '单曲' },
   { key: 'artist', label: '歌手' },
   { key: 'album', label: '专辑' },
@@ -23,6 +24,7 @@ var SEARCH_RESULT_TYPES = [
 // Platforms whose typed search the backend supports (see handleTypedSearch).
 var TYPED_SEARCH_PROVIDERS = { artist: ['netease', 'qq'], album: ['netease', 'qq'], playlist: ['netease'], user: ['netease'] };
 var typedSearchState = { key: '', items: [], user: null, userPlaylists: [] };
+var searchOverviewState = { key: '', data: null };
 var pendingSearchProviderPages = null;
 var searchMusicRenderState = {
   key: '',
@@ -392,7 +394,7 @@ function handleSearchInput(e) {
   }
   if (isMusicSearchMode(searchMode)) {
     setSearchHistorySurface(false);
-    $results.innerHTML = searchTypeBarHtml() + '<div class="search-empty">正在搜索' + (searchResultType === 'song' ? '' : searchResultTypeLabel(searchResultType)) + ' “' + escHtml(q) + '”…</div>';
+    $results.innerHTML = searchTypeBarHtml() + '<div class="search-empty">正在搜索' + (searchResultType === 'song' || searchResultType === 'all' ? '' : searchResultTypeLabel(searchResultType)) + ' “' + escHtml(q) + '”…</div>';
     $results.classList.add('show');
   }
   searchTimer = setTimeout(function () { doSearch(q); }, 180);
@@ -441,6 +443,13 @@ $results.addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
     closeTypedUserPlaylists();
+    return;
+  }
+  var overviewRow = e.target && e.target.closest ? e.target.closest('[data-overview]') : null;
+  if (overviewRow) {
+    e.preventDefault();
+    e.stopPropagation();
+    openSearchOverviewItem(overviewRow.getAttribute('data-overview'));
     return;
   }
   var typedRow = e.target && e.target.closest ? e.target.closest('[data-typed-index]') : null;
@@ -492,6 +501,12 @@ $results.addEventListener('keydown', function (e) {
   if (row && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
     openTypedSearchItem(Number(row.getAttribute('data-typed-index')));
+    return;
+  }
+  var overviewRow = e.target && e.target.closest ? e.target.closest('[data-overview]') : null;
+  if (overviewRow && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    openSearchOverviewItem(overviewRow.getAttribute('data-overview'));
   }
 });
 $results.addEventListener('scroll', function () {
@@ -1379,7 +1394,7 @@ function renderSongSearchResults(songs, opts) {
   var html = '';
   for (var i = 0; i < searchMusicRenderState.visibleCount; i++) html += searchSongResultHtml(playlist[i], i);
   var focusedType = typeof focusedSearchTypeTab === 'function' ? focusedSearchTypeTab() : null;
-  $results.innerHTML = searchTypeBarHtml() + html + searchLoadMoreSentinelHtml();
+  $results.innerHTML = searchTypeBarHtml() + searchOverviewHtml(searchMusicRenderState.key) + html + searchLoadMoreSentinelHtml();
   if (focusedType) restoreSearchTypeTabFocus(focusedType);
   $results.classList.add('show');
   syncLikeStatusForSongs(playlist.slice(0, searchMusicRenderState.visibleCount));
@@ -1434,7 +1449,7 @@ async function doSearch(q, opts) {
     doPodcastSearch(q);
     return;
   }
-  if (searchResultType !== 'song') {
+  if (searchResultType !== 'song' && searchResultType !== 'all') {
     doTypedSearch(q);
     return;
   }
@@ -1449,6 +1464,7 @@ async function doSearch(q, opts) {
     var isStale = function () {
       return requestSeq !== searchRequestSeq || searchMode !== mode || $input.value.trim() !== q;
     };
+    if (searchResultType === 'all') loadSearchOverview(q, mode, controller);
     var searchData = await fetchMusicSearchResults(q, mode, null, {
       signal: controller ? controller.signal : undefined,
       onProgress: function (partial) {
@@ -1463,7 +1479,7 @@ async function doSearch(q, opts) {
       resetSearchMusicRenderState();
       playlist = [];
       searchLastResultQuery = '';
-      $results.innerHTML = searchTypeBarHtml() + '<div class="search-empty">' + escHtml(searchProviderNotice || '没有找到相关歌曲') + '</div>';
+      $results.innerHTML = searchTypeBarHtml() + searchOverviewHtml(searchResultKey(q, mode)) + '<div class="search-empty">' + escHtml(searchProviderNotice || '没有找到相关歌曲') + '</div>';
       $results.classList.add('show');
       return;
     }
@@ -1522,7 +1538,7 @@ function setSearchResultType(type, opts) {
   var q = $input ? $input.value.trim() : '';
   if (changed || opts.force) {
     searchLastResultQuery = '';
-    if (q && type === 'song') {
+    if (q && (type === 'song' || type === 'all')) {
       $results.innerHTML = searchTypeBarHtml() + '<div class="search-empty">正在搜索 “' + escHtml(q) + '”…</div>';
       $results.classList.add('show');
     }
@@ -1695,7 +1711,9 @@ function typedSearchDetailSong(item) {
   return { provider: 'netease', id: 'album:' + item.id, name: item.name, album: item.name, albumId: item.id, artist: item.artist || '', artistId: item.artistId || '', cover: item.cover };
 }
 function openTypedSearchItem(index) {
-  var item = typedSearchState.items[index];
+  openSearchEntity(typedSearchState.items[index]);
+}
+function openSearchEntity(item) {
   if (!item) return;
   if (item.type === 'artist') {
     openTrackDetailModal('artist', typedSearchDetailSong(item));
@@ -1729,6 +1747,82 @@ async function openTypedUserPlaylists(user) {
 function closeTypedUserPlaylists() {
   typedSearchState.user = null;
   renderTypedSearchResults(typedSearchState.userPlaylists || [], '');
+}
+
+
+// ============================================================
+//  综合：在单曲上方分区显示最匹配的歌手、歌单与专辑（网易云综合搜索，一次请求）
+// ============================================================
+async function loadSearchOverview(q, mode, controller) {
+  var key = searchResultKey(q, mode);
+  searchOverviewState = { key: key, data: null };
+  if (activeSearchProvidersForMode(mode).indexOf('netease') < 0) return;
+  try {
+    var r = await apiJson('/api/search/overview?keywords=' + encodeURIComponent(q), {
+      timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS,
+      signal: controller ? controller.signal : undefined
+    });
+    if (searchOverviewState.key !== key || searchResultType !== 'all') return;
+    searchOverviewState.data = r || null;
+    // Songs already on screen: add the section on top only while the user is
+    // not pointing at the list, so rows never jump under the cursor.
+    if (searchMusicRenderState.key === key && !searchResultsAreEngaged() && $results) {
+      var html = searchOverviewHtml(key);
+      var old = $results.querySelector('.search-overview');
+      if (old) old.remove();
+      if (!html) return;
+      var bar = $results.querySelector('.search-type-bar');
+      if (bar) bar.insertAdjacentHTML('afterend', html);
+      else $results.insertAdjacentHTML('afterbegin', html);
+    }
+  } catch (err) {
+    if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', err);
+  }
+}
+function searchOverviewPicks(key) {
+  if (searchResultType !== 'all' || searchOverviewState.key !== key || !searchOverviewState.data) return null;
+  var data = searchOverviewState.data;
+  var q = key.split('|').slice(1).join('|');
+  var artist = (data.artists || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 2; })[0] || null;
+  var albums = (data.albums || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 1; });
+  var tiles = albums.slice(0, 2).concat(data.playlists || []).slice(0, 4);
+  if (!artist && !tiles.length) return null;
+  return { artist: artist, tiles: tiles };
+}
+function searchOverviewTileHtml(item) {
+  var kind = item.type === 'album' ? 'album' : 'playlist';
+  var list = kind === 'album' ? searchOverviewState.data.albums : searchOverviewState.data.playlists;
+  var index = (list || []).indexOf(item);
+  var thumb = item.cover ? coverUrlWithSize(item.cover, 80) : '';
+  var meta = kind === 'album'
+    ? '专辑' + (item.artist ? ' · ' + item.artist : '')
+    : '歌单' + (item.songCount ? ' · ' + item.songCount + ' 首' : '');
+  return '<div class="search-overview-tile" data-overview="' + kind + ':' + index + '" role="button" tabindex="0" title="' + escHtml(typedSearchActionLabel(kind)) + '">' +
+    (thumb ? '<img src="' + thumb + '" alt="" loading="lazy" onerror="this.style.opacity=0.2">' : '<div class="search-overview-tile-empty"></div>') +
+    '<div class="search-overview-tile-info"><div class="search-overview-tile-title">' + escHtml(item.name) + '</div>' +
+    '<div class="search-overview-tile-meta">' + escHtml(meta) + '</div></div></div>';
+}
+function searchOverviewHtml(key) {
+  var picks = searchOverviewPicks(key);
+  if (!picks) return '';
+  var html = '<div class="search-overview">';
+  if (picks.artist) {
+    var index = searchOverviewState.data.artists.indexOf(picks.artist);
+    html += '<div class="search-overview-label">最佳匹配</div>' +
+      typedSearchRowHtml(picks.artist, index).replace('data-typed-index="' + index + '"', 'data-overview="artist:' + index + '"').replace('search-typed-result', 'search-typed-result search-overview-artist');
+  }
+  if (picks.tiles.length) {
+    html += '<div class="search-overview-label">歌单与专辑<button type="button" class="search-overview-more" data-search-type="playlist" tabindex="-1">更多歌单 ›</button></div>' +
+      '<div class="search-overview-tiles">' + picks.tiles.map(searchOverviewTileHtml).join('') + '</div>';
+  }
+  html += '<div class="search-overview-label">单曲</div></div>';
+  return html;
+}
+function openSearchOverviewItem(ref) {
+  var parts = String(ref || '').split(':');
+  var data = searchOverviewState.data || {};
+  var list = parts[0] === 'artist' ? data.artists : (parts[0] === 'album' ? data.albums : data.playlists);
+  openSearchEntity(list && list[Number(parts[1])]);
 }
 
 // ============================================================
