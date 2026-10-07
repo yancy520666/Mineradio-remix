@@ -1154,7 +1154,47 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
     return ((b._searchScore || 0) - (a._searchScore || 0)) ||
       (searchProviderPreferenceRank(ranks, a) - searchProviderPreferenceRank(ranks, b));
   });
-  return out.slice(0, limit);
+  return interleaveSearchProviders(out).slice(0, limit);
+}
+// Without this, one platform with slightly higher scores fills the whole first
+// screen. Each extra row in a run from the same platform costs a growing (but
+// capped) penalty, so another platform's next result moves up only when it is
+// close in relevance; the best match always stays first.
+var SEARCH_PROVIDER_RUN_PENALTY = 36;
+var SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS = 3;
+function interleaveSearchProviders(sorted) {
+  var queues = {};
+  var order = [];
+  (sorted || []).forEach(function (song) {
+    var provider = songProviderKey(song);
+    if (!queues[provider]) {
+      queues[provider] = [];
+      order.push(provider);
+    }
+    queues[provider].push(song);
+  });
+  if (order.length < 2) return (sorted || []).slice();
+  var out = [];
+  var lastProvider = '';
+  var run = 0;
+  while (out.length < sorted.length) {
+    var bestProvider = '';
+    var bestValue = -Infinity;
+    for (var i = 0; i < order.length; i++) {
+      var head = queues[order[i]][0];
+      if (!head) continue;
+      var value = head._searchScore || 0;
+      if (order[i] === lastProvider) value -= SEARCH_PROVIDER_RUN_PENALTY * Math.min(SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS, Math.max(0, run - 1));
+      if (value > bestValue) {
+        bestValue = value;
+        bestProvider = order[i];
+      }
+    }
+    out.push(queues[bestProvider].shift());
+    run = bestProvider === lastProvider ? run + 1 : 1;
+    lastProvider = bestProvider;
+  }
+  return out;
 }
 function searchProviderPagesHaveMore(providerPages) {
   return Object.keys(providerPages || {}).some(function (provider) {
@@ -1260,6 +1300,47 @@ async function fetchMusicSearchResults(q, mode, previousPages, opts) {
   }
   return mergedSoFar();
 }
+function searchSongRowKey(song) {
+  return songProviderKey(song) + ':' + ((song && (song.mid || song.id)) || ((song && song.name) + '|' + (song && song.artist)));
+}
+function searchMotionReduced() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; }
+}
+// FLIP for re-ranked results: remember where each row was, re-render, then let
+// rows that stayed glide from their old spot and fade newly inserted rows in.
+function captureSearchRowPositions() {
+  var positions = {};
+  if (!$results) return positions;
+  Array.prototype.forEach.call($results.querySelectorAll('.search-result[data-song-key]'), function (row) {
+    positions[row.getAttribute('data-song-key')] = row.getBoundingClientRect().top;
+  });
+  return positions;
+}
+function animateSearchRowsFrom(positions) {
+  if (!$results || !positions || searchMotionReduced()) return;
+  var box = $results.getBoundingClientRect();
+  var entering = 0;
+  Array.prototype.forEach.call($results.querySelectorAll('.search-result[data-song-key]'), function (row) {
+    if (typeof row.animate !== 'function') return;
+    var top = row.getBoundingClientRect().top;
+    if (top > box.bottom + 40) return;
+    var before = positions[row.getAttribute('data-song-key')];
+    if (before == null) {
+      row.animate([
+        { opacity: 0, transform: 'translateY(10px)' },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 280, delay: Math.min(entering++ * 26, 160), easing: 'cubic-bezier(.22,.8,.24,1)', fill: 'backwards' });
+      return;
+    }
+    var dy = before - top;
+    if (Math.abs(dy) < 1) return;
+    if (before > box.bottom + 40) dy = Math.min(dy, box.height * 0.35);
+    row.animate([
+      { transform: 'translateY(' + dy + 'px)' },
+      { transform: 'none' }
+    ], { duration: 340, easing: 'cubic-bezier(.22,.8,.24,1)' });
+  });
+}
 function searchSongResultHtml(s, i) {
     var vipTag = songVipTagHtml(s);
     var sourceTag = songSourceTagHtml(s);
@@ -1268,7 +1349,7 @@ function searchSongResultHtml(s, i) {
     var imgTag = thumb
       ? '<img src="' + thumb + '" alt="" loading="lazy" onerror="this.style.opacity=0.2">'
       : '<div style="width:40px;height:40px;border-radius:6px;background:rgba(255,255,255,0.06);flex-shrink:0"></div>';
-    return '<div class="search-result ' + sourceClass + '">' +
+    return '<div class="search-result ' + sourceClass + '" data-song-key="' + escHtml(searchSongRowKey(s)) + '">' +
       '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" onclick="playSearchResult(' + i + ')">' +
       imgTag +
       '<div class="search-result-info">' +
@@ -1394,22 +1475,57 @@ function renderSongSearchResults(songs, opts) {
   var html = '';
   for (var i = 0; i < searchMusicRenderState.visibleCount; i++) html += searchSongResultHtml(playlist[i], i);
   var focusedType = typeof focusedSearchTypeTab === 'function' ? focusedSearchTypeTab() : null;
+  var positions = opts.flip ? captureSearchRowPositions() : null;
   $results.innerHTML = searchTypeBarHtml() + searchOverviewHtml(searchMusicRenderState.key) + html + searchLoadMoreSentinelHtml();
   if (focusedType) restoreSearchTypeTabFocus(focusedType);
   $results.classList.add('show');
   syncLikeStatusForSongs(playlist.slice(0, searchMusicRenderState.visibleCount));
-  if (window.gsap && opts.animate !== false) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
+  if (positions) animateSearchRowsFrom(positions);
+  else if (window.gsap && opts.animate !== false) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
   observeSearchLoadMoreSentinel();
 }
+// Merely resting the pointer over the dropdown does not count: the list opens
+// under the cursor, and treating hover as engagement kept late platforms out of
+// the first screen entirely.
 function searchResultsAreEngaged() {
   if (searchMusicRenderState.engaged) return true;
-  if ($results && $results.scrollTop > 4) return true;
-  try { return !!($results && $results.matches(':hover')); } catch (_) { return false; }
+  return !!($results && $results.scrollTop > 4);
+}
+// Rows whose top is inside (or above) the scrolled viewport.
+function searchRowsOnScreenCount() {
+  if (!$results) return 0;
+  var limit = $results.getBoundingClientRect().bottom;
+  var rows = $results.querySelectorAll('.search-result[data-song-key]');
+  var count = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].getBoundingClientRect().top >= limit) break;
+    count = i + 1;
+  }
+  return count;
+}
+// Rebuild the rendered rows after the first `keep`, leaving those untouched.
+function rerenderSearchRowsAfter(keep) {
+  var rows = $results ? $results.querySelectorAll('.search-result[data-song-key]') : [];
+  var positions = captureSearchRowPositions();
+  for (var i = rows.length - 1; i >= keep; i--) rows[i].remove();
+  var end = Math.min(searchMusicRenderState.songs.length, Math.max(searchMusicRenderState.visibleCount, keep));
+  var html = '';
+  for (var j = keep; j < end; j++) html += searchSongResultHtml(searchMusicRenderState.songs[j], j);
+  searchMusicRenderState.visibleCount = end;
+  var anchor = keep > 0 ? rows[keep - 1] : null;
+  if (anchor && anchor.parentNode) anchor.insertAdjacentHTML('afterend', html);
+  else {
+    var sentinel = $results.querySelector('[data-search-load-more]');
+    if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
+    else $results.insertAdjacentHTML('beforeend', html);
+  }
+  syncLikeStatusForSongs(searchMusicRenderState.songs.slice(keep, end));
+  animateSearchRowsFrom(positions);
 }
 // Show whatever the providers have returned so far. Before the user touches the
-// list, every update re-ranks the whole list so a late original can still take
-// the top spot; afterwards the rows on screen stay put and later results are
-// ranked into the part of the list that has not been shown yet.
+// list, every update re-ranks the whole list (rows glide to their new places) so
+// a late original or another platform can still reach the top; afterwards the
+// rows on screen stay put and later results are ranked in below them.
 function presentSongSearchResults(q, mode, data, final) {
   var key = searchResultKey(q, mode);
   var firstPaint = searchLastResultQuery !== key || searchMusicRenderState.key !== key;
@@ -1423,18 +1539,28 @@ function presentSongSearchResults(q, mode, data, final) {
     hasMore: !!(final && data && data.hasMore),
     partial: !final
   };
-  if (firstPaint || !searchResultsAreEngaged()) {
-    pendingSearchProviderPages = plan;
-    renderSongSearchResults(songs, { animate: firstPaint });
+  if (!firstPaint && songs.map(searchSongRowKey).join('\n') === searchMusicRenderState.songs.map(searchSongRowKey).join('\n')) {
+    // A platform that returned nothing new: keep the DOM (and hover state) as is.
+    searchMusicRenderState.providerPages = plan.providerPages;
+    searchMusicRenderState.remoteHasMore = plan.hasMore && songs.length < MUSIC_SEARCH_MAX_RESULTS;
+    searchMusicRenderState.partial = plan.partial;
+    refreshSearchLoadMoreSentinel();
     return;
   }
-  var visible = searchMusicRenderState.songs.slice(0, searchMusicRenderState.visibleCount);
+  if (firstPaint || !searchResultsAreEngaged()) {
+    pendingSearchProviderPages = plan;
+    renderSongSearchResults(songs, { animate: firstPaint, flip: !firstPaint });
+    return;
+  }
+  var keep = Math.min(searchRowsOnScreenCount(), searchMusicRenderState.visibleCount);
+  var visible = searchMusicRenderState.songs.slice(0, keep);
   var merged = mergeUniqueSearchSongPools(visible, songs);
   searchMusicRenderState.songs = merged;
   searchMusicRenderState.providerPages = plan.providerPages;
   searchMusicRenderState.remoteHasMore = plan.hasMore && merged.length < MUSIC_SEARCH_MAX_RESULTS;
   searchMusicRenderState.partial = plan.partial;
   playlist = merged;
+  rerenderSearchRowsAfter(keep);
   refreshSearchLoadMoreSentinel();
 }
 
@@ -1775,12 +1901,19 @@ async function loadSearchOverview(q, mode, controller) {
       if (!html) return;
       var scrolled = $results.scrollTop > 4;
       var heightBefore = $results.scrollHeight;
+      var positions = scrolled ? null : captureSearchRowPositions();
       var bar = $results.querySelector('.search-type-bar');
       if (bar) bar.insertAdjacentHTML('afterend', html);
       else $results.insertAdjacentHTML('afterbegin', html);
       if (scrolled) $results.scrollTop += $results.scrollHeight - heightBefore;
       var section = $results.querySelector('.search-overview');
-      if (section && window.gsap && !scrolled) gsap.fromTo(section, { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.2 });
+      if (section && !scrolled && !searchMotionReduced() && typeof section.animate === 'function') {
+        section.animate([
+          { opacity: 0, transform: 'translateY(-6px)' },
+          { opacity: 1, transform: 'none' }
+        ], { duration: 300, easing: 'cubic-bezier(.22,.8,.24,1)' });
+        animateSearchRowsFrom(positions);
+      }
     }
   } catch (err) {
     if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', err);

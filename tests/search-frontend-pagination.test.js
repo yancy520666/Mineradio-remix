@@ -278,11 +278,13 @@ test('account platform order picks the shown copy without beating a better match
     'searchMentionsKnownArtist', 'searchLooksLikeDerivative', 'sourceSwitchArtistParts',
     'searchPopularityScore', 'searchCanonicalSongKey', 'scoreSongSearchResult',
     'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'searchProviderPreferenceBonus',
-    'mergeSongSearchResults',
+    'mergeSongSearchResults', 'interleaveSearchProviders',
   ];
   const sandbox = { order: ['qq', 'netease', 'kugou', 'qishui'] };
   vm.runInNewContext(functionBundle(names, `
     var SEARCH_PROVIDER_PREFERENCE_STEP = 8;
+    var SEARCH_PROVIDER_RUN_PENALTY = 36;
+    var SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS = 3;
     var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
     var SEARCH_ORIGINAL_ARTIST_HINTS = [];
     function contentProviderOrder() { return order.concat('spotify'); }
@@ -303,6 +305,18 @@ test('account platform order picks the shown copy without beating a better match
   const kugouCover = { provider: 'kugou', id: 'k', name: '晴天（翻唱）', artist: '其他歌手', album: '翻唱集' };
   merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], [], 10, '晴天');
   assert.equal(merged[0].provider, 'netease', 'platform preference must not lift a cover above the original');
+
+  // The preferred platform has more, slightly better songs; the other platform
+  // must still reach the first screen instead of starting after row 12.
+  sandbox.order = ['qq', 'netease', 'kugou', 'qishui'];
+  const titles = ['晴天', '稻香', '七里香', '夜曲', '青花瓷', '搁浅', '轨迹', '借口', '枫', '园游会', '以父之名', '半岛铁盒'];
+  const qqSongs = titles.map((name, i) => ({ provider: 'qq', mid: 'q' + i, name, artist: '周杰伦', album: name }));
+  const neteaseSongs = ['屋顶', '布拉格广场', '刀马旦'].map((name, i) => ({ provider: 'netease', id: 'n' + i, name, artist: '周杰伦 / 温岚', album: name }));
+  merged = sandbox.merge(neteaseSongs, qqSongs, [], [], [], 30, '周杰伦');
+  const firstNetease = merged.findIndex((song) => song.provider === 'netease');
+  assert.ok(firstNetease > 0 && firstNetease <= 3, 'another platform appears within the first rows, got index ' + firstNetease);
+  assert.equal(merged[0].provider, 'qq', 'the best match stays first');
+  assert.equal(merged.length, 15);
 });
 
 test('typed results put the closest name first, then the account platform order', () => {
