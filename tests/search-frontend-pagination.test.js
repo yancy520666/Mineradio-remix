@@ -183,6 +183,7 @@ test('ranking favors exact originals while preserving explicitly requested versi
     'searchTokenCoverage',
     'searchMentionsKnownArtist',
     'searchLooksLikeDerivative',
+    'searchTitleMarksAltEdition',
     'sourceSwitchArtistParts',
     'searchPopularityScore',
     'searchCanonicalSongKey',
@@ -202,6 +203,32 @@ test('ranking favors exact originals while preserving explicitly requested versi
   assert.ok(sandbox.score(original, '晴天', 0) > sandbox.score(unrelated, '晴天', 0));
   assert.ok(sandbox.score(live, '晴天 live', 0) > sandbox.score(original, '晴天 live', 0));
   assert.notEqual(sandbox.key(original), sandbox.key(live), 'studio and live editions must not collapse');
+  const resung = { name: '稻香(深情版)', artist: '其他歌手', album: '稻香', popularity: 100 };
+  const credited = { name: '晴天 (原唱 周杰伦)', artist: '其他歌手', album: '合集', popularity: 100 };
+  const dao = { name: '稻香', artist: '周杰伦', album: '魔杰座' };
+  assert.ok(sandbox.score(dao, '稻香', 0) > sandbox.score(resung, '稻香', 0), 'a bracketed edition must not tie the original');
+  assert.ok(sandbox.score(original, '晴天', 1) > sandbox.score(credited, '晴天', 0));
+});
+
+test('overview best match names the singer of a searched title before a same-name artist', () => {
+  const sandbox = {
+    searchMusicRenderState: { songs: [
+      { name: '夜曲', artist: '某翻唱' },
+      { name: '夜曲', artist: '周杰伦' },
+    ] },
+  };
+  vm.runInNewContext(functionBundle(['simpleSearchNorm', 'sourceSwitchArtistParts', 'typedSearchMatchScore', 'searchOverviewArtist', 'mergeSearchOverviewData'],
+    '', 'this.pick = searchOverviewArtist; this.merge = mergeSearchOverviewData;'), sandbox);
+  const data = sandbox.merge({
+    qq: { artists: [{ provider: 'qq', name: '夜曲' }], albums: [], playlists: [] },
+    netease: { artists: [{ provider: 'netease', name: '周杰伦' }], albums: [], playlists: [{ name: '周杰伦《夜曲》' }] },
+  }, ['qq', 'netease']);
+  assert.equal(data.playlists.length, 1, 'playlists come from any platform, not only the top one');
+  assert.equal(sandbox.pick(data, '夜曲').name, '周杰伦');
+  sandbox.searchMusicRenderState.songs = [{ name: '周杰伦', artist: '刘耀彬' }];
+  assert.equal(sandbox.pick({ artists: [{ name: '周杰伦战队' }, { name: '周杰伦' }] }, '周杰伦').name, '周杰伦',
+    'without a singer match the exact name beats a prefix match');
+  assert.equal(sandbox.pick({ artists: [{ name: '周稻香' }] }, '稻香'), null, 'a name that merely contains the query is not a best match');
 });
 
 test('search pagination carries provider offsets and ignores stale sessions', () => {
@@ -275,7 +302,7 @@ test('song search shows each provider as it arrives and keeps engaged rows stabl
 test('account platform order picks the shown copy without beating a better match', () => {
   const names = [
     'simpleSearchNorm', 'searchQueryTokens', 'searchVersionSignature', 'searchTokenCoverage',
-    'searchMentionsKnownArtist', 'searchLooksLikeDerivative', 'sourceSwitchArtistParts',
+    'searchMentionsKnownArtist', 'searchLooksLikeDerivative', 'searchTitleMarksAltEdition', 'sourceSwitchArtistParts',
     'searchPopularityScore', 'searchCanonicalSongKey', 'scoreSongSearchResult',
     'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'searchProviderPreferenceBonus',
     'mergeSongSearchResults', 'interleaveSearchProviders',

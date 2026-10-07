@@ -939,6 +939,12 @@ function searchMentionsKnownArtist(q, artist) {
 function searchLooksLikeDerivative(text) {
   return /(翻唱|cover|伴奏|instrumental|remix|片段|demo|女声|男声|karaoke|完整版\s*cover|抖音版|dj版|合唱版|改编版|赵露思版|超燃|硬曲|剪辑|二创|氛围|浴室|节奏版|进行曲|加速版|慢速版|变速|串烧|tribute|made\s*famous\s*by)/i.test(String(text || ''));
 }
+// "稻香(深情版)", "晴天 (原唱 周杰伦)": the bracket is stripped before the title
+// comparison, so without this a re-sung edition ties with the original. Ranking
+// only; source switching keeps its own rules.
+function searchTitleMarksAltEdition(name) {
+  return /[（(【\[][^）)】\]]*(版|原唱|翻自|cover)[^）)】\]]*[）)】\]]/i.test(String(name || ''));
+}
 var SOURCE_SWITCH_BLOCKED_ARTIST_TOKENS = ['asablue'];
 var SOURCE_SWITCH_STRICT_ARTIST_ALIASES = [
   ['周杰伦', 'jaychou', 'zhoujielun']
@@ -1089,7 +1095,7 @@ function scoreSongSearchResult(song, q, sourceIndex) {
     score += songVersion === queryVersion ? 64 : -72;
   } else if (songVersion) {
     score -= 46;
-  } else if (searchLooksLikeDerivative(raw)) {
+  } else if (searchLooksLikeDerivative(raw) || searchTitleMarksAltEdition(song && song.name)) {
     score -= 34;
   }
   score += searchPopularityScore(song, sourceIndex);
@@ -1879,24 +1885,48 @@ function closeTypedUserPlaylists() {
 // ============================================================
 //  综合：在单曲上方分区显示最匹配的歌手、歌单与专辑（网易云综合搜索，一次请求）
 // ============================================================
+// Every platform with an overview is asked in parallel and merged in account
+// order: QQ's overview has no playlists and, for a song title, no artist, so
+// taking only the top platform left the section empty for QQ-first accounts.
+function mergeSearchOverviewData(byProvider, providers) {
+  var merged = { artists: [], albums: [], playlists: [] };
+  providers.forEach(function (provider) {
+    var data = byProvider[provider];
+    if (!data) return;
+    ['artists', 'albums', 'playlists'].forEach(function (field) {
+      merged[field] = merged[field].concat(Array.isArray(data[field]) ? data[field] : []);
+    });
+  });
+  return merged.artists.length || merged.albums.length || merged.playlists.length ? merged : null;
+}
 async function loadSearchOverview(q, mode, controller) {
   var key = searchResultKey(q, mode);
-  searchOverviewState = { key: key, data: null };
-  // The overview comes from the highest platform in the account panel that has one.
-  var provider = typedSearchProvidersFor('artist', mode)[0];
-  if (!provider) return;
-  try {
-    var r = await apiJson('/api/search/overview?provider=' + provider + '&keywords=' + encodeURIComponent(q), {
+  searchOverviewState = { key: key, data: null, byProvider: {} };
+  var providers = typedSearchProvidersFor('artist', mode);
+  await Promise.all(providers.map(function (provider) {
+    return apiJson('/api/search/overview?provider=' + provider + '&keywords=' + encodeURIComponent(q), {
       timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS,
       signal: controller ? controller.signal : undefined
+    }).then(function (r) {
+      if (searchOverviewState.key !== key) return;
+      searchOverviewState.byProvider[provider] = r || null;
+      searchOverviewState.data = mergeSearchOverviewData(searchOverviewState.byProvider, providers);
+      applySearchOverview(key);
+    }, function (err) {
+      if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', provider, err);
     });
-    if (searchOverviewState.key !== key || searchResultType !== 'all') return;
-    searchOverviewState.data = r || null;
+  }));
+}
+function applySearchOverview(key) {
+  if (searchResultType !== 'all') return;
+  try {
     // Songs already on screen: insert the section above them as soon as it
     // arrives. When the list is scrolled, keep the rows in view where they were.
     if (searchMusicRenderState.key === key && $results) {
       var html = searchOverviewHtml(key);
       var old = $results.querySelector('.search-overview');
+      if (old && html && old.outerHTML === html) return;
+      var hadSection = !!old;
       if (old) old.remove();
       if (!html) return;
       var scrolled = $results.scrollTop > 4;
@@ -1908,22 +1938,47 @@ async function loadSearchOverview(q, mode, controller) {
       if (scrolled) $results.scrollTop += $results.scrollHeight - heightBefore;
       var section = $results.querySelector('.search-overview');
       if (section && !scrolled && !searchMotionReduced() && typeof section.animate === 'function') {
-        section.animate([
-          { opacity: 0, transform: 'translateY(-6px)' },
-          { opacity: 1, transform: 'none' }
-        ], { duration: 300, easing: 'cubic-bezier(.22,.8,.24,1)' });
+        // A second platform refining an existing section only fades, without the drop-in.
+        section.animate(hadSection
+          ? [{ opacity: 0.6 }, { opacity: 1 }]
+          : [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
+        { duration: hadSection ? 200 : 300, easing: 'cubic-bezier(.22,.8,.24,1)' });
         animateSearchRowsFrom(positions);
       }
     }
   } catch (err) {
-    if (!(controller && controller.signal.aborted)) console.warn('[SearchOverview]', err);
+    console.warn('[SearchOverview]', err);
   }
+}
+// The best-match artist. For a song title ("稻香", "夜曲") it is the singer of
+// one of the top songs with that exact title, ahead of an artist who happens to
+// share the name; otherwise an artist whose name matches the query.
+function searchOverviewArtist(data, q) {
+  var artists = (data && data.artists) || [];
+  var nq = simpleSearchNorm(q);
+  var singers = [];
+  (searchMusicRenderState.songs || []).slice(0, 8).forEach(function (song) {
+    if (!nq || simpleSearchNorm(song && song.name) !== nq) return;
+    sourceSwitchArtistParts(song).forEach(function (part) { singers.push(simpleSearchNorm(part)); });
+  });
+  var singer = artists.filter(function (item) { return singers.indexOf(simpleSearchNorm(item && item.name)) >= 0; })[0];
+  if (singer) return singer;
+  var best = null;
+  var bestScore = 1;
+  artists.forEach(function (item) {
+    var score = typedSearchMatchScore(item, q);
+    if (score > bestScore) {
+      best = item;
+      bestScore = score;
+    }
+  });
+  return best;
 }
 function searchOverviewPicks(key) {
   if (searchResultType !== 'all' || searchOverviewState.key !== key || !searchOverviewState.data) return null;
   var data = searchOverviewState.data;
   var q = key.split('|').slice(1).join('|');
-  var artist = (data.artists || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 1; })[0] || null;
+  var artist = searchOverviewArtist(data, q);
   var albums = (data.albums || []).filter(function (item) { return typedSearchMatchScore(item, q) >= 1; });
   var tiles = albums.slice(0, 2).concat(data.playlists || []).slice(0, 4);
   if (!artist && !tiles.length) return null;
