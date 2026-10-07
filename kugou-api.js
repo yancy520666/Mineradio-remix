@@ -1750,12 +1750,15 @@ function mapKugouPlaylistTrack(item) {
   return mapped;
 }
 
+const KUGOU_PLAYLIST_PAGE_SIZE = 50;
+const KUGOU_PLAYLIST_MAX_PAGES = 40;
+
 async function handleKugouUserPlaylists(cookie) {
   const auth = extractKugouAuth(cookie);
   if (!auth.playbackReady) {
     return { provider: 'kugou', loggedIn: auth.loggedIn, playbackReady: false, playlists: [], error: 'KUGOU_AUTH_REQUIRED', message: '酷狗登录未完成，请重新网页登录' };
   }
-  try {
+  const fetchPage = async page => {
     const json = await kugouH5GatewayRequest('/v7/get_all_list', {
       method: 'POST',
       cookie,
@@ -1766,27 +1769,67 @@ async function handleKugouUserPlaylists(cookie) {
         token: auth.token,
         total_ver: 979,
         type: 2,
-        page: 1,
-        pagesize: 50,
+        page,
+        pagesize: KUGOU_PLAYLIST_PAGE_SIZE,
       },
     });
     const data = (json && json.data) || {};
     const info = data.info || data;
     const hasListShape = [data.info, data.list, info.collect, info.love, info.self, info.list].some(Array.isArray);
     if (Number(json && json.status) !== 1 || !hasListShape) throw new Error('KUGOU_PLAYLIST_RESPONSE_INVALID');
-    const lists = extractKugouGatewayPlaylistLists(data);
+    return { lists: extractKugouGatewayPlaylistLists(data), total: Number(data.list_count) || 0 };
+  };
+  try {
+    // The library is paged 50 at a time (created, liked and collected lists together);
+    // page 1 reports list_count, then the rest are fetched in parallel.
+    const first = await fetchPage(1);
+    let lists = first.lists.slice();
+    let partial = false;
+    let pageLimited = false;
+    const knownPages = first.total ? Math.ceil(first.total / KUGOU_PLAYLIST_PAGE_SIZE) : 0;
+    if (knownPages > 0) {
+      if (knownPages > 1) {
+        pageLimited = knownPages > KUGOU_PLAYLIST_MAX_PAGES;
+        const pages = [];
+        for (let page = 2; page <= Math.min(knownPages, KUGOU_PLAYLIST_MAX_PAGES); page += 1) pages.push(page);
+        const results = await Promise.allSettled(pages.map(fetchPage));
+        results.forEach(result => {
+          if (result.status === 'fulfilled') lists = lists.concat(result.value.lists);
+          else partial = true;
+        });
+      }
+    } else if (first.lists.length >= KUGOU_PLAYLIST_PAGE_SIZE) {
+      // No total reported: walk forward until a short page.
+      for (let page = 2; page <= KUGOU_PLAYLIST_MAX_PAGES; page += 1) {
+        let next;
+        try { next = await fetchPage(page); } catch (_) { partial = true; break; }
+        lists = lists.concat(next.lists);
+        if (next.lists.length < KUGOU_PLAYLIST_PAGE_SIZE) break;
+        if (page === KUGOU_PLAYLIST_MAX_PAGES) pageLimited = true;
+      }
+    }
     const profile = pickKugouProfileFromLists(lists, auth);
     if (profile.nickname || profile.avatar) kugouProfileCache.set(kugouProfileCacheKey(auth), profile, 5 * 60 * 1000);
-    const playlists = lists.map(mapKugouPlaylistItem).filter(pl => pl.id && pl.name);
+    const seen = new Set();
+    const playlists = lists.map(mapKugouPlaylistItem).filter(pl => {
+      if (!pl.id || !pl.name || seen.has(pl.id)) return false;
+      seen.add(pl.id);
+      return true;
+    });
     return {
       provider: 'kugou',
       loggedIn: true,
       playbackReady: true,
-      libraryReady: true,
+      libraryReady: !partial && !pageLimited,
       userId: auth.userid,
       nickname: auth.nickname || profile.nickname || '',
       avatar: auth.avatar || profile.avatar || '',
       playlists,
+      total: Math.max(first.total, playlists.length),
+      partial: partial || pageLimited,
+      pageLimited,
+      retryable: partial || !pageLimited,
+      error: partial ? 'KUGOU_PLAYLIST_PAGE_FAILED' : (pageLimited ? 'KUGOU_PLAYLIST_PAGE_LIMIT' : ''),
     };
   } catch (err) {
     return {

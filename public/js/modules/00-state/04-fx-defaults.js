@@ -195,6 +195,10 @@ var fxDefaults = {
   memorySystemMask: 29,
   memorySafetyRevision: 4,
   liveBackgroundKeep: false,
+  // Optional Aero water theme for controls; off unless the user turns it on.
+  aeroWaterTheme: false,
+  // clear = 水色快门, cyan = 白昼流星, blue = 夏末雨.
+  aeroWaterPalette: 'clear',
   cam: 'off',
   gesturePlayerActions: true,
   gestureHandOverlay: true,

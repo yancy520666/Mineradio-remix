@@ -12,7 +12,7 @@ function normalizeAudioFadeMs(value, fallback) {
   return Math.max(AUDIO_FADE_MIN_MS, Math.min(AUDIO_FADE_MAX_MS, ms));
 }
 function readAudioFadePreference() {
-  var defaults = { fadeInMs: 460, fadeOutMs: 420 };
+  var defaults = { fadeInMs: 460, fadeOutMs: 120 };
   try {
     var raw = JSON.parse(localStorage.getItem(AUDIO_FADE_STORE_KEY) || '{}') || {};
     return {

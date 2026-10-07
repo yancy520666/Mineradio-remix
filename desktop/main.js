@@ -6338,7 +6338,15 @@ function createWindow() {
 
 if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
+function isDevQuitRequest(argv) {
+  return APP_NAME === 'Mineradio Remix Dev'
+    && APP_USER_MODEL_ID === 'com.mineradio.remix.dev'
+    && Array.isArray(argv) && argv.includes('--quit-remix-dev');
+}
+
 if (!gotSingleInstanceLock) {
+  app.quit();
+} else if (isDevQuitRequest(process.argv)) {
   app.quit();
 } else {
   writeStartupState('module-loaded', {
@@ -6346,7 +6354,11 @@ if (!gotSingleInstanceLock) {
     userData: STABLE_USER_DATA_PATH,
     sessionData: (() => { try { return app.getPath('sessionData'); } catch (_) { return ''; } })(),
   });
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    if (isDevQuitRequest(argv)) {
+      app.quit();
+      return;
+    }
     if (startupCompleted && focusMainWindow()) return;
     app.whenReady()
       .then(() => createWindow())

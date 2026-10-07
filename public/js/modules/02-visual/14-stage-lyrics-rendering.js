@@ -100,6 +100,7 @@ function stageLyricLightPrewarmReason(reason) {
 }
 
 function clearStageLyricFullTrackWarmup() {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('full-track-warmup');
   if (stageLyricFullTrackWarmupTimer) {
     clearTimeout(stageLyricFullTrackWarmupTimer);
     stageLyricFullTrackWarmupTimer = 0;
@@ -112,6 +113,7 @@ function clearStageLyricFullTrackWarmup() {
 }
 
 function cancelStageLyricPrewarmBuildOnly() {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('prewarm-build');
   if (stageLyricPrewarm.workTimer) {
     clearTimeout(stageLyricPrewarm.workTimer);
     stageLyricPrewarm.workTimer = 0;
@@ -130,6 +132,7 @@ function cancelStageLyricPrewarmBuildOnly() {
 }
 
 function disposeStageLyricPrewarmMesh() {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('prewarm-start');
   if (stageLyricPrewarm.timer) {
     clearTimeout(stageLyricPrewarm.timer);
     stageLyricPrewarm.timer = 0;
@@ -146,6 +149,7 @@ function disposeStageLyricPrewarmMesh() {
 }
 
 function clearStageLyricSingleLinePrewarmItem(key) {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('single-line:' + key);
   if (!stageLyricSingleLinePrewarm || !stageLyricSingleLinePrewarm.items || !key) return;
   var item = stageLyricSingleLinePrewarm.items[key];
   if (!item) return;
@@ -438,7 +442,7 @@ function scheduleStageLyricSingleLineCachePrewarm(index, reason, delay) {
   }
   item.targetIndex = index;
   item.dueAt = dueAt;
-  item.timer = setTimeout(function () {
+  var runSingleLinePrewarm = function () {
     item.timer = 0;
     item.dueAt = 0;
     if (typeof lyricFxEditActive === 'function' && lyricFxEditActive() && reason !== 'single-line-demand') return;
@@ -457,7 +461,12 @@ function scheduleStageLyricSingleLineCachePrewarm(index, reason, delay) {
     } catch (e) {
       clearStageLyricSingleLinePrewarmItem(key);
     }
-  }, wait);
+  };
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    item.timer = -1;
+    lyricWorkScheduler.schedule('single-line:' + key, runSingleLinePrewarm,
+      { delay: wait, priority: 15, urgent: reason === 'single-line-demand' });
+  } else item.timer = setTimeout(runSingleLinePrewarm, wait);
   trimStageLyricSingleLinePrewarmCache();
   return true;
 }
@@ -721,6 +730,7 @@ function updateStageLyricPersistentResidentBounds(data) {
 }
 
 function cancelStageLyricResidentBuild() {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('resident-build');
   cancelStageLyricResidentDemand();
   if (stageLyricResidentBuild.timer) clearTimeout(stageLyricResidentBuild.timer);
   if (stageLyricResidentBuild.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(stageLyricResidentBuild.raf);
@@ -1037,7 +1047,7 @@ function runStageLyricResidentBuild(job) {
   }
   var startedAt = stageLyricNowMs();
   var phaseLimit = typeof lyricFxEditActive === 'function' && lyricFxEditActive() ? 1 : (job.textOnly ? 8 : (job.interactive ? 5 : 2));
-  var phaseBudget = job.textOnly ? 2.8 : (job.interactive ? 3.4 : 4.2);
+  var phaseBudget = typeof lyricWorkScheduler !== 'undefined' ? lyricWorkScheduler.sliceMs : 2.8;
   var done = stepLyricRowLayerGroupBuild(job.state, phaseLimit, phaseBudget);
   var chunkMs = stageLyricNowMs() - startedAt;
   job.maxChunkMs = Math.max(job.maxChunkMs, chunkMs);
@@ -1051,6 +1061,11 @@ function runStageLyricResidentBuild(job) {
 function scheduleStageLyricResidentBuildWork(job, delay) {
   if (!job || stageLyricResidentBuild.job !== job) return;
   delay = Math.max(0, Number(delay) || 0);
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricWorkScheduler.schedule('resident-build', function () { runStageLyricResidentBuild(job); },
+      { delay: delay, priority: job.urgent ? 0 : 10, urgent: job.urgent === true });
+    return;
+  }
   var queue = function () {
     stageLyricResidentBuild.timer = 0;
     if (!job || stageLyricResidentBuild.job !== job) return;
@@ -1096,6 +1111,7 @@ function startStageLyricResidentBuild(mesh, targetIndex, start, end, options) {
     singleEffects: singleEffects,
     trackToken: trackSwitchToken,
     interactive: options.interactive === true,
+    urgent: options.urgent === true || options.interactive === true,
     state: state,
     token: stageLyricResidentBuild.token,
     startedAt: stageLyricNowMs(),
@@ -1358,6 +1374,7 @@ function ensureStageLyricPersistentTrackRows(mesh, targetIndex, options) {
   return startStageLyricResidentBuild(mesh, targetIndex, buildStart, buildEnd, {
     reason: options.reason || (targetMissing ? 'persistent-track-demand' : 'persistent-track-ahead'),
     textOnly: true,
+    urgent: firstVisibleMissing >= 0 || targetMissing,
     interactive: interactivePreview
   });
 }
@@ -1508,7 +1525,12 @@ function stageLyricLightweightPrewarmAwaitingTakeover() {
 
 function stageLyricCurrentCanResumeWithoutWarmup() {
   if (!stageLyrics || !stageLyrics.current || !stageLyrics.currentPayload || stageLyrics.currentIdx < 0) return false;
-  return !stageLyricCurrentUsesLightweightTrack();
+  var mesh = stageLyrics.current;
+  var data = mesh.userData && mesh.userData.lyric;
+  // A displayed lightweight track is already usable. A resume must not
+  // restart its preparation or replace the mesh to upgrade the same line.
+  return !!(mesh.parent === stageLyrics.group && mesh.userData && !mesh.userData.__mineradioDisposeQueued
+    && data && (!data.usesTrack || data.renderInitialTextReady === true));
 }
 
 function upgradeCurrentStageLyricFromPreparedTrack(reason) {
@@ -1726,6 +1748,11 @@ function stageLyricCooperativeNextDelay(job, chunkMs) {
 function scheduleStageLyricCooperativeWork(job, delay) {
   if (!job || stageLyricPrewarm.build !== job) return;
   delay = Math.max(0, Number(delay) || 0);
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricWorkScheduler.schedule('prewarm-build', function () { runStageLyricCooperativePrewarm(job); },
+      { delay: delay, priority: job.lightweight ? 5 : 20, urgent: !stageLyrics.current && job.lightweight });
+    return;
+  }
   function runAfterPaint() {
     stageLyricPrewarm.workTimer = 0;
     if (!job || stageLyricPrewarm.build !== job) return;
@@ -1770,8 +1797,14 @@ function runStageLyricCooperativePrewarm(job) {
   }
   var startedAt = stageLyricNowMs();
   var done = false;
+  var budgetMs = typeof lyricWorkScheduler !== 'undefined' ? lyricWorkScheduler.sliceMs : 4.2;
   try {
-    done = stepCooperativeLyricMeshBuild(job.state, 1, 4.2);
+    // Cheap layout/text phases may share the slice; an expensive phase yields
+    // immediately. Keep a phase cap as well as the elapsed-time budget.
+    for (var phase = 0; phase < 4; phase++) {
+      done = stepCooperativeLyricMeshBuild(job.state, 1, budgetMs);
+      if (done || stageLyricNowMs() - startedAt >= budgetMs) break;
+    }
   } catch (e) {
     cancelStageLyricPrewarmBuildOnly();
     return;
@@ -1862,7 +1895,7 @@ function scheduleStageLyricPrewarmForIndex(targetIndex, reason, delay) {
     disposeStageLyricPrewarmMesh();
     return;
   }
-  stageLyricPrewarm.timer = setTimeout(function () {
+  var runPrewarm = function () {
     stageLyricPrewarm.timer = 0;
     stageLyricPrewarm.dueAt = 0;
     if (token !== stageLyricPrewarm.token) return;
@@ -1874,6 +1907,9 @@ function scheduleStageLyricPrewarmForIndex(targetIndex, reason, delay) {
       return;
     }
     var payload = buildStageLyricDisplayPayload(idx, { lightweightTrack: lightweight });
+    // Reveal the new song's text first. The existing persistent-row builder
+    // adds the selected readability/glow effects to this same mesh afterward.
+    if (lightweight && !stageLyrics.current && payload && payload.mode !== 'single') payload.trackTextOnly = true;
     var key = stageLyricPreparedKey(payload);
     if (!key || stageLyricCurrentMeshAlreadyPreparedForPayload(payload)) {
       if (stageLyricPrewarm.mesh) disposeStageLyricPrewarmMesh();
@@ -1906,7 +1942,12 @@ function scheduleStageLyricPrewarmForIndex(targetIndex, reason, delay) {
     } catch (e) {
       disposeStageLyricPrewarmMesh();
     }
-  }, wait);
+  };
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    stageLyricPrewarm.timer = -1;
+    lyricWorkScheduler.schedule('prewarm-start', runPrewarm,
+      { delay: wait, priority: lightweight ? 5 : 20, urgent: lightweight && !stageLyrics.current });
+  } else stageLyricPrewarm.timer = setTimeout(runPrewarm, wait);
 }
 function scheduleStageLyricPrewarm(reason, delay) {
   var singleLineIndex = stageLyricSingleLineBootstrapIndex();
@@ -1964,7 +2005,9 @@ function runStageLyricFullTrackWarmup(reason) {
     }
     scheduleStageLyricPrewarm(reason || 'track-ready', stageLyricMultiLineWarmupLoad() ? 96 : 24);
   };
-  if (stageLyricMultiLineWarmupLoad() && window.requestIdleCallback) {
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricWorkScheduler.schedule('full-track-warmup', run, { priority: 20 });
+  } else if (stageLyricMultiLineWarmupLoad() && window.requestIdleCallback) {
     stageLyricFullTrackWarmupIdle = window.requestIdleCallback(function () {
       stageLyricFullTrackWarmupIdle = 0;
       run();
@@ -1976,7 +2019,14 @@ function runStageLyricFullTrackWarmup(reason) {
 function scheduleStageLyricFullTrackWarmup(reason, delay) {
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return false;
   if (stageLyricCurrentUsesPersistentTrack()) {
-    ensureStageLyricPersistentTrackRows(stageLyrics.current, stageLyrics.currentIdx, { reason: reason || 'persistent-track-warmup' });
+    if (typeof lyricWorkScheduler !== 'undefined') {
+      var mesh = stageLyrics.current, token = trackSwitchToken;
+      lyricWorkScheduler.schedule('full-track-warmup', function () {
+        if (token === trackSwitchToken && mesh === stageLyrics.current) {
+          ensureStageLyricPersistentTrackRows(mesh, stageLyrics.currentIdx, { reason: reason || 'persistent-track-warmup' });
+        }
+      }, { delay: delay, priority: 20 });
+    } else ensureStageLyricPersistentTrackRows(stageLyrics.current, stageLyrics.currentIdx, { reason: reason || 'persistent-track-warmup' });
     return true;
   }
   if (stageLyricShouldSkipFullTrackWarmup(reason)) return false;
@@ -3184,6 +3234,7 @@ function resetStageLyricResumeFrameGates() {
 
 function markStageLyricsPlaybackResume(reason) {
   reason = reason || 'playback-resume';
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.hold(180);
   var resumeAt = stageLyricNowMs();
   var resumeToken = typeof trackSwitchToken !== 'undefined' ? trackSwitchToken : 0;
   var resumeMedia = typeof audio !== 'undefined' ? audio : null;
@@ -3297,7 +3348,7 @@ function tickLyricsParticles() {
   }
   var previewingSeek = stageLyricProgressPreviewActive();
   var holdLyricsOnPause = !fx || fx.lyricPauseHold !== false;
-  var pausedWithTrack = !!(holdLyricsOnPause && audio && audio.src && audio.paused && !audio.ended && lyricsLines && lyricsLines.length);
+  var pausedWithTrack = !!(holdLyricsOnPause && audio && audio.src && (audio.paused || audio.__mineradioPausePending === true) && !audio.ended && lyricsLines && lyricsLines.length);
   if (!audio || !lyricsLines.length || (audio && audio.ended)) {
     retireCurrentStageLyricForIdle();
     return;

@@ -47,6 +47,9 @@ function normalizePerformanceBackgroundMode(v, liveKeepFallback) {
   if (value === 'release') return 'release';
   return 'auto';
 }
+function normalizeAeroWaterPalette(v) {
+  return v === 'cyan' || v === 'blue' ? v : 'clear';
+}
 function normalizePerformanceQuality(v) {
   var value = String(v || '');
   return /^(eco|balanced|high|ultra)$/.test(value) ? value : fxDefaults.performanceQuality;
@@ -340,6 +343,8 @@ function readSavedLyricLayout() {
       memorySystemMask: clampRange(Math.round(raw.memorySystemMask == null ? fxDefaults.memorySystemMask : Number(raw.memorySystemMask)), 1, 29),
       memorySafetyRevision: Number(raw.memorySafetyRevision) || 0,
       liveBackgroundKeep: normalizePerformanceBackgroundMode(raw.performanceBackground, raw.liveBackgroundKeep === true) === 'keep',
+      aeroWaterTheme: raw.aeroWaterTheme === true,
+      aeroWaterPalette: normalizeAeroWaterPalette(raw.aeroWaterPalette),
       sonicGroundAmplitude: clampRange(raw.sonicGroundAmplitude == null ? fxDefaults.sonicGroundAmplitude : Number(raw.sonicGroundAmplitude), 0, 100),
       sonicGroundMotionSpeed: clampRange(raw.sonicGroundMotionSpeed == null ? fxDefaults.sonicGroundMotionSpeed : Number(raw.sonicGroundMotionSpeed), 0, 100),
       sonicGroundDensity: clampRange(raw.sonicGroundDensity == null ? fxDefaults.sonicGroundDensity : Number(raw.sonicGroundDensity), 0, 100),
@@ -561,6 +566,8 @@ function currentFxAutosaveTouchedKeys(reason, payload) {
     performanceBackground: ['performanceBackground', 'liveBackgroundKeep'],
     performanceQuality: ['performanceQuality'],
     liveBackgroundKeep: ['performanceBackground', 'liveBackgroundKeep'],
+    aeroWaterTheme: ['aeroWaterTheme'],
+    aeroWaterPalette: ['aeroWaterPalette'],
     memorySystemMask: ['memorySystemMask'],
     memorySystemIntervalMin: ['memorySystemIntervalMin'],
     memorySystemThresholdPercent: ['memorySystemThresholdPercent']
@@ -829,6 +836,8 @@ function saveLyricLayout(opts) {
       memorySystemMask: clampRange(Math.round(fx.memorySystemMask == null ? fxDefaults.memorySystemMask : Number(fx.memorySystemMask)), 1, 29),
       memorySafetyRevision: fxDefaults.memorySafetyRevision,
       liveBackgroundKeep: normalizePerformanceBackgroundMode(fx.performanceBackground, fx.liveBackgroundKeep === true) === 'keep',
+      aeroWaterTheme: fx.aeroWaterTheme === true,
+      aeroWaterPalette: normalizeAeroWaterPalette(fx.aeroWaterPalette),
       sonicGroundAmplitude: clampRange(fx.sonicGroundAmplitude == null ? fxDefaults.sonicGroundAmplitude : Number(fx.sonicGroundAmplitude), 0, 100),
       sonicGroundMotionSpeed: clampRange(fx.sonicGroundMotionSpeed == null ? fxDefaults.sonicGroundMotionSpeed : Number(fx.sonicGroundMotionSpeed), 0, 100),
       sonicGroundDensity: clampRange(fx.sonicGroundDensity == null ? fxDefaults.sonicGroundDensity : Number(fx.sonicGroundDensity), 0, 100),

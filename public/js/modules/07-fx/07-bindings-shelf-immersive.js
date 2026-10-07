@@ -442,6 +442,11 @@ function toggleFx(key) {
   if (key === 'lyricLiveViewportFit') showToast(fx.lyricLiveViewportFit !== false ? '歌词实时边界已开启' : '歌词实时边界已关闭，已停止逐帧投影');
   if (key === 'lyricContextHighQuality') showToast(fx.lyricContextHighQuality !== false ? '上下句高清纹理已开启' : '上下句高清纹理已关闭，仅保留当前双语高清');
   if (key === 'lyricBackdropAdapt') showToast(fx.lyricBackdropAdapt !== false ? '全局歌词避光已开启' : '全局歌词避光已关闭');
+  if (key === 'aeroWaterTheme') {
+    saveLyricLayout({ user: true, reason: key });
+    if (typeof applyAeroWaterTheme === 'function') applyAeroWaterTheme();
+    showToast(fx.aeroWaterTheme ? 'Aero 水光已开启' : 'Aero 水光已关闭');
+  }
   if (key === 'coverBackdropAdapt') showToast(fx.coverBackdropAdapt !== false ? '封面粒子避光已开启' : '封面粒子避光已关闭');
   if (key === 'lyricPauseHold') showToast(fx.lyricPauseHold !== false ? '暂停时保留歌词' : '暂停时隐藏歌词');
   if (key === 'desktopLyrics') showToast(fx.desktopLyrics ? '桌面歌词已开启' : '桌面歌词已关闭');

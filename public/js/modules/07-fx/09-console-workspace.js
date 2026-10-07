@@ -57,6 +57,8 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-windowbgopacity', '窗口背景透明', '窗口透明度'),
         fxConsoleItem('fx-bgglassopacity', '毛玻璃透明', '玻璃 背景模糊'),
         fxConsoleItem('fx-glassaberration', '控制台玻璃色差', 'RGB 色散 玻璃质感'),
+        fxConsoleItem('t-aeroWaterTheme', 'Aero 水光', '水光 水星子 弹性 按压 反光 Frutiger Aero Vista Win7 主题'),
+        fxConsoleItem('aero-water-palette-seg', '水光颜色', '水色快门 白昼流星 夏末雨 最初水光 悠远青空 江海之色 透明 青色 蓝色 主题色 流星 涟漪'),
         fxConsoleItem('fx-playlistblur', '左栏雾面', '歌单栏 模糊'),
         fxConsoleItem('fx-playlistdensity', '左栏遮挡', '歌单栏 密度 透明'),
         fxConsoleItem('fx-playlistopen', '左栏唤出', '打开速度 秒数'),
@@ -147,7 +149,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-scatter', '离散感', '粒子散开'),
         fxConsoleItem('fx-bgfade', '背景压暗', '背景压缩 暗度')
       ] },
-      { key: 'sonic-terrain', title: '音域地形', hint: '地面形态、颜色和空间位置', items: [
+      { key: 'sonic-terrain', title: '音域地形', hint: '地面形态、颜色和空间位置', preset: 7, presetLabel: '音域回响 · Sonic-Topography', items: [
         fxConsoleItem('fx-sonicamp', '地面起伏', '音域振幅'),
         fxConsoleItem('fx-sonicspeed', '起伏速度', '地形运动'),
         fxConsoleItem('fx-sonicdensity', '地形密度', '网格密度'),
@@ -161,7 +163,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('sonic-ground-accent-picker', '涟漪高光', '音域强调色'),
         fxConsoleItem('fx-sonicglow', '音域光强', '地形辉光')
       ] },
-      { key: 'sonic-audio', title: '频谱响应', hint: 'Kick 检测、频段范围和各段权重', items: [
+      { key: 'sonic-audio', title: '频谱响应', hint: 'Kick 检测、频段范围和各段权重', preset: 7, presetLabel: '音域回响 · Sonic-Topography', items: [
         fxConsoleItem('t-sonicAudioMonitorEnabled', '实时频谱', '音频分析 频谱开关'),
         fxConsoleItem('t-sonicAudioAutoTrack', 'Kick 自动', '鼓点自动追踪'),
         fxConsoleItem('sonic-audio-monitor-toggle', '频谱面板', '音频监视器'),
@@ -179,7 +181,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-sonicbrilliance', '边缘微闪', 'Brilliance'),
         fxConsoleItem('fx-sonicair', '空气颗粒', 'Air 高频')
       ] },
-      { key: 'sonic-blocks', title: '音域方块', hint: '浮空方块的数量、尺寸和速度', items: [
+      { key: 'sonic-blocks', title: '音域方块', hint: '浮空方块的数量、尺寸和速度', preset: 7, presetLabel: '音域回响 · Sonic-Topography', items: [
         fxConsoleItem('t-sonicGroundFloatingEnabled', '浮空方块', '音域方块开关'),
         fxConsoleItem('fx-sonicfloatcount', '方块数量', '浮空数量'),
         fxConsoleItem('fx-sonicfloatintensity', '方块强度', '浮空强度'),
@@ -187,7 +189,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-sonicfloatmax', '方块大值', '最大尺寸'),
         fxConsoleItem('fx-sonicfloatspeed', '方块速度', '浮空速度')
       ] },
-      { key: 'sonic-we', title: '音域回响 · WE', hint: 'Wallpaper Engine 派生地形的响应与配色', items: [
+      { key: 'sonic-we', title: '音域回响 · WE', hint: 'Wallpaper Engine 派生地形的响应与配色', preset: 8, presetLabel: '音域回响 · Wallpaper Engine', items: [
         fxConsoleItem('fx-sonicwegain', '输入压制', 'WE 输入增益'),
         fxConsoleItem('fx-sonicweaudio', '音频响应', 'WE 音频强度'),
         fxConsoleItem('fx-sonicwerange', '响应范围', 'WE 范围'),
@@ -379,11 +381,39 @@ function fxConsoleMakeGroup(page, tabMeta, groupMeta) {
     head.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (typeof repositionFxFloatingPanels === 'function') repositionFxFloatingPanels();
   });
+  if (groupMeta.preset != null) fxConsoleAddPresetHint(fold, body, groupMeta);
   fold.appendChild(head);
   fold.appendChild(body);
   page.appendChild(fold);
   fxConsoleGroups[tabMeta.key + ':' + groupMeta.key] = fold;
   return body;
+}
+
+// Groups that belong to one visual keep their header in every visual; when another visual
+// is active their controls are hidden, so say where they apply instead of showing an empty fold.
+function fxConsoleAddPresetHint(fold, body, groupMeta) {
+  var hint = document.createElement('div');
+  hint.className = 'fx-console-preset-hint';
+  hint.hidden = true;
+  var text = document.createElement('span');
+  text.textContent = '仅「' + groupMeta.presetLabel + '」可调';
+  var button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'fx-mini-btn';
+  button.textContent = '切换到该视觉';
+  button.addEventListener('click', function () { if (typeof setPreset === 'function') setPreset(groupMeta.preset); });
+  hint.appendChild(text);
+  hint.appendChild(button);
+  body.appendChild(hint);
+  fold.setAttribute('data-fx-console-preset', String(groupMeta.preset));
+}
+function updateFxConsolePresetHints() {
+  var preset = Number(fx && fx.preset) || 0;
+  Object.keys(fxConsoleGroups).forEach(function (key) {
+    var fold = fxConsoleGroups[key];
+    var hint = fold && fold.querySelector('.fx-console-preset-hint');
+    if (hint) hint.hidden = Number(fold.getAttribute('data-fx-console-preset')) === preset;
+  });
 }
 
 function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
@@ -518,6 +548,7 @@ function organizeFxConsoleWorkspace() {
   oldRoots.forEach(function (node) {
     if (node && node.isConnected && node.parentNode === panel && node !== toolbar && !node.classList.contains('fx-tab-page')) node.remove();
   });
+  updateFxConsolePresetHints();
   toolbar.querySelector('#fx-panel-tabs').addEventListener('click', function (e) {
     var btn = e.target && e.target.closest ? e.target.closest('[data-fx-tab]') : null;
     if (!btn) return;

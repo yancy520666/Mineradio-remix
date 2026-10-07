@@ -880,6 +880,7 @@ function discardLyricRowPendingQuality(row) {
 }
 
 function invalidateLyricQualityTextures(reason, options) {
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.cancel('quality-build');
   options = options || {};
   var releaseCommitted = options.release === true || /clear-stage-lyrics|hard-release/i.test(String(reason || ''));
   lyricQualityState.generation += 1;
@@ -1063,7 +1064,10 @@ function scheduleLyricQualityBuild(delay) {
     updateLyricQualityStats(job.tier);
     scheduleLyricQualityBuild(0);
   };
-  if (typeof requestIdleCallback === 'function') {
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricQualityState.idle = -1;
+    lyricWorkScheduler.schedule('quality-build', run, { priority: 30 });
+  } else if (typeof requestIdleCallback === 'function') {
     lyricQualityState.idle = requestIdleCallback(run, { timeout: 180 });
   } else {
     lyricQualityState.timer = setTimeout(function () {
@@ -1195,6 +1199,7 @@ function registerLyricQualityCommitCandidate(data, row, priority) {
 }
 
 function commitDeferredLyricQualityRows() {
+  if (typeof lyricWorkScheduler !== 'undefined' && !lyricWorkScheduler.canPrepare()) return false;
   if (!lyricQualityState.frameCommits.length) return false;
   var commits = lyricQualityState.frameCommits.slice().sort(function (a, b) { return a.priority - b.priority; });
   var seen = [];
@@ -1347,6 +1352,7 @@ function resetLyricRenderUploadFrameBudget(deferQualityFinalize) {
 
 function consumeLyricRenderUploadFrameBudget() {
   if (lyricRenderUploadFrameBudget.remaining <= 0) return false;
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.uploaded();
   lyricRenderUploadFrameBudget.remaining -= 1;
   lyricRenderUploadFrameBudget.consumed += 1;
   lyricRenderUploadFrameBudget.maxConsumed = Math.max(lyricRenderUploadFrameBudget.maxConsumed, lyricRenderUploadFrameBudget.consumed);
@@ -1859,10 +1865,14 @@ function updateLyricRowLayers(data, opts) {
   }
   if (!deferQualityCommit) finalizeLyricQualitySelectionFrame();
   if (renderRevealCandidates.length) {
+    var backgroundUploadsAllowed = typeof lyricWorkScheduler === 'undefined' || lyricWorkScheduler.canPrepare();
     renderRevealCandidates.sort(function (a, b) { return a.priority - b.priority; });
     for (var revealIndex = 0; revealIndex < renderRevealCandidates.length; revealIndex++) {
       var reveal = renderRevealCandidates[revealIndex];
       if (reveal.quality && deferQualityCommit) continue;
+      // Keep existing layers drawing. Only postpone new decorative/HD and
+      // off-screen uploads while the playback button is being handled.
+      if (!backgroundUploadsAllowed && (reveal.quality || reveal.flag !== 'renderLineUploaded' || !reveal.row.renderWindowActive)) continue;
       if (!consumeLyricRenderUploadFrameBudget()) break;
       if (reveal.quality) {
         commitLyricRowQuality(reveal.row);

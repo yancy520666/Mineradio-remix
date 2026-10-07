@@ -66,7 +66,7 @@ if (!process.argv.includes('--child')) {
       const step=visualGuideSteps[visualGuideStep], target=guideTargetRect(step);
       const ring=box(document.getElementById('visual-guide-ring')), card=box(document.getElementById('visual-guide-card'));
       const panel=document.getElementById('fx-panel'), shell=document.getElementById('desktop-window-shell');
-      return {key:step.key,target,ring,card,w:innerWidth,h:innerHeight,
+      return {key:step.key,center:!!step.center,target,loginOpen:document.getElementById('login-modal').classList.contains('show'),ring,card,w:innerWidth,h:innerHeight,
         shellScroll:[shell.scrollLeft,shell.scrollTop], rootScroll:[scrollX,scrollY],
         bottomOpacity:Number(getComputedStyle(document.getElementById('bottom-bar')).opacity),
         playlistPeek:document.getElementById('playlist-panel').classList.contains('peek'),
@@ -81,7 +81,7 @@ if (!process.argv.includes('--child')) {
       assert.equal(state.playlistPeek, false, state.key + ' pointer opened an unrelated playlist panel');
       assert(state.card.left >= 15 && state.card.top >= 15 && state.card.right <= state.w - 15 && state.card.bottom <= state.h - 15,
         state.key + ' card escapes the viewport: ' + JSON.stringify(state));
-      if (state.key === 'welcome') return;
+      if (state.center) return;
       assert(state.target && state.target.width > 0 && state.target.height > 0, state.key + ' has no visible target');
       for (const edge of ['left', 'top', 'right', 'bottom']) {
         const expected = edge === 'left' || edge === 'top' ? Math.max(4, state.target[edge] - 6)
@@ -94,7 +94,8 @@ if (!process.argv.includes('--child')) {
       if (state.key === 'comments' || state.key === 'quality') assert(state.bottomOpacity > .5, 'Control bar is hidden');
       if (state.key === 'quality') assert.match(state.body, /先搜索并播放/, 'Empty player suggests an existing track');
       if (state.key === 'comments') assert.match(state.hint, /无需先登录/, 'Empty player requires login to continue');
-      if (state.key === 'background' || state.key === 'wallpaper') assert(state.panelOpen && state.panelOpacity > .9, 'Console is hidden');
+      if (['presets', 'background', 'wallpaper', 'shelf'].includes(state.key)) assert(state.panelOpen && state.panelOpacity > .9, 'Console is hidden');
+      assert.equal(state.loginOpen, state.key === 'login', state.key + ' login panel state');
     };
     assert(await evaluate('!hasAnyPlatformLogin() && playQueue.length===0 && !currentCoverSong()'), 'QA must start without accounts or songs');
     for (const size of [[1280,820], [960,600]]) {
@@ -110,7 +111,8 @@ if (!process.argv.includes('--child')) {
         assert(await evaluate('visualGuideActive'), 'First-run guide did not start for a logged-out empty player');
       } else await evaluate('startVisualGuide({manual:true}); true');
       const bounds = win.getBounds();
-      for (let index=0; index<8; index++) {
+      const stepCount = await evaluate('visualGuideSteps.length');
+      for (let index=0; index<stepCount; index++) {
         await evaluate(`showVisualGuideStep(${index}); true`); await wait(1600);
         let state = await evaluate(snapshot);
         await mouse(state.card.left + 20, state.card.top + 20);
@@ -119,7 +121,7 @@ if (!process.argv.includes('--child')) {
           await wait(index === 3 ? 2800 : 500);
         } else await wait(300);
         state = await evaluate(snapshot); verify(state, bounds);
-        if ([3,4,5,7].includes(index)) await capture(size.join('x') + '-' + state.key);
+        await capture(size.join('x') + '-' + state.key);
         results.push({size:size.join('x'),step:state.key,target:state.target,ring:state.ring,card:state.card});
       }
       await evaluate('closeVisualGuide(true); true'); await wait(400);
@@ -131,7 +133,7 @@ if (!process.argv.includes('--child')) {
       await wait(600);
       await evaluate(`document.getElementById('fx-panel').scrollTop=90; window.guideQaScroll=document.getElementById('fx-panel').scrollTop;
         window.guideQaFold=document.querySelector('.bg-media-row').closest('.fx-console-group');
-        guideQaFold.classList.remove('open'); startVisualGuide({manual:true}); showVisualGuideStep(5); true`);
+        guideQaFold.classList.remove('open'); startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='background')); true`);
       await wait(1600); verify(await evaluate(snapshot), bounds);
       assert(await evaluate('guideQaFold.classList.contains("open")'), 'Closed background group was not revealed');
       await evaluate('nextVisualGuideStep(); prevVisualGuideStep(); true'); await wait(1500);
@@ -146,8 +148,8 @@ if (!process.argv.includes('--child')) {
     const fullBounds = win.getBounds();
     assert(await evaluate('desktopFullscreenActive'), 'Native fullscreen did not activate');
     await evaluate('startVisualGuide({manual:true}); true');
-    for (const index of [4,5,7]) {
-      await evaluate(`showVisualGuideStep(${index}); true`); await wait(1800);
+    for (const key of ['diy','background','login']) {
+      await evaluate(`showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='${key}')); true`); await wait(1800);
       const state=await evaluate(snapshot); verify(state,fullBounds);
       await capture('fullscreen-' + state.key); results.push({size:'fullscreen',step:state.key,target:state.target,ring:state.ring,card:state.card});
     }
@@ -155,10 +157,19 @@ if (!process.argv.includes('--child')) {
     assert(await evaluate('desktopFullscreenActive && getComputedStyle(document.getElementById("desktop-titlebar")).display==="none"'), 'Fullscreen titlebar override leaked after close');
     assert.deepEqual(win.getBounds(),fullBounds);
     await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name:'prefers-reduced-motion', value:'reduce' }] });
-    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(6); true'); await wait(1200);
+    await evaluate(`startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='wallpaper')); true`); await wait(1200);
     verify(await evaluate(snapshot),fullBounds);
     await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
     assert(await evaluate('!visualGuideActive'), 'Escape did not skip the guide');
+    // Finishing on the login step leaves the panel open; skipping there closes it.
+    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await wait(1200);
+    assert(await evaluate(`document.getElementById('login-modal').classList.contains('show') && document.getElementById('visual-guide-wire').style.opacity !== ''`), 'Login step did not open the panel or play the wire');
+    await evaluate('nextVisualGuideStep(); true'); await wait(600);
+    assert(await evaluate(`!visualGuideActive && document.getElementById('login-modal').classList.contains('show') && startupGuideWasSeen('login')`), 'Finishing the guide closed the login panel');
+    await evaluate('closeLoginModal(); true'); await wait(600);
+    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await wait(1200);
+    await evaluate('closeVisualGuide(true); true'); await wait(600);
+    assert(await evaluate(`!document.getElementById('login-modal').classList.contains('show')`), 'Skipping on the login step left the panel open');
     // A user-selected mode survives; closing during a pending content swap cannot reopen the card.
     await evaluate(`applyDiyMode(false,{save:false}); startVisualGuide({manual:true}); showVisualGuideStep(4); toggleDiyMode();
       showVisualGuideStep(5); closeVisualGuide(true); true`); await wait(1000);

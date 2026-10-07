@@ -181,3 +181,72 @@ test('an explicit numeric end-of-search flag stops pagination even when the fina
   assert.equal(result.songs.length, 1);
   assert.equal(result.hasMore, false);
 });
+
+test('created playlists follow the cursor past the first 50; a response without paging fields stays one page', async t => {
+  const createdCursors = [];
+  let collectionRequests = 0;
+  const lists = (prefix, from, n) => Array.from({ length: n }, (_, i) => ({ playlist_id: prefix + (from + i), title: '歌单 ' + prefix + (from + i) }));
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: validProfile };
+    if (url.pathname === '/luna/pc/user/playlist') {
+      const cursor = url.searchParams.get('cursor') || '';
+      createdCursors.push(cursor);
+      return { body: cursor === ''
+        ? { status_code: 0, data: { playlists: lists('c', 0, 50), has_more: true, next_cursor: 'p2' } }
+        : { status_code: 0, data: { playlists: lists('c', 50, 20), has_more: false, next_cursor: '' } } };
+    }
+    if (url.pathname === '/luna/pc/me/collection/mixed') {
+      collectionRequests += 1;
+      return { body: { status_code: 0, data: { playlists: lists('f', 0, 3) } } };
+    }
+    return { body: { status_code: 0, data: {} } };
+  });
+  const library = await qishui.handleQishuiUserPlaylists(cookie);
+  const ids = library.playlists.map(pl => pl.id);
+  assert.deepEqual(createdCursors, ['', 'p2']);
+  assert.equal(ids.filter(id => /^c\d+$/.test(id)).length, 70);
+  assert.equal(ids.filter(id => /^f\d+$/.test(id)).length, 3);
+  assert.equal(collectionRequests, 1);
+});
+
+test('a library with more pages at the safety limit stays incomplete and is not cached as complete', async t => {
+  let finish = false, requests = 0;
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: validProfile };
+    if (url.pathname !== '/luna/pc/user/playlist') return { body: { status_code: 0, data: {} } };
+    requests++;
+    const page = Number(url.searchParams.get('cursor') || 0);
+    return { body: { status_code: 0, data: {
+      playlists: [{ playlist_id: 'cap-' + page, title: '歌单 ' + page }],
+      has_more: !finish || page < 19, next_cursor: String(page + 1),
+    } } };
+  });
+  const partial = await qishui.handleQishuiUserPlaylists(cookie);
+  assert.equal(partial.playlists.filter(pl => pl.id.startsWith('cap-')).length, 20);
+  assert.equal(partial.libraryReady, false);
+  assert.equal(partial.partial, true);
+  assert.equal(partial.pageLimited, true);
+  assert.deepEqual(partial.libraryErrors, ['created:QISHUI_LIBRARY_PAGE_LIMIT']);
+  finish = true;
+  const recovered = await qishui.handleQishuiUserPlaylists(cookie);
+  assert.equal(requests, 40, 'incomplete results must be immediately retryable');
+  assert.equal(recovered.libraryReady, true);
+  assert.equal(recovered.partial, false);
+  assert.equal(recovered.pageLimited, false);
+});
+
+test('has_more with a missing or unchanged cursor cannot become a completed library', async t => {
+  let calls = 0;
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: validProfile };
+    if (url.pathname !== '/luna/pc/user/playlist') return { body: { status_code: 0, data: {} } };
+    calls++;
+    return { body: { status_code: 0, data: { playlists: [], has_more: true, next_cursor: '' } } };
+  });
+  const library = await qishui.handleQishuiUserPlaylists(cookie);
+  assert.equal(calls, 1);
+  assert.equal(library.libraryReady, false);
+  assert.equal(library.partial, true);
+  assert.equal(library.pageLimited, false);
+  assert.deepEqual(library.libraryErrors, ['created:QISHUI_LIBRARY_CURSOR_INVALID']);
+});

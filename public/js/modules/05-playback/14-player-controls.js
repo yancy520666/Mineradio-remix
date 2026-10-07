@@ -611,6 +611,7 @@ async function togglePlay() {
   }
   playToggleBusy = true;
   try {
+    if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.hold(180);
     forcePlaybackControlsInteractive();
     if ((!audio || !audio.src) && playQueue.length && currentIdx >= 0) {
       await playQueueAt(currentIdx, { manual: true });
@@ -646,9 +647,15 @@ async function togglePlay() {
         && (albumGaplessState.preload.mixPending || albumGaplessState.preload.mixStarted)
         && typeof clearAlbumGaplessPreload === 'function'
       ) clearAlbumGaplessPreload('manual-pause');
-      // The icon flips at once; the short output fade only avoids a click.
+      // Reflect the pause at once; the short output fade only avoids a click.
+      // While it runs the track counts as paused, so lyrics are held, not retired.
+      var pausingMedia = audio;
+      pausingMedia.__mineradioPausePending = true;
+      playing = false;
       setPlayIcon(false);
-      if (!await fadeOutAndPauseAudio()) {
+      var pausedCleanly;
+      try { pausedCleanly = await fadeOutAndPauseAudio(); } finally { pausingMedia.__mineradioPausePending = false; }
+      if (!pausedCleanly) {
         playing = !!(audio && !audio.paused && !audio.ended);
         if (audio) audio.__mineradioPlaybackExpected = playing;
         setPlayIcon(playing);

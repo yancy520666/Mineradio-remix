@@ -608,11 +608,19 @@ function playlistCatalogFooterHtml() {
     if (item.hasMore || item.loading) acc.pending = true;
     return acc;
   }, { loaded: 0, total: 0, pending: !!state.loading });
-  if (!totals.pending && !state.error) return '';
-  var label = state.error
-    ? ('部分歌单载入失败 · 已显示 ' + userPlaylists.length + ' 个')
-    : ('正在后台载入歌单 · ' + totals.loaded + (totals.total ? '/' + totals.total : ''));
-  return '<div class="playlist-catalog-status"><span class="queue-hydration-spinner spinning"></span><span>' + label + '</span></div>';
+  var errorsHtml = Object.keys(providerStates).filter(function (key) {
+    return providerStates[key] && providerStates[key].error;
+  }).map(function (key) {
+    var item = providerStates[key];
+    var label = playlistProviderName(key) + '歌单尚未同步完整 · 已显示 ' + item.loaded + (item.total > item.loaded ? '/' + item.total : '') + ' 个';
+    if (item.pageLimited) label += ' · 已达到单次同步上限';
+    var retry = item.retryable !== false
+      ? '<button type="button" class="queue-hydration-retry"' + (item.loading ? ' disabled' : '') + ' onclick="event.stopPropagation();retryPlaylistCatalogProvider(\'' + escHtml(key) + '\')">重试</button>' : '';
+    return '<div class="playlist-catalog-status" role="status"><span>' + escHtml(label) + '</span>' + retry + '</div>';
+  }).join('');
+  if (!totals.pending) return errorsHtml;
+  var label = '正在后台载入歌单 · ' + totals.loaded + (totals.total ? '/' + totals.total : '');
+  return errorsHtml + '<div class="playlist-catalog-status"><span class="queue-hydration-spinner spinning"></span><span>' + label + '</span></div>';
 }
 function schedulePlaylistPanelVirtualRender() {
   if (playlistPanelVirtualCache.raf) return;
@@ -645,7 +653,7 @@ function renderUserPlaylistsList(opts) {
   if (!userPlaylists.length) {
     $pl.innerHTML = playlistCatalogSyncState && playlistCatalogSyncState.loading
       ? miniQueueSkeleton() + playlistCatalogFooterHtml()
-      : '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">未找到歌单</div>';
+      : (playlistCatalogFooterHtml() || '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">未找到歌单</div>');
     return;
   }
   var panel = document.getElementById('playlist-panel');

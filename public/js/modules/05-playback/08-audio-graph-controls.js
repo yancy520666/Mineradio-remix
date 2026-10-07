@@ -564,7 +564,7 @@ function fadeOutAndPauseAudio() {
       try { media.pause(); } catch (pauseErr) { console.warn('[TogglePlayPause]', pauseErr); }
       setAudioOutputGainImmediate(0);
       resolve(media.paused);
-    }, AUDIO_FADE_OUT_MS + 80);
+    }, AUDIO_FADE_OUT_MS + 30);
   });
 }
 
@@ -609,7 +609,7 @@ function updateAudioFadeUi() {
   if (fadeOutValue) fadeOutValue.textContent = audioFadeSecondsLabel(AUDIO_FADE_OUT_MS);
 }
 function setAudioFadeSetting(kind, seconds, silent) {
-  var ms = normalizeAudioFadeMs(Number(seconds) * 1000, kind === 'in' ? 460 : 420);
+  var ms = normalizeAudioFadeMs(Number(seconds) * 1000, kind === 'in' ? 460 : 120);
   if (kind === 'in') AUDIO_FADE_IN_MS = ms;
   else AUDIO_FADE_OUT_MS = ms;
   saveAudioFadePreference();

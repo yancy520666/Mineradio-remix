@@ -1032,6 +1032,7 @@ async function playQueueAt(idx, opts) {
   opts = opts || {};
   if (typeof beginSourceFallbackPlaybackInvocation === 'function' && !beginSourceFallbackPlaybackInvocation(opts)) return false;
   if (idx < 0 || idx >= playQueue.length) return false;
+  if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.hold(180);
   if (typeof ensurePlaylistQueueHydratedAhead === 'function') ensurePlaylistQueueHydratedAhead(idx);
   var albumGaplessHandoff = !!(opts.albumGaplessHandoff && opts.preloadedAudio && opts.preloadedData);
   var albumGaplessMixed = !!(albumGaplessHandoff && opts.albumGaplessMixed);

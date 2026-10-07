@@ -12,10 +12,8 @@ if not exist "%ELECTRON_EXE%" (
   goto :fail
 )
 
-set "MINERADIO_RUNTIME_NAME=Mineradio Remix Dev"
-set "MINERADIO_APP_USER_MODEL_ID=com.mineradio.remix.dev"
-echo Starting Mineradio Remix Dev from %APP_DIR%
-start "Mineradio Remix Dev" "%ELECTRON_EXE%" .
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%APP_DIR%scripts\start-remix-dev.ps1" -AppDirectory "%APP_DIR%."
+if errorlevel 1 goto :fail
 exit /b 0
 
 :fail

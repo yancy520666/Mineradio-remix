@@ -204,6 +204,8 @@
     "memorySystemMask": 29,
     "memorySafetyRevision": 4,
     "liveBackgroundKeep": false,
+    "aeroWaterTheme": false,
+    "aeroWaterPalette": "clear",
     "cam": "off",
     "gesturePlayerActions": true,
     "gestureHandOverlay": true,
