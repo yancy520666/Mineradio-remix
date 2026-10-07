@@ -19252,3 +19252,78 @@ html.control-glass-svg-ok #search-results .search-type-bar .search-type-tab.acti
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Login wires: a connected wire can be grabbed and pulled off MR to log that
+   platform out (撤销 in the MR card keeps it). */
+#login-node-graph.wire-hover {
+  cursor: grab
+}
+
+#login-node-graph.unplugging,
+#login-node-graph.unplugging * {
+  cursor: grabbing !important
+}
+
+#login-workflow-svg .workflow-link.hover,
+#login-workflow-svg .workflow-link.unplug {
+  stroke: rgba(var(--fc-accent-rgb), .78);
+  stroke-width: 2.1;
+  filter: drop-shadow(0 0 9px rgba(var(--fc-accent-rgb), .34))
+}
+
+#login-workflow-svg .workflow-link.retract.unplugged {
+  stroke: rgba(var(--fc-accent-rgb), .34)
+}
+
+#login-workflow-svg .workflow-link.retract.temp {
+  animation: none
+}
+
+#login-node-graph .login-node-copy small .login-wire-undo {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0 0 0 2px;
+  font: inherit;
+  color: rgba(244, 210, 138, .92);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px
+}
+
+#login-node-graph .login-node-copy small .login-wire-undo:hover,
+#login-node-graph .login-node-copy small .login-wire-undo:focus-visible {
+  color: #fff;
+  outline: none
+}
+
+/* Official login page QR copied into the drawer. */
+#login-auth-drawer .qr-shell.web-login-preview.inline-qr {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none
+}
+
+#login-auth-drawer .qr-shell.web-login-preview.inline-qr .qq-login-mark {
+  display: none
+}
+
+#login-auth-drawer .qr-shell.web-login-preview.inline-qr #qr-img[src] {
+  display: block;
+  cursor: pointer
+}
+
+#login-auth-drawer .qr-shell.inline-qr:has(> #qr-img:not([src]))::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .32), 0 0 0 1px rgba(244, 210, 138, .18);
+  pointer-events: none
+}
+
+#login-auth-drawer .qr-shell.web-login-preview.inline-qr.qr-loading::after {
+  display: block
+}
