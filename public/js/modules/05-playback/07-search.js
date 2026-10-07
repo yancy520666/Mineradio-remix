@@ -9,7 +9,9 @@ var SEARCH_HISTORY_MODES = ['song', 'netease', 'qq', 'kugou', 'qishui', 'podcast
 var MUSIC_SEARCH_INITIAL_VISIBLE = 18;
 var MUSIC_SEARCH_APPEND_BATCH = 14;
 var MUSIC_SEARCH_MAX_RESULTS = 180;
+var MUSIC_SEARCH_PROVIDER_TIMEOUT_MS = 8000;
 var searchLoadMoreObserver = null;
+var searchAbortController = null;
 var pendingSearchProviderPages = null;
 var searchMusicRenderState = {
   key: '',
@@ -20,7 +22,9 @@ var searchMusicRenderState = {
   appending: false,
   loadingMore: false,
   providerPages: {},
-  remoteHasMore: false
+  remoteHasMore: false,
+  partial: false,
+  engaged: false
 };
 var $input = document.getElementById('search-input');
 var $results = document.getElementById('search-results');
@@ -59,9 +63,16 @@ function resetSearchMusicRenderState() {
   searchMusicRenderState.loadingMore = false;
   searchMusicRenderState.providerPages = {};
   searchMusicRenderState.remoteHasMore = false;
+  searchMusicRenderState.partial = false;
+  searchMusicRenderState.engaged = false;
   pendingSearchProviderPages = null;
 }
+function abortActiveSearch() {
+  if (searchAbortController) searchAbortController.abort();
+  searchAbortController = null;
+}
 function clearSearchResults() {
+  abortActiveSearch();
   searchRequestSeq++;
   searchLastResultQuery = '';
   resetSearchMusicRenderState();
@@ -354,8 +365,11 @@ function playPodcastProgram(i) {
   playSearchResult(i);
 }
 
-$input.addEventListener('input', function () {
+function handleSearchInput(e) {
+  // Pinyin still being composed is not a query yet; compositionend re-runs this.
+  if (e && e.isComposing) return;
   clearTimeout(searchTimer);
+  abortActiveSearch();
   var q = $input.value.trim();
   searchRequestSeq++;
   searchLastResultQuery = '';
@@ -371,7 +385,9 @@ $input.addEventListener('input', function () {
     $results.classList.add('show');
   }
   searchTimer = setTimeout(function () { doSearch(q); }, 180);
-});
+}
+$input.addEventListener('input', handleSearchInput);
+$input.addEventListener('compositionend', function () { handleSearchInput(null); });
 $input.addEventListener('focus', function () {
   var searchArea = document.getElementById('search-area');
   if (searchArea) setPeek(searchArea, true, 'search');
@@ -423,6 +439,10 @@ $results.addEventListener('click', function (e) {
     runSearchHistory(item.getAttribute('data-history-query') || '');
   }
 });
+// Once the user points at or scrolls the list, late provider results stop
+// reordering rows that are already on screen.
+$results.addEventListener('pointerdown', function () { searchMusicRenderState.engaged = true; }, true);
+$results.addEventListener('wheel', function () { searchMusicRenderState.engaged = true; }, { passive: true });
 $results.addEventListener('scroll', function () {
   if (!$results.classList.contains('show')) return;
   if ($results.scrollTop + $results.clientHeight >= $results.scrollHeight - 96) appendNextSearchResults();
@@ -1059,7 +1079,8 @@ function mergeUniqueSearchSongPools(existing, incoming) {
   (incoming || []).forEach(push);
   return out;
 }
-async function fetchMusicSearchResults(q, mode, previousPages) {
+async function fetchMusicSearchResults(q, mode, previousPages, opts) {
+  opts = opts || {};
   searchProviderNotice = '';
   var providers = activeSearchProvidersForMode(mode);
   if (!providers.length) {
@@ -1075,19 +1096,45 @@ async function fetchMusicSearchResults(q, mode, previousPages) {
   var fetchProviders = providers.filter(function (provider) {
     return !previousPages || !previousPages[provider] || previousPages[provider].hasMore;
   });
-  var result = await Promise.allSettled(fetchProviders.map(function (provider) {
+  var songsByProvider = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
+  var pending = fetchProviders.length;
+  function mergedSoFar() {
+    var songs = mergeSongSearchResults(
+      songsByProvider.netease,
+      songsByProvider.qq,
+      songsByProvider.kugou,
+      songsByProvider.qishui,
+      songsByProvider.spotify,
+      MUSIC_SEARCH_MAX_RESULTS,
+      q
+    );
+    return { songs: songs, providerPages: providerPages, hasMore: searchProviderPagesHaveMore(providerPages), pending: pending };
+  }
+  // Each provider is applied as soon as it settles, so a slow platform only
+  // delays its own rows instead of the whole list.
+  await Promise.all(fetchProviders.map(function (provider) {
     var previous = previousPages && previousPages[provider];
     var offset = previous ? Math.max(0, Number(previous.nextOffset) || 0) : 0;
     var limit = pageLimitByProvider[provider] || 12;
-    return apiJson(searchProviderUrl(provider, q, limit, offset)).then(function (value) {
-      return { provider: provider, offset: offset, requestedLimit: limit, value: value || {} };
+    return apiJson(searchProviderUrl(provider, q, limit, offset), {
+      timeoutMs: MUSIC_SEARCH_PROVIDER_TIMEOUT_MS,
+      signal: opts.signal
+    }).then(function (value) {
+      return { status: 'fulfilled', value: { provider: provider, offset: offset, requestedLimit: limit, value: value || {} } };
+    }, function (reason) {
+      return { status: 'rejected', reason: reason };
+    }).then(function (entry) {
+      pending--;
+      applyProviderEntry(provider, entry);
+      if (pending > 0 && typeof opts.onProgress === 'function') {
+        try { opts.onProgress(mergedSoFar()); }
+        catch (err) { console.warn('[SearchProgress]', err); }
+      }
     });
   }));
-  var songsByProvider = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
-  fetchProviders.forEach(function (provider, index) {
-    var entry = result[index];
+  function applyProviderEntry(provider, entry) {
     if (!entry || entry.status !== 'fulfilled') {
-      console.warn(controlSourceProviderTitle(provider) + ' search failed:', entry && entry.reason);
+      if (!(opts.signal && opts.signal.aborted)) console.warn(controlSourceProviderTitle(provider) + ' search failed:', entry && entry.reason);
       providerPages[provider] = Object.assign({}, providerPages[provider] || {}, { hasMore: false, failed: true });
       return;
     }
@@ -1111,17 +1158,8 @@ async function fetchMusicSearchResults(q, mode, previousPages) {
     };
     songsByProvider[provider] = songs;
     if (value.message && !songs.length && !searchProviderNotice) searchProviderNotice = value.message;
-  });
-  var songs = mergeSongSearchResults(
-    songsByProvider.netease,
-    songsByProvider.qq,
-    songsByProvider.kugou,
-    songsByProvider.qishui,
-    songsByProvider.spotify,
-    MUSIC_SEARCH_MAX_RESULTS,
-    q
-  );
-  return { songs: songs, providerPages: providerPages, hasMore: searchProviderPagesHaveMore(providerPages) };
+  }
+  return mergedSoFar();
 }
 function searchSongResultHtml(s, i) {
     var vipTag = songVipTagHtml(s);
@@ -1146,10 +1184,10 @@ function searchSongResultHtml(s, i) {
 }
 function searchLoadMoreSentinelHtml() {
   var remaining = Math.max(0, searchMusicRenderState.songs.length - searchMusicRenderState.visibleCount);
-  if (!remaining && !searchMusicRenderState.remoteHasMore && !searchMusicRenderState.loadingMore) return '';
+  if (!remaining && !searchMusicRenderState.remoteHasMore && !searchMusicRenderState.loadingMore && !searchMusicRenderState.partial) return '';
   var label = searchMusicRenderState.loadingMore
     ? '正在加载更多歌曲…'
-    : (remaining ? ('继续滚动加载 · 当前还有 ' + remaining + ' 首') : '继续滚动加载更多歌曲');
+    : (remaining ? ('继续滚动加载 · 当前还有 ' + remaining + ' 首') : (searchMusicRenderState.partial ? '其他平台的结果还在路上…' : '继续滚动加载更多歌曲'));
   return '<div class="search-empty search-load-more" data-search-load-more="1" role="status">' + label + '</div>';
 }
 function refreshSearchLoadMoreSentinel() {
@@ -1172,7 +1210,7 @@ function observeSearchLoadMoreSentinel() {
 }
 async function loadNextMusicSearchPage(expectedKey) {
   if (!expectedKey || expectedKey !== searchMusicRenderState.key || expectedKey !== searchLastResultQuery) return false;
-  if (searchMusicRenderState.loadingMore || !searchMusicRenderState.remoteHasMore) return false;
+  if (searchMusicRenderState.loadingMore || searchMusicRenderState.partial || !searchMusicRenderState.remoteHasMore) return false;
   if (searchMusicRenderState.songs.length >= MUSIC_SEARCH_MAX_RESULTS) {
     searchMusicRenderState.remoteHasMore = false;
     refreshSearchLoadMoreSentinel();
@@ -1212,7 +1250,7 @@ function appendNextSearchResults(expectedKey) {
   if (!expectedKey || expectedKey !== searchMusicRenderState.key || expectedKey !== searchLastResultQuery) return false;
   if (searchMusicRenderState.appending || searchMusicRenderState.loadingMore) return false;
   if (searchMusicRenderState.visibleCount >= searchMusicRenderState.songs.length) {
-    if (searchMusicRenderState.remoteHasMore) {
+    if (searchMusicRenderState.remoteHasMore && !searchMusicRenderState.partial) {
       loadNextMusicSearchPage(expectedKey);
       return true;
     }
@@ -1240,10 +1278,12 @@ function appendNextSearchResults(expectedKey) {
   });
   return true;
 }
-function renderSongSearchResults(songs) {
+function renderSongSearchResults(songs, opts) {
+  opts = opts || {};
   setSearchHistorySurface(false);
   var plan = pendingSearchProviderPages || {};
   resetSearchMusicRenderState();
+  searchMusicRenderState.partial = !!plan.partial;
   playlist = Array.isArray(songs) ? songs : [];
   searchMusicRenderState.key = plan.key || searchLastResultQuery || searchResultKey($input && $input.value, searchMode);
   searchMusicRenderState.query = plan.query || String($input && $input.value || '').trim();
@@ -1257,8 +1297,44 @@ function renderSongSearchResults(songs) {
   $results.innerHTML = html + searchLoadMoreSentinelHtml();
   $results.classList.add('show');
   syncLikeStatusForSongs(playlist.slice(0, searchMusicRenderState.visibleCount));
-  if (window.gsap) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
+  if (window.gsap && opts.animate !== false) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
   observeSearchLoadMoreSentinel();
+}
+function searchResultsAreEngaged() {
+  if (searchMusicRenderState.engaged) return true;
+  if ($results && $results.scrollTop > 4) return true;
+  try { return !!($results && $results.matches(':hover')); } catch (_) { return false; }
+}
+// Show whatever the providers have returned so far. Before the user touches the
+// list, every update re-ranks the whole list so a late original can still take
+// the top spot; afterwards the rows on screen stay put and later results are
+// ranked into the part of the list that has not been shown yet.
+function presentSongSearchResults(q, mode, data, final) {
+  var key = searchResultKey(q, mode);
+  var firstPaint = searchLastResultQuery !== key || searchMusicRenderState.key !== key;
+  var songs = data && Array.isArray(data.songs) ? data.songs : [];
+  searchLastResultQuery = key;
+  var plan = {
+    key: key,
+    query: q,
+    mode: mode,
+    providerPages: (data && data.providerPages) || {},
+    hasMore: !!(final && data && data.hasMore),
+    partial: !final
+  };
+  if (firstPaint || !searchResultsAreEngaged()) {
+    pendingSearchProviderPages = plan;
+    renderSongSearchResults(songs, { animate: firstPaint });
+    return;
+  }
+  var visible = searchMusicRenderState.songs.slice(0, searchMusicRenderState.visibleCount);
+  var merged = mergeUniqueSearchSongPools(visible, songs);
+  searchMusicRenderState.songs = merged;
+  searchMusicRenderState.providerPages = plan.providerPages;
+  searchMusicRenderState.remoteHasMore = plan.hasMore && merged.length < MUSIC_SEARCH_MAX_RESULTS;
+  searchMusicRenderState.partial = plan.partial;
+  playlist = merged;
+  refreshSearchLoadMoreSentinel();
 }
 
 async function doSearch(q, opts) {
@@ -1273,13 +1349,26 @@ async function doSearch(q, opts) {
     return;
   }
   var requestSeq = ++searchRequestSeq;
+  abortActiveSearch();
+  var controller = window.AbortController ? new AbortController() : null;
+  searchAbortController = controller;
   disconnectSearchLoadMoreObserver();
   setSearchHistorySurface(false);
   try {
     var mode = searchMode;
-    var searchData = await fetchMusicSearchResults(q, mode);
+    var isStale = function () {
+      return requestSeq !== searchRequestSeq || searchMode !== mode || $input.value.trim() !== q;
+    };
+    var searchData = await fetchMusicSearchResults(q, mode, null, {
+      signal: controller ? controller.signal : undefined,
+      onProgress: function (partial) {
+        if (isStale() || !partial.songs.length) return;
+        presentSongSearchResults(q, mode, partial, false);
+      }
+    });
+    if (searchAbortController === controller) searchAbortController = null;
     var songs = searchData && Array.isArray(searchData.songs) ? searchData.songs : [];
-    if (requestSeq !== searchRequestSeq || searchMode !== mode || $input.value.trim() !== q) return;
+    if (isStale()) return;
     if (!songs.length) {
       resetSearchMusicRenderState();
       playlist = [];
@@ -1288,16 +1377,8 @@ async function doSearch(q, opts) {
       $results.classList.add('show');
       return;
     }
-    searchLastResultQuery = searchResultKey(q, mode);
     rememberSearchQuery(q);
-    pendingSearchProviderPages = {
-      key: searchLastResultQuery,
-      query: q,
-      mode: mode,
-      providerPages: searchData.providerPages || {},
-      hasMore: !!searchData.hasMore
-    };
-    renderSongSearchResults(songs);
+    presentSongSearchResults(q, mode, searchData, true);
     if (opts.autoPlayFirst) playSearchResult(0);
   } catch (err) {
     console.error('Search:', err);

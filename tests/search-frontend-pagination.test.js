@@ -211,7 +211,7 @@ test('search pagination carries provider offsets and ignores stale sessions', ()
   assert.match(sandbox.url('qq', '晴天', 12, 24), /limit=12&offset=24$/);
   assert.match(sandbox.url('spotify', 'Muse', 10, 30), /limit=10&offset=30$/);
 
-  assert.match(searchSource, /fetchMusicSearchResults\(q, mode, previousPages\)/);
+  assert.match(searchSource, /fetchMusicSearchResults\(q, mode, previousPages, opts\)/);
   assert.match(searchSource, /value\.nextOffset/);
   assert.match(searchSource, /value\.hasMore/);
   assert.match(searchSource, /new IntersectionObserver/);
@@ -226,4 +226,48 @@ test('search pagination carries provider offsets and ignores stale sessions', ()
   const scoreSource = namedFunctionSource(searchSource, 'scoreSongSearchResult');
   assert.doesNotMatch(scoreSource, /provider\s*===|searchIntentPrefersQQ/,
     'ordinary relevance must not contain platform-specific score boosts');
+});
+
+test('song search shows each provider as it arrives and keeps engaged rows stable', async () => {
+  const fetchSource = namedFunctionSource(searchSource, 'fetchMusicSearchResults');
+  assert.doesNotMatch(fetchSource, /Promise\.allSettled/, 'search must not wait for every provider before showing results');
+  assert.match(fetchSource, /timeoutMs:\s*MUSIC_SEARCH_PROVIDER_TIMEOUT_MS/);
+  assert.match(fetchSource, /signal:\s*opts\.signal/);
+
+  const resolvers = {};
+  const progress = [];
+  const sandbox = {
+    console: { warn() {} },
+    searchProviderNotice: '',
+    MUSIC_SEARCH_MAX_RESULTS: 180,
+    MUSIC_SEARCH_PROVIDER_TIMEOUT_MS: 8000,
+    activeSearchProvidersForMode: () => ['netease', 'qq'],
+    searchProviderLoginNotice: () => '',
+    searchProviderUrl: (provider) => provider,
+    controlSourceProviderTitle: (provider) => provider,
+    searchProviderPagesHaveMore: () => false,
+    mergeSongSearchResults: (netease, qq) => [].concat(netease || [], qq || []),
+    apiJson: (provider) => new Promise((resolve) => { resolvers[provider] = resolve; }),
+  };
+  vm.runInNewContext(`${fetchSource}\nthis.fetch = fetchMusicSearchResults;`, sandbox);
+  const done = sandbox.fetch('晴天', 'song', null, { onProgress: (partial) => progress.push(partial) });
+  resolvers.netease({ songs: [{ name: '晴天', provider: 'netease' }] });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(progress.length, 1, 'the first provider is shown while the other is still pending');
+  assert.equal(progress[0].songs.length, 1);
+  assert.equal(progress[0].pending, 1);
+  resolvers.qq({ songs: [{ name: '晴天', provider: 'qq' }] });
+  const final = await done;
+  assert.equal(final.songs.length, 2);
+  assert.equal(final.pending, 0);
+  assert.equal(progress.length, 1, 'the final result is returned, not reported as progress');
+
+  const presentSource = namedFunctionSource(searchSource, 'presentSongSearchResults');
+  assert.match(presentSource, /searchResultsAreEngaged\(\)/);
+  assert.match(presentSource, /mergeUniqueSearchSongPools\(visible, songs\)/,
+    'late results must not move rows the user is already looking at');
+  assert.match(namedFunctionSource(searchSource, 'loadNextMusicSearchPage'), /searchMusicRenderState\.partial/,
+    'paging waits until the first page of every provider has settled');
+  assert.match(namedFunctionSource(searchSource, 'handleSearchInput'), /isComposing/);
+  assert.match(searchSource, /addEventListener\('compositionend'/);
 });

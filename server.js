@@ -1375,9 +1375,48 @@ async function requireLogin(res) {
 // ---------- 业务: 搜索 ----------
 //   优先用 cloudsearch (新接口, 字段更全, picUrl 更稳定)
 //   对于仍然缺失封面的歌曲, 用 song_detail 批量补齐
+// Short-lived search cache: retyping or paging back to a query reuses the result,
+// and identical in-flight requests share one upstream call. Empty results are not cached.
+const SEARCH_RESULT_CACHE_TTL_MS = 2 * 60 * 1000;
+function createSearchResultCache(maxEntries) {
+  const store = new Map();
+  const inflight = new Map();
+  return {
+    async wrap(key, fn) {
+      const hit = store.get(key);
+      if (hit && Date.now() - hit.at <= SEARCH_RESULT_CACHE_TTL_MS) return hit.value;
+      if (hit) store.delete(key);
+      if (inflight.has(key)) return inflight.get(key);
+      const promise = Promise.resolve().then(fn).then((value) => {
+        if (Array.isArray(value) && value.length) {
+          store.set(key, { at: Date.now(), value });
+          if (store.size > maxEntries) store.delete(store.keys().next().value);
+        }
+        return value;
+      }).finally(() => inflight.delete(key));
+      inflight.set(key, promise);
+      return promise;
+    },
+    clear() {
+      store.clear();
+      inflight.clear();
+    },
+  };
+}
+const neteaseSearchCache = createSearchResultCache(80);
+const qqSearchCache = createSearchResultCache(80);
+function searchCookieScope(cookie) {
+  return cookie ? crypto.createHash('sha1').update(String(cookie)).digest('hex').slice(0, 12) : 'guest';
+}
+
 async function handleSearch(keywords, limit, offset) {
   limit = Math.max(1, Math.min(50, Number(limit) || 20));
   offset = Math.max(0, Number(offset) || 0);
+  const key = searchCookieScope(userCookie) + ':' + String(keywords || '').trim().toLowerCase() + ':' + limit + ':' + offset;
+  return neteaseSearchCache.wrap(key, () => fetchNeteaseSearch(keywords, limit, offset));
+}
+
+async function fetchNeteaseSearch(keywords, limit, offset) {
   console.log('[Search]', keywords, 'limit:', limit, 'offset:', offset);
   const result = await cloudsearch({ keywords, limit, offset, cookie: userCookie });
   const songs = result.body && result.body.result && result.body.result.songs ? result.body.result.songs : [];
@@ -3501,7 +3540,12 @@ async function qqFullSongSearch(keywords, limit, offset) {
   const body = data && (data.body || data);
   const items = body && (body.item_song || body.song && body.song.list || body.list);
   return (Array.isArray(items) ? items : [])
-    .map(item => mapQQTrack(item && (item.track_info || item.songInfo || item.songinfo || item.song) || item, {}))
+    .map(item => {
+      const track = item && (item.track_info || item.songInfo || item.songinfo || item.song) || item;
+      const song = mapQQTrack(track, {});
+      if (song && qqSearchTrackComplete(track)) Object.defineProperty(song, '_qqSearchComplete', { value: true });
+      return song;
+    })
     .filter(song => song && song.name && (song.mid || song.id));
 }
 
@@ -3617,6 +3661,20 @@ async function handleQQSearch(keywords, limit, offset) {
   if (!kw) return [];
   limit = Math.max(1, Math.min(30, Number(limit) || 12));
   offset = Math.max(0, Number(offset) || 0);
+  return qqSearchCache.wrap(kw.toLowerCase() + ':' + limit + ':' + offset, () => fetchQQSearch(kw, limit, offset));
+}
+
+// A full-search row already carries the same track_info that the detail API returns.
+// Only rows missing playback or display fields (e.g. Smartbox fallback) need a detail call.
+function qqSearchTrackComplete(track) {
+  return !!(track && track.mid && track.name &&
+    track.file && track.file.media_mid &&
+    Array.isArray(track.singer) && track.singer.length &&
+    track.album && (track.album.mid || track.album.pmid) &&
+    track.pay && Number(track.interval) > 0);
+}
+
+async function fetchQQSearch(kw, limit, offset) {
   console.log('[QQSearch]', kw, 'limit:', limit, 'offset:', offset);
   let base = [];
   try {
@@ -3626,6 +3684,7 @@ async function handleQQSearch(keywords, limit, offset) {
   }
   if (!base.length && offset === 0) base = await qqSmartboxSearch(kw, limit);
   const detailed = await Promise.all(base.map(async item => {
+    if (item && item._qqSearchComplete) return item;
     try { return await qqSongDetail(item.mid, item); }
     catch (e) {
       console.warn('[QQSearch] detail failed:', item.mid, e.message);
