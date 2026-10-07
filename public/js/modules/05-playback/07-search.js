@@ -898,7 +898,7 @@ function searchVersionSignature(text) {
   var signatures = [];
   [
     ['live', /\blive\b|现场|演唱会/],
-    ['remix', /\bremix\b|\bmix\b|混音|重混|dj版|dj\s+version/],
+    ['remix', /\bremix\b|\bmix\b|\bbootleg\b|混音|重混|dj版|dj\s+version/],
     ['acoustic', /\bacoustic\b|不插电|木吉他版/],
     ['instrumental', /\binstrumental\b|伴奏|纯音乐/],
     ['cover', /\bcover\b|翻唱|致敬版/],
@@ -1067,7 +1067,29 @@ function searchCanonicalSongKey(song) {
   var version = searchVersionSignature(((song && song.name) || '') + ' ' + ((song && song.album) || '')) || 'studio';
   return title + '|' + artists.join('/') + '|' + version;
 }
-function scoreSongSearchResult(song, q, sourceIndex) {
+function searchTitleMatchCredit(name, nq) {
+  if (!name || !nq) return 0;
+  if (name === nq) return 170;
+  if (nq.indexOf(name) >= 0) return 112;
+  if (name.indexOf(nq) === 0) return 82;
+  if (name.indexOf(nq) >= 0) return 58;
+  return 0;
+}
+// The query is an artist's name when several results credit an artist with
+// exactly that name ("theweeknd", "周杰伦"). Songs merely titled after the
+// artist (uploads called "The Weeknd" by other people) are then not matches.
+function searchQueryIsArtistName(q, lists) {
+  var nq = simpleSearchNorm(q);
+  if (!nq) return false;
+  var hits = 0;
+  (lists || []).forEach(function (list) {
+    (list || []).forEach(function (song) {
+      if (sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === nq; })) hits++;
+    });
+  });
+  return hits >= 3;
+}
+function scoreSongSearchResult(song, q, sourceIndex, context) {
   var nq = simpleSearchNorm(q);
   var name = simpleSearchNorm(song && song.name);
   var artist = simpleSearchNorm(song && song.artist);
@@ -1078,11 +1100,10 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   var queryVersion = searchVersionSignature(q);
   var songVersion = searchVersionSignature(raw);
   var artistMentioned = searchMentionsKnownArtist(q, song && song.artist);
+  var artistQuery = !!(context && context.artistQuery);
   var score = 0;
-  if (name === nq) score += 170;
-  else if (name && nq && nq.indexOf(name) >= 0) score += 112;
-  else if (name && nq && name.indexOf(nq) === 0) score += 82;
-  else if (name && nq && name.indexOf(nq) >= 0) score += 58;
+  if (!artistQuery) score += searchTitleMatchCredit(name, nq);
+  else if (!sourceSwitchArtistParts(song).some(function (part) { return simpleSearchNorm(part) === nq; })) score -= 120;
   if (artistMentioned || (artist && nq && nq.indexOf(artist) >= 0)) score += 88;
   else if (artist && nq && artist.indexOf(nq) >= 0) score += 32;
   if (album && nq && (album === nq || nq.indexOf(album) >= 0)) score += 12;
@@ -1127,12 +1148,13 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
   var providerSeen = {};
   var canonicalSeen = {};
   var ranks = searchProviderPreferenceRanks();
+  var context = { artistQuery: searchQueryIsArtistName(q, [neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs]) };
   function push(song, sourceIndex) {
     if (!song || !song.name) return;
     var key = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
     if (providerSeen[key]) return;
     providerSeen[key] = true;
-    song._searchScore = scoreSongSearchResult(song, q, sourceIndex) + searchProviderPreferenceBonus(ranks, song);
+    song._searchScore = scoreSongSearchResult(song, q, sourceIndex, context) + searchProviderPreferenceBonus(ranks, song);
     var canonicalKey = searchCanonicalSongKey(song);
     if (canonicalKey && canonicalSeen[canonicalKey] != null) {
       // The same recording on several platforms: keep the preferred platform's copy.

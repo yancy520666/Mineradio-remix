@@ -187,6 +187,8 @@ test('ranking favors exact originals while preserving explicitly requested versi
     'sourceSwitchArtistParts',
     'searchPopularityScore',
     'searchCanonicalSongKey',
+    'searchTitleMatchCredit',
+    'searchQueryIsArtistName',
     'scoreSongSearchResult',
   ];
   const sandbox = {};
@@ -303,7 +305,7 @@ test('account platform order picks the shown copy without beating a better match
   const names = [
     'simpleSearchNorm', 'searchQueryTokens', 'searchVersionSignature', 'searchTokenCoverage',
     'searchMentionsKnownArtist', 'searchLooksLikeDerivative', 'searchTitleMarksAltEdition', 'sourceSwitchArtistParts',
-    'searchPopularityScore', 'searchCanonicalSongKey', 'scoreSongSearchResult',
+    'searchPopularityScore', 'searchCanonicalSongKey', 'searchTitleMatchCredit', 'searchQueryIsArtistName', 'scoreSongSearchResult',
     'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'searchProviderPreferenceBonus',
     'mergeSongSearchResults', 'interleaveSearchProviders',
   ];
@@ -344,6 +346,20 @@ test('account platform order picks the shown copy without beating a better match
   assert.ok(firstNetease > 0 && firstNetease <= 3, 'another platform appears within the first rows, got index ' + firstNetease);
   assert.equal(merged[0].provider, 'qq', 'the best match stays first');
   assert.equal(merged.length, 15);
+
+  // Artist-name query: uploads merely titled "The Weeknd" must not bury the
+  // artist's songs, and the preferred platform leads (reported with Qishui).
+  sandbox.order = ['netease', 'qq', 'kugou', 'qishui'];
+  const weeknd = (provider, name, i) => ({ provider, id: provider + i, name, artist: 'The Weeknd', album: name });
+  const neteaseWeeknd = ['After Hours', 'Die For You', 'Blinding Lights', 'Reminder'].map((n, i) => weeknd('netease', n, i));
+  const qqWeeknd = ['After Hours', 'Die For You', 'One Of The Girls'].map((n, i) => weeknd('qq', n, i));
+  const qishuiUploads = ['Matthew', 'Sannan', 'Gutta', 'Southlove', 'Hitto'].map((a, i) => ({ provider: 'qishui', id: 's' + i, name: 'The Weeknd', artist: a, album: '' }))
+    .concat([{ provider: 'qishui', id: 'sb', name: 'The Weeknd - Starboy (J1MBY3 Bootleg)', artist: 'The Weeknd', album: '' }]);
+  merged = sandbox.merge(neteaseWeeknd, qqWeeknd, [], qishuiUploads, [], 30, 'theweeknd');
+  assert.equal(merged[0].provider, 'netease', 'the preferred platform supplies the first song');
+  const firstUpload = merged.findIndex((song) => song.provider === 'qishui');
+  assert.ok(firstUpload >= 5, 'title-only uploads rank after the artist\'s songs, got ' + firstUpload);
+  assert.ok(merged.slice(0, 5).every((song) => song.artist === 'The Weeknd'));
 });
 
 test('typed results put the closest name first, then the account platform order', () => {
