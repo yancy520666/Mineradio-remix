@@ -3787,17 +3787,49 @@ function neteaseOverviewFromBody(body) {
   };
 }
 
-async function handleSearchOverview(keywords) {
-  const kw = String(keywords || '').trim();
-  if (!kw) return { artists: [], albums: [], playlists: [] };
-  const key = ['netease-overview', searchCookieScope(userCookie), kw.toLowerCase()].join(':');
-  const value = await typedSearchCache.wrap(key, async () => {
+function overviewHasItems(overview) {
+  return !!(overview && (overview.artists.length || overview.albums.length || overview.playlists.length));
+}
+
+async function fetchNeteaseOverview(kw) {
+  let overview = { artists: [], albums: [], playlists: [] };
+  try {
     const r = await cloudsearch({ keywords: kw, type: 1018, limit: 6, cookie: userCookie, timestamp: Date.now() });
-    const overview = neteaseOverviewFromBody(r && r.body);
+    overview = neteaseOverviewFromBody(r && r.body);
+  } catch (err) {
+    console.warn('[SearchOverview] netease 1018 failed:', err.message);
+  }
+  if (overviewHasItems(overview)) return overview;
+  // The combined endpoint can come back empty; fall back to the per-type searches.
+  const [artists, albums, playlists] = await Promise.all([
+    fetchNeteaseTypedSearch('artist', kw, 3, 0).catch(() => []),
+    fetchNeteaseTypedSearch('album', kw, 4, 0).catch(() => []),
+    fetchNeteaseTypedSearch('playlist', kw, 6, 0).catch(() => []),
+  ]);
+  return { artists: artists.slice(0, 2), albums: albums.slice(0, 4), playlists: playlists.slice(0, 6) };
+}
+
+async function fetchQQOverview(kw) {
+  const [artists, albums] = await Promise.all([
+    fetchQQTypedSearch('artist', kw, 3).catch(() => []),
+    fetchQQTypedSearch('album', kw, 4).catch(() => []),
+  ]);
+  return { artists: artists.slice(0, 2), albums, playlists: [] };
+}
+
+async function handleSearchOverview(keywords, provider) {
+  const kw = String(keywords || '').trim();
+  provider = provider === 'qq' ? 'qq' : 'netease';
+  const empty = { provider, artists: [], albums: [], playlists: [] };
+  if (!kw) return empty;
+  const scope = provider === 'netease' ? searchCookieScope(userCookie) : 'public';
+  const key = [provider + '-overview', scope, kw.toLowerCase()].join(':');
+  const value = await typedSearchCache.wrap(key, async () => {
+    const overview = provider === 'qq' ? await fetchQQOverview(kw) : await fetchNeteaseOverview(kw);
     // The cache keeps arrays only; an empty overview is retried next time.
-    return overview.artists.length || overview.albums.length || overview.playlists.length ? [overview] : [];
+    return overviewHasItems(overview) ? [overview] : [];
   });
-  return value[0] || { artists: [], albums: [], playlists: [] };
+  return Object.assign({ provider }, value[0] || empty);
 }
 
 async function handleTypedSearch(provider, type, keywords, limit, offset) {
@@ -5120,7 +5152,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/search/overview') {
     try {
-      sendJSON(res, Object.assign({ provider: 'netease' }, await handleSearchOverview(url.searchParams.get('keywords') || '')));
+      sendJSON(res, await handleSearchOverview(url.searchParams.get('keywords') || '', url.searchParams.get('provider') || 'netease'));
     } catch (err) {
       console.error('[SearchOverview]', err.message);
       sendJSON(res, { provider: 'netease', error: err.message, artists: [], albums: [], playlists: [] }, 500);
