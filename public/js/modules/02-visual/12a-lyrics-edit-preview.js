@@ -3,6 +3,10 @@ function lyricFxEditActive() {
   return typeof isLyricFxEditPreviewActive === 'function' && isLyricFxEditPreviewActive();
 }
 function suspendLyricFxEditWork() {
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricWorkScheduler.cancel('prewarm-start');
+    lyricWorkScheduler.cancel('quality-build');
+  }
   var currentData = stageLyrics.current && stageLyrics.current.userData.lyric;
   if (currentData && currentData.fxEditTextOnly) fxSliderEdit.rebuild = true;
   if (stageLyricPrewarm.build && stageLyricPrewarm.build.reason === 'fx-edit-commit') fxSliderEdit.rebuild = true;

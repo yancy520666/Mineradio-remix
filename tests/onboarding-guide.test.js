@@ -31,10 +31,10 @@ test('empty players explain when song-dependent controls become available', () =
   for (const step of steps) assert.equal(ctx.visualGuideStepContent(step), step);
 });
 
-test('the guide tours quality, comments, DIY background and Wallpaper Engine on elements that exist', () => {
+test('the guide tours quality, comments, visuals, the 3D shelf and login on elements that exist', () => {
   const steps = guideSteps();
   assert.deepEqual(steps.map(step => step.key),
-    ['welcome', 'search', 'quality', 'comments', 'diy', 'background', 'wallpaper', 'finish']);
+    ['welcome', 'search', 'quality', 'comments', 'diy', 'presets', 'background', 'wallpaper', 'shelf', 'shelf-summon', 'login']);
   const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
   const exists = selector => {
     const last = selector.trim().split(/\s+/).pop();
@@ -43,7 +43,10 @@ test('the guide tours quality, comments, DIY background and Wallpaper Engine on 
   };
   for (const step of steps.filter(s => s.selector)) assert(exists(step.selector), step.key + ' points at a missing element: ' + step.selector);
   // Console steps open the interface tab, where background media and Wallpaper Engine live.
-  assert.deepEqual(steps.filter(s => s.console).map(s => [s.key, s.console]), [['background', 'interface'], ['wallpaper', 'interface']]);
+  assert.deepEqual(steps.filter(s => s.console).map(s => [s.key, s.console]),
+    [['presets', 'home'], ['background', 'interface'], ['wallpaper', 'interface'], ['shelf', 'shelf']]);
+  // The login introduction comes last and leaves the panel open when finished.
+  assert.equal(steps[steps.length - 1].login, true);
 });
 
 function consoleHarness(mode) {

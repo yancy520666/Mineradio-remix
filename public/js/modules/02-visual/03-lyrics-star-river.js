@@ -183,7 +183,7 @@ function flushLyricDisposeQueue() {
       lyricDisposeQueue.shift();
     }
     var now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    if (processed > 0 && now - startedAt >= 4.5) break;
+    if (processed > 0 && now - startedAt >= (typeof lyricWorkScheduler !== 'undefined' ? lyricWorkScheduler.sliceMs : 4.5)) break;
   }
   if (typeof window !== 'undefined') {
     window.__mineradioLyricDisposeStats = {
@@ -192,7 +192,14 @@ function flushLyricDisposeQueue() {
       lastChunkMs: Math.max(0, (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - startedAt)
     };
   }
-  if (lyricDisposeQueue.length) lyricDisposeTimer = setTimeout(flushLyricDisposeQueue, 8);
+  if (lyricDisposeQueue.length) scheduleLyricDisposeWork();
+}
+
+function scheduleLyricDisposeWork() {
+  if (typeof lyricWorkScheduler !== 'undefined') {
+    lyricDisposeTimer = -1;
+    lyricWorkScheduler.schedule('dispose', flushLyricDisposeQueue, { priority: 40, runWhenPaused: true });
+  } else lyricDisposeTimer = setTimeout(flushLyricDisposeQueue, 8);
 }
 
 function disposeLyricMesh(mesh) {
@@ -214,5 +221,5 @@ function disposeLyricMesh(mesh) {
     index: 0,
     masks: lyricData ? [lyricData.mask, lyricData.activeMask, lyricData.contextMask] : []
   });
-  if (!lyricDisposeTimer) lyricDisposeTimer = setTimeout(flushLyricDisposeQueue, 0);
+  if (!lyricDisposeTimer) scheduleLyricDisposeWork();
 }

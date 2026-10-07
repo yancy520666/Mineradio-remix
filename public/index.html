@@ -13,7 +13,7 @@
   <script src="vendor/music-tempo.min.js"></script>
   <script src="vendor/gsap.min.js"></script>
   <script src="js/preload-mode.js"></script>
-  <link rel="stylesheet" href="css/index.css?v=20260716-we-continuity-vsync">
+  <link rel="stylesheet" href="css/index.css?v=20261008-aero-input-safety">
 </head>
 
 <body>
@@ -467,6 +467,15 @@
           step="0.01"><output></output></div>
       <div class="fx-slider"><label>控制台玻璃色差</label><input id="fx-glassaberration" type="range" min="30" max="140"
           step="1"><output></output></div>
+      <div class="fx-toggle" id="t-aeroWaterTheme" onclick="toggleFx('aeroWaterTheme')"
+        title="控制条、搜索栏与按钮的水光高光；按下时溅出水星子并弹性回弹">
+        <span>Aero 水光</span><span class="dot"></span>
+      </div>
+      <div class="fx-seg aero-palette-seg" id="aero-water-palette-seg" role="group" aria-label="水光颜色" hidden>
+        <button type="button" data-aero-palette="clear" onclick="setAeroWaterPalette('clear')" title="透明水光，按下迸出水星子">水色快门（透明）</button>
+        <button type="button" data-aero-palette="cyan" onclick="setAeroWaterPalette('cyan')" title="青色玻璃，按下有流星划过播放栏">白昼流星（青）</button>
+        <button type="button" data-aero-palette="blue" onclick="setAeroWaterPalette('blue')" title="蓝色玻璃，按下如雨滴落水泛起涟漪">夏末雨（蓝）</button>
+      </div>
       <div class="fx-slider"><label>左栏雾面</label><input id="fx-playlistblur" type="range" min="14" max="60"
           step="1"><output></output></div>
       <div class="fx-slider"><label>左栏遮挡</label><input id="fx-playlistdensity" type="range" min="0.55" max="1"
@@ -1454,8 +1463,8 @@
               </div>
               <div class="fade-control-row">
                 <label for="fade-out-slider">淡出</label>
-                <input id="fade-out-slider" type="range" min="0" max="3" step="0.05" value="0.40" aria-label="音乐淡出秒数">
-                <span id="fade-out-value">0.40s</span>
+                <input id="fade-out-slider" type="range" min="0" max="3" step="0.01" value="0.12" aria-label="音乐淡出秒数">
+                <span id="fade-out-value">0.12s</span>
               </div>
             </div>
           </div>
@@ -1902,6 +1911,7 @@
     <div id="visual-guide" aria-live="polite" aria-hidden="true">
       <div class="visual-guide-scrim"></div>
       <div id="visual-guide-ring" class="visual-guide-ring"></div>
+      <svg id="visual-guide-wire" class="visual-guide-wire" aria-hidden="true"></svg>
       <div id="visual-guide-card" class="visual-guide-card" role="dialog" aria-labelledby="visual-guide-title">
         <div id="visual-guide-steps" class="visual-guide-steps" aria-hidden="true"></div>
         <div class="visual-guide-content">
@@ -1911,6 +1921,7 @@
           </div>
           <div id="visual-guide-title" class="visual-guide-title"></div>
           <div id="visual-guide-body" class="visual-guide-body"></div>
+          <div id="visual-guide-demo" class="visual-guide-demo" hidden></div>
           <div id="visual-guide-hint" class="visual-guide-hint" hidden></div>
         </div>
         <div class="visual-guide-actions">

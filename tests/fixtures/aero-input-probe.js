@@ -1,0 +1,35 @@
+(async () => {
+  const assert=(ok,text)=>{if(!ok)throw new Error(text);};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  fx.aeroWaterTheme=true;
+  applyAeroWaterTheme();
+  initAeroWaterEffects();
+  prewarmAeroWaterCanvases();
+  await wait(200);
+  const canvases=[...document.querySelectorAll('.aero-water-fx')];
+  assert(canvases.length>0,'prewarmed canvases missing');
+  assert(canvases.every(c=>getComputedStyle(c).pointerEvents==='none'),'effect canvas intercepts input');
+  assert(canvases.every(c=>getComputedStyle(c).position==='fixed'),'Aero CSS is nested or missing');
+  const rules=[...document.styleSheets].flatMap(s=>{try{return [...s.cssRules];}catch{return [];}});
+  assert(rules.some(r=>r.selectorText==='.aero-water-fx'),'Aero canvas style must be top level');
+  setAeroWaterPalette('blue');
+  const sheen=document.querySelector('#bottom-bar > .aero-sheen');
+  assert(sheen&&getComputedStyle(sheen).position==='absolute'&&getComputedStyle(sheen).pointerEvents==='none','sheen style missing');
+  const tint=sheen.querySelector('.aero-sheen-tint');
+  assert(getComputedStyle(tint).backgroundImage.includes('linear-gradient'),'blue palette has no tint');
+  applyDiyMode(true,{save:false,toast:false,animate:false});
+  toggleFxPanel(true);fxPanelPinned=true;document.getElementById('fx-panel').classList.add('show');
+  setFxPanelTab('interface');
+  const group=document.querySelector('[data-fx-console-group="glass"]');group.classList.add('open');
+  await wait(400);
+  const aero=document.getElementById('t-aeroWaterTheme');aero.scrollIntoView({block:'center',behavior:'instant'});
+  await wait(150);
+  const rect=aero.getBoundingClientRect();
+  const hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
+  assert(hit&&aero.contains(hit),'Aero toggle is blocked by another layer');
+  hit.click();assert(fx.aeroWaterTheme===false,'Aero toggle does not respond');
+  hit.click();assert(fx.aeroWaterTheme===true,'Aero toggle cannot turn back on');
+  spawnAeroWaterSplash(rect.x,rect.y,0.6,document.getElementById('bottom-bar'));
+  assert([...document.querySelectorAll('.aero-water-fx')].every(c=>getComputedStyle(c).pointerEvents==='none'),'active effects block input');
+  return {passed:true,canvases:canvases.length,blueTint:true,clickReachedToggle:true,activeEffectsPassThrough:true};
+})()

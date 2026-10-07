@@ -32,7 +32,14 @@ var visualGuideSteps = [
     key: 'diy', selector: '#diy-mode-btn', place: 'below',
     kicker: 'DIY Mode',
     title: 'DIY 玩家模式',
-    body: '打开后会出现视觉控制台、歌单面板和完整的播放控制。接下来带你看两个最常用的设置。'
+    body: '打开后会出现视觉控制台、歌单面板和完整的播放控制。接下来带你看看视觉预设、背景和歌单架。'
+  },
+  {
+    key: 'presets', selector: '#preset-grid', items: 4, console: 'home', place: 'left',
+    kicker: 'Visual Presets',
+    title: '一键换一套视觉',
+    body: '“常用 › 视觉预设”里有星河、唱片、星球等整套场景，点一下，粒子、光效和背景氛围会一起换掉。',
+    hint: '换完不满意，随时点回原来的预设'
   },
   {
     key: 'background', selector: '#fx-panel .bg-media-row', console: 'interface', place: 'left',
@@ -47,16 +54,34 @@ var visualGuideSteps = [
     body: '点“识别 / 导入”读取本机 Wallpaper Engine 的壁纸，选中即可作为播放器背景，之后还能调透明度和位置。'
   },
   {
-    key: 'finish', selector: '#visual-guide-btn', place: 'below',
-    kicker: 'All set',
-    title: '准备好了',
-    body: '右上角的“?”随时可以重新打开这份引导。现在去搜一首喜欢的歌吧。'
+    key: 'shelf', selector: '#shelf-seg', console: 'shelf', place: 'left', demo: 'shelf-modes',
+    kicker: 'Playlist Shelf',
+    title: '3D 歌单架：侧栏或舞台',
+    body: '“歌单架”页可以选两种摆法：侧栏把歌单卡片收在画面右侧，不挡歌词；舞台让卡片在画面下方横向铺开，中间那张最醒目。'
+  },
+  {
+    key: 'shelf-summon', center: true, demo: 'shelf-summon',
+    kicker: 'Right Click',
+    title: '右键空白处，呼出歌单架',
+    body: '在播放画面的空白处点鼠标右键，歌单架会从右侧滑出；再点一次右键就收起。登录平台后，这里会排满你的歌单。',
+    hint: '歌单架被关掉时，右键也会把它切回侧栏'
+  },
+  {
+    key: 'login', selector: '#login-node-graph', place: 'below', login: true, nextLabel: '去连线登录',
+    kicker: 'Connect',
+    title: '最后，连线登录音乐平台',
+    body: '按住平台右边的小圆点，把线拖到中间的 MR 接口后松手，面板下方会展开官方二维码，用对应的手机 App 扫码确认即可。',
+    hint: '右上角的“?”随时可以重看这份引导'
   }
 ];
 function activeVisualGuideSteps() {
   return visualGuideSteps;
 }
 function visualGuideStepContent(step) {
+  if (step.key === 'login' && typeof hasAnyPlatformLogin === 'function' && hasAnyPlatformLogin()) return {
+    body: '已接入的平台会一直连着线。想再接一个平台，就把它右边的小圆点拖到中间的 MR 接口，再用手机 App 扫码确认。',
+    hint: step.hint
+  };
   if (!currentCoverSong()) {
     if (step.key === 'quality') return {
       body: '先搜索并播放一首在线歌曲，歌名旁就能查看和切换音质。可选档位取决于平台和账号权限。',
@@ -135,6 +160,10 @@ function startVisualGuide(opts) {
     visualGuideResizeBound = true;
     window.addEventListener('resize', scheduleVisualGuidePositioning);
     window.addEventListener('scroll', positionVisualGuideStep, true);
+    // Panels that slide in can finish after the tracking window on a busy frame.
+    document.addEventListener('transitionend', function (e) {
+      if (visualGuideActive && !(e.target && e.target.closest && e.target.closest('#visual-guide'))) scheduleVisualGuidePositioning();
+    }, true);
     document.addEventListener('keydown', handleVisualGuideKey, true);
   }
   showVisualGuideStep(0);
@@ -211,7 +240,7 @@ function scrollVisualGuideConsoleTarget(step) {
     var rowRect = row.getBoundingClientRect();
     var toolbar = panel.querySelector('.fx-console-toolbar');
     var inset = toolbar ? toolbar.offsetHeight : 0;
-    var top = panel.scrollTop + rowRect.top - panelRect.top - inset - (panel.clientHeight - inset - rowRect.height) / 2;
+    var top = panel.scrollTop + rowRect.top - panelRect.top - inset - Math.max(0, (panel.clientHeight - inset - rowRect.height) / 2);
     panel.scrollTo({ top: Math.max(0, top), left: 0, behavior: 'instant' });
     scheduleVisualGuidePositioning();
   });
@@ -221,9 +250,10 @@ function prepareVisualGuideStep(step) {
   var bottom = document.getElementById('bottom-bar');
   var playlistPanel = document.getElementById('playlist-panel');
   document.body.classList.toggle('visual-guide-bottom', !!(step && step.bottom));
-  document.body.classList.toggle('visual-guide-titlebar', !!(step && (step.key === 'diy' || step.key === 'finish')));
+  document.body.classList.toggle('visual-guide-titlebar', !!(step && step.key === 'diy'));
   if (typeof setShelfGuideCueActive === 'function') setShelfGuideCueActive(false);
   setVisualGuideConsole(step && step.console || '');
+  setVisualGuideLogin(!!(step && step.login));
   if (step && step.selector === '#search-box') setPeek(search, true, 'search');
   else if (search && !visualGuideState.searchWasPeek && document.activeElement !== $input) setPeek(search, false, 'search');
   if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
@@ -240,11 +270,138 @@ function prepareVisualGuideStep(step) {
   }
   if (step && step.console) scrollVisualGuideConsoleTarget(step);
 }
+// Small looping illustrations inside the card, for things the guide cannot
+// show on the real screen (the 3D shelf is empty until there are playlists).
+var visualGuideDemos = {
+  'shelf-modes': '<div class="vg-demo vg-demo-modes" aria-hidden="true">' +
+    '<div class="vg-mini is-side"><div class="vg-mini-screen"><i></i><i></i><i></i></div><span>侧栏</span></div>' +
+    '<div class="vg-mini is-stage"><div class="vg-mini-screen"><i></i><i></i><i></i><i></i><i></i></div><span>舞台</span></div>' +
+    '</div>',
+  'shelf-summon': '<div class="vg-demo vg-demo-summon" aria-hidden="true">' +
+    '<div class="vg-mini-screen"><span class="vg-mouse"><b></b></span><span class="vg-click"></span>' +
+    '<span class="vg-shelf"><i></i><i></i><i></i></span></div>' +
+    '</div>'
+};
+function renderVisualGuideDemo(name) {
+  var slot = document.getElementById('visual-guide-demo');
+  if (!slot) return;
+  var html = name && visualGuideDemos[name] || '';
+  if (slot.getAttribute('data-demo') === (name || '')) return;
+  slot.setAttribute('data-demo', name || '');
+  slot.innerHTML = html;
+  slot.hidden = !html;
+  var card = document.getElementById('visual-guide-card');
+  if (card) card.classList.remove('is-compact');
+}
+function visualGuideLoginProvider() {
+  var order = typeof loginWorkflowProviderOrder === 'function' ? loginWorkflowProviderOrder() : ['netease', 'qq', 'kugou', 'qishui'];
+  for (var i = 0; i < order.length; i++) {
+    if (!(typeof providerHasLiveLogin === 'function' && providerHasLiveLogin(order[i]))) return order[i];
+  }
+  return order[0] || 'netease';
+}
+function visualGuideLoginParts() {
+  var graph = document.getElementById('login-node-graph');
+  var provider = (visualGuideState && visualGuideState.loginProvider) || 'netease';
+  return {
+    port: graph && graph.querySelector('[data-login-provider-output="' + provider + '"]'),
+    mrPort: graph && graph.querySelector('[data-login-mr-target="mr"]')
+  };
+}
+// The login step opens the real panel and plays a ghost drag from one
+// platform's port to MR, in the same shape the panel draws while dragging.
+function setVisualGuideLogin(on, keepOpen) {
+  var modal = document.getElementById('login-modal');
+  if (on) {
+    if (!visualGuideState.loginOpened && !(modal && modal.classList.contains('show')) && typeof showLoginModal === 'function') {
+      visualGuideState.loginProvider = visualGuideLoginProvider();
+      showLoginModal({ provider: visualGuideState.loginProvider, guided: true, source: 'visual-guide' });
+      visualGuideState.loginOpened = true;
+    } else if (!visualGuideState.loginProvider) {
+      visualGuideState.loginProvider = typeof loginProvider !== 'undefined' ? loginProvider : 'netease';
+    }
+    // Reaching this step counts as the login introduction.
+    if (typeof markStartupGuideSeen === 'function') markStartupGuideSeen('login');
+    startVisualGuideWire();
+    return;
+  }
+  stopVisualGuideWire();
+  resetVisualGuideLoginLift(!!keepOpen);
+  if (visualGuideState.loginOpened && !keepOpen && typeof closeLoginModal === 'function') closeLoginModal();
+  visualGuideState.loginOpened = false;
+}
+var visualGuideWireFrame = 0;
+function startVisualGuideWire() {
+  var svg = document.getElementById('visual-guide-wire');
+  if (!svg || visualGuideWireFrame) return;
+  var ns = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '';
+  var path = document.createElementNS(ns, 'path');
+  var halo = document.createElementNS(ns, 'circle');
+  var plug = document.createElementNS(ns, 'circle');
+  path.setAttribute('class', 'vg-wire-path');
+  halo.setAttribute('class', 'vg-wire-halo');
+  halo.setAttribute('r', '13');
+  plug.setAttribute('class', 'vg-wire-plug');
+  plug.setAttribute('r', '4.5');
+  svg.appendChild(path);
+  svg.appendChild(halo);
+  svg.appendChild(plug);
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var started = performance.now();
+  var cycle = 3200;
+  var ease = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  var center = function (el) {
+    var r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  };
+  function frame(now) {
+    visualGuideWireFrame = requestAnimationFrame(frame);
+    var parts = visualGuideLoginParts();
+    var modal = document.getElementById('login-modal');
+    if (!parts.port || !parts.mrPort || !modal || !modal.classList.contains('show')) {
+      svg.style.opacity = '0';
+      return;
+    }
+    var a = center(parts.port), b = center(parts.mrPort);
+    // 0-40% drag, 40-75% connected, 75-100% fade and rest.
+    var t = reduce ? 0.6 : ((now - started) % cycle) / cycle;
+    var drag = ease(Math.min(1, t / 0.4));
+    var lift = Math.sin(Math.PI * drag) * Math.min(26, Math.abs(b.x - a.x) * 0.18);
+    var end = { x: a.x + (b.x - a.x) * drag, y: a.y + (b.y - a.y) * drag - lift };
+    var linked = t >= 0.4;
+    var fade = t < 0.75 ? 1 : Math.max(0, 1 - (t - 0.75) / 0.17);
+    var appear = Math.min(1, t / 0.06);
+    svg.style.opacity = String(Math.min(appear, fade) * Math.min(1, Number(getComputedStyle(modal).opacity) || 0));
+    path.setAttribute('d', typeof workflowBezierPath === 'function' ? workflowBezierPath(a, end)
+      : 'M ' + a.x + ' ' + a.y + ' L ' + end.x + ' ' + end.y);
+    path.classList.toggle('is-linked', linked);
+    plug.setAttribute('cx', end.x.toFixed(1));
+    plug.setAttribute('cy', end.y.toFixed(1));
+    var pulse = linked ? Math.min(1, (t - 0.4) / 0.12) : 0;
+    halo.setAttribute('cx', b.x.toFixed(1));
+    halo.setAttribute('cy', b.y.toFixed(1));
+    halo.setAttribute('r', (8 + pulse * 10).toFixed(1));
+    halo.style.opacity = String(linked ? (1 - pulse) * 0.9 + 0.25 : 0);
+  }
+  visualGuideWireFrame = requestAnimationFrame(frame);
+}
+function stopVisualGuideWire() {
+  if (visualGuideWireFrame) cancelAnimationFrame(visualGuideWireFrame);
+  visualGuideWireFrame = 0;
+  var svg = document.getElementById('visual-guide-wire');
+  if (svg) {
+    svg.innerHTML = '';
+    svg.style.opacity = '0';
+  }
+}
 var visualGuidePositionFrame = 0;
 var visualGuidePositionUntil = 0;
 function scheduleVisualGuidePositioning() {
   if (!visualGuideActive) return;
-  visualGuidePositionUntil = performance.now() + 900;
+  // The login panel's open tween and lift run longer than a console slide.
+  var step = activeVisualGuideSteps()[visualGuideStep];
+  visualGuidePositionUntil = Math.max(visualGuidePositionUntil, performance.now() + (step && step.login ? 1300 : 900));
   if (visualGuidePositionFrame) return;
   function track() {
     visualGuidePositionFrame = 0;
@@ -272,7 +429,7 @@ function showVisualGuideStep(index) {
   var next = document.getElementById('visual-guide-next');
   var prev = document.getElementById('visual-guide-prev');
   if (progress) progress.textContent = (visualGuideStep + 1) + ' / ' + steps.length;
-  if (next) next.textContent = isLast ? '开始使用' : (visualGuideStep === 0 ? '开始' : '下一步');
+  if (next) next.textContent = isLast ? (step.nextLabel || '开始使用') : (visualGuideStep === 0 ? '开始' : '下一步');
   if (prev) prev.hidden = visualGuideStep === 0;
   // Content cross-fades: out, swap, back in, while the spotlight glides.
   var apply = function () {
@@ -285,6 +442,7 @@ function showVisualGuideStep(index) {
     setText('visual-guide-body', content.body);
     var hint = document.getElementById('visual-guide-hint');
     if (hint) { hint.textContent = content.hint || ''; hint.hidden = !content.hint; }
+    renderVisualGuideDemo(step.demo);
     if (card) {
       card.classList.toggle('is-hero', !!step.center);
       card.classList.remove('is-swapping');
@@ -304,25 +462,47 @@ function guideTargetRect(step) {
   if (step && step.center) {
     return { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0, right: innerWidth / 2, bottom: innerHeight / 2 };
   }
+  if (step && step.items) {
+    // Frame the first few entries of a long list instead of the whole panel.
+    var list = document.querySelector(step.selector);
+    var union = null;
+    Array.prototype.slice.call(list ? list.children : [], 0, step.items).forEach(function (el) {
+      var r = visibleGuideRect(el);
+      if (!r) return;
+      union = union ? { left: Math.min(union.left, r.left), top: Math.min(union.top, r.top), right: Math.max(union.right, r.right), bottom: Math.max(union.bottom, r.bottom) } : r;
+    });
+    if (union) {
+      union.width = union.right - union.left;
+      union.height = union.bottom - union.top;
+      return union;
+    }
+  }
   var selectors = step ? [step.selector, step.fallback] : [];
   for (var i = 0; i < selectors.length; i++) {
     var target = selectors[i] ? document.querySelector(selectors[i]) : null;
-    if (!target) continue;
-    var rect = target.getBoundingClientRect();
-    var visible = rect.width > 0 && rect.height > 0;
-    var left = Math.max(0, rect.left), top = Math.max(0, rect.top);
-    var right = Math.min(innerWidth, rect.right), bottom = Math.min(innerHeight, rect.bottom);
-    for (var node = target; node && visible; node = node.parentElement) {
-      var style = window.getComputedStyle(node);
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) visible = false;
-      if (node !== target && /(auto|scroll|hidden|clip)/.test(style.overflowX + ' ' + style.overflowY)) {
-        var clip = node.getBoundingClientRect();
-        left = Math.max(left, clip.left); right = Math.min(right, clip.right);
-        top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
-      }
-    }
-    if (visible && right > left && bottom > top) return { left: left, top: top, right: right, bottom: bottom, width: right - left, height: bottom - top };
+    var found = target ? visibleGuideRect(target) : null;
+    if (found) return found;
   }
+  return null;
+}
+function visibleGuideRect(target) {
+  var rect = target.getBoundingClientRect();
+  var visible = rect.width > 0 && rect.height > 0;
+  var left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+  var right = Math.min(innerWidth, rect.right), bottom = Math.min(innerHeight, rect.bottom);
+  for (var node = target; node && visible; node = node.parentElement) {
+    var style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) visible = false;
+    if (node !== target && /(auto|scroll|hidden|clip)/.test(style.overflowX + ' ' + style.overflowY)) {
+      var clip = node.getBoundingClientRect();
+      left = Math.max(left, clip.left); right = Math.min(right, clip.right);
+      top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
+      // The console's sticky search and tabs cover the top of its scroll area.
+      var toolbar = node.id === 'fx-panel' && node.querySelector('.fx-console-toolbar');
+      if (toolbar) top = Math.max(top, toolbar.getBoundingClientRect().bottom);
+    }
+  }
+  if (visible && right > left && bottom > top) return { left: left, top: top, right: right, bottom: bottom, width: right - left, height: bottom - top };
   return null;
 }
 // Card goes on the preferred side if it fits, otherwise on whichever side has room.
@@ -338,10 +518,12 @@ function visualGuideCardPosition(rect, step, cardW, cardH) {
   var order = [step && step.place || 'below', 'below', 'above', 'left', 'right'];
   var spot = null;
   for (var i = 0; i < order.length && !spot; i++) if (spots[order[i]].fits) spot = spots[order[i]];
+  var fits = !!spot;
   spot = spot || spots.below;
   return {
     left: Math.max(margin, Math.min(innerWidth - cardW - margin, spot.left)),
-    top: Math.max(margin, Math.min(innerHeight - cardH - margin, spot.top))
+    top: Math.max(margin, Math.min(innerHeight - cardH - margin, spot.top)),
+    fits: fits
   };
 }
 function positionVisualGuideStep() {
@@ -367,14 +549,74 @@ function positionVisualGuideStep() {
   ring.style.borderRadius = step && step.console ? '14px' : (height > 70 ? '22px' : '16px');
   var cardW = card.offsetWidth || 340;
   var cardH = card.offsetHeight || 190;
-  var spot = visualGuideCardPosition({ left: left, top: top, width: width, height: height, right: left + width, bottom: top + height }, center ? { center: true } : step, cardW, cardH);
+  var ringRect = { left: left, top: top, width: width, height: height, right: left + width, bottom: top + height };
+  var spot = visualGuideCardPosition(ringRect, center ? { center: true } : step, cardW, cardH);
+  // When the illustration makes the card too tall to sit beside its target
+  // (small windows, full-width console), drop the illustration, not the target.
+  var demo = document.getElementById('visual-guide-demo');
+  if (demo && !demo.hidden && !center && !step.login) {
+    var compact = card.classList.contains('is-compact');
+    var demoH = compact ? (card._guideDemoH || 0) : demo.offsetHeight + (parseFloat(getComputedStyle(demo).marginTop) || 0);
+    if (!compact) card._guideDemoH = demoH;
+    var fullSpot = compact ? visualGuideCardPosition(ringRect, step, cardW, cardH + demoH) : spot;
+    var wantCompact = !fullSpot.fits;
+    if (wantCompact !== compact) {
+      card.classList.toggle('is-compact', wantCompact);
+      cardH = card.offsetHeight || cardH;
+      spot = visualGuideCardPosition(ringRect, step, cardW, cardH);
+    }
+  } else if (card.classList.contains('is-compact')) {
+    card.classList.remove('is-compact');
+  }
+  if (step && step.login && !center) {
+    var below = liftVisualGuideLogin(top, top + height, cardH);
+    if (below != null) spot.top = Math.max(16, Math.min(innerHeight - cardH - 16, below));
+  }
   card.style.left = Math.round(spot.left) + 'px';
   card.style.top = Math.round(spot.top) + 'px';
+}
+// On short windows the login panel moves up so the card fits under the wires.
+// The mask's padding is transitioned, so the panel glides there; the card goes
+// straight to where the panel will settle, without first trying another side.
+function liftVisualGuideLogin(ringTop, ringBottom, cardH) {
+  var mask = document.getElementById('login-modal');
+  if (!mask) return null;
+  var lifted = parseFloat(mask.getAttribute('data-guide-lift'));
+  if (isNaN(lifted)) {
+    mask.setAttribute('data-guide-base', String(parseFloat(getComputedStyle(mask).paddingBottom) || 0));
+    mask.setAttribute('data-guide-lift', '0');
+    mask.style.transition = 'padding-bottom .6s cubic-bezier(.22, 1, .36, 1)';
+    lifted = 0;
+  }
+  var base = parseFloat(mask.getAttribute('data-guide-base')) || 0;
+  // A centered panel moves up by half of the extra bottom padding.
+  var current = Math.max(0, (parseFloat(getComputedStyle(mask).paddingBottom) || 0) - base) / 2;
+  var naturalTop = ringTop + current;
+  var naturalBottom = ringBottom + current;
+  var shift = Math.max(0, Math.min(naturalTop - 16, naturalBottom + 18 + cardH + 16 - innerHeight));
+  if (Math.abs(shift - lifted) > 1) {
+    mask.setAttribute('data-guide-lift', shift.toFixed(1));
+    mask.style.paddingBottom = (base + shift * 2) + 'px';
+    scheduleVisualGuidePositioning();
+  }
+  return naturalBottom - shift + 18;
+}
+function resetVisualGuideLoginLift(glide) {
+  var mask = document.getElementById('login-modal');
+  if (!mask || !mask.hasAttribute('data-guide-lift')) return;
+  mask.removeAttribute('data-guide-lift');
+  mask.removeAttribute('data-guide-base');
+  if (!glide) mask.style.transition = '';
+  mask.style.paddingBottom = '';
+  if (glide) setTimeout(function () {
+    if (!mask.hasAttribute('data-guide-lift')) mask.style.transition = '';
+  }, 700);
 }
 function nextVisualGuideStep() {
   var steps = activeVisualGuideSteps();
   if (visualGuideStep >= steps.length - 1) {
-    closeVisualGuide(true);
+    // Finishing on the login step leaves the panel open to connect for real.
+    closeVisualGuide(true, { keepLogin: !!steps[visualGuideStep].login });
     return;
   }
   showVisualGuideStep(visualGuideStep + 1);
@@ -391,7 +633,8 @@ function handleVisualGuideKey(e) {
   e.preventDefault();
   e.stopPropagation();
 }
-function closeVisualGuide(markSeen) {
+function closeVisualGuide(markSeen, opts) {
+  opts = opts || {};
   var wasAutomatic = visualGuideState && visualGuideState.manual !== true;
   var guide = document.getElementById('visual-guide');
   visualGuideActive = false;
@@ -407,6 +650,8 @@ function closeVisualGuide(markSeen) {
     visualGuidePositionFrame = 0;
   }
   if (card) card.classList.remove('is-ready', 'is-swapping', 'is-hero');
+  renderVisualGuideDemo('');
+  if (visualGuideState) setVisualGuideLogin(false, opts.keepLogin);
   document.body.classList.remove('visual-guide-active', 'visual-guide-bottom', 'visual-guide-titlebar');
   document.body.classList.remove('fullscreen-diy-peek');
   var search = document.getElementById('search-area');

@@ -2077,6 +2077,8 @@ async function fetchQishuiWebLibraryFeedFallback(cookieText, limit) {
   };
 }
 
+const QISHUI_LIBRARY_MAX_PAGES = 20;
+
 async function fetchQishuiWebLibrary(cookieText) {
   const cookie = normalizeQishuiCookieInput(cookieText);
   if (!qishuiCookieHasLogin(cookie)) {
@@ -2129,6 +2131,25 @@ async function fetchQishuiWebLibrary(cookieText) {
     };
 
     const pcRequestOpts = { pcApp: true };
+    // Libraries arrive 50 at a time. Follow the cursor only when the response
+    // explicitly reports more, so an unexpected shape stays a single page.
+    const readAllPages = async (label, apiPath, params, requestOpts) => {
+      let cursor = '';
+      for (let page = 0; page < QISHUI_LIBRARY_MAX_PAGES; page += 1) {
+        const json = await tryRead(label, apiPath, Object.assign({}, params, { cursor }), requestOpts);
+        const data = (json && json.data) || json || {};
+        const next = normalizeText(data.next_cursor || data.nextCursor || (json && json.next_cursor) || '');
+        const flag = data.has_more != null ? data.has_more : (json && json.has_more);
+        const hasMore = flag === true || flag === 'true' || Number(flag) > 0;
+        if (!json || !hasMore) return;
+        if (!next || next === cursor) {
+          errors.push(label + ':QISHUI_LIBRARY_CURSOR_INVALID');
+          return;
+        }
+        cursor = next;
+      }
+      errors.push(label + ':QISHUI_LIBRARY_PAGE_LIMIT');
+    };
     // Identity failure must leave this cache rejected; an expired account is
     // not an empty but successfully synchronized library.
     const meJson = await qishuiWebRequestJson('/luna/pc/me', qishuiPcAppParams(), cookie, {
@@ -2146,14 +2167,12 @@ async function fetchQishuiWebLibrary(cookieText) {
 
     await Promise.all([
       userId
-        ? tryRead('created', '/luna/pc/user/playlist', qishuiPcAppParams({
+        ? readAllPages('created', '/luna/pc/user/playlist', qishuiPcAppParams({
           user_id: userId,
-          cursor: '',
           count: 50,
         }), pcRequestOpts)
         : Promise.resolve(null),
-      tryRead('collection', '/luna/pc/me/collection/mixed', qishuiPcAppParams({
-        cursor: '',
+      readAllPages('collection', '/luna/pc/me/collection/mixed', qishuiPcAppParams({
         count: 50,
       }), Object.assign({ optional: true }, pcRequestOpts)),
       tryRead('recent', '/luna/pc/me/recently-played-media', qishuiPcAppParams({
@@ -2681,6 +2700,9 @@ async function handleQishuiUserPlaylists(cookieText) {
         rawCount: (feed && feed.rawCount) || 0,
         libraryErrors: library.errors || [],
         libraryReady: !!library.libraryReady,
+        partial: !library.libraryReady,
+        pageLimited: (library.errors || []).some(error => error.endsWith(':QISHUI_LIBRARY_PAGE_LIMIT')),
+        retryable: (library.errors || []).some(error => !error.endsWith(':QISHUI_LIBRARY_PAGE_LIMIT')),
         profile,
         userId: profile.userId || '',
         nickname: profile.nickname || '',

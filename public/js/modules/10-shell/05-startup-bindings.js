@@ -6,6 +6,7 @@ bindAudioOutputControls();
 bindVolumeControls();
 initControlGlassSurface();
 bindPlayerControlAnimations();
+initAeroWaterEffects();
 scheduleUiWarmTask(function () {
   updateControlGlassDisplacementMap();
   updateSearchBoxGlassDisplacementMap();

@@ -14,10 +14,11 @@ function withRequests(handler, task) {
   https.request = (target, options, callback) => {
     const request = new EventEmitter();
     request.setTimeout = () => request;
-    request.write = () => {};
+    let written = '';
+    request.write = chunk => { written += String(chunk || ''); };
     request.destroy = error => process.nextTick(() => request.emit('error', error));
     request.end = () => {
-      const call = { url: new URL(target), options };
+      const call = { url: new URL(target), options, body: written };
       calls.push(call);
       Promise.resolve().then(() => handler(call)).then(result => {
         const response = new EventEmitter();
@@ -222,4 +223,63 @@ test('malformed personal-library and track payloads cannot become successful cac
     }
     assert.equal(calls.length, 3);
   });
+});
+
+test('personal library reads every page, not just the first 50 playlists', async () => {
+  // A library of 120 lists (created + collected) arrives 50 per page.
+  await withRequests(call => {
+    const page = JSON.parse(call.body || '{}').page || 1;
+    const start = (page - 1) * 50;
+    const info = Array.from({ length: Math.max(0, Math.min(50, 120 - start)) }, (_, i) => ({ listid: String(start + i + 1), name: 'list ' + (start + i + 1), type: i % 2 }));
+    return { body: { status: 1, data: { info, list_count: 120 } } };
+  }, async calls => {
+    const library = await kugou.handleKugouUserPlaylists(memberCookie);
+    assert.equal(library.libraryReady, true);
+    assert.equal(library.playlists.length, 120);
+    assert.equal(new Set(library.playlists.map(pl => pl.id)).size, 120);
+    assert.equal(library.partial, false);
+    assert.deepEqual(calls.map(call => JSON.parse(call.body).page).sort(), [1, 2, 3]);
+  });
+});
+
+test('failed later pages retain loaded playlists and retry to a complete library', async () => {
+  let fail = true;
+  await withRequests(call => {
+    const page = JSON.parse(call.body).page;
+    if (page === 2 && fail) throw new Error('fixture page failure');
+    const start = (page - 1) * 50;
+    return { body: { status: 1, data: { list_count: 120, info: Array.from({ length: Math.min(50, 120 - start) }, (_, i) => ({ listid: String(start + i + 1), name: 'list ' + i })) } } };
+  }, async () => {
+    const partial = await kugou.handleKugouUserPlaylists(memberCookie);
+    assert.equal(partial.playlists.length, 70);
+    assert.equal(partial.total, 120);
+    assert.equal(partial.libraryReady, false);
+    assert.equal(partial.partial, true);
+    assert.equal(partial.pageLimited, false);
+    assert.equal(partial.error, 'KUGOU_PLAYLIST_PAGE_FAILED');
+    fail = false;
+    const recovered = await kugou.handleKugouUserPlaylists(memberCookie);
+    assert.equal(recovered.playlists.length, 120);
+    assert.equal(recovered.libraryReady, true);
+    assert.equal(recovered.partial, false);
+    assert.equal(recovered.error, '');
+  });
+});
+
+test('page limit is explicit with or without totals, but a known complete final page succeeds', async () => {
+  for (const total of [2050, 0, 2000]) {
+    await withRequests(call => {
+      const start = (JSON.parse(call.body).page - 1) * 50;
+      return { body: { status: 1, data: { list_count: total, info: Array.from({ length: 50 }, (_, i) => ({ listid: String(start + i + 1), name: 'list ' + i })) } } };
+    }, async calls => {
+      const library = await kugou.handleKugouUserPlaylists(memberCookie);
+      const limited = total !== 2000;
+      assert.equal(calls.length, 40);
+      assert.equal(library.playlists.length, 2000);
+      assert.equal(library.libraryReady, !limited);
+      assert.equal(library.partial, limited);
+      assert.equal(library.pageLimited, limited);
+      assert.equal(library.error, limited ? 'KUGOU_PLAYLIST_PAGE_LIMIT' : '');
+    });
+  }
 });

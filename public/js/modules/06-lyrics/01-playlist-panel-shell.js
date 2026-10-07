@@ -576,6 +576,8 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
     var r = await apiJson(url, { timeoutMs: 15000 });
     if (playlistCatalogSyncState.token !== token) return false;
     var incoming = (r && r.playlists || []).map(function (pl) { pl.provider = provider; pl.source = provider; return pl; });
+    state.pageLimited = !!(r && r.pageLimited);
+    state.retryable = r && typeof r.retryable === 'boolean' ? r.retryable : !state.pageLimited;
     if (r && r.error && !incoming.length) throw new Error(r.message || r.error);
     var current = first ? [] : playlistCatalogProviderArray(provider);
     var merged = mergePlaylistCatalogRows(current, incoming, provider);
@@ -587,7 +589,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
     state.hasMore = supportsPaging ? !!(r && r.hasMore) : false;
     if (state.total && state.nextOffset >= state.total) state.hasMore = false;
     if (!incoming.length) state.hasMore = false;
-    state.error = (r && r.error) || '';
+    state.error = (r && r.error) || (r && (r.partial === true || r.libraryReady === false) ? 'PLAYLIST_CATALOG_INCOMPLETE' : '');
     rebuildUserPlaylistsFromCatalog({ animate: first && isPlaylistPanelVisibleForRender(), reset: first, preserveScroll: !first, reason: reason || 'playlist-catalog-page' });
     return incoming.length > 0;
   } catch (e) {
@@ -596,11 +598,26 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
     state.error = e && e.message || 'PLAYLIST_CATALOG_PAGE_FAILED';
     state.hasMore = false;
     playlistCatalogSyncState.error = state.error;
-    if (userPlaylists.length) renderUserPlaylistsList({ preserveScroll: true });
+    renderUserPlaylistsList({ preserveScroll: true });
     return false;
   } finally {
     if (playlistCatalogSyncState.token === token) state.loading = false;
   }
+}
+async function retryPlaylistCatalogProvider(provider) {
+  var root = playlistCatalogSyncState;
+  var state = root.providers && root.providers[provider];
+  if (!state || state.loading || !state.error || state.retryable === false || !playlistCatalogProviderLoggedIn(provider)) return;
+  // Keep the rows already shown while retrying; merge recovered pages by ID.
+  state.nextOffset = 0;
+  state.hasMore = true;
+  root.loading = true;
+  var pending = loadPlaylistCatalogProviderPage(provider, 'retry');
+  renderUserPlaylistsList({ preserveScroll: true });
+  await pending;
+  if (playlistCatalogSyncState !== root) return;
+  root.loading = playlistCatalogHasPendingPages();
+  renderUserPlaylistsList({ preserveScroll: true });
 }
 function playlistCatalogHasPendingPages() {
   var providers = playlistCatalogSyncState.providers || {};
@@ -621,7 +638,7 @@ function requestNextPlaylistCatalogPage(reason) {
   loadPlaylistCatalogProviderPage(provider, reason || 'background').finally(function () {
     if (playlistCatalogSyncState !== root || !playlistCatalogHasPendingPages()) {
       root.loading = false;
-      if (userPlaylists.length) renderUserPlaylistsList({ preserveScroll: true });
+      renderUserPlaylistsList({ preserveScroll: true });
       return;
     }
     if (root.timer) clearTimeout(root.timer);
@@ -699,7 +716,7 @@ async function refreshUserPlaylists(force) {
   scheduleUiWarmTask(prewarmPlaylistCatalogCovers, 500);
   if (playlistCatalogSyncState.token !== token) return;
   playlistCatalogSyncState.loading = playlistCatalogHasPendingPages();
-  if (userPlaylists.length) renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });
+  renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });
   if (playlistCatalogSyncState.loading) requestNextPlaylistCatalogPage('after-first-pages');
 }
 function queueNextIconSvg() {
