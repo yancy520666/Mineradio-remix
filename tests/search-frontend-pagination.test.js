@@ -399,3 +399,92 @@ test('typed results put the closest name first, then the account platform order'
   assert.match(searchSource, /role="tablist" aria-label="搜索类型"/);
   assert.match(searchSource, /tabindex="' \+ \(active \? '0' : '-1'\)/, 'only the active type tab is in the Tab order');
 });
+
+test('late preferred copies replace the source without moving songs or collapsing Live editions', () => {
+  const sandbox = { MUSIC_SEARCH_MAX_RESULTS: 2, contentProviderOrder: () => ['netease', 'qq'], songProviderKey: song => song.provider };
+  vm.runInNewContext(functionBundle(['simpleSearchNorm', 'sourceSwitchArtistParts', 'searchVersionSignature', 'searchCanonicalSongKey',
+    'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'mergeUniqueSearchSongPools'], '', 'this.merge = mergeUniqueSearchSongPools;'), sandbox);
+  const original = { provider: 'qq', mid: 'qq-original', name: '晴天', artist: '周杰伦', album: '叶惠美' };
+  const live = { provider: 'qq', mid: 'qq-live', name: '晴天 Live', artist: '周杰伦', album: '演唱会' };
+  const preferred = { ...original, provider: 'netease', mid: undefined, id: 1 };
+  const songs = sandbox.merge([original, live], [preferred]);
+  assert.equal(songs.length, 2);
+  assert.equal(songs[0], preferred, 'replace row zero even at the result cap');
+  assert.equal(songs[1], live, 'Live keeps its position and identity');
+  assert.equal(sandbox.merge(songs, [original])[0], preferred);
+});
+
+test('a duplicate-only song page updates sources and continues to later missing songs', async () => {
+  const original = { provider: 'qq', mid: 'q', name: '晴天', artist: '周杰伦' };
+  const preferred = { provider: 'netease', id: 'n', name: '晴天', artist: '周杰伦' };
+  let pages = 0;
+  let refreshes = 0;
+  const sandbox = {
+    MUSIC_SEARCH_MAX_RESULTS: 180, searchRequestSeq: 1, searchMode: 'song', searchLastResultQuery: 'song|晴天',
+    $input: { value: '晴天' }, searchMusicRenderState: {key:'song|晴天', query:'晴天',mode:'song',songs:[original],remoteHasMore:true,providerPages:{}},
+    contentProviderOrder: () => ['netease', 'qq'], songProviderKey: song => song.provider,
+    refreshSearchLoadMoreSentinel() {}, refreshSearchSongSources() { refreshes++; }, appendNextSearchResults: () => true,
+    fetchMusicSearchResults: async () => ++pages === 1
+      ? {songs:[preferred],hasMore:true,providerPages:{netease:{nextOffset:18,hasMore:true}}}
+      : {songs:[{provider:'netease',id:2,name:'稻香',artist:'周杰伦'}],hasMore:false,providerPages:{netease:{nextOffset:19,hasMore:false}}},
+  };
+  vm.runInNewContext(functionBundle(['simpleSearchNorm', 'sourceSwitchArtistParts', 'searchVersionSignature', 'searchCanonicalSongKey',
+    'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'mergeUniqueSearchSongPools', 'loadNextMusicSearchPage'], '', 'this.next = loadNextMusicSearchPage;'), sandbox);
+  await sandbox.next('song|晴天');
+  assert.equal(sandbox.searchMusicRenderState.songs[0], preferred);
+  assert.equal(sandbox.searchMusicRenderState.remoteHasMore, true);
+  await sandbox.next('song|晴天');
+  assert.equal(sandbox.searchMusicRenderState.songs[1].name, '稻香');
+  assert.equal(refreshes, 2);
+});
+
+test('typed pagination deduplicates rows, prevents concurrent loads and drops a stale page', async () => {
+  const oldItem = {provider:'netease',id:'1',name:'精选'};
+  let finish;
+  const urls = [];
+  const sandbox = {
+    MUSIC_SEARCH_MAX_RESULTS: 180, MUSIC_SEARCH_PROVIDER_TIMEOUT_MS: 8000, searchRequestSeq: 1, searchMode:'song', searchResultType:'playlist',
+    window: {AbortController}, AbortController, searchAbortController:null, $input:{value:'精选'}, console,
+    renderTypedSearchResults() {}, mergeTypedSearchItems: pools => [].concat(...Object.values(pools)),
+    apiJson: url => {urls.push(url); return new Promise(resolve => {finish = resolve;});},
+    typedSearchState:{query:'精选',mode:'song',type:'playlist',requestSeq:1,items:[oldItem],providerPages:{netease:{nextOffset:18,hasMore:true}}},
+  };
+  vm.runInNewContext(functionBundle(['fetchTypedSearchProviderPage', 'typedSearchRequestIsCurrent', 'loadNextTypedSearchPage'], '', 'this.next = loadNextTypedSearchPage;'), sandbox);
+  const first = sandbox.next();
+  assert.equal(await sandbox.next(), false);
+  assert.match(urls[0], /offset=18$/);
+  finish({items:[oldItem,{provider:'netease',id:'2',name:'精选二'}],nextOffset:20,hasMore:true});
+  await first;
+  assert.equal(sandbox.typedSearchState.items.length, 2);
+  assert.equal(sandbox.typedSearchState.items[0], oldItem);
+  const stale = sandbox.next();
+  assert.match(urls[1], /offset=20$/);
+  sandbox.searchRequestSeq++;
+  sandbox.$input.value = '新词';
+  finish({items:[{provider:'netease',id:'3',name:'旧结果'}],hasMore:false,nextOffset:21});
+  assert.equal(await stale, false);
+  assert.equal(sandbox.typedSearchState.items.length, 2);
+});
+
+test('empty song results retain the active key so a late overview can appear', async () => {
+  let finishOverview;
+  let overviewWork;
+  const sandbox = {
+    window:{AbortController}, AbortController, searchRequestSeq:0, searchMode:'song', searchResultType:'all', searchAbortController:null,
+    searchMusicRenderState:{key:''}, $input:{value:'测试歌手'}, $results:{innerHTML:'',classList:{add() {}}}, searchProviderNotice:'',
+    searchResultKey:(q,mode)=>(mode||'song')+'|'+q,
+    abortActiveSearch() {}, disconnectSearchLoadMoreObserver() {}, setSearchHistorySurface() {},
+    resetSearchMusicRenderState() { sandbox.searchMusicRenderState.key=''; },
+    loadSearchOverview(q,mode) {
+      overviewWork=new Promise(resolve=>{finishOverview=resolve;}).then(()=>{
+        if (sandbox.searchMusicRenderState.key===sandbox.searchResultKey(q,mode)) sandbox.$results.innerHTML += '最佳匹配';
+      });
+    },
+    fetchMusicSearchResults:async()=>({songs:[]}), searchTypeBarHtml:()=>'', searchOverviewHtml:()=>'', escHtml:s=>s,
+  };
+  vm.runInNewContext(`${namedFunctionSource(searchSource,'doSearch')}\nthis.search=doSearch;`,sandbox);
+  await sandbox.search('测试歌手');
+  assert.match(sandbox.$results.innerHTML,/没有找到相关歌曲/);
+  finishOverview(); await overviewWork;
+  assert.match(sandbox.$results.innerHTML,/最佳匹配/);
+});
