@@ -12,6 +12,15 @@ function pauseCurrentAudioForTrackSwitch() {
   syncPlaybackStateFromAudioEvent('track-switch');
 }
 
+// The window is shown and focused, so a resume needs no background recovery.
+function playbackWindowInForeground() {
+  if (typeof document !== 'undefined' && document.hidden) return false;
+  if (typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return false;
+  if (typeof desktopRuntimeState !== 'undefined' && desktopRuntimeState
+    && (desktopRuntimeState.minimized || desktopRuntimeState.visible === false || desktopRuntimeState.focused === false)) return false;
+  return true;
+}
+
 function syncPlaybackStateFromAudioEvent(reason) {
   if (typeof updateSystemMediaSession === 'function') updateSystemMediaSession();
   if (typeof updatePlaybackResumePauseMarker === 'function') updatePlaybackResumePauseMarker(reason);
@@ -19,7 +28,8 @@ function syncPlaybackStateFromAudioEvent(reason) {
   playing = isPlaying;
   setPlayIcon(isPlaying);
   if (!isPlaying) hideLoading();
-  if (reason === 'play' || reason === 'playing') {
+  // A player-initiated play request performs this resume itself.
+  if ((reason === 'play' || reason === 'playing') && !(audio && audio.__mineradioPlayAttemptActive > 0)) {
     switchPlaybackVisualToEmily();
     if (typeof markStageLyricsPlaybackResume === 'function') markStageLyricsPlaybackResume(reason);
   }
