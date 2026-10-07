@@ -45,6 +45,18 @@ function coverUrlWithSize(url, size) {
   if (/[?&]param=\d+y\d+/i.test(url)) return url.replace(/([?&])param=\d+y\d+/i, '$1' + param);
   return url + (url.indexOf('?') >= 0 ? '&' : '?') + param;
 }
+// Detail covers load straight from the CDN; when that fails, try once more
+// through the local cover proxy before dimming the placeholder.
+function bindCoverImageFallback(img) {
+  if (!img || img.tagName !== 'IMG' || img.__coverFallbackBound) return;
+  img.__coverFallbackBound = true;
+  img.addEventListener('error', function () {
+    var proxied = isProxyableCoverUrl(img.getAttribute('src')) ? coverProxySrc(img.getAttribute('src')) : '';
+    if (proxied) img.src = proxied;
+    else img.style.opacity = '0.2';
+  });
+  img.addEventListener('load', function () { img.style.opacity = ''; });
+}
 function songCustomCoverKey(song) {
   if (!song) return '';
   if (song.customCoverKey) return String(song.customCoverKey);
