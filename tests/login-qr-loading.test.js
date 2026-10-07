@@ -98,14 +98,22 @@ function drawerFixture(overrides) {
   return { ctx, calls, attrs };
 }
 
-test('selecting a connected Qishui node generates the QR instead of leaving an empty card', () => {
-  const { ctx, calls } = drawerFixture();
+const waitingForScan = { loginWorkflowPendingProvider: 'qishui', hasLoginWorkflowConnection: () => false };
+
+test('selecting a Qishui node still waiting for its scan generates the QR instead of leaving an empty card', () => {
+  const { ctx, calls } = drawerFixture(waitingForScan);
   ctx.selectLoginProviderNode('qishui');
   assert.deepEqual(calls, ['drawer:true', 'generate-qishui']);
 });
 
+test('selecting a logged-in node only selects it and does not open the scan drawer', () => {
+  const { ctx, calls } = drawerFixture();
+  ctx.selectLoginProviderNode('qishui');
+  assert.deepEqual(calls, ['drawer:false']);
+});
+
 test('reopening with the same provider QR on screen resumes polling instead of regenerating', () => {
-  const { ctx, calls, attrs } = drawerFixture({ qrKey: 'token' });
+  const { ctx, calls, attrs } = drawerFixture(Object.assign({ qrKey: 'token' }, waitingForScan));
   attrs.set('src', 'data:image/png;base64,qr');
   attrs.set('data-qr-provider', 'qishui');
   ctx.selectLoginProviderNode('qishui');
@@ -113,12 +121,12 @@ test('reopening with the same provider QR on screen resumes polling instead of r
 });
 
 test('an expired or other-provider QR is regenerated', () => {
-  const expired = drawerFixture({ qrKey: null });
+  const expired = drawerFixture(Object.assign({ qrKey: null }, waitingForScan));
   expired.attrs.set('src', 'data:image/png;base64,old');
   expired.attrs.set('data-qr-provider', 'qishui');
   expired.ctx.selectLoginProviderNode('qishui');
   assert.deepEqual(expired.calls, ['drawer:true', 'generate-qishui']);
-  const other = drawerFixture({ qrKey: 'netease-key' });
+  const other = drawerFixture(Object.assign({ qrKey: 'netease-key' }, waitingForScan));
   other.attrs.set('src', 'data:image/png;base64,netease');
   other.attrs.set('data-qr-provider', 'netease');
   other.ctx.selectLoginProviderNode('qishui');
@@ -126,10 +134,10 @@ test('an expired or other-provider QR is regenerated', () => {
 });
 
 test('web-window providers, cookie mode and an unconnected node do not generate a QR', () => {
-  const netease = drawerFixture();
+  const netease = drawerFixture({ loginWorkflowPendingProvider: 'netease', hasLoginWorkflowConnection: () => false });
   netease.ctx.selectLoginProviderNode('netease');
-  assert.deepEqual(netease.calls, ['drawer:true'], 'desktop NetEase logs in through its own window');
-  const cookie = drawerFixture({ loginWorkflowActiveMode: () => 'cookie' });
+  assert.deepEqual(netease.calls, ['drawer:true'], 'desktop NetEase logs in through its own login bridge');
+  const cookie = drawerFixture(Object.assign({ loginWorkflowActiveMode: () => 'cookie' }, waitingForScan));
   cookie.ctx.selectLoginProviderNode('qishui');
   assert.deepEqual(cookie.calls, ['drawer:true']);
   const closed = drawerFixture({ hasLoginWorkflowConnection: () => false });
