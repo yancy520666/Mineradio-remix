@@ -18,8 +18,18 @@ function storedDeviceRepository() {
     } catch (_) { return null; } },
     save: device => store.write(JSON.stringify(device)), clear: () => store.write('') };
 }
+// Cookies minted from an App QR credential carry this marker; tmeLoginType then holds the
+// credential's real login type (QQ, WeChat or mobile), which every later request must echo.
+const NATIVE_MARKER = 'mineradio_qq_native';
+function nativeLoginType(cookie) {
+  if (!cookie) return 0;
+  const type = Number(cookie.tmeLoginType);
+  if (String(cookie[NATIVE_MARKER]) === '1') return Number.isInteger(type) && type > 0 && type < 100 ? type : 0;
+  return String(cookie.tmeLoginType) === '6' ? 6 : 0; // cookies saved before the marker existed
+}
 function nativeCommForCookie(cookie) {
-  if (!cookie || String(cookie.tmeLoginType) !== '6') return null;
+  const loginType = nativeLoginType(cookie);
+  if (!loginType) return null;
   try {
     const base = path.join(path.dirname(require.resolve('@yakult-green-tea/qq-music-api/package.json')), 'dist/src/services/auth');
     const { isAndroidDevice, buildAndroidComm } = require(path.join(base, 'androidDevice.js'));
@@ -28,7 +38,7 @@ function nativeCommForCookie(cookie) {
     const id = String(cookie.qqmusic_uin || cookie.uin || '').replace(/^o0*/, '');
     const key = cookie.qm_keyst || cookie.qqmusic_key;
     if (!id || !key) return null;
-    return buildAndroidComm(device, { str_musicid: id, musickey: key, loginType: 6 });
+    return buildAndroidComm(device, { str_musicid: id, musickey: key, loginType });
   } catch (_) { return null; }
 }
 function nativeService() {
@@ -42,13 +52,22 @@ function nativeService() {
   service.configureAuthSessionRepository({ kind: 'memory', load: () => [], save: list => { sessions = list; } });
   return { service, sessions: () => sessions };
 }
+// The phone's QQ Music account may be a QQ, WeChat or mobile account. The SDK keeps the type
+// the upstream reported, and that type (not a fixed 6) is what later requests must send.
+function credentialLoginType(credential) {
+  const type = Number(credential && credential.loginType);
+  return Number.isInteger(type) && type > 0 && type < 100 ? type : 0;
+}
 function credentialCookie(credential) {
   credential = credential || {};
-  const id = String(credential.str_musicid || credential.musicid || '');
+  const strId = String(credential.str_musicid || '');
+  const id = strId && strId !== '0' ? strId : String(credential.musicid || '');
   const key = String(credential.musickey || '');
+  const loginType = credentialLoginType(credential);
   if (!/^[1-9]\d{0,19}$/.test(id) || !key || key.length > 4096 || /[;\r\n]/.test(key)
-      || Number(credential.loginType) !== 6) throw new Error('QQ_APP_AUTH_INCOMPLETE');
-  return 'uin=' + id + '; qqmusic_uin=' + id + '; qm_keyst=' + key + '; qqmusic_key=' + key + '; tmeLoginType=6';
+      || !loginType) throw new Error('QQ_APP_AUTH_INCOMPLETE');
+  return 'uin=' + id + '; qqmusic_uin=' + id + '; qm_keyst=' + key + '; qqmusic_key=' + key
+    + '; tmeLoginType=' + loginType + '; ' + NATIVE_MARKER + '=1';
 }
 function createQQNativeQrSession(options) {
   let service = options.service, sessions = options.sessions;
@@ -106,7 +125,7 @@ function createQQNativeQrSession(options) {
     const generation = epoch, currentService = service, currentSessions = sessions;
     busy = true;
     try {
-      const delivered = retryable && (currentSessions ? currentSessions() : []).find(item => !baselineTokens.has(item.token) && item.credential && Number(item.credential.loginType) === 6 && item.expiresAt > Date.now());
+      const delivered = retryable && (currentSessions ? currentSessions() : []).find(item => !baselineTokens.has(item.token) && item.credential && credentialLoginType(item.credential) && item.expiresAt > Date.now());
       if (retryable && !delivered) return;
       const result = delivered ? { code: 803, cookie: 'qqmusic_session=' + delivered.token } : await currentService.checkQr(key, 1000);
       failures = 0;
