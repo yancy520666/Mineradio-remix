@@ -696,7 +696,8 @@ function setVolumePanelSiblingSuppressed(suppressed) {
   }
 }
 
-function toggleMute() {
+function toggleMute(e) {
+  if (e) e.stopPropagation();
   setVolume(targetVolume > 0.01 ? 0 : (lastNonZeroVolume || 0.8));
 }
 
@@ -704,7 +705,6 @@ function bindVolumeControls() {
   var slider = document.getElementById('volume-slider');
   var fadeInSlider = document.getElementById('fade-in-slider');
   var fadeOutSlider = document.getElementById('fade-out-slider');
-  var btn = document.getElementById('volume-btn');
   var wrap = document.getElementById('volume-control');
   function keepVolumePanelOpen() {
     if (volumeCloseTimer) { clearTimeout(volumeCloseTimer); volumeCloseTimer = null; }
@@ -738,9 +738,6 @@ function bindVolumeControls() {
     fadeOutSlider.addEventListener('focus', keepVolumePanelOpen);
     fadeOutSlider.addEventListener('blur', closeVolumePanelSoon);
     fadeOutSlider.addEventListener('change', function () { setAudioFadeSetting('out', fadeOutSlider.value, false); });
-  }
-  if (btn) {
-    btn.addEventListener('dblclick', function (e) { e.stopPropagation(); toggleMute(); });
   }
   if (wrap && !wrap._wheelBound) {
     wrap._wheelBound = true;

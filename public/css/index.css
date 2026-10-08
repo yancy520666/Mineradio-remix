@@ -1126,9 +1126,12 @@ body.custom-background-album-cover #custom-bg-video {
   pointer-events: none !important
 }
 
+/* Keep the configured window base underneath both sides of a Sonic fade.
+   Hiding #custom-bg here makes an Electron transparent window expose the
+   desktop before the replacement layer becomes opaque. Native WE retains
+   its separate transparency rule above. */
 body.sonic-workshop-active #album-bg,
-body.sonic-workshop-active #album-bg-next,
-body.sonic-workshop-active #custom-bg {
+body.sonic-workshop-active #album-bg-next {
   opacity: 0 !important
 }
 
@@ -13556,7 +13559,8 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   border-color: rgba(255, 255, 255, .15)
 }
 
-.fx-toggle .fx-effect-label {
+.fx-toggle span.fx-effect-label:first-child {
+  flex: 1;
   white-space: normal;
 }
 
@@ -13580,6 +13584,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
 }
 
 .fx-toggle .dot {
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -17241,6 +17246,13 @@ body.panel-reordering .mini-queue-item.is-reordering {
   margin-bottom: 9px
 }
 
+/* A lone setting uses the row; it is not half of a two-setting group. */
+.fx-console-toggle-grid > .fx-toggle:only-child {
+  grid-column: 1 / -1;
+  min-height: 60px;
+  padding: 12px 14px;
+}
+
 .fx-console-group-body>.fx-slider:first-child,
 .fx-console-group-body>.lyric-color-row:first-child,
 .fx-console-group-body>.fx-seg:first-child,
@@ -19724,3 +19736,38 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #visual-guide .vg-aero-choice { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
 #visual-guide .vg-aero-choice button { padding:8px 12px; border:1px solid rgba(var(--vg-gold),.38); border-radius:10px; background:rgba(var(--vg-gold),.12); color:#fff; cursor:pointer; font:inherit; font-size:12px; }
 #visual-guide .vg-aero-choice span { color:rgba(255,255,255,.5); font-size:11px; }
+
+.source-fallback-actions { display: flex; gap: 8px; margin-top: 10px; }
+.source-fallback-actions button { padding: 5px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: #eaf2ff; cursor: pointer; font: inherit; font-size: 12px; }
+.source-fallback-actions button:hover { background: rgba(255,255,255,.16); }
+.source-fallback-actions button:disabled { opacity: .5; cursor: wait; }
+.source-fallback-actions button:focus-visible { outline: 2px solid #a9ceff; outline-offset: 2px; }
+
+/* The shelf spotlight follows the projected cards without trailing them. */
+.visual-guide-ring.is-shelf-target { transition: opacity .4s ease; }
+
+/* Keep catalog recovery readable at narrow panel widths. */
+.playlist-catalog-status {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.playlist-catalog-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.5;
+}
+.playlist-catalog-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, .68);
+}
+.playlist-catalog-status .queue-hydration-retry {
+  flex: 0 0 auto;
+  min-width: 44px;
+  height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
+}

@@ -427,14 +427,20 @@ function setLyricTrackTarget(mesh, payload) {
   if (!data.trackPersistent && data.trackStart != null && isFinite(Number(data.trackStart)) && targetLineIndex < Number(data.trackStart)) return false;
   if (!data.trackPersistent && data.trackEnd != null && isFinite(Number(data.trackEnd)) && targetLineIndex > Number(data.trackEnd)) return false;
   var targetIndex = lyricPrimaryVirtualIndex(targetLineIndex);
+  var restoreSeconds = typeof stageLyricRestoreWarmup !== 'undefined' && stageLyricRestoreWarmup.snapPending
+    && typeof stageLyricRestoreWarmupSeconds === 'function' ? stageLyricRestoreWarmupSeconds() : null;
+  var restoreLayout = restoreSeconds != null && stageLyricRestoreWarmup.snapPending
+    && stageLyricRestoreWarmup.token === trackSwitchToken
+    && targetLineIndex === stageLyricIndexForSeconds(restoreSeconds);
   var snapTrackScroll = shouldSnapLyricTrackScroll(data, targetIndex, targetLineIndex, payload);
   // Once a whole-song track is primed, every target in that same coordinate
   // system stays continuous.  This also covers the short interval after the
   // pointer is released while a pending target finishes its material commit.
   if (
-    data.trackPersistent && data.trackScrollPrimed && isFinite(Number(data.trackScrollOffset)) &&
+    !restoreLayout && data.trackPersistent && data.trackScrollPrimed && isFinite(Number(data.trackScrollOffset)) &&
     (!data.trackScrollWindowKey || data.trackScrollWindowKey === lyricTrackScrollWindowKey(payload))
   ) snapTrackScroll = false;
+  if (restoreLayout) snapTrackScroll = true;
   var activeRow = null;
   for (var i = 0; i < data.rowLayers.length; i++) {
     var row = data.rowLayers[i];
@@ -455,6 +461,10 @@ function setLyricTrackTarget(mesh, payload) {
         data.trackPendingProgress = null;
       }
       data.trackPendingPayload = payload;
+      if (restoreLayout) {
+        snapLyricTrackScroll(data, targetIndex, payload);
+        data.trackRestoreLayoutPending = true;
+      }
       ensureStageLyricPersistentTrackRows(mesh, targetLineIndex, { reason: 'persistent-track-demand', urgent: true });
       return true;
     }
@@ -471,6 +481,10 @@ function setLyricTrackTarget(mesh, payload) {
   else {
     data.trackScrollPrimed = true;
     data.trackScrollWindowKey = lyricTrackScrollWindowKey(payload) || data.trackScrollWindowKey || '';
+  }
+  if (restoreLayout) {
+    data.trackRestoreLayoutPending = true;
+    stageLyricRestoreWarmup.snapPending = false;
   }
   data.textMat = activeRow.mat;
   data.activeRowMesh = activeRow.mesh;

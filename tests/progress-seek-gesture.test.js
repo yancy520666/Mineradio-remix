@@ -12,7 +12,7 @@ function fixture() {
     getBoundingClientRect: () => ({ left: 0, width: 100, top: 0, height: 10 }),
     classList: { add() {}, remove() {} }, setPointerCapture() {}, releasePointerCapture() {} };
   const c = vm.createContext({ document: { getElementById: () => bar },
-    setInterval() {}, performance: { now: () => now }, playing: true,
+    setInterval() {}, performance: { now: () => now }, playing: true, trackSwitchToken: 1,
     audio: { src: 'fixture', currentTime: 1, paused: false, ended: false, duration: 240, pause() { this.paused = true; } },
     clampRange: (x, a, b) => Math.max(a, Math.min(b, x)), setAudioOutputGainImmediate() {},
   });
