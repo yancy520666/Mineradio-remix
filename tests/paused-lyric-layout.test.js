@@ -17,7 +17,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
     shelfManager: { hasOpenContent: () => false }, orbit: {},
     normalizeLyricDisplayMode: () => 'single', normalizeLyricTranslationMode: () => 'off',
     shouldAvoidStageLyricsForShelf: () => shelf, shouldUseWallpaperLyricCameraLock: () => false,
-    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1,
+    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1, clampStageLyricTargetForShelf: () => false,
     clampRange: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
     lyricCameraDir: new THREE.Vector3(0, 0, -1), lyricLayoutBase: new THREE.Vector3(),
     lyricCameraTarget: new THREE.Vector3(), lyricTargetQuat: new THREE.Quaternion(),

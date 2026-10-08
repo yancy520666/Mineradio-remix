@@ -68,6 +68,20 @@ function shouldAnimatePlaylistPanelOpen(panel) {
   panel.__lastOpenListAnimAt = now;
   return true;
 }
+// 左侧歌单面板和右侧 3D 歌单架同一时间只留一个：后打开的那个把先打开的平滑收起。
+// “常开”的左侧面板是用户明确固定的，不会被歌单架收走。
+function yieldShelfToLeftPanel() {
+  if (typeof shelfManager === 'undefined' || !shelfManager) return;
+  var hadContent = !!(shelfManager.hasOpenContent && shelfManager.hasOpenContent());
+  if (!shelfPinnedOpen && !hadContent) return;
+  if (hadContent && typeof safeShelfCloseContent === 'function') safeShelfCloseContent('left-panel-opened');
+  if (shelfPinnedOpen) setShelfPinnedOpen(false, false);
+}
+function yieldLeftPanelToShelf() {
+  var pp = document.getElementById('playlist-panel');
+  if (!pp || playlistPanelPinned || !pp.classList.contains('peek')) return;
+  setPeek(pp, false, 'pl');
+}
 function setPeek(el, on, key) {
   if (!el) return;
   if (!on && typeof visualGuideKeepsPeekOpen === 'function' && visualGuideKeepsPeekOpen(key)) return;
@@ -96,6 +110,7 @@ function setPeek(el, on, key) {
       markPlaylistPanelMotion(el, playlistPanelMotionMs('open'));
       // The camera swings left as the panel slides in; render that at the display
       // rate like the right-click shelf, and turn a dragged view back first.
+      yieldShelfToLeftPanel();
       if (typeof startPanelViewRecenter === 'function') startPanelViewRecenter('playlist-panel');
       if (typeof markRenderInteraction === 'function') markRenderInteraction('playlist-panel', playlistPanelMotionMs('open') + 700);
     }
@@ -440,8 +455,15 @@ window.addEventListener('mousemove', function (e) {
   var inFxFab = ex >= fabRect.left - 18 && ex <= fabRect.right + 18 && ey >= fabRect.top - 18 && ey <= fabRect.bottom + 18;
   var inFxBridge = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
   if (!diyPlayerMode) inFxPanel = inFxFab = inFxBridge = false;
-  if (inFxFab || inFxPanel || inFxBridge) setPeek(fp, true, 'fx');
-  else if (fpOn) setPeek(fp, false, 'fx');
+  // 点击收起后，鼠标要先离开按钮/面板区域，悬停才会再次展开。
+  if (typeof fxPanelDismissed !== 'undefined' && fxPanelDismissed) {
+    if (!(inFxFab || inFxPanel || inFxBridge)) fxPanelDismissed = false;
+    inFxPanel = inFxFab = inFxBridge = false;
+  }
+  if (inFxFab || inFxPanel || inFxBridge) {
+    if (typeof fxPanelHoldOpen !== 'undefined') fxPanelHoldOpen = false;
+    setPeek(fp, true, 'fx');
+  } else if (fpOn && !(typeof fxPanelHoldOpen !== 'undefined' && fxPanelHoldOpen)) setPeek(fp, false, 'fx');
   // 歌单/队列 DOM 面板只在左侧明确停留时出现，避免和右侧 3D 架抢焦点
   var ppOn = isPlaylistPanelActiveState(pp);
   var ppRect = pp.getBoundingClientRect();
