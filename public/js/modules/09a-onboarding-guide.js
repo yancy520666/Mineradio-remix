@@ -571,6 +571,12 @@ function positionVisualGuideStep() {
   ring.style.width = width + 'px';
   ring.style.height = height + 'px';
   ring.style.borderRadius = step && step.console ? '14px' : (height > 70 ? '22px' : '16px');
+  // Narrow windows draw the shelf nearer the middle, so the song-scene card on
+  // the left narrows to stay beside it. It only shrinks while the shelf settles.
+  var roomKey = visualGuideStep + ':' + innerWidth + 'x' + innerHeight;
+  if (card._songRoomKey !== roomKey) { card._songRoomKey = roomKey; card._songRoom = Infinity; }
+  if (step && step.songScene && !center) card._songRoom = Math.min(card._songRoom, Math.floor(left - 34));
+  card.style.maxWidth = card._songRoom < 352 ? Math.max(240, card._songRoom) + 'px' : '';
   var cardW = card.offsetWidth || 340;
   var cardH = card.offsetHeight || 190;
   var ringRect = { left: left, top: top, width: width, height: height, right: left + width, bottom: top + height };
