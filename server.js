@@ -4719,7 +4719,7 @@ async function fetchNeteaseLoginInfo() {
     const info = normalizeLoginInfo(body.profile, body.account, body);
     if (info.loggedIn) return await enrichNeteaseLoginInfo(info, body.profile, body.account, body);
     const authInvalid = isNeteaseAuthInvalidPayload(acc);
-    if (authInvalid) saveCookie('');
+    // A status probe is read-only: preserve credentials for confirmation or retry.
     // Only an explicit answer from NetEase means the session ended elsewhere;
     // risk-control or other non-200 replies leave the session unverified.
     const code = normalizeApiCode(acc);

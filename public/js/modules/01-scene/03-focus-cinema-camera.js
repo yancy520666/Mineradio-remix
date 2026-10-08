@@ -66,14 +66,16 @@ function startPanelViewRecenter(reason) {
   if (typeof particles === 'undefined' || !particles) return 0;
   // Never fight a drag that is still in progress.
   if (orbit.rotating) return 0;
+  // Rebase even when the visible angle is tiny, otherwise normal follow spins
+  // an almost-complete turn backwards after gestureRotation is reset.
+  rebaseViewRotationAxis('x');
+  rebaseViewRotationAxis('y');
   var angle = panelViewRotationAngle();
   if (typeof particleSpin !== 'undefined') { particleSpin.vx = 0; particleSpin.vy = 0; }
   if (angle < PANEL_VIEW_RECENTER_MIN_ANGLE) {
     if (typeof gestureRotation !== 'undefined') { gestureRotation.x = 0; gestureRotation.y = 0; }
     return 0;
   }
-  rebaseViewRotationAxis('x');
-  rebaseViewRotationAxis('y');
   if (typeof gestureRotation !== 'undefined') { gestureRotation.x = 0; gestureRotation.y = 0; }
   var duration = Math.round(clampRange(220 + angle * 110, 240, 460));
   panelViewRecenter.active = true;
