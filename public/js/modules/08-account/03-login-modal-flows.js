@@ -514,6 +514,7 @@ function finishLoginProviderPointer(e) {
 }
 function loginProviderVipLabel(provider, status) {
   if (!status || !status.loggedIn) return '';
+  if (providerMembershipNeedsSync(provider, status)) return '待同步';
   var level = providerVipLevel(provider, status);
   return level === 'svip' ? 'SVIP' : (level === 'vip' ? 'VIP' : '普通');
 }
@@ -590,7 +591,7 @@ function updateLoginProviderCapsuleStatus(provider, btn) {
   var label = loginProviderVipLabel(provider, st);
   var level = providerVipLevel(provider, st);
   badge.textContent = label;
-  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (level === 'none' ? 'normal' : level) : 'hidden');
+  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (providerMembershipNeedsSync(provider, st) ? 'pending' : (level === 'none' ? 'normal' : level)) : 'hidden');
 }
 function bindLoginWorkflowPointerEvents() {
   var graph = document.getElementById('login-node-graph');
