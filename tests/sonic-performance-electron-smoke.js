@@ -34,7 +34,9 @@ async function probe() {
   // Every fresh profile keeps original detail with adaptive quality on by
   // default; without load its top tier is the original wallpaper.
   check(firstRunQualityDecision && fx.performanceQuality === 'ultra' && fx.foregroundFpsMode === 'vsync' &&
-    MineradioSonicPerformance.snapshot().preferences.enabled && legacy.config.fpsLimit === 0,
+    MineradioSonicPerformance.snapshot().preferences.enabled &&
+    // Nothing plays yet, and a paused scene caps the wallpaper at 60 FPS.
+    legacy.config.fpsLimit === (playing && audio && !audio.paused ? 0 : 60),
     'first-run quality, frame cadence or adaptive defaults changed');
   check(legacy.config.profile?.tier === 4 && legacy.config.profile.gridSize === 320 && legacy.triangles > 1000000,
     'default adaptation reduced the original geometry without load');

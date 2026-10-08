@@ -22,3 +22,10 @@ test('a draw failure restores visibility, render target and clear behavior',()=>
  assert.equal(s.bg.visible,true);assert.equal(s.ui.visible,true);assert.equal(s.target(),null);
  assert.equal(s.c.renderer.autoClear,true);assert.equal(s.c.scene.background,'original');
 });
+test('without skipped background frames the scene draws in a single normal pass',()=>{
+ const s=fixture();s.c.renderPerfState.targetFps=60;s.c.renderPerfState.displayHz=60;
+ assert.equal(s.c.drawMainUiFrame(true),false);assert.equal(s.passes(),0);
+ s.c.renderPerfState.displayHz=144;assert.equal(s.c.drawMainUiFrame(true),true);assert.equal(s.passes(),3);
+ s.c.renderPerfState.displayHz=60;assert.equal(s.c.drawMainUiFrame(true),false);
+ assert.equal(s.c.mainUiRenderCache.valid,false,'a later skipped frame must not reuse a stale background');
+});

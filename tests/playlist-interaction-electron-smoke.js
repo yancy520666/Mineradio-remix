@@ -173,18 +173,22 @@ if (!process.argv.includes('--child')) {
         assert(sample.clip !== 'none' && sample.clippedHit, JSON.stringify(geometry));
       }
       assert(geometry.iconOffset.every(offset => offset < 1));
-      const counts = new Map(); let active = 0, peak = 0;
+      const counts = new Map(), timeline = [], started = Date.now();
       const image = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#399"/></svg>';
       const server = require('node:http').createServer((req, res) => {
         const requestPath=req.url.split('?')[0];
-        counts.set(requestPath, (counts.get(requestPath) || 0) + 1); peak = Math.max(peak, ++active);
+        counts.set(requestPath, (counts.get(requestPath) || 0) + 1);
+        const span = { path: requestPath, start: Date.now() - started };
+        // A cover scrolled out of view cancels its load; the abort reaches this
+        // server a little later, so only requests that were served count toward the cap.
+        res.once('close', () => { span.end = Date.now() - started; span.served = res.writableFinished; timeline.push(span); });
         setTimeout(() => {
           if (requestPath === '/row16.svg' && counts.get(requestPath) === 1) {
-            res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); active--; return;
+            res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); return;
           }
           res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Timing-Allow-Origin': '*', 'Cache-Control': 'public, max-age=86400' });
           res.write(image.slice(0, 70));
-          setTimeout(() => { res.end(image.slice(70)); active--; }, 25);
+          setTimeout(() => res.end(image.slice(70)), 25);
         }, req.url.startsWith('/row') ? 500 : 250);
       });
       await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -225,7 +229,9 @@ if (!process.argv.includes('--child')) {
       })()`);
       await new Promise(resolve => server.close(resolve));
       assert(covers.coldMs >= 250); assert(covers.cachedMs < 50);
-      assert.equal(counts.get('/cold.svg'), 1); assert(peak <= 4);
+      const served = timeline.filter(span => span.served);
+      const peak = Math.max(...served.map(span => served.filter(other => other.start <= span.start && other.end > span.start).length));
+      assert.equal(counts.get('/cold.svg'), 1); assert(peak <= 4, 'cover requests exceeded 4: ' + JSON.stringify(timeline));
       assert(covers.idle.loaded && covers.idle.after > covers.idle.before, JSON.stringify(covers));
       assert.deepEqual(covers.idle.pixel,[51,153,153,255]);
       assert.equal(counts.get('/row16.svg'), 2, 'one failed preload must retry and notify the idle row');
