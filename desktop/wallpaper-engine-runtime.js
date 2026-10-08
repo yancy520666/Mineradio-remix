@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
+const { createGeneratedCachePruner } = require('../generated-cache-pruner');
 const { discoverSteamLibraries: defaultDiscoverSteamLibraries, VIDEO_MIME } = require('./wallpaper-engine-library');
 const { readSavedWallpaperProperties } = require('./wallpaper-engine-properties');
 const { wallpaperInputCommand, nativeWallpaperInputSource } = require('./wallpaper-engine-input');
@@ -3104,6 +3105,22 @@ class WallpaperEngineRuntime {
     return stagedProjectFile;
   }
 
+  async _pruneMutedScenePackages(keepFile = '') {
+    if (!this.mutedPackagePins) this.mutedPackagePins = new Set();
+    if (!this.pruneMutedPackages) this.pruneMutedPackages = createGeneratedCachePruner({
+      root: path.resolve(this.nativeTempPath, 'wallpaper-engine-muted-package-cache'),
+      pattern: /^[a-f0-9]{64}\.pkg$/,
+      maxBytes: 512 * 1024 * 1024,
+      maxEntries: 4,
+      maxAgeMs: 14 * 24 * 60 * 60 * 1000,
+      keep: () => [...this.mutedPackagePins, this.active && this.active.mutedScenePackageCacheFile,
+        this.pending && this.pending.mutedScenePackageCacheFile].filter(Boolean),
+    });
+    if (keepFile) this.mutedPackagePins.add(keepFile);
+    try { await this.pruneMutedPackages(); }
+    finally { if (keepFile) this.mutedPackagePins.delete(keepFile); }
+  }
+
   async _prepareMutedScenePackage(session, scenePackage) {
     const source = await readWallpaperPackageScene(scenePackage);
     const patchedScene = JSON.parse(JSON.stringify(source.scene));
@@ -3174,10 +3191,16 @@ class WallpaperEngineRuntime {
     }
     session.patchedSceneAudioObjectCount = audioObjectCount;
     session.mutedScenePackageCacheFile = cachedFile;
+    const now = new Date();
+    await fs.promises.utimes(cachedFile, now, now).catch(() => {});
+    await this._pruneMutedScenePackages(cachedFile).catch(error => {
+      console.warn('[Wallpaper Engine] muted package cleanup deferred:', error.code || error.message);
+    });
     return cachedFile;
   }
 
   async _cleanupStagedProject(session) {
+    await this._pruneMutedScenePackages().catch(() => {});
     if (!session || !session.stagedProjectRoot || !session.stagedProjectBaseRoot) return;
     const stageRoot = path.resolve(session.stagedProjectBaseRoot || '');
     const stageDirectory = path.resolve(session.stagedProjectRoot);

@@ -1,3 +1,66 @@
+function boundListenDailyHistory(daily) {
+  var keys = Object.keys(daily).sort().reverse();
+  keys.slice(730).forEach(function (key) { delete daily[key]; });
+  return daily;
+}
+function boundListenStats(state, maxBytes) {
+  maxBytes = maxBytes || 512 * 1024;
+  state.archivedPlays = Math.max(0, Number(state.archivedPlays) || 0);
+  state.history = (state.history || []).slice(0, 180);
+  function compactText(item) {
+    if (!item || typeof item !== 'object') return;
+    ['name', 'artist', 'source'].forEach(function (key) { if (typeof item[key] === 'string') item[key] = item[key].slice(0, 512); });
+    if (typeof item.cover === 'string' && item.cover.length > 4096) item.cover = '';
+  }
+  state.history.forEach(compactText);
+  var songs = Object.keys(state.songs), artists = Object.keys(state.artists);
+  songs.forEach(function (key) { compactText(state.songs[key]); });
+  artists.forEach(function (key) { compactText(state.artists[key]); });
+  // Keep the leaders as well as recent entries; lifetime play count is folded
+  // into a scalar before any old detail is evicted.
+  function evictionOrder(keys, values) {
+    var leaders = keys.slice().sort(function (a, b) { return (Number(values[b] && values[b].plays) || 0) - (Number(values[a] && values[a].plays) || 0); }).slice(0, 30);
+    var protectedKeys = new Set(leaders);
+    return keys.sort(function (a, b) {
+      return Number(protectedKeys.has(a)) - Number(protectedKeys.has(b))
+        || (Number(values[a] && values[a].lastPlayedAt) || 0) - (Number(values[b] && values[b].lastPlayedAt) || 0);
+    });
+  }
+  songs = evictionOrder(songs, state.songs);
+  artists = evictionOrder(artists, state.artists);
+  function removeSong() {
+    var key = songs.shift();
+    state.archivedPlays += Math.max(0, Number(state.songs[key] && state.songs[key].plays) || 0);
+    delete state.songs[key];
+  }
+  while (songs.length > 2000) removeSong();
+  while (artists.length > 1000) delete state.artists[artists.shift()];
+  var serialized = JSON.stringify(state);
+  while (serialized.length * 2 > maxBytes && (songs.length || artists.length || state.history.length)) {
+    // Remove in batches so migration of a large legacy store doesn't repeatedly
+    // stringify its whole contents for every individual song.
+    if (songs.length) { var n = Math.max(1, Math.ceil(songs.length / 8)); while (n-- && songs.length) removeSong(); }
+    if (artists.length) { var n = Math.max(1, Math.ceil(artists.length / 8)); while (n-- && artists.length) delete state.artists[artists.shift()]; }
+    if (!songs.length && !artists.length) state.history = state.history.slice(0, Math.floor(state.history.length / 2));
+    serialized = JSON.stringify(state);
+  }
+  return serialized;
+}
+function persistListenStats(state) {
+  for (var budget = 512 * 1024; budget >= 16 * 1024; budget /= 2) {
+    var serialized = boundListenStats(state, budget);
+    try { localStorage.setItem(HOME_LISTEN_STATS_KEY, serialized); return true; }
+    catch (error) {
+      if (error.name !== 'QuotaExceededError') break;
+    }
+  }
+  if (!persistListenStats.warned) {
+    persistListenStats.warned = true;
+    console.warn('听歌统计暂时无法保存：本地存储空间不足，请在设置中检查存储占用');
+  }
+  return false;
+}
+
 var HOME_LISTEN_ROLLUP_V2_KEY = 'mineradio-listen-rollup-v2';
 var listenSessionSerial = 0;
 
@@ -13,7 +76,7 @@ function loadListenRollupV2() {
       version: 2,
       totalListenMs: Math.max(0, Number(data.totalListenMs) || 0),
       sessions: Math.max(0, Number(data.sessions) || 0),
-      daily: data.daily && typeof data.daily === 'object' ? data.daily : {},
+      daily: boundListenDailyHistory(data.daily && typeof data.daily === 'object' ? data.daily : {}),
       updatedAt: Number(data.updatedAt) || 0,
     };
   } catch (e) {
@@ -42,6 +105,7 @@ function recordListenRollupV2(record) {
     day.completed = Math.max(0, Number(day.completed) || 0) + (record && record.completed ? 1 : 0);
     state.daily[dayKey] = day;
     state.updatedAt = Date.now();
+    boundListenDailyHistory(state.daily);
     localStorage.setItem(HOME_LISTEN_ROLLUP_V2_KEY, JSON.stringify(state));
   } catch (e) { }
 }
@@ -142,12 +206,16 @@ function loadListenStatsState() {
     var raw = localStorage.getItem(HOME_LISTEN_STATS_KEY);
     if (!raw) return { history: [], songs: {}, artists: {}, updatedAt: 0 };
     var data = JSON.parse(raw);
-    return {
+    var state = {
       history: Array.isArray(data.history) ? data.history.slice(0, 180) : [],
       songs: data.songs && typeof data.songs === 'object' ? data.songs : {},
       artists: data.artists && typeof data.artists === 'object' ? data.artists : {},
+      archivedPlays: Math.max(0, Number(data.archivedPlays) || 0),
       updatedAt: Number(data.updatedAt) || 0,
     };
+    var serialized = boundListenStats(state);
+    if (serialized.length < raw.length) persistListenStats(state);
+    return state;
   } catch (e) {
     return { history: [], songs: {}, artists: {}, updatedAt: 0 };
   }
@@ -155,7 +223,7 @@ function loadListenStatsState() {
 function saveListenStatsState() {
   try {
     listenStatsState.updatedAt = Date.now();
-    localStorage.setItem(HOME_LISTEN_STATS_KEY, JSON.stringify(listenStatsState));
+    persistListenStats(listenStatsState);
   } catch (e) { }
 }
 function listenSongSnapshot(song) {
@@ -297,6 +365,6 @@ function homeListenSummary() {
   var recent = (listenStatsState.history || [])[0] || null;
   var topSong = mostPlayedSong();
   var topArtist = topListenArtist();
-  var totalPlays = Object.keys(listenStatsState.songs || {}).reduce(function (sum, key) { return sum + ((listenStatsState.songs[key] && listenStatsState.songs[key].plays) || 0); }, 0);
+  var totalPlays = (Number(listenStatsState.archivedPlays) || 0) + Object.keys(listenStatsState.songs || {}).reduce(function (sum, key) { return sum + ((listenStatsState.songs[key] && listenStatsState.songs[key].plays) || 0); }, 0);
   return { recent: recent, topSong: topSong, topArtist: topArtist, totalPlays: totalPlays };
 }

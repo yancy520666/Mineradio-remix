@@ -31,6 +31,90 @@ function clearCenteredViewOffsets() {
   }
 }
 
+// ---------- 打开歌单架 / 左侧歌单前的视角回正 ----------
+// 拖动画面转的是封面和歌词本身（gestureRotation），歌单架却固定在世界坐标里，
+// 歌词的“让位”偏移又沿着已转过的歌词坐标轴走，所以转过之后再打开会错位。
+// 打开前先把这份转角平滑归零（按最近的整圈换算，绝不多转一圈），再展开面板。
+var panelViewRecenter = { active: false, start: 0, duration: 0, fromX: 0, fromY: 0 };
+var panelViewRecenterOpenTimer = 0;
+var PANEL_VIEW_RECENTER_MIN_ANGLE = 0.035;
+function wrapViewAngle(angle) {
+  angle = Number(angle) || 0;
+  return angle - Math.round(angle / (Math.PI * 2)) * Math.PI * 2;
+}
+function rebaseViewRotationAxis(axis) {
+  if (typeof particles === 'undefined' || !particles) return;
+  var offset = Math.round((Number(particles.rotation[axis]) || 0) / (Math.PI * 2)) * Math.PI * 2;
+  if (!offset) return;
+  particles.rotation[axis] -= offset;
+  if (typeof bloomParticles !== 'undefined' && bloomParticles) bloomParticles.rotation[axis] -= offset;
+  if (typeof floatGroup !== 'undefined' && floatGroup) floatGroup.rotation[axis] -= offset;
+  if (typeof backCoverGroup !== 'undefined' && backCoverGroup) backCoverGroup.rotation[axis] -= offset;
+  if (typeof skullParticleGroup !== 'undefined' && skullParticleGroup) skullParticleGroup.rotation[axis] -= offset;
+}
+function panelViewRotationAngle() {
+  if (typeof particles === 'undefined' || !particles) return 0;
+  var gx = typeof gestureRotation !== 'undefined' ? wrapViewAngle(gestureRotation.x) : 0;
+  var gy = typeof gestureRotation !== 'undefined' ? wrapViewAngle(gestureRotation.y) : 0;
+  return Math.max(
+    Math.abs(wrapViewAngle(particles.rotation.x)), Math.abs(wrapViewAngle(particles.rotation.y)),
+    orbit.centerLocked ? 0 : Math.abs(gx), orbit.centerLocked ? 0 : Math.abs(gy)
+  );
+}
+// Starts the recenter and returns how long an explicit open should wait (ms).
+function startPanelViewRecenter(reason) {
+  if (typeof particles === 'undefined' || !particles) return 0;
+  // Never fight a drag that is still in progress.
+  if (orbit.rotating) return 0;
+  // Rebase even when the visible angle is tiny, otherwise normal follow spins
+  // an almost-complete turn backwards after gestureRotation is reset.
+  rebaseViewRotationAxis('x');
+  rebaseViewRotationAxis('y');
+  var angle = panelViewRotationAngle();
+  if (typeof particleSpin !== 'undefined') { particleSpin.vx = 0; particleSpin.vy = 0; }
+  if (angle < PANEL_VIEW_RECENTER_MIN_ANGLE) {
+    if (typeof gestureRotation !== 'undefined') { gestureRotation.x = 0; gestureRotation.y = 0; }
+    return 0;
+  }
+  if (typeof gestureRotation !== 'undefined') { gestureRotation.x = 0; gestureRotation.y = 0; }
+  var duration = Math.round(clampRange(220 + angle * 110, 240, 460));
+  panelViewRecenter.active = true;
+  panelViewRecenter.start = performance.now();
+  panelViewRecenter.duration = duration;
+  panelViewRecenter.fromX = particles.rotation.x;
+  panelViewRecenter.fromY = particles.rotation.y;
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('panel-view-recenter', duration + 260);
+  // Open once most of the turn is done; the last few degrees settle while the panel slides in.
+  return Math.round(duration * 0.55);
+}
+// Applied by the main loop instead of the usual slow follow while a recenter runs.
+function applyPanelViewRecenter(now) {
+  if (!panelViewRecenter.active || typeof particles === 'undefined' || !particles) return false;
+  if (orbit.rotating) { panelViewRecenter.active = false; return false; }
+  var t = clamp01((now - panelViewRecenter.start) / Math.max(1, panelViewRecenter.duration));
+  // easeInOutCubic: starts gently from the user's angle and lands without a bump.
+  var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  particles.rotation.x = panelViewRecenter.fromX * (1 - e);
+  particles.rotation.y = panelViewRecenter.fromY * (1 - e);
+  if (t >= 1) panelViewRecenter.active = false;
+  return true;
+}
+function cancelPanelOpenAfterRecenter() {
+  if (!panelViewRecenterOpenTimer) return false;
+  clearTimeout(panelViewRecenterOpenTimer);
+  panelViewRecenterOpenTimer = 0;
+  return true;
+}
+function openPanelAfterViewRecenter(reason, open) {
+  cancelPanelOpenAfterRecenter();
+  var wait = startPanelViewRecenter(reason);
+  if (wait <= 0) { open(); return; }
+  panelViewRecenterOpenTimer = setTimeout(function () {
+    panelViewRecenterOpenTimer = 0;
+    open();
+  }, wait);
+}
+
 function updateCamera() {
   if (applyFreeCameraToCamera()) return;
   if (orbit.recentering) {
@@ -175,6 +259,8 @@ function shouldAvoidStageLyricsForShelf() {
   return !!(shelfVisibility > 0.24 || (shelfHoverCue && shelfHoverCue.value > 0.28));
 }
 function activateFocusZone(type) {
+  // The camera glides to the panel over ~0.5 s; keep that glide at the display rate.
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', 900);
   unlockCenteredView();
   orbit.focus.active = true;
   orbit.focus.type = type;
@@ -245,7 +331,10 @@ function setFocusZone(type, immediate) {
     var exitDelay = orbit.focus.type === 'queue' ? PEEK_HIDE_DELAY : 120;
     focusHover.exitTimer = setTimeout(function () {
       focusHover.exitTimer = null;
-      if (!focusHover.wantType) orbit.focus.active = false;
+      if (!focusHover.wantType) {
+        if (orbit.focus.active && typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', 900);
+        orbit.focus.active = false;
+      }
     }, exitDelay);
     return;
   }

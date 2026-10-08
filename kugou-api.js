@@ -898,10 +898,11 @@ async function kugouGatewayRequest(path, opts) {
   }, opts.headers || {});
   if (opts.router) headers['x-router'] = opts.router;
   if (body) headers['Content-Type'] = 'application/json';
-  const json = await requestJson(u.toString(), { method: opts.method || 'GET', headers }, body || undefined);
+  const json = await requestJson(u.toString(), { method: opts.method || 'GET', headers, timeoutMs: opts.timeoutMs }, body || undefined);
   if (json && Number(json.status) === 0) {
     const err = new Error(json.error || json.msg || json.message || 'KUGOU_GATEWAY_FAILED');
     err.body = json;
+    err.upstreamCode = Number(json.error_code || json.err_code || json.errcode || json.errno) || undefined;
     throw err;
   }
   return json;
@@ -1689,7 +1690,7 @@ async function fetchKugouProfileFromPlaylists(cookie, auth) {
   if (!auth.playbackReady) return {};
   const cacheKey = kugouProfileCacheKey(auth);
   return kugouProfileCache.wrap(cacheKey, 5 * 60 * 1000, async () => {
-    const json = await kugouH5GatewayRequest('/v7/get_all_list', {
+    const json = await kugouGatewayRequest('/v7/get_all_list', {
       method: 'POST',
       timeoutMs: 2500,
       cookie,
@@ -1759,7 +1760,7 @@ async function handleKugouUserPlaylists(cookie) {
     return { provider: 'kugou', loggedIn: auth.loggedIn, playbackReady: false, playlists: [], error: 'KUGOU_AUTH_REQUIRED', message: '酷狗登录未完成，请重新网页登录' };
   }
   const fetchPage = async page => {
-    const json = await kugouH5GatewayRequest('/v7/get_all_list', {
+    const json = await kugouGatewayRequest('/v7/get_all_list', {
       method: 'POST',
       cookie,
       router: 'cloudlist.service.kugou.com',
@@ -1862,7 +1863,7 @@ async function handleKugouPlaylistTracks(playlistId, cookie, opts = {}) {
   const cacheKey = String(listid) + ':' + String(auth.userid || '0');
   async function fetchPage(pageNo, baseOffset) {
     baseOffset = baseOffset || 0;
-    const json = await kugouH5GatewayRequest('/v4/get_list_all_file', {
+    const json = await kugouGatewayRequest('/v4/get_list_all_file', {
       method: 'POST',
       cookie,
       router: 'cloudlist.service.kugou.com',
@@ -2042,7 +2043,7 @@ async function resolveKugouFavoriteListId(cookie) {
   if (kugouFavoriteListCache.listId && kugouFavoriteListCache.userId === auth.userid && Date.now() - kugouFavoriteListCache.at < 300000) {
     return kugouFavoriteListCache.listId;
   }
-  const json = await kugouH5GatewayRequest('/v7/get_all_list', {
+  const json = await kugouGatewayRequest('/v7/get_all_list', {
     method: 'POST',
     cookie,
     router: 'cloudlist.service.kugou.com',

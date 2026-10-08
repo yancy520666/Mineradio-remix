@@ -19771,3 +19771,186 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
   padding: 0 10px;
   white-space: nowrap;
 }
+
+/* Console toggles share the slider rows' rhythm: same height, left inset and
+   row gap, and the status dot sits in the reset-button column. */
+#fx-panel .fx-console-toggle-grid {
+  gap: 8px;
+  margin: 8px 0;
+}
+#fx-panel .fx-toggle,
+#fx-panel .fx-console-toggle-grid > .fx-toggle:only-child {
+  min-height: 44px;
+  gap: 10px;
+  padding: 9px 20px 9px 10px;
+  border-radius: 12px;
+  line-height: 16px;
+}
+#fx-panel .fx-toggle span:first-child {
+  padding-right: 0;
+}
+#fx-panel .fx-toggle .fx-effect-hint {
+  margin-top: 2px;
+  line-height: 15px;
+}
+
+/* Playlist detail header: the load badge sits on the title line, and the
+   actions share the row width as matching pills. */
+#playlist-panel .pl-detail-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-sub {
+  margin-top: 5px;
+}
+#playlist-panel .pl-detail-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .05);
+  color: rgba(255, 255, 255, .56);
+  font-size: 10px;
+  line-height: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#playlist-panel .pl-detail-actions {
+  gap: 8px;
+  margin: 0;
+}
+#playlist-panel .pl-detail-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  font: 600 11.5px var(--font-sans);
+}
+#playlist-panel .pl-detail-actions > .pl-detail-play {
+  flex-grow: 1.35;
+  font-weight: 700;
+}
+#playlist-panel .pl-detail-top-btn svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: currentColor;
+  opacity: .8;
+}
+#playlist-panel .pl-detail-actions > .pl-detail-play svg {
+  flex: 0 0 auto;
+}
+/* Three actions in a narrow panel: drop the arrow and even out the widths. */
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) > button {
+  padding: 0 6px;
+}
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) > .pl-detail-play {
+  flex-grow: 1.15;
+}
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) .pl-detail-top-btn svg {
+  display: none;
+}
+
+/* Artist detail: newest albums as compact glass tiles (cover left, text right). */
+#track-detail-body .artist-albums-section[hidden] { display: none !important; }
+#track-detail-body .artist-albums-count {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .38);
+  white-space: nowrap;
+}
+#track-detail-body .artist-album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+#track-detail-body .artist-album-card {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-areas: "cover name" "cover meta";
+  align-content: center;
+  column-gap: 10px;
+  min-width: 0;
+  padding: 7px 10px 7px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(255, 255, 255, .035);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+#track-detail-body .artist-album-card:hover,
+#track-detail-body .artist-album-card:focus-visible {
+  background: rgba(var(--fc-accent-rgb), .085);
+  border-color: rgba(var(--fc-accent-rgb), .28);
+  outline: none;
+  transform: translateY(-1px);
+}
+#track-detail-body .artist-album-cover {
+  grid-area: cover;
+  display: block;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, .06);
+}
+#track-detail-body .artist-album-name {
+  grid-area: name;
+  align-self: end;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, .90);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#track-detail-body .artist-album-meta {
+  grid-area: meta;
+  align-self: start;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .36);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Artist detail: "查看更多" next to the album count. */
+#track-detail-body .artist-albums-section .detail-section-head { gap: 8px; }
+#track-detail-body .artist-albums-section .detail-section-actions { min-width: 0; gap: 10px; }
+#track-detail-body .artist-albums-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#track-detail-body .artist-albums-more {
+  flex: 0 0 auto;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, .62);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .2s;
+}
+#track-detail-body .artist-albums-more:hover,
+#track-detail-body .artist-albums-more:focus-visible {
+  color: rgb(var(--fc-accent-rgb));
+  outline: none;
+}

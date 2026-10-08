@@ -43,6 +43,7 @@ var startupLoginStatusPromise = Promise.all([refreshLoginStatus(), refreshQQLogi
 startQQLoginStatusAutoRefresh();
 startKugouLoginStatusAutoRefresh();
 startQishuiLoginStatusAutoRefresh();
+if (typeof startLoginPresenceWatch === 'function') startLoginPresenceWatch();
 if (typeof setupFullscreenDiyLayoutTracking === 'function') setupFullscreenDiyLayoutTracking();
 if (startupLoginStatusPromise && startupLoginStatusPromise.then) {
   startupLoginStatusPromise.then(function () {

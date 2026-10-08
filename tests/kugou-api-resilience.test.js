@@ -294,3 +294,30 @@ test('cloudlist connection rejection stays a failure with an explicit recovery a
     assert.equal(r.error, 'KUGOU_GATEWAY_FAILED');
   });
 });
+
+
+test('cloudlist library and created-list tracks use the Android contract, retaining failure codes', async () => {
+  await withRequests(call => {
+    const params = Object.fromEntries(call.url.searchParams);
+    const signature = params.signature;
+    delete params.signature;
+    assert.equal(params.appid, '1005');
+    assert.equal(params.uuid, '-');
+    assert.equal(params.clienttime.length, 10, 'cloudlist uses seconds, not H5 milliseconds');
+    assert.equal(call.options.headers['x-router'], 'cloudlist.service.kugou.com');
+    const salt = 'OIlwieks28dk2k092lksi2UIkp';
+    const expected = crypto.createHash('md5').update(salt + Object.keys(params).sort().map(key => key + '=' + params[key]).join('') + call.body + salt).digest('hex');
+    assert.equal(signature, expected, 'Android signing includes the exact JSON request body');
+    if (call.url.pathname === '/v7/get_all_list') {
+      return { body: { status: 1, data: { list_count: 2, info: { self: [{ listid: 11, name: 'created' }], collect: [{ listid: 12, name: 'collected' }] } } } };
+    }
+    return { body: { status: 0, error_code: 20017 } };
+  }, async calls => {
+    const library = await kugou.handleKugouUserPlaylists(memberCookie);
+    assert.equal(library.libraryReady, true);
+    assert.deepEqual(library.playlists.map(p => p.name).sort(), ['collected', 'created']);
+    const tracks = await kugou.handleKugouPlaylistTracks('11', memberCookie);
+    assert.equal(tracks.upstreamCode, 20017);
+    assert.equal(calls.length, 2);
+  });
+});

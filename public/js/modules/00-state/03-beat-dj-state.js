@@ -1,3 +1,44 @@
+// A cache miss can use the existing disk cache; eviction never mutates the
+// currently playing map. Both MR and DJ caches have their own 8 MiB budget.
+function estimateBeatMapBytes(value) {
+  var bytes = 0, seen = new WeakSet(), pending = [value];
+  while (pending.length) {
+    var item = pending.pop();
+    if (typeof item === 'string') bytes += item.length * 2;
+    else if (!item || typeof item !== 'object') bytes += 8;
+    else if (!seen.has(item)) {
+      seen.add(item);
+      if (ArrayBuffer.isView(item)) bytes += item.byteLength;
+      else { bytes += 32; Object.keys(item).forEach(function (key) { bytes += key.length * 2 + 16; pending.push(item[key]); }); }
+    }
+  }
+  return bytes;
+}
+function createBeatMapMemoryCache(maxBytes, maxEntries) {
+  var values = Object.create(null), entries = new Map(), bytes = 0;
+  maxBytes = maxBytes || 8 * 1024 * 1024;
+  maxEntries = maxEntries || 24;
+  function remove(key) {
+    bytes -= entries.get(key) || 0;
+    entries.delete(key); delete values[key];
+  }
+  return new Proxy(values, {
+    get: function (target, key) {
+      if (entries.has(key)) { var size = entries.get(key); entries.delete(key); entries.set(key, size); }
+      return target[key];
+    },
+    set: function (target, key, value) {
+      if (entries.has(key)) remove(key);
+      var size = estimateBeatMapBytes(value);
+      if (size > maxBytes) return true;
+      target[key] = value; entries.set(key, size); bytes += size;
+      while (bytes > maxBytes || entries.size > maxEntries) remove(entries.keys().next().value);
+      return true;
+    },
+    deleteProperty: function (target, key) { remove(key); return true; }
+  });
+}
+
 var targetVolume = readSavedVolume();
 var lastNonZeroVolume = targetVolume > 0.01 ? targetVolume : 0.8;
 var volumeCloseTimer = null;
@@ -5,7 +46,7 @@ var volumeCloseTimer = null;
 // v7.2: 离线节拍预解析
 //   每次切歌, fetch 完整音频 → OfflineAudioContext 分析 → 标出真鼓点
 //   缓存按 song.id 存, 避免重复
-var beatMapCache = {};       // { songId: { kicks: [t1, t2, ...], duration: ... } }
+var beatMapCache = createBeatMapMemoryCache();       // { songId: { kicks: [t1, t2, ...], duration: ... } }
 var currentBeatMap = null;   // 当前播放的歌的 beatMap
 var beatMapNextIdx = 0;      // 下一个待触发的 kick index
 var beatMapBusy = false;     // 正在分析中
@@ -19,7 +60,7 @@ var beatPrefetchLastKey = '';
 var BEAT_PREFETCH_LIMIT = 2;
 var beatDiskCacheStatus = { checked: false, enabled: false, mode: 'unknown', reason: '' };
 var beatDiskCacheNoticeLogged = false;
-var djBeatMapCache = {};
+var djBeatMapCache = createBeatMapMemoryCache();
 var currentDjBeatMap = null;
 var djBeatMapNextIdx = 0;
 var djBeatPulseNextIdx = 0;
