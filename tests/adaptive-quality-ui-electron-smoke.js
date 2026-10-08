@@ -40,7 +40,9 @@ async function probe() {
   const workshop = () => frame().__mineradioWorkshopPerformance?.snapshot();
   await until(() => workshop()?.state === 'ready', 'workshop did not initialize');
   const original = workshop();
-  check(original.triangles > 1000000 && original.config.fpsLimit === 0 && original.config.profile?.tier === 4,
+  // Nothing plays yet, and a paused scene caps the wallpaper at 60 FPS.
+  const pausedCap = playing && audio && !audio.paused ? 0 : 60;
+  check(original.triangles > 1000000 && original.config.fpsLimit === pausedCap && original.config.profile?.tier === 4,
     'default adaptation reduced the original wallpaper without load');
   const hardwareReason = MineradioSonicPerformance.snapshot().recommendationReason;
   check(!hardwareReason, 'Sonic must not show opt-in advice while adaptation is already on');
