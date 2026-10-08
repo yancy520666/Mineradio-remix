@@ -4955,36 +4955,12 @@ ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
   return configureMineradioGlobalHotkeys(bindings);
 });
 
-function loginCookieExportMeta(provider) {
-  const key = String(provider || '').toLowerCase();
-  const userData = app.getPath('userData');
-  const entries = {
-    netease: { label: '网易云音乐', files: [process.env.COOKIE_FILE, path.join(userData, '.cookie')] },
-    qq: { label: 'QQ音乐', files: [process.env.QQ_COOKIE_FILE, path.join(userData, '.qq-cookie')] },
-    kugou: { label: '酷狗音乐', files: [process.env.KUGOU_COOKIE_FILE, path.join(userData, '.kugou-cookie')] },
-    qishui: { label: '汽水音乐', files: [process.env.QISHUI_COOKIE_FILE, path.join(userData, '.qishui-cookie'), process.env.QISHUI_TOKEN_FILE, path.join(userData, '.qishui-token')] },
-    spotify: { label: 'Spotify', files: [process.env.SPOTIFY_TOKEN_FILE, path.join(userData, '.spotify-token.json')] },
-  };
-  return entries[key] || null;
-}
-
-ipcMain.handle('mineradio-export-login-cookie', async (event, provider) => {
+ipcMain.handle('mineradio-import-browser-cookies', async (event, provider) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'COOKIE_UNTRUSTED_SENDER' };
   try {
-    const meta = loginCookieExportMeta(provider);
-    if (!meta) return { ok: false, error: 'UNKNOWN_PROVIDER', message: '未知平台，无法导出登录 cookie' };
-    const source = (meta.files || []).filter(Boolean).find((file) => {
-      try { return fs.existsSync(file) && fs.statSync(file).isFile() && fs.readFileSync(file, 'utf8').trim(); } catch (_) { return false; }
-    });
-    if (!source) return { ok: false, error: 'COOKIE_NOT_FOUND', message: `${meta.label} 当前没有可导出的登录 cookie` };
-    const text = createCookieStore(source).read();
-    if (!text) return { ok: false, error: 'COOKIE_UNAVAILABLE' };
-    const safeName = String(`${meta.label}_登录cookie.txt`).replace(/[\\/:*?"<>|]+/g, '-');
-    const filePath = path.join(app.getPath('desktop'), safeName);
-    fs.writeFileSync(filePath, text, 'utf8');
-    return { ok: true, filePath };
+    return await require('./browser-cookie-import').importBrowserCookies(String(provider || '').toLowerCase());
   } catch (e) {
-    return { ok: false, error: e.message || 'EXPORT_LOGIN_COOKIE_FAILED' };
+    return { ok: false, message: '读取浏览器登录状态失败' };
   }
 });
 
