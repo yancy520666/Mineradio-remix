@@ -1571,7 +1571,9 @@
               <textarea id="qq-cookie-input" class="qq-cookie-input" spellcheck="false" autocomplete="off"
                 placeholder="uin=...; qqmusic_key=...; qm_keyst=..."></textarea>
               <div class="qq-cookie-actions">
-                <div class="qq-cookie-note">从 y.qq.com 的登录会话导入。</div>
+                <div class="qq-cookie-note">一键读取本机浏览器里已登录的账号，或粘贴 Cookie。</div>
+                <button id="browser-cookie-import-btn" class="modal-btn" type="button"
+                  onclick="importBrowserCookieLogin()">自动导入浏览器登录</button>
                 <button id="qq-cookie-save-btn" class="modal-btn primary" type="button"
                   onclick="submitQQCookieLogin()">保存</button>
               </div>
@@ -1888,17 +1890,6 @@
         <button type="button" onclick="submitCuefieldFeedback(1)">顺滑</button>
         <button type="button" onclick="submitCuefieldFeedback(2)">生硬</button>
         <button type="button" onclick="submitCuefieldFeedback(3)">不确定</button>
-      </div>
-    </div>
-    <div id="cookie-export-prompt" class="cookie-export-prompt" aria-live="polite">
-      <div class="cookie-export-card">
-        <div class="cookie-export-kicker">LOGIN COOKIE</div>
-        <div id="cookie-export-title" class="cookie-export-title">是否导出登录 cookie 到桌面？</div>
-        <div id="cookie-export-desc" class="cookie-export-desc">导出的文件会用于备份当前平台登录态。</div>
-        <div class="cookie-export-actions">
-          <button type="button" onclick="dismissCookieExportPrompt(false)">暂不导出</button>
-          <button class="primary" type="button" onclick="confirmCookieExportPrompt()">导出到桌面</button>
-        </div>
       </div>
     </div>
     <div id="source-fallback-notice" aria-live="polite">

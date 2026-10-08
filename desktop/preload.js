@@ -123,7 +123,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   },
   readText: () => ({ ok: true, text: clipboard.readText() || '' }),
   exportJsonFile: (payload) => ipcRenderer.invoke('mineradio-export-json-file', payload || {}),
-  exportLoginCookie: (provider) => ipcRenderer.invoke('mineradio-export-login-cookie', provider || ''),
+  importBrowserCookies: (provider) => ipcRenderer.invoke('mineradio-import-browser-cookies', provider || ''),
   importJsonFile: () => ipcRenderer.invoke('mineradio-import-json-file'),
   readSonicPreferencesSync: () => ipcRenderer.sendSync('mineradio-sonic-preferences-read-sync'),
   saveSonicPreferencesSync: (payload) => ipcRenderer.sendSync('mineradio-sonic-preferences-save-sync', payload),

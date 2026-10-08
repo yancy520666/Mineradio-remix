@@ -76,7 +76,6 @@ var DESKTOP_ICON_SHIELD_TARGETS = [
   { selector: '#lyric-timing-popover', kind: 'lyric-timing-popover' },
   { selector: '#control-source-switcher', kind: 'source-switcher' },
   { selector: '#cuefield-feedback', kind: 'cuefield-feedback' },
-  { selector: '#cookie-export-prompt', kind: 'cookie-export' },
   { selector: '.modal-mask', kind: 'modal', visual: true },
   { selector: '#toast', kind: 'toast', visual: true },
   { selector: '#visual-guide', kind: 'guide', visual: true },
