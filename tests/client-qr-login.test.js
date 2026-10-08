@@ -31,7 +31,19 @@ test('expired code refreshes once, and hung refresh stays retryable on the clien
  await new Promise(r=>setTimeout(r,130));assert.equal(f.results.length,0);assert.equal(f.sent.at(-1).stage,'failed');f.session.stop();
 });
 test('credential injection and incomplete authorization are rejected',()=>{
- for(const c of [{musicid:'123',musickey:'x; y=z',loginType:6},{musicid:'123',musickey:'key',loginType:2},{}])assert.throws(()=>credentialCookie(c));
+ for(const c of [{musicid:'123',musickey:'x; y=z',loginType:6},{musicid:'123',musickey:'key'},{musicid:'123',musickey:'key',loginType:'x'},{}])assert.throws(()=>credentialCookie(c));
+});
+test('App QR accepts the phone account login type instead of discarding a confirmed WeChat or QQ account',async()=>{
+ // A phone signed in with WeChat (1) or QQ (2) confirms with that type; rejecting it showed "授权失败" on desktop.
+ for(const loginType of [1,2,6]){
+  const cookie=credentialCookie({musicid:'123',str_musicid:'0',musickey:'fixture-key',loginType});
+  assert.match(cookie,/(^|; )uin=123;/);assert.match(cookie,new RegExp('tmeLoginType='+loginType+';'));assert.match(cookie,/mineradio_qq_native=1/);
+ }
+ const sent=[],results=[];
+ const session=createQQNativeQrSession({service:{createSession:async()=>'key',createQr:async()=>image,checkQr:async()=>({code:803,cookie:'qqmusic_session=wx'}),cancelSession(){},logout:async()=>{}},
+  sessions:()=>[{token:'wx',credential:{musicid:'456',musickey:'fixture-key',loginType:1},expiresAt:Date.now()+60000}],notify:r=>sent.push(r),finish:r=>results.push(r),timeoutMs:100,confirmationGraceMs:0});
+ await settle();await session.poll();
+ assert.equal(results[0]&&results[0].ok,true,JSON.stringify(sent.at(-1)));assert.match(results[0].cookie,/tmeLoginType=1;/);
 });
 test('desktop NetEase uses App QR first while webpage fallback stays explicit',async()=>{
  const calls=[];const ctx=vm.createContext({loginProvider:'netease',window:{desktopWindow:{openNeteaseMusicLogin:()=>{throw Error('web invoked');}}},refreshQr:()=>calls.push('app'),openQQWebLogin(){},openKugouWebLogin(){},openQishuiWebLogin(){},openSpotifyWebLogin(){}});
@@ -71,6 +83,9 @@ test('native QQ requests restore the device used by QR authorization, with web l
  const comm=nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'6'});
  assert.equal(comm.ct,11);assert.equal(comm.QIMEI,'fixture-qimei');assert.equal(comm.authst,'fixture-key');assert.equal(comm.tmeLoginType,6);
  assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key'}),null);
+ assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'1',mineradio_qq_native:'1'}).tmeLoginType,1);
+ // A web-login cookie can carry its own tmeLoginType; without the App QR marker it keeps the web route.
+ assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'2'}),null);
  }finally{if(previous===undefined)delete process.env.QQ_NATIVE_DEVICE_FILE;else process.env.QQ_NATIVE_DEVICE_FILE=previous;fs.rmSync(dir,{recursive:true,force:true});}
 });
 

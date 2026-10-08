@@ -10612,87 +10612,6 @@ body.login-guide-active #login-guide-canvas {
   background: rgba(255, 201, 104, .13)
 }
 
-.cookie-export-prompt {
-  position: fixed;
-  z-index: 203;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none
-}
-
-.cookie-export-prompt.show {
-  display: flex;
-  pointer-events: auto
-}
-
-.cookie-export-card {
-  width: min(360px, calc(100vw - 40px));
-  padding: 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  background: rgba(15, 17, 23, .48);
-  color: rgba(255, 255, 255, .86);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .13);
-  backdrop-filter: blur(30px) saturate(1.45);
-  -webkit-backdrop-filter: blur(30px) saturate(1.45);
-  transform: translateY(8px) scale(.98);
-  opacity: 0;
-  transition: opacity .22s ease, transform .22s ease
-}
-
-.cookie-export-prompt.show .cookie-export-card {
-  opacity: 1;
-  transform: translateY(0) scale(1)
-}
-
-.cookie-export-kicker {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .16em;
-  color: rgba(var(--fc-accent-rgb), .88);
-  margin-bottom: 7px
-}
-
-.cookie-export-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 6px
-}
-
-.cookie-export-desc {
-  font-size: 11px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, .52)
-}
-
-.cookie-export-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 15px
-}
-
-.cookie-export-actions button {
-  height: 32px;
-  padding: 0 13px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, .13);
-  background: rgba(255, 255, 255, .06);
-  color: rgba(255, 255, 255, .74);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer
-}
-
-.cookie-export-actions button.primary {
-  border-color: rgba(var(--fc-accent-rgb), .52);
-  background: rgba(var(--fc-accent-rgb), .16);
-  color: #fff
-}
-
 #source-fallback-stack {
   position: fixed;
   z-index: 202;
@@ -19953,4 +19872,18 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #track-detail-body .artist-albums-more:focus-visible {
   color: rgb(var(--fc-accent-rgb));
   outline: none;
+}
+
+/* Browser login import: note on its own line, the two actions share the row below. */
+#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end
+}
+
+#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-note {
+  flex: 1 0 100%
+}
+
+#login-modal #browser-cookie-import-btn {
+  flex: 1 1 auto
 }
