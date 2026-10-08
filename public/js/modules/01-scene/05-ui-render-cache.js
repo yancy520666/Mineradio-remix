@@ -63,6 +63,13 @@ function drawMainUiFrame(refreshBackground) {
     releaseMainUiRenderCache();
     return false;
   }
+  // The cache only pays off when background frames are skipped. When every
+  // display frame redraws the background anyway, draw the scene in one pass.
+  var displayHz = Number(renderPerfState.displayHz) || 60;
+  if (refreshBackground && renderPerfState.targetFps >= displayHz * 0.98) {
+    if (mainUiRenderCache) mainUiRenderCache.valid = false;
+    return false;
+  }
   // Keep color and depth exactly as drawn, including transparent wallpaper
   // mode and shelf occlusion. WebGL 1 without depth support keeps the old path.
   if (!renderer.capabilities.isWebGL2 && (!renderer.extensions.has('WEBGL_depth_texture') || !renderer.extensions.has('EXT_frag_depth'))) return false;
