@@ -2437,6 +2437,26 @@ function stageLyricUsesSingleLineSwap(mesh) {
   return mode === 'single' && !data.usesTrack;
 }
 
+// 歌单架打开时歌词会往左让位，但镜头同时在往右摆；两段位移叠加，歌词可能被推到
+// 屏幕最左边甚至出界（设置里的歌词横向偏移会进一步放大）。这里按屏幕位置兜底：
+// 让位后的歌词中心不得比屏幕左侧 25% 更靠左，只在歌单架占用画面时生效。
+var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.52;
+var lyricShelfClampProbe = null;
+var lyricShelfClampRight = null;
+function clampStageLyricTargetForShelf(target) {
+  if (!camera || !target || typeof THREE === 'undefined') return false;
+  if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
+  camera.updateMatrixWorld();
+  lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
+  var depth = -lyricShelfClampProbe.z;
+  if (!(depth > 0.2)) return false;
+  lyricShelfClampProbe.copy(target).project(camera);
+  if (!isFinite(lyricShelfClampProbe.x) || lyricShelfClampProbe.x >= STAGE_LYRIC_SHELF_MIN_NDC_X) return false;
+  var halfWidth = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
+  lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
+  target.addScaledVector(lyricShelfClampRight, (STAGE_LYRIC_SHELF_MIN_NDC_X - lyricShelfClampProbe.x) * halfWidth);
+  return true;
+}
 // Only move the existing lyric scene on interactive UI frames. Texture uploads,
 // row transitions, glow and particles stay on their original render budget.
 function updateStageLyricLayout() {
@@ -2474,17 +2494,21 @@ function updateStageLyricLayout() {
   var shelfLyricAvoid = shouldAvoidStageLyricsForShelf();
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
+  var shelfLyricShifted = false;
   if (wallpaperLyricLock) {
+    shelfLyricShifted = wallpaperShelfLyrics;
     layoutScale *= wallpaperShelfLyrics ? 0.60 : 0.84;
     layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -1.34 : 0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -2.4, 2.7);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 1.02 : 1.15), -3.2, 3.2);
   } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
+    shelfLyricShifted = true;
     layoutScale *= 0.72;
     layoutX = clampRange(layoutX - 1.36, -4.0, 4.0);
     layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.72, -3.2, 3.2);
   } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
+    shelfLyricShifted = true;
     layoutScale *= normalShelfDetailOpen ? 0.56 : 0.70;
     layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.78 : 1.58), -4.0, 4.0);
     layoutY = clampRange(layoutY + (normalShelfDetailOpen ? 0.18 : 0.08), -2.4, 2.7);
@@ -2538,6 +2562,7 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget);
     stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
@@ -2564,6 +2589,7 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(lyricCoverWorldPos);
     lyricLayoutTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricLayoutTarget);
     stageLyrics.group.position.copy(lyricLayoutTarget);
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
     stageLyrics.group.quaternion.copy(lyricTargetQuat);
