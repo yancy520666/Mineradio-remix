@@ -246,6 +246,7 @@ function setShelfPinnedOpen(open, immediate, persist) {
     shelfHoverCue.zoneActive = false;
     shelfHoverCue.enteredAt = 0;
   }
+  if (nextOpen !== shelfPinnedOpen && typeof markRenderInteraction === 'function') markRenderInteraction('shelf-pin', 1100);
   shelfPinnedOpen = nextOpen;
   if (fx) fx.shelfPinnedOpen = nextOpen;
   if (!nextOpen) {
