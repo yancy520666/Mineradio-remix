@@ -473,6 +473,45 @@ function toggleFx(key) {
     showToast(fx.aiDepth ? '已开启后台 AI 立体增强' : '已关闭 AI 立体增强, 使用轻量弧面');
   }
 }
+// 视觉控制台靠鼠标悬停展开/收起。为了让它始终听话：点按钮再点一次、点画面其它地方、
+// 鼠标直接飞出窗口，都能可靠收起；这三种“主动收起”之后，鼠标必须先离开按钮/面板区域，
+// 悬停才会再次展开它（否则鼠标还停在按钮上，下一次移动立刻又弹开）。
+// 用 P 键或点按钮打开且鼠标不在区域内时，先保持展开，直到鼠标进过一次区域或点了别处。
+var fxPanelDismissed = false;
+var fxPanelHoldOpen = false;
+function isFxPanelOpen() {
+  var el = document.getElementById('fx-panel');
+  return !!(el && (el.classList.contains('show') || el.classList.contains('peek')));
+}
+function dismissFxPanel(reason) {
+  if (!isFxPanelOpen()) return false;
+  if (typeof visualGuideKeepsPeekOpen === 'function' && visualGuideKeepsPeekOpen('fx')) return false;
+  fxPanelDismissed = reason !== 'pointer-left-window';
+  fxPanelHoldOpen = false;
+  toggleFxPanel(false);
+  return true;
+}
+function toggleFxPanelFromUser() {
+  if (isFxPanelOpen()) { dismissFxPanel('toggle'); return; }
+  fxPanelDismissed = false;
+  fxPanelHoldOpen = true;
+  toggleFxPanel();
+}
+(function bindFxPanelDismissal() {
+  var fab = document.getElementById('fx-fab');
+  if (fab) fab.addEventListener('click', function (e) { e.preventDefault(); toggleFxPanelFromUser(); });
+  document.addEventListener('pointerdown', function (e) {
+    if (!isFxPanelOpen()) return;
+    var t = e.target;
+    var outside = (typeof renderer !== 'undefined' && renderer && t === renderer.domElement) ||
+      t === document.body || t === document.documentElement ||
+      !!(t && t.closest && t.closest('#bottom-bar,#search-area,#playlist-panel,#top-right,#empty-home,#thumb-wrap'));
+    if (outside) dismissFxPanel('outside-click');
+  }, true);
+  document.documentElement.addEventListener('mouseleave', function () {
+    if (!fxPanelHoldOpen) dismissFxPanel('pointer-left-window');
+  });
+})();
 function toggleFxPanel(force) {
   var el = document.getElementById('fx-panel');
   if (!el) return;

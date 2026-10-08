@@ -710,35 +710,14 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
   function screenHitCard(card, sx, sy, pad) {
     if (!card || !card.mesh || !card.mesh.visible || !group || !group.visible) return null;
     var params = card.mesh.geometry && card.mesh.geometry.parameters || {};
-    var hw = (params.width || 1.7) / 2;
-    var hh = (params.height || 0.85) / 2;
-    var pts = [
-      new THREE.Vector3(-hw, -hh, 0),
-      new THREE.Vector3(hw, -hh, 0),
-      new THREE.Vector3(hw, hh, 0),
-      new THREE.Vector3(-hw, hh, 0),
-    ];
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    card.mesh.updateMatrixWorld(true);
-    for (var i = 0; i < pts.length; i++) {
-      pts[i].applyMatrix4(card.mesh.matrixWorld).project(camera);
-      var x = (pts[i].x + 1) * innerWidth / 2;
-      var y = (1 - pts[i].y) * innerHeight / 2;
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-    }
-    pad = pad == null ? 28 : pad;
-    if (sx < minX - pad || sx > maxX + pad || sy < minY - pad || sy > maxY + pad) return null;
-    var u = clampRange((sx - minX) / Math.max(1, maxX - minX), 0, 1);
-    var v = 1 - clampRange((sy - minY) / Math.max(1, maxY - minY), 0, 1);
-    return { x: u, y: v };
+    return screenQuadHit(card.mesh, (params.width || 1.7) / 2, (params.height || 0.85) / 2, sx, sy, pad == null ? 12 : pad);
   }
 
   function pickCardAtScreen(sx, sy, pad) {
     if (!cards.length || !group || !group.visible) return null;
     var ordered = cards.slice().sort(function (a, b) { return (b.mesh.renderOrder || 0) - (a.mesh.renderOrder || 0); });
     for (var i = 0; i < ordered.length; i++) {
-      var uv = screenHitCard(ordered[i], sx, sy, pad == null ? 72 : pad);
+      var uv = screenHitCard(ordered[i], sx, sy, pad == null ? 14 : pad);
       if (uv) return { card: ordered[i], uv: uv, screenPick: true };
     }
     return null;
