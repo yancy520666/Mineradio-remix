@@ -1832,15 +1832,19 @@ async function handleKugouUserPlaylists(cookie) {
       error: partial ? 'KUGOU_PLAYLIST_PAGE_FAILED' : (pageLimited ? 'KUGOU_PLAYLIST_PAGE_LIMIT' : ''),
     };
   } catch (err) {
+    // These responses reject the current library connection. Do not discard
+    // the login or cached playlists, and offer reconnection alongside retry.
+    const reconnectRequired = [20006, 20017].includes(Number(err.upstreamCode));
     return {
       provider: 'kugou',
       loggedIn: true,
       playbackReady: true,
       libraryReady: false,
       playlists: [],
-      error: err.message || 'KUGOU_PLAYLIST_FAILED',
+      error: /^KUGOU_[A-Z0-9_]+$/.test(err.message || '') ? err.message : 'KUGOU_PLAYLIST_FAILED',
       upstreamCode: err.upstreamCode,
-      message: '酷狗歌单加载失败，请稍后重试',
+      reconnectRequired,
+      message: reconnectRequired ? '酷狗拒绝了当前歌单连接，请重新连接账号后再试' : '酷狗歌单加载失败，请稍后重试',
     };
   }
 }

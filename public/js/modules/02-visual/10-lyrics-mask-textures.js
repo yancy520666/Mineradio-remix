@@ -342,9 +342,14 @@ function makeLyricMask(input, layoutOverride) {
   var activeWidth = layout.activeTextWidth;
   var blockH = layout.textHeight;
   var y0 = layout.lineY0;
+  // Rasterize the off-screen runway directly at its bounded preview size.
+  // Logical metrics remain identical; the visible quality pass redraws glyphs.
+  var raster = layoutOverride && layoutOverride.runwayPreview
+    ? Math.min(0.25, Math.sqrt(lyricRunwayRowPixelBudget() / (W * H))) : 1;
   var canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
+  canvas.width = Math.max(1, Math.floor(W * raster)); canvas.height = Math.max(1, Math.floor(H * raster));
   var ctx = canvas.getContext('2d');
+  if (raster < 1) ctx.scale(canvas.width / W, canvas.height / H);
   var x = W / 2;
   ctx.clearRect(0, 0, W, H);
   ctx.textAlign = 'center';
@@ -382,7 +387,27 @@ function makeLyricMask(input, layoutOverride) {
   var baseline = y0 + activeLine * lineHeight + lyricEntryLineOffset(inkEntry) * lineHeight - H / 2;
   var inkBounds = { top: baseline - (isFinite(ink.actualBoundingBoxAscent) ? ink.actualBoundingBoxAscent : inkSize * 0.84),
     bottom: baseline + (isFinite(ink.actualBoundingBoxDescent) ? ink.actualBoundingBoxDescent : inkSize * 0.24), em: fontSize };
-  return { texture: tex, width: W, height: H, textWidth: width, activeTextWidth: activeWidth, textHeight: blockH, fontSize: fontSize, lineHeight: lineHeight, lineY0: y0, lineCount: lines.length, lines: lines, entries: entries, activeLine: activeLine, contextLayer: payload.contextLayer, activeLayer: payload.activeLayer, fitScaleX: fitScaleX, textMin: layout.textMin, textMax: layout.textMax, stoneSeed: stoneSeed, inkBounds: inkBounds };
+  var result = { texture: tex, width: W, height: H, textWidth: width, activeTextWidth: activeWidth, textHeight: blockH, fontSize: fontSize, lineHeight: lineHeight, lineY0: y0, lineCount: lines.length, lines: lines, entries: entries, activeLine: activeLine, contextLayer: payload.contextLayer, activeLayer: payload.activeLayer, fitScaleX: fitScaleX, textMin: layout.textMin, textMax: layout.textMax, stoneSeed: stoneSeed, inkBounds: inkBounds };
+  if (raster < 1) {
+    result.logicalWidth = W; result.logicalHeight = H;
+    result.logicalFontSize = fontSize; result.logicalLineHeight = lineHeight;
+    result.logicalLineY0 = y0; result.logicalTextWidth = width;
+    result.logicalActiveTextWidth = activeWidth; result.logicalTextHeight = blockH;
+    result.logicalTextMin = layout.textMin; result.logicalTextMax = layout.textMax;
+    result.width = canvas.width; result.height = canvas.height;
+    result.rasterScale = canvas.width / W; result.runwayPreview = true;
+    result.textWidth *= result.rasterScale; result.activeTextWidth *= result.rasterScale;
+    result.textHeight *= canvas.height / H; result.fontSize *= result.rasterScale;
+    result.lineHeight *= canvas.height / H; result.lineY0 *= canvas.height / H;
+  }
+  return result;
+}
+function lyricRunwayRowPixelBudget() {
+  var count = typeof lyricsLines !== 'undefined' && lyricsLines ? lyricsLines.length : 1;
+  // Include both CPU canvas and GPU RGBA storage; reserve two rows per line
+  // for translations. Decorative and selected-HD textures use their own pool.
+  var low = typeof runtimeHardwareProfile !== 'undefined' && runtimeHardwareProfile && runtimeHardwareProfile.lowSpec;
+  return Math.min(16384, Math.floor((low ? 16 : 32) * 1024 * 1024 / (8 * Math.max(1, count * 2))));
 }
 
 function lyricTextureClarityScale() {
@@ -430,7 +455,7 @@ function lyricQualityTargetMetrics(mask, tier) {
   if (tier <= 1) return null;
   var logicalW = Math.max(1, Number(mask.logicalWidth) || Number(mask.width) || 1);
   var logicalH = Math.max(1, Number(mask.logicalHeight) || Number(mask.height) || 1);
-  var baseW = Math.max(1, Number(mask.width) || logicalW);
+  var baseW = mask.runwayPreview ? Math.min(logicalW, lyricRowTextureWidthBudget()) : Math.max(1, Number(mask.width) || logicalW);
   var baseScale = baseW / logicalW;
   var scale = baseScale * tier;
   var rendererMax = renderer && renderer.capabilities ? Number(renderer.capabilities.maxTextureSize) : 0;
@@ -452,6 +477,10 @@ function lyricQualityTargetMetrics(mask, tier) {
 }
 
 function makeLyricQualityTexture(mask, tier) {
+  if (typeof takeAdjacentQualityTexture === 'function') {
+    var prepared = takeAdjacentQualityTexture(mask, tier);
+    if (prepared) return prepared;
+  }
   var target = lyricQualityTargetMetrics(mask, tier);
   if (!target) return null;
   var lines = Array.isArray(mask.lines) && mask.lines.length ? mask.lines : [''];

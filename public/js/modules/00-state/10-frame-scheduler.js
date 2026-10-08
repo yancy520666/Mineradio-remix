@@ -25,7 +25,7 @@ function consumeFrameGate(gate, now, dt, fps, force, reason) {
     return runFrameGate(gate, now, dt);
   }
   var minGap = 1000 / Math.max(1, targetFps);
-  if (gate.lastRunAt && now - gate.lastRunAt < minGap) {
+  if (gate.lastRunAt && now - gate.lastRunAt < minGap - 0.5) {
     gate.skips += 1;
     if (window.__mineradioPerf && window.__mineradioPerf.count) {
       window.__mineradioPerf.count('frameGate.' + gate.name + '.skipped');

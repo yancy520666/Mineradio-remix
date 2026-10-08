@@ -23,10 +23,10 @@ function fixture(response, provider = 'kugou') {
     playlistCatalogProviderArray: () => rows,
     setPlaylistCatalogProviderArray: (_p, next) => { rows = next; c.userPlaylists = rows; },
     rebuildUserPlaylistsFromCatalog() {}, renderUserPlaylistsList() {},
-    isPlaylistPanelVisibleForRender: () => false, playlistProviderName: () => provider === 'kugou' ? '酷狗音乐' : '汽水音乐',
+    requestNextPlaylistCatalogPage() {}, isPlaylistPanelVisibleForRender: () => false, playlistProviderName: () => provider === 'kugou' ? '酷狗音乐' : '汽水音乐',
     escHtml: text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;'), console,
   });
-  vm.runInContext(['mergePlaylistCatalogRows', 'loadPlaylistCatalogProviderPage', 'retryPlaylistCatalogProvider', 'playlistCatalogHasPendingPages'].map(n => extract(shell, n)).join('\n') + '\n' + extract(detail, 'playlistCatalogFooterHtml'), c);
+  vm.runInContext(['mergePlaylistCatalogRows', 'loadPlaylistCatalogProviderPage', 'retryPlaylistCatalogProvider', 'playlistCatalogHasPendingPages'].map(n => extract(shell, n)).join('\n') + '\n' + extract(detail, 'playlistCatalogCountLabel') + '\n' + extract(detail, 'playlistCatalogFooterHtml'), c);
   return { c, state, requests: () => requests, rows: () => rows };
 }
 test('partial library remains visible with a retry that fills missing rows and clears the warning', async () => {
@@ -84,4 +84,101 @@ test('a zero-row incomplete result shows the warning rather than a successful em
   s.c.renderUserPlaylistsList();
   assert.match(list.innerHTML, /尚未同步完整.*重试/);
   assert.doesNotMatch(list.innerHTML, /未找到歌单/);
+});
+
+
+test('normal paged results clear completion errors and continue when the total is unknown', async () => {
+  const s = fixture({ playlists: [{ id: '1' }], total: 1, totalKnown: false, hasMore: true, partial: true }, 'netease');
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.state.hasMore, true);
+  assert.equal(s.state.error, '');
+  s.c.apiJson = async () => ({ playlists: [{ id: '2' }], total: 2, hasMore: false, partial: false });
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.rows().length, 2);
+  assert.equal(s.state.error, '');
+  assert.equal(s.state.hasMore, false);
+});
+test('failed paged retry resumes its offset and schedules the remaining pages', async () => {
+  const s = fixture({ playlists: [{ id: 'old' }], total: 4, hasMore: true, partial: true, totalKnown: true }, 'netease');
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  s.c.apiJson = async () => { throw new Error('offline'); };
+  s.c.console = { warn() {} };
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  const retryOffset = s.state.nextOffset;
+  let requestedOffset, scheduled = 0;
+  s.c.playlistCatalogPageUrl = (_provider, offset) => { requestedOffset = offset; return '/fixture'; };
+  s.c.apiJson = async () => ({ playlists: [{ id: 'new' }], total: 4, nextOffset: 2, hasMore: true, partial: true });
+  s.c.requestNextPlaylistCatalogPage = () => { scheduled++; };
+  await s.c.retryPlaylistCatalogProvider('netease');
+  assert.equal(requestedOffset, retryOffset);
+  assert.equal(s.state.error, '');
+  assert.equal(scheduled, 1);
+  assert.equal(s.rows().length, 2);
+});
+test('forced refresh keeps existing rows through failure, then replaces a successful snapshot', async () => {
+  const s = fixture({ playlists: [{ id: 'cached' }], hasMore: false, partial: false }, 'netease');
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  s.state.nextOffset = 0; s.state.replaceOnFirstPage = true; s.state.hasMore = true;
+  s.c.apiJson = async () => ({ error: 'NETWORK', playlists: [] });
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.rows()[0].id, 'cached');
+  s.state.hasMore = true;
+  s.c.apiJson = async () => ({ playlists: [{ id: 'fresh' }], hasMore: false });
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(JSON.stringify(s.rows().map(x => x.id)), '["fresh"]');
+});
+test('an empty page reporting more data warns and stops instead of spinning forever', async () => {
+  const s = fixture({ playlists: [], hasMore: true, totalKnown: false }, 'netease');
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.state.hasMore, false);
+  assert.equal(s.state.error, 'PLAYLIST_CATALOG_INCOMPLETE');
+});
+
+test('an upstream connection rejection keeps cached rows and offers only one retry without logging out', async () => {
+  const s = fixture({ playlists: [{ id: 'cached' }], libraryReady: true });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  s.state.hasMore = true;
+  s.c.apiJson = async () => ({ playlists: [], libraryReady: false, error: 'KUGOU_PLAYLIST_CONNECTION_REJECTED', reconnectRequired: true });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  assert.equal(s.rows()[0].id, 'cached');
+  const html = s.c.playlistCatalogFooterHtml();
+  assert.match(html, /平台拒绝当前连接/);
+  assert.match(html, /1\/1/);
+  assert.equal((html.match(/<button /g) || []).length, 1);
+  assert.doesNotMatch(html, /openProviderLogin|>重新连接</);
+});
+
+test('a multi-page refresh retains the old complete snapshot through a later failure', async () => {
+  const s = fixture({ playlists: [{ id: 'old-a' }, { id: 'old-b' }], hasMore: false }, 'netease');
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  s.state.nextOffset=0; s.state.replaceOnFirstPage=true; s.state.hasMore=true;
+  s.c.apiJson=async()=>({playlists:[{id:'new-a'}],hasMore:true,partial:true,nextOffset:1});
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.rows().length,3);
+  s.c.apiJson=async()=>({playlists:[],error:'NETWORK'});
+  await s.c.loadPlaylistCatalogProviderPage('netease');
+  assert.equal(s.rows().length,3);
+  s.c.apiJson=async()=>({playlists:[{id:'new-b'}],hasMore:false,partial:false,nextOffset:2});
+  await s.c.retryPlaylistCatalogProvider('netease');
+  assert.equal(JSON.stringify(s.rows().map(x=>x.id)), '["new-a","new-b"]');
+});
+
+test('progress uses a known provider total even on an empty rejected response', async () => {
+  const s = fixture({ playlists: [], total: 7, error: 'CONNECTION', libraryReady: false });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  assert.match(s.c.playlistCatalogFooterHtml(), /0\/7/);
+  s.state.hasMore = true;
+  s.c.apiJson = async () => ({ playlists: [{ id: '1' }], total: 7, libraryReady: false, partial: true });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  assert.match(s.c.playlistCatalogFooterHtml(), /1\/7/);
+});
+test('failed reads with an unknown total never claim that the full library has zero items', async () => {
+  const s = fixture({ playlists: [], error: 'NETWORK', libraryReady: false });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  assert.match(s.c.playlistCatalogFooterHtml(), /0\/\?/);
+  assert.doesNotMatch(s.c.playlistCatalogFooterHtml(), /已显示|0\/0/);
+  s.state.hasMore = true;
+  s.c.apiJson = async () => ({ playlists: [{ id: '1' }], total: 1, totalKnown: false, hasMore: true, partial: true });
+  await s.c.loadPlaylistCatalogProviderPage('kugou');
+  assert.equal(s.c.playlistCatalogCountLabel(s.state), '1/?');
 });

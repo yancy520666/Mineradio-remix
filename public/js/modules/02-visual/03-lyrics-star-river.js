@@ -219,7 +219,9 @@ function disposeLyricMesh(mesh) {
   lyricDisposeQueue.push({
     objects: objects,
     index: 0,
-    masks: lyricData ? [lyricData.mask, lyricData.activeMask, lyricData.contextMask] : []
+    masks: lyricData ? [lyricData.mask, lyricData.activeMask, lyricData.contextMask].concat(
+      (lyricData.rowLayers || []).map(function (row) { return row.runwayLineMask; })
+    ) : []
   });
   if (!lyricDisposeTimer) scheduleLyricDisposeWork();
 }

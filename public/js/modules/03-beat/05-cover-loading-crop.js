@@ -94,10 +94,10 @@ function loadCoverFromUrl(directUrl, opts) {
     settle();
     if (!coverApplyStillCurrent(opts)) return;
     var size = coverTextureSizeForResolution(fx.coverResolution);
-    var cv = makeSquareCoverCanvas(img, size);
+    var cv = opts.preparedCover && opts.preparedCover.canvas || makeSquareCoverCanvas(img, size);
     previewCurrentTrackCover(src, opts);
     setAlbumBackground(src);
-    applyCoverCanvas(cv, src, Object.assign({}, opts, { coverKey: directUrl, coverSourceKind: 'url', coverSource: directUrl }));
+    applyCoverCanvas(cv, src, Object.assign({}, opts, { coverKey: directUrl, coverSourceKind: 'url', coverSource: directUrl, paletteCanvas: opts.preparedCover && opts.preparedCover.palette }));
   }
   function failAll() {
     settle();
@@ -133,28 +133,27 @@ function loadCoverFromUrl(directUrl, opts) {
     load.timer = setTimeout(next, COVER_ATTEMPT_TIMEOUT_MS);
     img.src = src;
   }
-  tryAttempt(0);
+  var prepared = typeof takeAdjacentEntry === 'function' ? takeAdjacentEntry('cover|' + proxiedUrl + '|' + fx.coverResolution) : null;
+  if (prepared) { opts.preparedCover = prepared; applyLoaded(prepared.image, proxiedUrl); }
+  else tryAttempt(0);
 }
 
-// Warm the next songs' covers (the exact address playback will ask for) so a
-// switch can paint from cache. One at a time, after the current cover settles.
+// Warm adjacent covers at playback's exact address; decode/crop before switching.
 var upcomingCoverPrefetch = { timer: 0, image: null, token: -1, done: {}, doneCount: 0, retryAfter: {} };
 var UPCOMING_COVER_PREFETCH_RETRY_MS = 15000;
-var UPCOMING_COVER_PREFETCH_DELAY_MS = 1500;
-var UPCOMING_COVER_PREFETCH_COUNT = 2;
+var UPCOMING_COVER_PREFETCH_DELAY_MS = 120;
 
 function upcomingCoverPrefetchUrls() {
-  if (typeof playQueue === 'undefined' || !playQueue.length || currentIdx < 0) return [];
-  var urls = [];
-  var count = Math.min(UPCOMING_COVER_PREFETCH_COUNT, playQueue.length - 1);
-  for (var step = 1; step <= count; step++) {
-    var song = playQueue[(currentIdx + step) % playQueue.length];
-    if (!song || !song.cover || getCustomCoverForSong(song)) continue;
+  if (typeof adjacentTrackCandidates !== 'function') return [];
+  return adjacentTrackCandidates().map(function (candidate) {
+    var song = candidate.song;
+    if (!song || !song.cover || getCustomCoverForSong(song)) return '';
     var src = coverProxySrc(coverUrlWithSize(song.cover, 400));
-    if (!src || isInlineCoverSrc(src) || upcomingCoverPrefetch.done[src] || Number(upcomingCoverPrefetch.retryAfter[src]) > Date.now()) continue;
-    urls.push(src);
-  }
-  return urls;
+    var key = 'cover|' + src + '|' + fx.coverResolution;
+    if (!src || isInlineCoverSrc(src) || adjacentPreparation.entries.has(key)
+      || Number(upcomingCoverPrefetch.retryAfter[src]) > Date.now() || Number(upcomingCoverPrefetch.done[src]) > Date.now() - 30000) return '';
+    return src;
+  }).filter(Boolean);
 }
 
 function cancelUpcomingCoverPrefetch() {
@@ -162,6 +161,7 @@ function cancelUpcomingCoverPrefetch() {
   upcomingCoverPrefetch.timer = 0;
   var img = upcomingCoverPrefetch.image;
   upcomingCoverPrefetch.image = null;
+  if (upcomingCoverPrefetch.releaseSlot) { upcomingCoverPrefetch.releaseSlot(); upcomingCoverPrefetch.releaseSlot = null; }
   if (img) { img.onload = img.onerror = null; img.removeAttribute('src'); }
 }
 
@@ -176,9 +176,14 @@ function scheduleUpcomingCoverPrefetch(token) {
 
 function runUpcomingCoverPrefetch(token) {
   if (token !== trackSwitchToken || upcomingCoverPrefetch.token !== token) return;
-  if (typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
+  if (!adjacentPreparationAllowed() || typeof commentAvatarLoader !== 'undefined' && commentAvatarLoader.snapshot().active >= 2) {
+    upcomingCoverPrefetch.timer = setTimeout(function () { runUpcomingCoverPrefetch(token); }, 400); return;
+  }
   var src = upcomingCoverPrefetchUrls()[0];
   if (!src) return;
+  var releaseSlot = reserveBackgroundImageSlot();
+  if (!releaseSlot) { upcomingCoverPrefetch.timer = setTimeout(function () { runUpcomingCoverPrefetch(token); }, 400); return; }
+  upcomingCoverPrefetch.releaseSlot = releaseSlot;
   if (upcomingCoverPrefetch.doneCount >= 64) { upcomingCoverPrefetch.done = {}; upcomingCoverPrefetch.retryAfter = {}; upcomingCoverPrefetch.doneCount = 0; }
   // Same CORS mode as loadCoverFromUrl so the browser cache entry is reusable.
   var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
@@ -188,20 +193,32 @@ function runUpcomingCoverPrefetch(token) {
     clearTimeout(upcomingCoverPrefetch.timer);
     upcomingCoverPrefetch.timer = 0;
     if (ok) {
-      upcomingCoverPrefetch.done[src] = true;
-      delete upcomingCoverPrefetch.retryAfter[src];
+      upcomingCoverPrefetch.done[src] = Date.now();
+      var candidate = adjacentTrackCandidates().find(function (entry) { return entry.song.cover && coverProxySrc(coverUrlWithSize(entry.song.cover, 400)) === src; });
+      var size = coverTextureSizeForResolution(fx.coverResolution);
+      var estimated = (img.naturalWidth * img.naturalHeight + size * size * 2 + 128 * 128) * 4;
+      var canvas = estimated <= adjacentPreparationBudget() ? makeSquareCoverCanvas(img, size) : null;
+      var palette = makeSquareCoverCanvas(img, 128);
+      var bytes = (img.naturalWidth * img.naturalHeight + (canvas ? canvas.width * canvas.height * 2 : 0) + 128 * 128) * 4;
+      if (candidate && bytes > adjacentPreparationBudget()) upcomingCoverPrefetch.retryAfter[src] = Date.now() + 60000;
+      if (candidate) storeAdjacentEntry('cover|' + src + '|' + fx.coverResolution, { image: img, canvas: canvas, palette: palette }, bytes, function (value) { if (value.canvas) value.canvas.width = value.canvas.height = 1; value.palette.width = value.palette.height = 1; }, candidate.key);
+      if (bytes <= adjacentPreparationBudget()) delete upcomingCoverPrefetch.retryAfter[src];
     } else {
       upcomingCoverPrefetch.retryAfter[src] = Date.now() + UPCOMING_COVER_PREFETCH_RETRY_MS;
     }
     upcomingCoverPrefetch.doneCount++;
     img.onload = img.onerror = null;
     upcomingCoverPrefetch.image = null;
+    releaseSlot(); upcomingCoverPrefetch.releaseSlot = null;
     upcomingCoverPrefetch.timer = setTimeout(function () {
       upcomingCoverPrefetch.timer = 0;
       runUpcomingCoverPrefetch(token);
     }, 200);
   }
-  img.onload = function () { finish(true); };
+  img.onload = function () {
+    if (typeof img.decode === 'function') img.decode().then(function () { finish(true); }, function () { finish(false); });
+    else finish(true);
+  };
   img.onerror = function () { finish(false); };
   upcomingCoverPrefetch.timer = setTimeout(function () {
     // A failed warm-up may be tried again later; playback has its own retries.

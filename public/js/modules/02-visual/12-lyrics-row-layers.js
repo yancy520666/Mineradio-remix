@@ -206,7 +206,7 @@ function lyricReadabilityColorForBrightBackdrop(strength) {
   return lyricReadabilityMixColor.copy(lyricReadabilityLightColor).lerp(lyricReadabilityDarkColor, clampRange(strength * 0.92, 0, 0.92));
 }
 
-function makeLyricLineMask(entry, baseMask, asActive) {
+function makeLyricLineMask(entry, baseMask, asActive, runwayPreview) {
   entry = entry || {};
   var primaryLine = !entry.translationLine;
   var drawEntry = cloneStageLyricEntryForLayer(entry, {
@@ -221,7 +221,9 @@ function makeLyricLineMask(entry, baseMask, asActive) {
     entries: [drawEntry]
   }, {
     fontSize: baseMask && (baseMask.logicalFontSize || baseMask.fontSize),
-    lineHeight: baseMask && (baseMask.logicalLineHeight || baseMask.lineHeight)
+    lineHeight: baseMask && (baseMask.logicalLineHeight || baseMask.lineHeight),
+    runwayPreview: runwayPreview === true,
+    plainPreview: runwayPreview === true
   }));
 }
 
@@ -419,6 +421,13 @@ function beginLyricRowLayerGroupBuild(payload, mask, worldW, worldH, pal, motion
   };
 }
 
+function lyricRowUsesRunwayPreview(payload, lineIndex) {
+  // Initial preparation keeps only the actual display window sharp. Resident
+  // jobs explicitly choose sharp nearby text or a reduced off-screen runway.
+  if (payload.trackRunwayPreview != null) return payload.trackRunwayPreview === true;
+  return !lyricLineAllowedForDisplayMode(lineIndex, payload.trackIndex, payload.mode);
+}
+
 function beginLyricRowLayerBuildEntry(state) {
   if (!state || state.done) return false;
   var i = state.cursor;
@@ -431,9 +440,9 @@ function beginLyricRowLayerBuildEntry(state) {
   var delta = virtualIndex - state.activeLine;
   var entryLineIndex = entry.lineIndex != null && isFinite(Number(entry.lineIndex)) ? Number(entry.lineIndex) : null;
   var isActive = !entry.translationLine && (state.usesTrack ? entryLineIndex === state.activeLineIndex : Math.abs(delta) < 0.001);
-  var lineMask = makeLyricLineMask(entry, state.mask, isActive);
+  var lineMask = makeLyricLineMask(entry, state.mask, isActive, state.textOnly && state.usesTrack && lyricRowUsesRunwayPreview(state.payload, entryLineIndex));
   var lineWorldW = lyricRowLogicalWorldWidth(lineMask, state.worldW);
-  var lineWorldH = lineWorldW * (lineMask.height / lineMask.width);
+  var lineWorldH = lineWorldW * ((lineMask.logicalHeight || lineMask.height) / (lineMask.logicalWidth || lineMask.width));
   var lineY = -delta * state.lineStepWorld;
   if (entry.translationLine) {
     var translationLayoutEntry = !state.usesTrack
@@ -1415,6 +1424,14 @@ function lyricTrackFarFollowScale(remaining, slotStep) {
   return Math.max(1, rows * 0.24 / 0.68);
 }
 
+// Small whole-song rasters are a scrolling runway, never a stationary caption.
+function lyricRowTextReadyForDisplay(row, fastScroll) {
+  if (!row) return false;
+  if (fastScroll || !row.lineMask || !row.lineMask.runwayPreview) return true;
+  var map = lyricQualityCurrentMap(row);
+  return !!(map && map !== row.baseLineTexture);
+}
+
 function updateLyricRowLayers(data, opts) {
   if (!data || !data.rowLayers || !data.rowLayers.length) return;
   opts = opts || {};
@@ -1467,6 +1484,15 @@ function updateLyricRowLayers(data, opts) {
     : (opts.targetVirtualIndex != null && isFinite(Number(opts.targetVirtualIndex))
       ? Number(opts.targetVirtualIndex)
       : (isFinite(Number(data.trackTargetVirtualIndex)) ? Number(data.trackTargetVirtualIndex) : lyricPrimaryVirtualIndex(targetLineIndex)));
+  if (data.trackSeekStartIndex != null) {
+    if (!data.renderInitialTextReady || opacity < 0.12 || data.trackSeekCorridorReady !== true) {
+      targetLineIndex = data.trackSeekStartIndex;
+      targetIndex = lyricPrimaryVirtualIndex(targetLineIndex);
+    } else {
+      data.trackSeekStartIndex = null;
+      data.trackGlide = null;
+    }
+  }
   var baseTrackEase = opts.trackEase == null ? clampRange(baseEase * 1.16, 0.08, 0.34) : clampRange(Number(opts.trackEase) || 0.18, 0.04, 0.60);
   var trackEase = 1 - Math.pow(1 - baseTrackEase, frameScale);
   var nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -1490,7 +1516,8 @@ function updateLyricRowLayers(data, opts) {
     continuousTrackSlotStep = Math.abs(lyricPrimaryVirtualIndex(neighborLineIndex) - lyricPrimaryVirtualIndex(targetLineIndex));
     if (!isFinite(continuousTrackSlotStep) || continuousTrackSlotStep < 0.25) continuousTrackSlotStep = 1;
   }
-  var needsScrollSnap = !isFinite(currentScrollOffset) || (!persistentPrimedTrack && !previewMotionLock && (
+  var restoreLayout = data.trackRestoreLayoutPending === true;
+  var needsScrollSnap = restoreLayout || !isFinite(currentScrollOffset) || (!persistentPrimedTrack && !previewMotionLock && (
     (isFinite(Number(data.trackScrollSnapUntil)) && nowMs <= Number(data.trackScrollSnapUntil)) ||
     Math.abs(targetIndex - currentScrollOffset) > Math.max(3.2, visibleRadiusForSnap * 1.85)
   ));
@@ -1517,16 +1544,18 @@ function updateLyricRowLayers(data, opts) {
       var continuousTrackMaxStep = continuousTrackSlotStep * continuousTrackMaxRowsPerFrame * lyricTrackFarFollowScale(targetIndex - data.trackScrollOffset, continuousTrackSlotStep);
       trackStep = clampRange(trackStep, -continuousTrackMaxStep, continuousTrackMaxStep);
     }
+    // A short click starts its glide on release, not during pointer capture.
+    if (typeof progressDragState !== 'undefined' && progressDragState.active && !progressDragState.pointerMoved && nowMs - progressDragState.pointerStartedAt < 220) trackStep = 0;
     data.trackScrollOffset += trackStep;
   }
   var scrollOffset = data.trackScrollOffset;
   var lineStepWorld = lyricMeshLineStepWorld(data, false);
   var translationLineStepWorld = lyricMeshLineStepWorld(data, true);
   var displayedTrackOffset = typeof stageLyricResidentDisplayedScrollOffset === 'function'
-    ? stageLyricResidentDisplayedScrollOffset(data, scrollOffset)
+    ? ((trackGlideOffset != null || data.trackSeekStartIndex != null) ? scrollOffset : stageLyricResidentDisplayedScrollOffset(data, scrollOffset))
     : scrollOffset;
   var previewTrackCorridor = !!(
-    previewMotionLock && data.usesTrack && data.trackPersistent &&
+    (previewMotionLock || trackGlideOffset != null) && data.usesTrack && data.trackPersistent &&
     isFinite(Number(displayedTrackOffset)) && Math.abs(targetIndex - Number(displayedTrackOffset)) > 0.20
   );
   var presentationLineIndex = previewTrackCorridor
@@ -1536,6 +1565,7 @@ function updateLyricRowLayers(data, opts) {
   var visibilityScrollOffset = previewTrackCorridor ? Number(displayedTrackOffset) : scrollOffset;
   data.trackPreviewCorridorActive = previewTrackCorridor;
   data.trackPresentationLineIndex = presentationLineIndex;
+  var movingTextPreview = trackGlideOffset != null && Math.abs(targetIndex - scrollOffset) > continuousTrackSlotStep * 1.5;
   var rowDrift = previewMotionLock ? 0 : (0.5 - shownProgress) * contextDrift * motionBlend;
   var rowGlow = clampRange(Number(opts.rowGlow) || 0, 0, 1);
   var rowGlowBeat = clampRange(Number(opts.rowGlowBeat) || 0, 0, 1.5);
@@ -1632,17 +1662,17 @@ function updateLyricRowLayers(data, opts) {
     if (renderWindowActive && !row.renderWindowActive) {
       var revealLane = Math.min(5, Math.max(0, Math.round(visibilityAbs)));
       row.renderWindowActive = true;
-      row.renderRevealAt = nowMs + (motionAnchor || row.renderLineUploaded ? 0 : 10 + revealLane * 14) + (row.renderLineUploaded ? 0 : (row.isTranslation ? 8 : 0));
+      row.renderRevealAt = movingTextPreview ? nowMs : nowMs + (motionAnchor || row.renderLineUploaded ? 0 : 10 + revealLane * 14) + (row.renderLineUploaded ? 0 : (row.isTranslation ? 8 : 0));
     } else if (!renderWindowActive && row.renderWindowActive) {
       row.renderWindowActive = false;
       row.renderRevealAt = 0;
     }
-    var rowHighQualityAllowed = contextHighQualityEnabled || isActive || currentTranslation;
+    var rowHighQualityAllowed = contextHighQualityEnabled || isActive || currentTranslation || !!(data.trackSeekHold && data.trackSeekHold.row === row);
     if (editPreview || row.editTextPreview) {
       if (!row.editTextPreview && row.baseLineTexture && lyricQualityCurrentMap(row) !== row.baseLineTexture) setLyricRowTextureMap(row, row.baseLineTexture);
     } else if (lyricQualityTier <= 1 || !rowHighQualityAllowed) {
       if (row.qualityTexture || row.qualityPendingTexture || row.qualityQueuedKey) releaseLyricRowQuality(row, true);
-    } else if (!initialTextRevealPending && (renderWindowActive || lineUploadPrewarm || pendingWindowAllowed)) {
+    } else if (!initialTextRevealPending && (!movingTextPreview || pendingWindowAllowed) && (renderWindowActive || lineUploadPrewarm || pendingWindowAllowed)) {
       var qualityPriority = isActive ? 10 : (currentTranslation ? 11 : (row.isTranslation ? 22 : (lineUploadPrewarm ? 34 : 24 + Math.min(8, visibilityAbs))));
       lyricQualityCandidates.push({
         row: row,
@@ -1651,7 +1681,7 @@ function updateLyricRowLayers(data, opts) {
       });
     }
     var rowRevealAt = Number(row.renderRevealAt) || nowMs;
-    var lineLayerVisible = renderWindowActive && (initialTextRevealPending || nowMs >= rowRevealAt);
+    var lineLayerVisible = renderWindowActive && lyricRowTextReadyForDisplay(row, previewTrackCorridor) && (initialTextRevealPending || nowMs >= rowRevealAt);
     var readabilityLayerVisible = textureEffectsAllowed && !row.editTextPreview && lineLayerVisible && readability > 0.001 && nowMs >= rowRevealAt + 18;
     var existingGlowOpacity = row.glowMat ? getLyricTextureMaterialOpacity(row.glowMat) : 0;
     var glowLayerWanted = rowGlow > 0.001 || rowGlowBeat > 0.001 || existingGlowOpacity > 0.004;
@@ -1693,7 +1723,7 @@ function updateLyricRowLayers(data, opts) {
         renderRevealCandidates.push({ row: row, mesh: row.glow, flag: 'renderGlowUploaded', priority: 204 + pendingPriority, transparentPrewarm: true });
       }
     }
-    if (persistentTrackTransparentPrewarm) {
+    if (persistentTrackTransparentPrewarm && !(row.lineMask && row.lineMask.runwayPreview)) {
       var trackPrewarmOrder = Math.max(0, rowLineIndex == null ? i : Math.round(rowLineIndex)) * 2 + (row.isTranslation ? 1 : 0);
       if (row.mesh && !row.renderLineUploaded) {
         renderRevealCandidates.push({ row: row, mesh: row.mesh, flag: 'renderLineUploaded', priority: 300 + trackPrewarmOrder * 0.01, transparentPrewarm: true });
@@ -1741,8 +1771,8 @@ function updateLyricRowLayers(data, opts) {
     if (row.mesh) {
       row.mesh.position.x += ((isActive ? jitterX : (currentTranslation ? jitterX * 0.82 : jitterX * 0.28)) - row.mesh.position.x) * (opts.glitchPulse ? 0.48 : 0.13);
       var rowYTarget = yTarget + (verticalFloatOn ? (isActive ? jitterY : (currentTranslation ? jitterY * 0.78 : jitterY * 0.24)) : 0);
-      var rowYStep = (rowYTarget - row.mesh.position.y) * editLayoutEase;
-      if (data.usesTrack && persistentPrimedTrack) {
+      var rowYStep = (rowYTarget - row.mesh.position.y) * (restoreLayout || data.trackSeekStartIndex != null ? 1 : editLayoutEase);
+      if (!restoreLayout && data.trackSeekStartIndex == null && data.usesTrack && persistentPrimedTrack) {
         var continuousRowMaxRowsPerFrame = 0.66;
         var continuousRowMaxStepWorld = continuousTrackSlotStep * lineStepWorld * continuousRowMaxRowsPerFrame;
         // A seek glide already eases the shared track, so rows ride it
@@ -1761,10 +1791,10 @@ function updateLyricRowLayers(data, opts) {
     if (row.mat && row.mat.uniforms) {
       if (row.mat.uniforms.uEditPreview) row.mat.uniforms.uEditPreview.value = editPreview || row.editTextPreview ? 1 : 0;
       if (row.mat.uniforms.uOpacity) {
-        var lineOpacityTarget = data.usesTrack && (initialTextRevealPending || !lineLayerVisible || !row.renderLineUploaded) ? 0 : target * depthFade;
+        var lineOpacityTarget = data.usesTrack && (initialTextRevealPending || !lineLayerVisible || (!movingTextPreview && !row.renderLineUploaded)) ? 0 : target * depthFade;
         if (initialTextRevealPending) row.mat.uniforms.uOpacity.value = 0;
         else {
-          row.mat.uniforms.uOpacity.value += (lineOpacityTarget - row.mat.uniforms.uOpacity.value) * ease;
+          row.mat.uniforms.uOpacity.value += (lineOpacityTarget - row.mat.uniforms.uOpacity.value) * (movingTextPreview ? 1 : ease);
           if (trackTargetJustCommitted && lineOpacityTarget > 0.001 && row.renderLineUploaded && row.mat.uniforms.uOpacity.value < 0.004) {
             row.mat.uniforms.uOpacity.value = Math.min(lineOpacityTarget, 0.004);
           }
@@ -1782,7 +1812,7 @@ function updateLyricRowLayers(data, opts) {
       }
       if (row.mat.uniforms.uGlitchBurst && opts.glitchPulse) row.mat.uniforms.uGlitchBurst.value = isActive ? opts.glitchPulse : opts.glitchPulse * 0.35;
     } else if (row.mat) {
-      var fallbackLineOpacityTarget = data.usesTrack && (initialTextRevealPending || !lineLayerVisible || !row.renderLineUploaded) ? 0 : target * depthFade;
+      var fallbackLineOpacityTarget = data.usesTrack && (initialTextRevealPending || !lineLayerVisible || (!movingTextPreview && !row.renderLineUploaded)) ? 0 : target * depthFade;
       if (initialTextRevealPending) row.mat.opacity = 0;
       else {
         row.mat.opacity += (fallbackLineOpacityTarget - row.mat.opacity) * ease;
@@ -1847,6 +1877,13 @@ function updateLyricRowLayers(data, opts) {
       setLyricTextureMaterialOpacity(row.glowMat, initialTextRevealPending ? 0 : nextGlowOpacity);
     }
   }
+  data.trackRestoreLayoutPending = false;
+  if (data.trackSeekHold) {
+    lyricQualityCandidates.push({ row: data.trackSeekHold.row, priority: 0, hotMs: 350 });
+    // Reuse the existing one-row transition allowance; never retain a second root.
+    if (!lyricQualityState.transitionBudgetUntil) lyricQualityState.transitionBaseBytes = lyricQualityState.bytes || 0;
+    lyricQualityState.transitionBudgetUntil = Math.max(Number(lyricQualityState.transitionBudgetUntil) || 0, nowMs + 350);
+  }
   registerLyricQualityCandidates(data, lyricQualityCandidates, lyricQualityTier, opts.qualityRootPriority);
   var deferQualityCommit = lyricQualityState.deferFinalize;
   if (deferQualityCommit && renderRevealCandidates.length) {
@@ -1879,7 +1916,7 @@ function updateLyricRowLayers(data, opts) {
         continue;
       }
       reveal.row[reveal.flag] = true;
-      reveal.mesh.visible = true;
+      reveal.mesh.visible = reveal.flag !== 'renderLineUploaded' || lyricRowTextReadyForDisplay(reveal.row, previewTrackCorridor);
     }
   }
   updateLyricQualityStats(lyricQualityTier);
@@ -1890,7 +1927,7 @@ function updateLyricRowLayers(data, opts) {
       var readyRow = data.rowLayers[readyIndex];
       if (!readyRow || !readyRow.mesh || !readyRow.renderWindowActive) continue;
       initialTextRows += 1;
-      if (!readyRow.renderLineUploaded) initialTextRowsReady = false;
+      if (!readyRow.renderLineUploaded || !lyricRowTextReadyForDisplay(readyRow, previewTrackCorridor)) initialTextRowsReady = false;
     }
     if (initialTextRows > 0 && initialTextRowsReady) {
       data.renderInitialTextReady = true;
@@ -1904,6 +1941,7 @@ function updateLyricRowLayers(data, opts) {
       }
     }
   }
+  if (typeof applyStageLyricSeekHold === 'function') applyStageLyricSeekHold(data, nowMs, lineStepWorld);
   if (activeRow && activeRow.mat && activeRow.mat.uniforms) {
     data.textMat = activeRow.mat;
     data.activeRowMesh = activeRow.mesh;

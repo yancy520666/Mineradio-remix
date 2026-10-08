@@ -67,7 +67,7 @@ var visualGuideSteps = [
     body: '“歌单架”页可以选两种摆法：侧栏把歌单卡片收在画面右侧，不挡歌词；舞台让卡片在画面下方横向铺开，中间那张最醒目。'
   },
   {
-    key: 'shelf-summon', center: true, demo: 'shelf-summon', songScene: true,
+    key: 'shelf-summon', targetShelf: true, demo: 'shelf-summon', songScene: true,
     kicker: 'Right Click',
     title: '右键空白处，呼出歌单架',
     body: '看看右边：在歌曲画面的空白处点右键，3D 歌单架就会滑出来；再点一次便收起。现在为你演示，下一步会收起。舞台模式不使用这个右键开关。',
@@ -427,7 +427,8 @@ function scheduleVisualGuidePositioning() {
     visualGuidePositionFrame = 0;
     if (!visualGuideActive) return;
     positionVisualGuideStep();
-    if (performance.now() < visualGuidePositionUntil) visualGuidePositionFrame = requestAnimationFrame(track);
+    var step = activeVisualGuideSteps()[visualGuideStep];
+    if (performance.now() < visualGuidePositionUntil || step && step.targetShelf) visualGuidePositionFrame = requestAnimationFrame(track);
   }
   visualGuidePositionFrame = requestAnimationFrame(track);
 }
@@ -479,6 +480,7 @@ function showVisualGuideStep(index) {
   }
 }
 function guideTargetRect(step) {
+  if (step && step.targetShelf && shelfManager && shelfManager.getGuideScreenBounds) return shelfManager.getGuideScreenBounds();
   if (step && step.center) {
     return { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0, right: innerWidth / 2, bottom: innerHeight / 2 };
   }
@@ -563,6 +565,7 @@ function positionVisualGuideStep() {
   var width = Math.max(0, Math.min(innerWidth - 4, rect.right + pad) - left);
   var height = Math.max(0, Math.min(innerHeight - 4, rect.bottom + pad) - top);
   ring.classList.toggle('is-hidden', center);
+  ring.classList.toggle('is-shelf-target', !!(step && step.targetShelf));
   ring.style.left = left + 'px';
   ring.style.top = top + 'px';
   ring.style.width = width + 'px';
@@ -714,6 +717,7 @@ function replayVisualGuideShelfDemo() {
   state.timer = setTimeout(function () {
     if (visualGuideShelfDemo !== state || !visualGuideActive || activeVisualGuideSteps()[visualGuideStep].key !== 'shelf-summon') return;
     setShelfPinnedOpen(true, false, false);
+    scheduleVisualGuidePositioning();
     fx.shelfPinnedOpen = state.savedPinnedPreference;
     if (typeof markRenderInteraction === 'function') markRenderInteraction('guide-shelf-open', 1800);
     var status = document.getElementById('visual-guide-shelf-status');

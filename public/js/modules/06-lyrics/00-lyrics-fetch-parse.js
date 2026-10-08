@@ -8,6 +8,7 @@ var lyricTranslationFallbackMissCache = {};
 var lyricQueuePrefetchTimer = 0;
 var lyricQueuePrefetchToken = 0;
 var lyricQueuePrefetchBusy = false;
+var lyricQueuePrefetchController = null;
 var lyricQueuePrefetchKeys = {};
 function lyricTranslationTextFromAliases(source) {
   source = source || {};
@@ -62,57 +63,46 @@ function lyricQueuePrefetchCandidate(song) {
 }
 
 function nextQueueLyricPrefetchSong(fromIndex) {
-  if (!Array.isArray(playQueue) || playQueue.length < 2) return null;
-  var total = playQueue.length;
-  var from = isFinite(Number(fromIndex)) ? Math.round(Number(fromIndex)) : currentIdx;
-  for (var step = 1; step < total; step++) {
-    var index = (from + step + total) % total;
-    if (index === currentIdx) continue;
-    var song = playQueue[index];
-    if (!lyricQueuePrefetchCandidate(song)) continue;
-    var key = persistentLyricCacheKey(song);
-    if (!key || lyricQueuePrefetchKeys[key]) continue;
-    return { song: song, key: key };
-  }
-  return null;
+  var candidates = typeof adjacentTrackCandidates === 'function' ? adjacentTrackCandidates(fromIndex) : [];
+  return candidates.find(function (candidate) { return !lyricQueuePrefetchKeys[candidate.key]; }) || null;
 }
-
 function scheduleQueueLyricPrefetch(fromIndex, delay) {
-  if (lyricQueuePrefetchTimer) clearTimeout(lyricQueuePrefetchTimer);
-  lyricQueuePrefetchTimer = 0;
-  if (lyricQueuePrefetchBusy || !Array.isArray(playQueue) || playQueue.length < 2) return false;
+  clearTimeout(lyricQueuePrefetchTimer);
   var token = ++lyricQueuePrefetchToken;
-  var wait = Math.max(1200, Number(delay) || 2400);
   lyricQueuePrefetchTimer = setTimeout(function () {
-    lyricQueuePrefetchTimer = 0;
-    runQueueLyricPrefetch(fromIndex, token);
-  }, wait);
+    lyricQueuePrefetchTimer = 0; runQueueLyricPrefetch(fromIndex, token);
+  }, Math.max(120, Number(delay) || 120));
   return true;
 }
-
 async function runQueueLyricPrefetch(fromIndex, token) {
-  if (token !== lyricQueuePrefetchToken || lyricQueuePrefetchBusy) return false;
-  if (audio && audio.paused) return false;
-  var candidate = nextQueueLyricPrefetchSong(fromIndex);
-  if (!candidate) return false;
-  lyricQueuePrefetchKeys[candidate.key] = true;
+  if (token !== lyricQueuePrefetchToken) return false;
+  if (lyricQueuePrefetchBusy || !adjacentPreparationAllowed()) {
+    lyricQueuePrefetchTimer = setTimeout(function () { runQueueLyricPrefetch(currentIdx, token); }, 400); return false;
+  }
+  var candidates = adjacentTrackCandidates(fromIndex), generation = adjacentPreparation.generation;
+  // Keep this bookkeeping bounded too; failure is not a permanent hit.
+  lyricQueuePrefetchKeys = {};
   lyricQueuePrefetchBusy = true;
   try {
-    var cached = await readPersistentLyricCache(candidate.song);
-    if (token !== lyricQueuePrefetchToken) return false;
-    if (cached) return true;
-    var response = await apiJson(lyricEndpointForSong(candidate.song));
-    if (token !== lyricQueuePrefetchToken) return false;
-    var merged = mergeInlineLyricResponseForSong(candidate.song, response || {});
-    var state = parseLyricResponseToOriginalState(candidate.song, merged);
-    if (!state || !state.usableLyric) return false;
-    writePersistentLyricCache(candidate.song, merged);
+    lyricQueuePrefetchController = new AbortController();
+    for (var i = 0; i < candidates.length; i++) {
+      var candidate = candidates[i];
+      if (!lyricQueuePrefetchCandidate(candidate.song) || token !== lyricQueuePrefetchToken || generation !== adjacentPreparation.generation) continue;
+      var response = await readPersistentLyricCache(candidate.song);
+      if (!response) response = await apiJson(lyricEndpointForSong(candidate.song), { timeoutMs: 6500, signal: lyricQueuePrefetchController.signal });
+      if (token !== lyricQueuePrefetchToken || generation !== adjacentPreparation.generation) return false;
+      var merged = mergeInlineLyricResponseForSong(candidate.song, response || {});
+      var state = parseLyricResponseToOriginalState(candidate.song, merged);
+      if (state && state.usableLyric) {
+        writePersistentLyricCache(candidate.song, merged); lyricQueuePrefetchKeys[candidate.key] = true;
+        storeAdjacentEntry('lyrics|' + candidate.key, merged, JSON.stringify(merged).length * 2, null, candidate.key);
+        // One cooperative build at a time, in the user's latest navigation direction.
+        prepareAdjacentLyrics(candidate, merged, generation);
+      }
+    }
     return true;
-  } catch (_) {
-    return false;
-  } finally {
-    lyricQueuePrefetchBusy = false;
-  }
+  } catch (_) { return false; }
+  finally { lyricQueuePrefetchBusy = false; lyricQueuePrefetchController = null; }
 }
 
 function applyFetchedLyricResponse(song, token, response, options) {
@@ -324,21 +314,22 @@ function resetLyricsForTrackSwitch() {
 }
 function scheduleTrackSwitchFallbackLyrics(song, token, delay) {
   cancelPendingTrackFallbackLyrics();
-  var multiLineDelay = (typeof stageLyricMultiLineWarmupLoad === 'function' && stageLyricMultiLineWarmupLoad()) ? 1850 : 180;
+  var titleDelay = Math.min(500, Math.max(180, Number(delay) || 320));
   pendingTrackFallbackLyricTimer = setTimeout(function () {
     pendingTrackFallbackLyricTimer = 0;
     if (token != null && token !== trackSwitchToken) return;
     if (hasUsableLyricLines(originalLyricsState && originalLyricsState.lines)) return;
     setOriginalLyricsState(withLyricFallbackForSong(song || currentLyricSong(), []), false, 'fallback', [], 'none');
     applyPreferredLyricsForCurrent(true, { preserveSame: true, reason: 'lyric-title-fallback' });
-  }, Math.max(multiLineDelay, Number(delay) || 720));
+  }, titleDelay);
 }
 async function fetchLyric(songOrId, token, attempt) {
   attempt = Math.max(0, Number(attempt) || 0);
   var song;
   try {
     song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
-    var cachedResponse = song ? await readPersistentLyricCache(song) : null;
+    var cachedResponse = song && typeof takeAdjacentEntry === 'function' ? takeAdjacentEntry('lyrics|' + persistentLyricCacheKey(song)) : null;
+    if (!cachedResponse) cachedResponse = song ? await readPersistentLyricCache(song) : null;
     if (cachedResponse) {
       var cachedState = applyFetchedLyricResponse(song, token, cachedResponse, { persist: false });
       if (cachedState && cachedState.usableLyric) {
@@ -346,7 +337,7 @@ async function fetchLyric(songOrId, token, attempt) {
         return;
       }
     }
-    var r = await apiJson(lyricEndpointForSong(song || songOrId));
+    var r = await apiJson(lyricEndpointForSong(song || songOrId), { timeoutMs: 12000 });
     var state = applyFetchedLyricResponse(song, token, r);
     if (!state) return;
     if (!state.usableLyric && shouldRetryStartupLyricFetch(song, token, attempt)) scheduleStartupLyricFetchRetry(song, token, attempt);

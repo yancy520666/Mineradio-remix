@@ -66,7 +66,7 @@ function renderDetailReplyItems(comments) {
     var user = comment.user || {};
     var avatar = user.avatar ? escHtml(coverUrlWithSize(user.avatar, 48)) : '';
     return '<div class="comment-reply-item">' + (avatar
-      ? '<img class="comment-reply-avatar" src="' + avatar + '" alt="" loading="lazy">'
+      ? (typeof commentAvatarHtml === 'function' ? commentAvatarHtml(user.avatar, 48, 'comment-reply-avatar') : '<img class="comment-reply-avatar" src="' + avatar + '" alt="" loading="lazy">')
       : '<span class="comment-reply-avatar" aria-hidden="true"></span>') +
       '<div class="comment-reply-copy">' + commentHeadHtml(comment) +
       '<div class="comment-reply-text">' + (comment.replyTo ? '<span class="comment-reply-to">回复 ' + escHtml(comment.replyTo) + '：</span>' : '') +

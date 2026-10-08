@@ -2285,8 +2285,12 @@ async function fetchNeteaseUserPlaylistsPage(uid, limit, offset) {
     timestamp: Date.now(),
   });
   const body = r.body || r || {};
-  const playlists = Array.isArray(body.playlist) ? body.playlist : [];
-  const total = Math.max(Number(body.total || body.count || 0) || 0, offset + playlists.length);
+  if (!Array.isArray(body.playlist)) throw new Error('NETEASE_PLAYLIST_RESPONSE_INVALID');
+  const playlists = body.playlist;
+  if (body.code != null && Number(body.code) !== 200) throw new Error('NETEASE_PLAYLIST_PAGE_FAILED');
+  const reportedTotal = Number(body.total != null ? body.total : body.count);
+  const totalKnown = Number.isFinite(reportedTotal) && reportedTotal >= 0;
+  const total = Math.max(totalKnown ? reportedTotal : 0, offset + playlists.length);
   const nextOffset = offset + playlists.length;
   return {
     playlists,
@@ -2294,7 +2298,8 @@ async function fetchNeteaseUserPlaylistsPage(uid, limit, offset) {
     offset,
     limit,
     nextOffset,
-    hasMore: total ? nextOffset < total : playlists.length >= limit,
+    totalKnown,
+    hasMore: typeof body.more === 'boolean' ? body.more : (totalKnown ? nextOffset < reportedTotal : playlists.length >= limit),
   };
 }
 
@@ -6603,7 +6608,8 @@ const server = http.createServer(async (req, res) => {
           limit: pageData.limit,
           nextOffset: pageData.nextOffset,
           hasMore: pageData.hasMore,
-          partial: true,
+          totalKnown: pageData.totalKnown,
+          partial: pageData.hasMore,
         });
         return;
       }

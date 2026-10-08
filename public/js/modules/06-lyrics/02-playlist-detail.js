@@ -598,29 +598,37 @@ function playlistPanelOffsetIndex(offsets, value) {
   }
   return Math.max(0, Math.min(offsets.length - 2, lo));
 }
+function playlistCatalogCountLabel(item) {
+  var loaded = Math.max(0, Number(item.loaded) || 0);
+  var known = item.totalKnown === true || (item.totalKnown !== false && Number(item.total) > 0);
+  return loaded + '/' + (known ? Math.max(loaded, Number(item.total) || 0) : '?');
+}
 function playlistCatalogFooterHtml() {
   var state = playlistCatalogSyncState || {};
   var providerStates = state.providers || {};
   var totals = Object.keys(providerStates).reduce(function (acc, key) {
     var item = providerStates[key] || {};
+    if (item.enabled === false) return acc;
     acc.loaded += Number(item.loaded) || 0;
     acc.total += Math.max(Number(item.total) || 0, Number(item.loaded) || 0);
+    if (playlistCatalogCountLabel(item).indexOf('?') !== -1) acc.totalKnown = false;
     if (item.hasMore || item.loading) acc.pending = true;
     return acc;
-  }, { loaded: 0, total: 0, pending: !!state.loading });
+  }, { loaded: 0, total: 0, totalKnown: true, pending: !!state.loading });
   var errorsHtml = Object.keys(providerStates).filter(function (key) {
     return providerStates[key] && providerStates[key].error;
   }).map(function (key) {
     var item = providerStates[key];
-    var label = playlistProviderName(key) + '歌单尚未同步完整 · 已显示 ' + item.loaded + (item.total > item.loaded ? '/' + item.total : '') + ' 个';
+    var label = playlistProviderName(key) + ' · 尚未同步完整';
     if (item.pageLimited) label += ' · 已达到单次同步上限';
+    var count = playlistCatalogCountLabel(item);
+    var hint = item.reconnectRequired ? '平台拒绝当前连接，可重试；仍失败时请到账户设置重新登录' : label;
     var retry = item.retryable !== false
       ? '<button type="button" class="queue-hydration-retry"' + (item.loading ? ' disabled' : '') + ' onclick="event.stopPropagation();retryPlaylistCatalogProvider(\'' + escHtml(key) + '\')">重试</button>' : '';
-    return '<div class="playlist-catalog-status" role="status"><span>' + escHtml(label) + '</span>' + retry + '</div>';
+    return '<div class="playlist-catalog-status" role="status" title="' + escHtml(hint) + '"><span class="playlist-catalog-label">' + escHtml(label) + '</span><span class="playlist-catalog-count" aria-label="已同步/总数 ' + count + '">' + count + '</span>' + retry + '</div>';
   }).join('');
   if (!totals.pending) return errorsHtml;
-  var label = '正在后台载入歌单 · ' + totals.loaded + (totals.total ? '/' + totals.total : '');
-  return errorsHtml + '<div class="playlist-catalog-status"><span class="queue-hydration-spinner spinning"></span><span>' + label + '</span></div>';
+  return errorsHtml + '<div class="playlist-catalog-status"><span class="queue-hydration-spinner spinning"></span><span class="playlist-catalog-label">正在载入歌单</span><span class="playlist-catalog-count">' + playlistCatalogCountLabel(totals) + '</span></div>';
 }
 function schedulePlaylistPanelVirtualRender() {
   if (playlistPanelVirtualCache.raf) return;

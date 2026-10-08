@@ -94,7 +94,15 @@ function scheduleAudioResumePosition(media, seconds, token) {
     try {
       media.currentTime = target;
       applied = true;
-      media.__mineradioPendingResumeAt = 0;
+      function finishResume() {
+        if (token !== trackSwitchToken || media.__mineradioPendingResumeAt !== seconds) return;
+        if (media.seeking || Math.abs(Number(media.currentTime) - target) > 0.5) return;
+        media.__mineradioPendingResumeAt = 0;
+        if (typeof media.removeEventListener === 'function') media.removeEventListener('seeked', finishResume);
+        updatePlaybackProgressUi();
+      }
+      media.addEventListener('seeked', finishResume);
+      finishResume();
       if (typeof syncBeatMapPlaybackCursor === 'function') syncBeatMapPlaybackCursor(target, true);
       if (typeof syncPodcastDjMapCursor === 'function') syncPodcastDjMapCursor(target, true);
       updatePlaybackProgressUi();
@@ -104,4 +112,54 @@ function scheduleAudioResumePosition(media, seconds, token) {
   media.addEventListener('canplay', applyResume, { once: true });
   setTimeout(applyResume, 520);
   applyResume();
+}
+
+function playbackLoadIsNetworkError(err) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  if (err && Number(err.code) === 2 && !err.name) return true; // MediaError.MEDIA_ERR_NETWORK
+  var text = String(err && err.name || '') + ' ' + String(err && err.message || err || '');
+  if (/AbortError/i.test(text) && !/timeout|超时/i.test(text)) return false;
+  return /network|failed to fetch|timeout|超时|连接失败|econnreset|etimedout|err_connection|http 5\d\d|upstream.*(error|unavailable)/i.test(text);
+}
+async function requestPlaybackSourceUrl(url, options, token) {
+  for (var attempt = 0; attempt < 2; attempt++) {
+    if (token !== trackSwitchToken) throw new DOMException('Track replaced', 'AbortError');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('NETWORK_OFFLINE');
+    try {
+      var data = await apiJson(url, options);
+      if (token !== trackSwitchToken) throw new DOMException('Track replaced', 'AbortError');
+      if (data && !data.url && ((Number(data.code) >= 500 && Number(data.code) <= 599) || playbackLoadIsNetworkError(data.error || data.reason || data.message))) {
+        throw new Error('NETWORK_UPSTREAM_UNAVAILABLE');
+      }
+      return data;
+    } catch (err) {
+      if (token !== trackSwitchToken || !playbackLoadIsNetworkError(err) || attempt > 0
+        || (typeof navigator !== 'undefined' && navigator.onLine === false)) throw err;
+      if (typeof showSourceFallbackNotice === 'function') showSourceFallbackNotice('连接有点慢，正在重试', '保留当前歌曲和音质，再刷新一次播放地址。', { coalesceKey: 'playback-load', persist: true });
+      await new Promise(function (resolve) { setTimeout(resolve, 350); });
+    }
+  }
+}
+function showPlaybackLoadFailure(song, idx, token, err, opts) {
+  if (token !== trackSwitchToken || currentIdx !== idx || !song || !playQueue[idx]
+    || queueItemKey(playQueue[idx]) !== queueItemKey(song)) return false;
+  opts = opts || {};
+  // A displayed recovery card owns the next attempt; stop startup's separate
+  // retry/home-fallback loop without changing the user's autoplay preference.
+  if (typeof clearStartupAutoplayRetryTimer === 'function') clearStartupAutoplayRetryTimer();
+  if (typeof startupAutoplayJobId !== 'undefined') startupAutoplayJobId += 1;
+  if (typeof startupAutoplayAttempted !== 'undefined') startupAutoplayAttempted = true;
+  var offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  var title = offline ? '网络已断开' : (playbackLoadIsNetworkError(err) ? '歌曲暂时加载失败' : '暂时无法播放');
+  var body = offline ? '当前歌曲已保留。恢复联网后点“重试”，不用重新找歌。'
+    : (playbackLoadIsNetworkError(err) ? '网络请求超时或服务暂时不可用。当前歌曲已保留，可以重试或切换下一首。' : playbackFailureToastText(err));
+  var key = queueItemKey(song);
+  var resumeAt = opts.resumeAt != null ? opts.resumeAt : (typeof pendingPlaybackResumeAt !== 'undefined' ? pendingPlaybackResumeAt : 0);
+  if (resumeAt < 0.35 && audio && audio.__mineradioTrackSwitchToken === token) resumeAt = Number(audio.__mineradioPendingResumeAt) || Number(audio.currentTime) || 0;
+  var retryOpts = { manual: true, skipShuffleOrder: true, resumeAt: Math.max(0, Number(resumeAt) || 0), qualityOverride: opts.qualityOverride, context: opts.context, preserveHomeState: true };
+  function stillCurrent() { return token === trackSwitchToken && currentIdx === idx && playQueue[idx] && queueItemKey(playQueue[idx]) === key; }
+  var actions = [{ label: '重试', onClick: function () { if (stillCurrent()) return playQueueAt(idx, retryOpts); } }];
+  if (playQueue.length > 1) actions.push({ label: '下一首', onClick: function () { if (stillCurrent()) return playQueueAt((idx + 1) % playQueue.length, { manual: true, skipShuffleOrder: true }); } });
+  if (typeof showSourceFallbackNotice === 'function') showSourceFallbackNotice(title, body, { coalesceKey: 'playback-load', persist: true, actions: actions });
+  return true;
 }

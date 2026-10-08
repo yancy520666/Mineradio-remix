@@ -283,3 +283,14 @@ test('page limit is explicit with or without totals, but a known complete final 
     });
   }
 });
+
+test('cloudlist connection rejection stays a failure with an explicit recovery action', async () => {
+  await withRequests(() => ({ body: { status: 0, error_code: 20017 } }), async () => {
+    const r = await kugou.handleKugouUserPlaylists(memberCookie);
+    assert.equal(r.libraryReady, false);
+    assert.equal(r.reconnectRequired, true);
+    assert.equal(r.upstreamCode, 20017);
+    assert.equal(r.loggedIn, true);
+    assert.equal(r.error, 'KUGOU_GATEWAY_FAILED');
+  });
+});

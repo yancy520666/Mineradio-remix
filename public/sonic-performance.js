@@ -79,7 +79,10 @@
     }, 60);
     var mode = global.fx && global.fx.foregroundFpsMode;
     var target = policy.targetFps(mode, p, display);
-    return { profile: p, target: target, fpsLimit: policy.fpsLimit(mode, p, display),
+    var fpsLimit = policy.fpsLimit(mode, p, display);
+    var musicPaused = typeof global.playing === 'boolean' && !(global.playing && global.audio && !global.audio.paused);
+    if (musicPaused) { target = Math.min(target, 60); fpsLimit = Math.min(fpsLimit || 60, 60); }
+    return { profile: p, target: target, fpsLimit: fpsLimit,
       lossTarget: governor.goal(target, policy.smoothnessFloor(mode)),
       eligible: eligible(), paused: typeof global.isDeepBackgroundMode === 'function'
         ? global.isDeepBackgroundMode() : !!document.hidden };

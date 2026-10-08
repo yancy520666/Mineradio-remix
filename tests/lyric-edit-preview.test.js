@@ -56,9 +56,9 @@ assert.equal(timers.size, 0, 'keyboard hold cannot expire between repeated keys'
 events.get('blur')();
 assert.equal(calls.finish, 2);
 assert.equal(g.isLyricFxEditPreviewActive(), false);
-const mesh = {};
-const resident = vm.createContext({ stageLyrics: { current: mesh }, trackSwitchToken: 8 });
-loadFunctions(resident, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricResidentJobIsCurrent']);
+const mesh = { userData: {} };
+const resident = vm.createContext({ stageLyrics: { current: mesh }, stageLyricPrewarm: { mesh: null }, trackSwitchToken: 8 });
+loadFunctions(resident, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricResidentMeshIsCurrent', 'stageLyricResidentJobIsCurrent']);
 const job = { mesh, trackKey: '', singleEffects: true, trackToken: 8 };
 const singleData = { trackKey: '', trackPersistent: false };
 assert(resident.stageLyricResidentJobIsCurrent(job, singleData), 'single effects can extend the existing text mesh');

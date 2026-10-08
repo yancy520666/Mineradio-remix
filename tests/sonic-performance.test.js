@@ -701,3 +701,19 @@ test('a marker retry does not rebuild visuals or override a real choice made dur
   assert.equal(c.api.snapshot().preferences.manualQuality, true);
   assert.equal(c.window.fx.performanceQuality, 'balanced');
 });
+
+
+test('paused Sonic uses 60 FPS or a lower saved cap without suspending its canvas', () => {
+  const c = controller();
+  c.window.playing = false; c.window.audio = { paused: true };
+  c.window.desktopRuntimeState = { displayHz: 144 };
+  assert.equal(c.api.config().fpsLimit, 60);
+  assert.equal(c.api.config().target, 60);
+  assert.equal(c.api.config().paused, false, 'only deep background suspends drawing');
+  c.window.fx.foregroundFpsMode = '45';
+  assert.equal(c.api.config().fpsLimit, 45);
+  c.window.fx.foregroundFpsMode = '120';
+  assert.equal(c.api.config().fpsLimit, 60);
+  c.window.playing = true; c.window.audio.paused = false;
+  assert.equal(c.api.config().fpsLimit, 120);
+});

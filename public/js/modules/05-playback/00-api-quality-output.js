@@ -5,6 +5,7 @@ async function apiJson(url, opts) {
   var fetchOpts = Object.assign({}, opts);
   delete fetchOpts.timeoutMs;
   var timer = null;
+  var timedOut = false;
   var externalSignal = null;
   var forwardAbort = null;
   if (timeoutMs && window.AbortController) {
@@ -19,11 +20,19 @@ async function apiJson(url, opts) {
       }
     }
     fetchOpts.signal = controller.signal;
-    timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    timer = setTimeout(function () { timedOut = true; controller.abort(); }, timeoutMs);
   }
   try {
     var res = await fetch(url, fetchOpts);
+    if (res.status >= 500) throw new Error('HTTP ' + res.status + ' 服务暂时不可用');
     return await res.json();
+  } catch (err) {
+    if (timedOut && !(externalSignal && externalSignal.aborted)) {
+      var timeoutError = new Error('网络请求超时：' + (err && err.message || 'Timeout'));
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
+    }
+    throw err;
   } finally {
     if (timer) clearTimeout(timer);
     if (externalSignal && forwardAbort) externalSignal.removeEventListener('abort', forwardAbort);

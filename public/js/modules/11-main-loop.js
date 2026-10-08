@@ -75,7 +75,7 @@ function currentRenderAdaptiveContext(now) {
   return { kind: activePlayback ? 'playback' : 'idle', tier: tier };
 }
 function resolveAdaptiveRenderCadence(now, mode) {
-  if (isDeepBackgroundMode()) return null;
+  if (isDeepBackgroundMode() || !(playing && audio && !audio.paused)) return null;
   mode = mode || ((typeof normalizeForegroundFpsMode === 'function') ? normalizeForegroundFpsMode(fx && fx.foregroundFpsMode) : 'adaptive');
   if (mode !== 'adaptive' || RENDER_VISIBLE_VSYNC || typeof selectAdaptiveRenderCadence !== 'function') return null;
   var context = currentRenderAdaptiveContext(now);
@@ -85,6 +85,7 @@ function getAdaptiveRenderFps(now) {
   if (isDeepBackgroundMode()) return 1;
   var mode = (typeof normalizeForegroundFpsMode === 'function') ? normalizeForegroundFpsMode(fx && fx.foregroundFpsMode) : 'adaptive';
   var fixedFps = (typeof foregroundFixedFpsForMode === 'function') ? foregroundFixedFpsForMode(mode) : null;
+  if (!(playing && audio && !audio.paused)) return fixedFps > 0 ? Math.min(60, fixedFps) : 60;
   if (fx && Number(fx.preset) === 7 && window.MineradioSonicPerformance) {
     var sonicBudget = MineradioSonicPerformance.stageProfile();
     if (sonicBudget && sonicBudget.fps) return Math.min(fixedFps || sonicBudget.fps, sonicBudget.fps);
@@ -283,7 +284,7 @@ function targetMainLyricsParticleFps(now) {
   if (visibleMotionFollowVsync(now)) return 0;
   if (mainLoopInteractionActive(now)) return capMainLoopFpsForBudget(120, 72);
   if (typeof stageLyricsMotionSettling === 'function' && stageLyricsMotionSettling()) return capMainLoopFpsForBudget(60, 48);
-  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 24;
+  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 60;
 }
 function targetMainStageLyricsFps(now) {
   if (isDeepBackgroundMode()) return 1;
@@ -291,14 +292,14 @@ function targetMainStageLyricsFps(now) {
   if (visibleMotionFollowVsync(now)) return 0;
   if (mainLoopInteractionActive(now)) return capMainLoopFpsForBudget(120, 72);
   if (typeof stageLyricsMotionSettling === 'function' && stageLyricsMotionSettling()) return capMainLoopFpsForBudget(60, 48);
-  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 24;
+  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 48) : 60;
 }
 function targetMainSkullParticleFps(now) {
   if (isDeepBackgroundMode()) return 1;
   if (!fx || fx.preset !== SKULL_PRESET_INDEX) return 10;
   if (visibleMotionFollowVsync(now)) return 0;
   if (mainLoopInteractionActive(now)) return capMainLoopFpsForBudget(120, 72);
-  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 45) : 24;
+  return (playing && audio && !audio.paused) ? capMainLoopFpsForBudget(60, 45) : 60;
 }
 function targetMainHomeAudioFps(now) {
   if (isDeepBackgroundMode()) return 1;
@@ -323,10 +324,30 @@ function animate() {
   if (mainLoopDeepBackgroundSleeping()) {
     var deepDt = Math.min((now - prevTime) / 1000, 0.25);
     prevTime = now;
+    mainUiPreviousTime = now;
+    mainUiMotionUntil = 0;
+    releaseMainUiRenderCache();
     tickDeepBackgroundFrame(now, deepDt);
     return;
   }
-  if (shouldSkipAdaptiveRenderFrame(now)) return;
+  var uiDt = Math.min(Math.max(0, (now - mainUiPreviousTime) / 1000), 0.05);
+  mainUiPreviousTime = now;
+  var uiMotionActive = mainUiMotionActive(now);
+  var shelfPerfStart = performance.now();
+  var shelfStepDt = consumeFrameGate(mainFrameGates.shelf, now, uiDt, uiMotionActive ? 0 : targetMainShelfFps(now), false, 'shelf-manager');
+  if (shelfStepDt > 0 && shelfManager && !isMainSceneCoveredBySplash()) shelfManager.update(shelfStepDt);
+  if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.shelf-manager', shelfPerfStart);
+  var skipBackground = shouldSkipAdaptiveRenderFrame(now);
+  if (skipBackground) {
+    if (uiMotionActive) {
+      updateFreeCamera(uiDt);
+      updateCamera();
+      applySkullCameraPose(uiDt);
+      updateStageLyricLayout();
+    }
+    drawMainUiFrame(false);
+    return;
+  }
   var dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
   sampleRenderPerf(now, dt);
@@ -620,10 +641,6 @@ function animate() {
   updateRipples(dt);
   updateFloatLayer(dt);
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.cover-layers', coverLayerPerfStart);
-  var shelfPerfStart = performance.now();
-  var shelfStepDt = consumeFrameGate(mainFrameGates.shelf, now, dt, targetMainShelfFps(now), false, 'shelf-manager');
-  if (shelfStepDt > 0 && shelfManager) shelfManager.update(shelfStepDt);
-  if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.shelf-manager', shelfPerfStart);
   var lyricsParticlePerfStart = performance.now();
   var lyricsParticleStepDt = consumeFrameGate(mainFrameGates.lyricsParticles, now, dt, targetMainLyricsParticleFps(now), false, 'lyrics-particles');
   if (lyricsParticleStepDt > 0) tickLyricsParticles();
@@ -635,10 +652,11 @@ function animate() {
 
   // 电影镜头
   var cameraPerfStart = performance.now();
+  var cameraStepDt = uiMotionActive ? uiDt : dt;
   updateCinema(dt);
-  updateFreeCamera(dt);
+  updateFreeCamera(cameraStepDt);
   updateCamera();
-  applySkullCameraPose(dt);
+  applySkullCameraPose(cameraStepDt);
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('camera.update', cameraPerfStart);
 
   // v7.2 旋转 = 头部+眼球追踪 + 鼠标/手势拖动 + 惯性
@@ -696,6 +714,7 @@ function animate() {
   var stageLyricsPerfStart = performance.now();
   var stageLyricsStepDt = consumeFrameGate(mainFrameGates.stageLyrics, now, dt, targetMainStageLyricsFps(now), false, 'stage-lyrics');
   if (stageLyricsStepDt > 0) updateStageLyrics3D(stageLyricsStepDt);
+  else if (uiMotionActive) updateStageLyricLayout();
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.stage-lyrics', stageLyricsPerfStart);
   var desktopOverlayPerfStart = performance.now();
   var desktopOverlayStepDt = consumeFrameGate(mainFrameGates.desktopOverlay, now, dt, targetMainDesktopOverlayFps(now), false, 'desktop-overlay');
@@ -710,7 +729,7 @@ function animate() {
   }
 
   var rendererPerfStart = performance.now();
-  renderer.render(scene, camera);
+  if (!drawMainUiFrame(true)) renderer.render(scene, camera);
   if (window.MineradioSonicPerformance) MineradioSonicPerformance.stageFrame();
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('renderer.render', rendererPerfStart);
   var frameCostMs = performance.now() - framePerfStart;

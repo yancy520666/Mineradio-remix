@@ -619,6 +619,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     });
     connectorParticles = new THREE.Points(pgeo, pmat);
+    connectorParticles.userData.mineradioUiLayer = true;
     connectorParticles.frustumCulled = false;
     connectorParticles.renderOrder = 49;
     connectorParticles.position.set(0, -2.2, 0);
@@ -757,6 +758,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (!group) {
         group = new THREE.Group();
         group.renderOrder = 50;
+        group.userData.mineradioUiLayer = true;
         scene.add(group);
       }
       var asyncCards = mode === 'side' && document.body.classList.contains('splash-active');
@@ -899,6 +901,28 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
     getCenterIdx: function () { return Math.round(centerSmooth); },
     getCardAt: function (idx) { return cards.find(function (c) { return c.index === idx; }); },
     getCards: function () { return cards; },
+    getGuideScreenBounds: function () {
+      if (!group || !group.visible || shelfVisibility < 0.06) return null;
+      var bounds = null;
+      cards.forEach(function (card) {
+        var mesh = card.mesh;
+        if (!mesh || !mesh.visible || !mesh.material || mesh.material.opacity < 0.06) return;
+        mesh.updateWorldMatrix(true, false);
+        var geometry = mesh.geometry.parameters || {}, hw = (geometry.width || 1) / 2, hh = (geometry.height || 1) / 2;
+        [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].forEach(function (xy) {
+          var point = new THREE.Vector3(xy[0], xy[1], 0).applyMatrix4(mesh.matrixWorld).project(camera);
+          if (point.z < -1 || point.z > 1) return;
+          var x = (point.x + 1) * innerWidth / 2, y = (1 - point.y) * innerHeight / 2;
+          if (!bounds) bounds = { left: x, top: y, right: x, bottom: y };
+          else { bounds.left = Math.min(bounds.left, x); bounds.top = Math.min(bounds.top, y); bounds.right = Math.max(bounds.right, x); bounds.bottom = Math.max(bounds.bottom, y); }
+        });
+      });
+      if (!bounds) return null;
+      bounds.left = Math.max(0, bounds.left); bounds.top = Math.max(0, bounds.top);
+      bounds.right = Math.min(innerWidth, bounds.right); bounds.bottom = Math.min(innerHeight, bounds.bottom);
+      bounds.width = bounds.right - bounds.left; bounds.height = bounds.bottom - bounds.top;
+      return bounds.width > 0 && bounds.height > 0 ? bounds : null;
+    },
     playPlaylistAt: function (idx) {
       return playPlaylistCard(cards.find(function (c) { return c.index === idx; }));
     },

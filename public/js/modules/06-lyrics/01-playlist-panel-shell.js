@@ -566,7 +566,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
   var state = root.providers && root.providers[provider];
   if (!state || state.loading || !state.hasMore || !playlistCatalogProviderLoggedIn(provider)) return false;
   var token = root.token;
-  var first = state.nextOffset === 0 && !state.loaded;
+  var first = state.nextOffset === 0 && (!state.loaded || state.replaceOnFirstPage);
   var limit = first ? PLAYLIST_CATALOG_FIRST_PAGE_SIZE : PLAYLIST_CATALOG_BACKGROUND_PAGE_SIZE;
   var requestOffset = state.nextOffset;
   var url = playlistCatalogPageUrl(provider, requestOffset, limit);
@@ -574,22 +574,58 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
   state.loading = true;
   try {
     var r = await apiJson(url, { timeoutMs: 15000 });
-    if (playlistCatalogSyncState.token !== token) return false;
+    if (playlistCatalogSyncState.token !== token || !playlistCatalogProviderLoggedIn(provider)) return false;
+    if (!r || !Array.isArray(r.playlists)) throw new Error('PLAYLIST_CATALOG_RESPONSE_INVALID');
     var incoming = (r && r.playlists || []).map(function (pl) { pl.provider = provider; pl.source = provider; return pl; });
     state.pageLimited = !!(r && r.pageLimited);
     state.retryable = r && typeof r.retryable === 'boolean' ? r.retryable : !state.pageLimited;
-    if (r && r.error && !incoming.length) throw new Error(r.message || r.error);
-    var current = first ? [] : playlistCatalogProviderArray(provider);
-    var merged = mergePlaylistCatalogRows(current, incoming, provider);
+    state.reconnectRequired = !!(r && r.reconnectRequired);
+    // Zero is a valid total only when the provider actually supplied it.
+    var reportedTotal = r && r.total != null ? Number(r.total) : NaN;
+    var hasReportedTotal = isFinite(reportedTotal) && reportedTotal >= 0 && r.totalKnown !== false;
+    if (hasReportedTotal) {
+      state.total = Math.max(Number(state.loaded) || 0, reportedTotal);
+      state.totalKnown = true;
+    } else if (r && r.totalKnown === false) {
+      state.totalKnown = false;
+    }
+    if (r && r.error && !incoming.length) {
+      state.error = r.error;
+      state.hasMore = false;
+      renderUserPlaylistsList({ preserveScroll: true });
+      return false;
+    }
+    // A failed refresh must not erase the last good library. Replace a snapshot
+    // only after a successful first page; partial whole-library reads are merged.
+    var incomplete = !!(r && (r.error || r.libraryReady === false));
+    if (first && state.replaceOnFirstPage) state.refreshRows = [];
+    var current = first && !incomplete ? [] : playlistCatalogProviderArray(provider);
+    var merged;
+    if (state.refreshRows) {
+      state.refreshRows = mergePlaylistCatalogRows(state.refreshRows, incoming, provider);
+      // Keep the complete previous snapshot until every replacement page arrives.
+      var complete = !incomplete && !r.hasMore;
+      merged = complete ? state.refreshRows : mergePlaylistCatalogRows(playlistCatalogProviderArray(provider), incoming, provider);
+      if (complete) state.refreshRows = null;
+    } else {
+      merged = mergePlaylistCatalogRows(current, incoming, provider);
+    }
     setPlaylistCatalogProviderArray(provider, merged);
     state.loaded = merged.length;
-    state.total = Math.max(state.loaded, Number(r && r.total) || 0);
+    if (!incomplete && !r.hasMore && r.partial !== true && !hasReportedTotal) {
+      state.total = merged.length;
+      state.totalKnown = true;
+    } else {
+      state.total = Math.max(state.loaded, Number(state.total) || 0);
+    }
     state.nextOffset = r && r.nextOffset != null ? Math.max(0, Number(r.nextOffset) || 0) : (requestOffset + incoming.length);
     var supportsPaging = provider === 'netease' || provider === 'spotify';
     state.hasMore = supportsPaging ? !!(r && r.hasMore) : false;
-    if (state.total && state.nextOffset >= state.total) state.hasMore = false;
-    if (!incoming.length) state.hasMore = false;
-    state.error = (r && r.error) || (r && (r.partial === true || r.libraryReady === false) ? 'PLAYLIST_CATALOG_INCOMPLETE' : '');
+    var stalled = supportsPaging && !!(r && r.hasMore) && (!incoming.length || state.nextOffset <= requestOffset);
+    if (!incoming.length || stalled) state.hasMore = false;
+    // `partial` on a healthy intermediate page describes pagination, not failure.
+    state.error = (r && r.error) || (stalled || (r && (r.libraryReady === false || (r.partial === true && !state.hasMore))) ? 'PLAYLIST_CATALOG_INCOMPLETE' : '');
+    state.replaceOnFirstPage = false;
     rebuildUserPlaylistsFromCatalog({ animate: first && isPlaylistPanelVisibleForRender(), reset: first, preserveScroll: !first, reason: reason || 'playlist-catalog-page' });
     return incoming.length > 0;
   } catch (e) {
@@ -609,7 +645,10 @@ async function retryPlaylistCatalogProvider(provider) {
   var state = root.providers && root.providers[provider];
   if (!state || state.loading || !state.error || state.retryable === false || !playlistCatalogProviderLoggedIn(provider)) return;
   // Keep the rows already shown while retrying; merge recovered pages by ID.
-  state.nextOffset = 0;
+  if (provider !== 'netease' && provider !== 'spotify') {
+    state.nextOffset = 0;
+    state.replaceOnFirstPage = true;
+  }
   state.hasMore = true;
   root.loading = true;
   var pending = loadPlaylistCatalogProviderPage(provider, 'retry');
@@ -618,6 +657,7 @@ async function retryPlaylistCatalogProvider(provider) {
   if (playlistCatalogSyncState !== root) return;
   root.loading = playlistCatalogHasPendingPages();
   renderUserPlaylistsList({ preserveScroll: true });
+  if (root.loading) requestNextPlaylistCatalogPage('after-retry');
 }
 function playlistCatalogHasPendingPages() {
   var providers = playlistCatalogSyncState.providers || {};
@@ -677,7 +717,7 @@ async function refreshUserPlaylists(force) {
   }
   var $pl = document.getElementById('pl-list');
   if ($pl) {
-    $pl.innerHTML = miniQueueSkeleton();
+    if (!userPlaylists.length) $pl.innerHTML = miniQueueSkeleton();
     if (window.gsap) animateListItems($pl, '.mini-queue-skeleton', { x: 0, y: 6, stagger: 0.018, duration: 0.18, limit: 3 });
   }
   var $pod = document.getElementById('podcast-list');
@@ -686,21 +726,20 @@ async function refreshUserPlaylists(force) {
   var token = playlistCatalogSyncState.token + 1;
   playlistCatalogSyncState = { token: token, loading: true, timer: 0, providers: {}, error: '', startedAt: Date.now() };
   ['netease', 'qq', 'kugou', 'qishui', 'spotify'].forEach(function (provider) {
-    if (force && playlistCatalogProviderLoggedIn(provider)) setPlaylistCatalogProviderArray(provider, []);
+    // Retain usable rows while refreshing, including when the network fails.
     playlistCatalogSyncState.providers[provider] = {
       enabled: playlistCatalogProviderLoggedIn(provider),
       loaded: playlistCatalogProviderArray(provider).length,
       total: playlistCatalogProviderArray(provider).length,
+      totalKnown: false,
       nextOffset: 0,
+      replaceOnFirstPage: true,
       hasMore: playlistCatalogProviderLoggedIn(provider),
       loading: false,
       error: ''
     };
   });
-  if (force) {
-    userPlaylists = builtInPlaylists.slice();
-    playlistCatalogRevision += 1;
-  }
+  if (force) playlistCatalogRevision += 1;
   var firstPageTasks = Object.keys(playlistCatalogSyncState.providers).filter(playlistCatalogProviderLoggedIn).map(function (provider) {
     return loadPlaylistCatalogProviderPage(provider, 'first-page');
   });
