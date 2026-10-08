@@ -1352,6 +1352,9 @@ async function fetchMusicSearchResults(q, mode, previousPages, opts) {
   });
   var songsByProvider = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
   var pending = fetchProviders.length;
+  // Typing initials ("smfx") cannot be found by the platforms; songs already on this
+  // machine are matched locally and slotted in without touching the platform order.
+  var pinyinMatches = typeof localPinyinSongMatches === 'function' ? localPinyinSongMatches(q, mode) : [];
   function mergedSoFar() {
     var songs = mergeSongSearchResults(
       songsByProvider.netease,
@@ -1362,6 +1365,7 @@ async function fetchMusicSearchResults(q, mode, previousPages, opts) {
       MUSIC_SEARCH_MAX_RESULTS,
       q
     );
+    if (pinyinMatches.length) songs = insertPinyinSongMatches(songs, pinyinMatches, q);
     return { songs: songs, providerPages: providerPages, hasMore: searchProviderPagesHaveMore(providerPages), pending: pending };
   }
   // Each provider is applied as soon as it settles, so a slow platform only
