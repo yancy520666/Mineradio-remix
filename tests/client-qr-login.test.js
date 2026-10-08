@@ -55,7 +55,7 @@ test('QQ QR transient poll failures retry without discarding phone authorization
 });
 test('official QQ and Kugou fallback bypasses client QR and requests fresh web authorization',async()=>{
  for(const provider of ['qq','kugou']){
- const calls=[];const ctx=vm.createContext({loginProvider:provider,cancelInlineLoginQr:()=>calls.push('cancel'),openQQWebLogin:o=>calls.push(o),openKugouWebLogin:o=>calls.push(o),openNeteaseWebLogin:()=>{throw Error('wrong provider');}});
+ const calls=[];const ctx=vm.createContext({loginProvider:provider,inlineLoginQrProvider:'',cancelInlineLoginQr:()=>calls.push('cancel'),openQQWebLogin:o=>calls.push(o),openKugouWebLogin:o=>calls.push(o),openNeteaseWebLogin:()=>{throw Error('wrong provider');}});
  loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['openProviderOfficialWebLogin']);ctx.openProviderOfficialWebLogin();assert.equal(calls[0],'cancel');assert.equal(calls[1].officialWindow,true);
  }
 });
@@ -97,4 +97,9 @@ test('native QQ profile uses client authorization and keeps temporary empty resu
  else if(response.req_0.data.nick)assert.equal(result.nickname,'fixture-user');
  else{assert.equal(result.sessionRejected,false);assert.equal(result.unverified,true);}
  }
+});
+
+test('clicking the official button while QR is waiting transitions the active request instead of being rejected as busy',()=>{
+ const calls=[];const ctx=vm.createContext({loginProvider:'qq',inlineLoginQrProvider:'qq',openInlineLoginInWindow:()=>calls.push('transition'),cancelInlineLoginQr:()=>{throw Error('wrong cancellation path');},openQQWebLogin:()=>{throw Error('would fail busy guard');}});
+ loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['openProviderOfficialWebLogin']);ctx.openProviderOfficialWebLogin();assert.deepEqual(calls,['transition']);
 });

@@ -1674,9 +1674,10 @@ async function openProviderLoginWithInlineQr(provider, open, options) {
       statusEl.className = 'preview';
     }
   }
-  return open(options);
+  return open(Object.assign({}, options, { nativeQr: false, forceReauth: true }));
 }
 function openProviderOfficialWebLogin() {
+  if (inlineLoginQrProvider === loginProvider) { openInlineLoginInWindow(); return; }
   cancelInlineLoginQr();
   if (loginProvider === 'qq') return openQQWebLogin({ officialWindow: true });
   if (loginProvider === 'kugou') return openKugouWebLogin({ officialWindow: true });
