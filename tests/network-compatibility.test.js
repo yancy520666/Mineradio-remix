@@ -33,7 +33,7 @@ test('Netease empty info cannot mask VIP or SVIP from another source', () => {
   assert.equal(ctx.activeNeteaseVipPackage({ level: 1, expireTime: 'broken' }), false);
 });
 
-test('C drive cache is allowed and actual isolated cache round-trips without D drive', t => {
+test('C drive cache is allowed and actual isolated cache round-trips without D drive', async t => {
   const windows = { path: path.win32, fs: { existsSync: () => true }, BEATMAP_CACHE_DIR: 'C:\\Users\\fixture\\cache\\beatmaps' };
   vm.runInNewContext(section('function beatCacheRootInfo(', 'function ensureBeatMapCacheDir('), windows);
   assert.equal(windows.beatCacheRootInfo().allowed, true);
@@ -42,11 +42,18 @@ test('C drive cache is allowed and actual isolated cache round-trips without D d
   vm.runInNewContext(section('function beatCacheRootInfo(', 'function safeBeatMapCacheFile('), missing);
   assert.throws(() => missing.ensureBeatMapCacheDir(), { code: 'BEAT_CACHE_DRIVE_UNAVAILABLE' });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-network-cache-'));
-  t.after(() => { assert(dir.startsWith(path.join(os.tmpdir(), 'mineradio-network-cache-'))); fs.rmSync(dir, { recursive: true, force: true }); });
-  const ctx = { fs, path, crypto, BEATMAP_CACHE_DIR: path.join(dir, 'beatmaps') };
-  vm.runInNewContext(section('function beatCacheRootInfo(', 'function localUpdateFallback('), ctx);
+  let maintenance;
+  t.after(async () => { await maintenance; assert(dir.startsWith(path.join(os.tmpdir(), 'mineradio-network-cache-'))); fs.rmSync(dir, { recursive: true, force: true }); });
+  const ctx = { fs, path, crypto, Buffer, console, BEATMAP_CACHE_DIR: path.join(dir, 'beatmaps'),
+    createGeneratedCachePruner: options => {
+      const prune = require('../generated-cache-pruner').createGeneratedCachePruner(options);
+      return () => (maintenance = prune());
+    },
+  };
+  vm.runInNewContext(section("let beatCachePinnedFile = ''", 'function localUpdateFallback('), ctx);
   const result = ctx.writeBeatMapCache({ key: 'netease:123', map: { beats: [0, 1, 2] } });
   assert.equal(result.ok, true);
+  await maintenance;
   assert.deepEqual(Array.from(ctx.readBeatMapCache('netease:123').map.beats), [0, 1, 2]);
   ctx.fs = { ...fs, writeFileSync: () => { throw Object.assign(new Error('read only'), { code: 'EACCES' }); } };
   assert.throws(() => ctx.writeBeatMapCache({ key: 'netease:123', map: { beats: [99] } }), { code: 'EACCES' });

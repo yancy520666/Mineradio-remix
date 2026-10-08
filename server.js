@@ -24,6 +24,7 @@ const {
   artist_detail,
   artist_top_song,
   artist_songs,
+  artist_album,
   like: like_song,
   likelist,
   song_like_check,
@@ -3920,6 +3921,63 @@ async function handleTypedSearch(provider, type, keywords, limit, offset) {
   return { provider, type, items, supported: true, offset, nextOffset: offset + items.length, hasMore: items.length >= limit };
 }
 
+// Newest albums of one artist for the artist detail page. Items share the shape of
+// typed album search results so the renderer can open them the same way.
+const ARTIST_ALBUMS_DEFAULT = 6;
+const ARTIST_ALBUMS_MAX = 12;
+
+async function fetchNeteaseArtistAlbums(id, limit) {
+  const result = await artist_album({ id, limit: Math.max(limit, ARTIST_ALBUMS_MAX), offset: 0, cookie: userCookie });
+  const body = (result && result.body) || {};
+  const raw = Array.isArray(body.hotAlbums) ? body.hotAlbums : [];
+  const items = raw
+    .map(album => neteaseTypedSearchItem('album', album))
+    .filter(item => item.id && item.name)
+    .sort((a, b) => (b.publishTime || 0) - (a.publishTime || 0));
+  return { items, total: Number(body.artist && body.artist.albumSize) || items.length };
+}
+
+async function fetchQQArtistAlbums(mid, limit) {
+  const json = await qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    albums: {
+      module: 'music.musichallAlbum.AlbumListServer',
+      method: 'GetAlbumList',
+      param: { singerMid: mid, order: 1, begin: 0, num: Math.max(limit, ARTIST_ALBUMS_MAX), songNumTag: 0, singerID: 0 },
+    },
+  }, { cookie: true });
+  const block = json && json.albums;
+  if (!block || Number(block.code || 0) !== 0) return { items: [], total: 0 };
+  const data = block.data || {};
+  const list = Array.isArray(data.albumList) ? data.albumList : (Array.isArray(data.list) ? data.list : []);
+  const items = list.map(raw => {
+    const albumMid = String(raw.albumMid || raw.album_mid || raw.mid || '');
+    return {
+      provider: 'qq', type: 'album', id: albumMid, mid: albumMid, qqId: String(raw.albumID || raw.album_id || raw.id || ''),
+      name: raw.albumName || raw.album_name || raw.name || '', cover: qqAlbumCover(albumMid, 300),
+      artist: raw.singerName || raw.singer_name || '',
+      songCount: Number(raw.totalNum || raw.total_num || 0) || 0,
+      publishTime: Date.parse(raw.publishDate || raw.pubTime || raw.publish_date || '') || 0,
+    };
+  }).filter(item => item.id && item.name);
+  return { items, total: Number(data.total || 0) || items.length };
+}
+
+async function handleArtistAlbums(provider, id, limit) {
+  id = String(id || '').trim();
+  limit = Math.max(1, Math.min(ARTIST_ALBUMS_MAX, Number(limit) || ARTIST_ALBUMS_DEFAULT));
+  provider = provider === 'qq' ? 'qq' : 'netease';
+  if (!id) return { provider, albums: [], total: 0 };
+  const key = [provider + '-artist-albums', provider === 'netease' ? searchCookieScope(userCookie) : 'public', id, limit].join(':');
+  const cached = await typedSearchCache.wrap(key, async () => {
+    const r = provider === 'qq' ? await fetchQQArtistAlbums(id, limit) : await fetchNeteaseArtistAlbums(id, limit);
+    // The cache keeps arrays only; an empty list is retried next time.
+    return r.items.length ? [{ items: r.items.slice(0, limit), total: r.total }] : [];
+  });
+  const value = cached[0] || { items: [], total: 0 };
+  return { provider, albums: value.items, total: value.total };
+}
+
 function truthyQQPlaybackHint(value) {
   const text = String(value == null ? '' : value).trim().toLowerCase();
   return value === true || text === '1' || text === 'true' || text === 'yes' || text === 'vip';
@@ -6908,6 +6966,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 歌手主页 / 热门歌曲 ----------
+  if (pn === '/api/artist/albums') {
+    try {
+      const provider = url.searchParams.get('provider') || 'netease';
+      const id = url.searchParams.get('id') || url.searchParams.get('mid') || '';
+      sendJSON(res, await handleArtistAlbums(provider, id, parseInt(url.searchParams.get('limit') || '6', 10)));
+    } catch (err) {
+      console.error('[ArtistAlbums]', err.message);
+      sendJSON(res, { error: err.message, albums: [] }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/artist/detail') {
     try {
       const id = url.searchParams.get('id');
