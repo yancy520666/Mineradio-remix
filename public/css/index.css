@@ -19771,3 +19771,98 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
   padding: 0 10px;
   white-space: nowrap;
 }
+
+/* Console toggles share the slider rows' rhythm: same height, left inset and
+   row gap, and the status dot sits in the reset-button column. */
+#fx-panel .fx-console-toggle-grid {
+  gap: 8px;
+  margin: 8px 0;
+}
+#fx-panel .fx-toggle,
+#fx-panel .fx-console-toggle-grid > .fx-toggle:only-child {
+  min-height: 44px;
+  gap: 10px;
+  padding: 9px 20px 9px 10px;
+  border-radius: 12px;
+  line-height: 16px;
+}
+#fx-panel .fx-toggle span:first-child {
+  padding-right: 0;
+}
+#fx-panel .fx-toggle .fx-effect-hint {
+  margin-top: 2px;
+  line-height: 15px;
+}
+
+/* Playlist detail header: the load badge sits on the title line, and the
+   actions share the row width as matching pills. */
+#playlist-panel .pl-detail-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+#playlist-panel .pl-detail-sub {
+  margin-top: 5px;
+}
+#playlist-panel .pl-detail-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .05);
+  color: rgba(255, 255, 255, .56);
+  font-size: 10px;
+  line-height: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#playlist-panel .pl-detail-actions {
+  gap: 8px;
+  margin: 0;
+}
+#playlist-panel .pl-detail-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  font: 600 11.5px var(--font-sans);
+}
+#playlist-panel .pl-detail-actions > .pl-detail-play {
+  flex-grow: 1.35;
+  font-weight: 700;
+}
+#playlist-panel .pl-detail-top-btn svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: currentColor;
+  opacity: .8;
+}
+#playlist-panel .pl-detail-actions > .pl-detail-play svg {
+  flex: 0 0 auto;
+}
+/* Three actions in a narrow panel: drop the arrow and even out the widths. */
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) > button {
+  padding: 0 6px;
+}
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) > .pl-detail-play {
+  flex-grow: 1.15;
+}
+#playlist-panel .pl-detail-actions:has(> button:nth-child(3)) .pl-detail-top-btn svg {
+  display: none;
+}
