@@ -184,6 +184,17 @@ function runSearchHistory(q) {
   doSearch(q);
   $input.focus();
 }
+// Artist detail "查看更多": search more albums on the album-capable platforms.
+function searchArtistAlbums(name) {
+  name = String(name || '').trim();
+  if (!name || !$input) return;
+  // Only the all-platform tab and the NetEase / QQ tabs can search albums.
+  $input.value = name;
+  if (searchMode !== 'song' && searchMode !== 'netease' && searchMode !== 'qq') setSearchMode('song', { deferSearch: true });
+  setPeek(document.getElementById('search-area'), true, 'search');
+  setSearchResultType('album', { force: true });
+  $input.focus();
+}
 function updateSearchModeTabs() {
   var songBtn = document.getElementById('search-mode-song');
   var neteaseBtn = document.getElementById('search-mode-netease');
@@ -223,7 +234,7 @@ function updateSearchModeTabs() {
   if ($input && searchMode === 'qishui') $input.placeholder = '搜索汽水音乐匹配源...';
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
 }
-function setSearchMode(mode) {
+function setSearchMode(mode, opts) {
   mode = (mode === 'podcast' || mode === 'netease' || mode === 'qq' || mode === 'kugou' || mode === 'qishui') ? mode : 'song';
   if (searchMode === mode) return;
   searchMode = mode;
@@ -231,6 +242,7 @@ function setSearchMode(mode) {
   clearSearchResults();
   var searchArea = document.getElementById('search-area');
   if (searchArea) setPeek(searchArea, true, 'search');
+  if (opts && opts.deferSearch) return;
   var q = $input ? $input.value.trim() : '';
   if (searchMode === 'podcast') {
     if (q) doSearch(q);
@@ -1352,6 +1364,9 @@ async function fetchMusicSearchResults(q, mode, previousPages, opts) {
   });
   var songsByProvider = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
   var pending = fetchProviders.length;
+  // Typing initials ("smfx") cannot be found by the platforms; songs already on this
+  // machine are matched locally and slotted in without touching the platform order.
+  var pinyinMatches = typeof localPinyinSongMatches === 'function' ? localPinyinSongMatches(q, mode) : [];
   function mergedSoFar() {
     var songs = mergeSongSearchResults(
       songsByProvider.netease,
@@ -1362,6 +1377,7 @@ async function fetchMusicSearchResults(q, mode, previousPages, opts) {
       MUSIC_SEARCH_MAX_RESULTS,
       q
     );
+    if (pinyinMatches.length) songs = insertPinyinSongMatches(songs, pinyinMatches, q);
     return { songs: songs, providerPages: providerPages, hasMore: searchProviderPagesHaveMore(providerPages), pending: pending };
   }
   // Each provider is applied as soon as it settles, so a slow platform only

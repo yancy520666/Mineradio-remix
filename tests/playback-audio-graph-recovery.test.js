@@ -431,3 +431,25 @@ testTwoAdvancingSilentSamplesTriggerCaptureRebuild();
 testTransientCaptureSourceFailureRetainsForcedCaptureRetry();
 testForcedCaptureWaitsForMediaReadyState();
 console.log('OK playback-audio-graph-recovery');
+
+// Repeated AutoMix handoffs must release EQ and feedback nodes as well as the
+// four main graph nodes. The incoming deck must remain connected throughout.
+{
+  const { context } = makeHarness({ allowReplacement: true });
+  assert.equal(context.initAudio(), true);
+  let previous = null;
+  const names = ['source', 'analyser', 'beatAnalyser', 'gainNode', 'filterNode', 'bassNode', 'midNode', 'highNode', 'echoSendNode', 'echoDelayNode', 'echoFeedbackNode', 'echoWetNode'];
+  for (let i = 0; i < 12; i++) {
+    const graph = { context: context.audioCtx, adopted: false };
+    names.forEach(name => { graph[name] = makeNode(context.audioCtx, name); });
+    const incoming = { __mineradioPreparedAudioGraph: graph };
+    context.audio = incoming;
+    context.resetPlaybackAudioGraphForSourceSwitch('album-gapless-handoff');
+    names.forEach(name => assert.equal(graph[name].disconnectCount, 0, 'incoming ' + name));
+    if (previous) names.forEach(name => assert.equal(previous[name].disconnectCount, 1, 'leaked outgoing ' + name));
+    assert.strictEqual(incoming.__mineradioAdoptedAudioGraph, graph);
+    previous = graph;
+  }
+  context.disconnectAudioGraphNodes(false);
+  names.forEach(name => assert.equal(previous[name].disconnectCount, 1));
+}

@@ -315,10 +315,16 @@ function playlistPanelDetailHtml(pl, provider, detailWindow) {
   var builtInActions = provider === 'mineradio'
     ? '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-rename="1">重命名</button><button class="fx-mini-btn ghost pl-detail-top-btn danger" type="button" data-pl-detail-delete="1">删除</button>'
     : '';
-  var topButton = provider === 'mineradio' ? '' : '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-top="1">回到顶部</button>';
+  var topButton = provider === 'mineradio' ? '' : '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-top="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l-6 6 1.4 1.4 3.6-3.6V19h2V8.8l3.6 3.6L18 11z"/></svg>回到顶部</button>';
+  // The total already sits in the subtitle; the badge only reports a partial load.
+  var countBadge = loading && !tracks.length
+    ? '<span class="pl-detail-count">载入中</span>'
+    : (expectedTotal > tracks.length
+      ? '<span class="pl-detail-count" title="已载入 ' + tracks.length + ' 首，共 ' + expectedTotal + ' 首">' + tracks.length + '/' + expectedTotal + '</span>'
+      : '');
   return '<div class="pl-inline-detail" data-pl-detail="' + escHtml(key) + '" style="min-height:' + playlistPanelDetailShellHeight() + 'px">' +
     '<div class="pl-detail-sticky">' +
-    '<div class="pl-detail-head">' + img + '<div style="flex:1;min-width:0"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div><div class="pl-detail-sub">' + escHtml((expectedTotal || tracks.length || 0) + ' 首 · ' + (pl.creator || playlistProviderName(provider))) + '</div></div><div class="pl-detail-count">' + (loading && !tracks.length ? '载入中' : (tracks.length + (expectedTotal > tracks.length ? '/' + expectedTotal : ''))) + '</div></div>' +
+    '<div class="pl-detail-head">' + img + '<div class="pl-detail-meta"><div class="pl-detail-title-row"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div>' + countBadge + '</div><div class="pl-detail-sub">' + escHtml((expectedTotal || tracks.length || 0) + ' 首 · ' + (pl.creator || playlistProviderName(provider))) + '</div></div></div>' +
     '<div class="pl-detail-actions"><button class="pl-detail-play" type="button" data-pl-detail-play="' + escHtml(key) + '"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>播放歌单</button>' + collectionButton + builtInActions + topButton + '</div>' +
     '</div>' +
     '<div class="pl-detail-list" data-pl-detail-scroll="' + escHtml(key) + '">' + rows + '</div>' +

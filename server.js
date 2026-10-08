@@ -24,6 +24,7 @@ const {
   artist_detail,
   artist_top_song,
   artist_songs,
+  artist_album,
   like: like_song,
   likelist,
   song_like_check,
@@ -64,6 +65,7 @@ const { createCookieStore } = require('./cookie-storage');
 const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
 const { createSpillRelay, cleanupStaleSpillFiles, defaultSpillDirectory } = require('./audio-spill-relay');
 const { createCoverCache } = require('./cover-cache');
+const { createGeneratedCachePruner } = require('./generated-cache-pruner');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -714,6 +716,17 @@ async function fetchManifestUpdateInfo(ref) {
     return localUpdateFallback(err.message || 'Update manifest failed', { configured: true });
   }
 }
+let beatCachePinnedFile = '';
+const pruneBeatMapCache = createGeneratedCachePruner({
+  root: BEATMAP_CACHE_DIR,
+  pattern: /^[a-z0-9_.-]{1,48}-[a-f0-9]{40}\.json$/i,
+  maxBytes: 96 * 1024 * 1024,
+  maxEntries: 2000,
+  keep: () => beatCachePinnedFile ? [beatCachePinnedFile] : [],
+});
+function maintainBeatMapCache() {
+  pruneBeatMapCache().catch(error => console.warn('beat cache cleanup deferred:', error.code || error.message));
+}
 function beatCacheRootInfo() {
   const dir = path.resolve(BEATMAP_CACHE_DIR);
   const root = path.parse(dir).root;
@@ -767,6 +780,10 @@ function readBeatMapCache(key) {
   const file = safeBeatMapCacheFile(key);
   if (!file || !fs.existsSync(file)) return null;
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (raw && raw.map) {
+    beatCachePinnedFile = file;
+    try { const now = new Date(); fs.utimesSync(file, now, now); } catch (_) { }
+  }
   return raw && raw.map ? raw : null;
 }
 function writeBeatMapCache(body) {
@@ -775,8 +792,12 @@ function writeBeatMapCache(body) {
   const file = safeBeatMapCacheFile(payload.key);
   if (!file) return { ok: false, error: 'INVALID_BEATMAP_CACHE_KEY' };
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(payload));
+  const serialized = JSON.stringify(payload);
+  if (Buffer.byteLength(serialized) > 8 * 1024 * 1024) return { ok: false, error: 'BEATMAP_CACHE_TOO_LARGE' };
+  fs.writeFileSync(tmp, serialized);
   fs.renameSync(tmp, file);
+  beatCachePinnedFile = file;
+  maintainBeatMapCache();
   return { ok: true, key: payload.key, savedAt: payload.savedAt, dir: path.dirname(file) };
 }
 function localUpdateFallback(reason, opts) {
@@ -2898,13 +2919,15 @@ async function getQQLoginInfo(options) {
     const info = normalizeQQProfile(body, cookieObj);
     const vipProbe = await vipProbePromise;
     if (body && (body.code === 1000 || body.result === 301)) {
-      return mergeQQVipStatus({ ...fallback, profileUnavailable: true }, vipProbe, vipProbe && vipProbe.vipSource);
+      // QQ answered "not logged in" for this cookie. The page confirms it on a
+      // second check before disconnecting, so one odd reply cannot log anyone out.
+      return mergeQQVipStatus({ ...fallback, profileUnavailable: true, sessionRejected: true }, vipProbe, vipProbe && vipProbe.vipSource);
     }
     return mergeQQVipStatus(info, vipProbe, vipProbe && vipProbe.vipSource);
   } catch (e) {
     console.warn('[QQLogin] profile check failed:', e.message);
     const vipProbe = await vipProbePromise;
-    return mergeQQVipStatus({ ...fallback, profileUnavailable: true }, vipProbe, vipProbe && vipProbe.vipSource);
+    return mergeQQVipStatus({ ...fallback, profileUnavailable: true, unverified: true }, vipProbe, vipProbe && vipProbe.vipSource);
   }
 }
 
@@ -3898,6 +3921,63 @@ async function handleTypedSearch(provider, type, keywords, limit, offset) {
   return { provider, type, items, supported: true, offset, nextOffset: offset + items.length, hasMore: items.length >= limit };
 }
 
+// Newest albums of one artist for the artist detail page. Items share the shape of
+// typed album search results so the renderer can open them the same way.
+const ARTIST_ALBUMS_DEFAULT = 6;
+const ARTIST_ALBUMS_MAX = 12;
+
+async function fetchNeteaseArtistAlbums(id, limit) {
+  const result = await artist_album({ id, limit: Math.max(limit, ARTIST_ALBUMS_MAX), offset: 0, cookie: userCookie });
+  const body = (result && result.body) || {};
+  const raw = Array.isArray(body.hotAlbums) ? body.hotAlbums : [];
+  const items = raw
+    .map(album => neteaseTypedSearchItem('album', album))
+    .filter(item => item.id && item.name)
+    .sort((a, b) => (b.publishTime || 0) - (a.publishTime || 0));
+  return { items, total: Number(body.artist && body.artist.albumSize) || items.length };
+}
+
+async function fetchQQArtistAlbums(mid, limit) {
+  const json = await qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    albums: {
+      module: 'music.musichallAlbum.AlbumListServer',
+      method: 'GetAlbumList',
+      param: { singerMid: mid, order: 1, begin: 0, num: Math.max(limit, ARTIST_ALBUMS_MAX), songNumTag: 0, singerID: 0 },
+    },
+  }, { cookie: true });
+  const block = json && json.albums;
+  if (!block || Number(block.code || 0) !== 0) return { items: [], total: 0 };
+  const data = block.data || {};
+  const list = Array.isArray(data.albumList) ? data.albumList : (Array.isArray(data.list) ? data.list : []);
+  const items = list.map(raw => {
+    const albumMid = String(raw.albumMid || raw.album_mid || raw.mid || '');
+    return {
+      provider: 'qq', type: 'album', id: albumMid, mid: albumMid, qqId: String(raw.albumID || raw.album_id || raw.id || ''),
+      name: raw.albumName || raw.album_name || raw.name || '', cover: qqAlbumCover(albumMid, 300),
+      artist: raw.singerName || raw.singer_name || '',
+      songCount: Number(raw.totalNum || raw.total_num || 0) || 0,
+      publishTime: Date.parse(raw.publishDate || raw.pubTime || raw.publish_date || '') || 0,
+    };
+  }).filter(item => item.id && item.name);
+  return { items, total: Number(data.total || 0) || items.length };
+}
+
+async function handleArtistAlbums(provider, id, limit) {
+  id = String(id || '').trim();
+  limit = Math.max(1, Math.min(ARTIST_ALBUMS_MAX, Number(limit) || ARTIST_ALBUMS_DEFAULT));
+  provider = provider === 'qq' ? 'qq' : 'netease';
+  if (!id) return { provider, albums: [], total: 0 };
+  const key = [provider + '-artist-albums', provider === 'netease' ? searchCookieScope(userCookie) : 'public', id, limit].join(':');
+  const cached = await typedSearchCache.wrap(key, async () => {
+    const r = provider === 'qq' ? await fetchQQArtistAlbums(id, limit) : await fetchNeteaseArtistAlbums(id, limit);
+    // The cache keeps arrays only; an empty list is retried next time.
+    return r.items.length ? [{ items: r.items.slice(0, limit), total: r.total }] : [];
+  });
+  const value = cached[0] || { items: [], total: 0 };
+  return { provider, albums: value.items, total: value.total };
+}
+
 function truthyQQPlaybackHint(value) {
   const text = String(value == null ? '' : value).trim().toLowerCase();
   return value === true || text === '1' || text === 'true' || text === 'yes' || text === 'vip';
@@ -4716,11 +4796,16 @@ async function fetchNeteaseLoginInfo() {
     const body = acc.body || {};
     const info = normalizeLoginInfo(body.profile, body.account, body);
     if (info.loggedIn) return await enrichNeteaseLoginInfo(info, body.profile, body.account, body);
-    if (isNeteaseAuthInvalidPayload(acc)) saveCookie('');
-    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    const authInvalid = isNeteaseAuthInvalidPayload(acc);
+    // A status probe is read-only: preserve credentials for confirmation or retry.
+    // Only an explicit answer from NetEase means the session ended elsewhere;
+    // risk-control or other non-200 replies leave the session unverified.
+    const code = normalizeApiCode(acc);
+    const sessionRejected = authInvalid || (code === 200 && !body.account && !body.profile);
+    return { loggedIn: false, hasCookie: !!userCookie, sessionRejected, unverified: !sessionRejected, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   } catch (e) {
     console.warn('[Login] account check failed:', e.message);
-    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    return { loggedIn: false, hasCookie: !!userCookie, unverified: true, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   }
 }
 const NETEASE_LOGIN_INFO_CACHE_TTL_MS = 30 * 1000;
@@ -4729,10 +4814,11 @@ function clearNeteaseLoginInfoCache() {
   neteaseLikeCache.reset();
   neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 }
-async function getLoginInfo() {
+async function getLoginInfo(options) {
   if (!userCookie) return { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   const cookieKey = userCookie;
-  if (neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.value && Date.now() - neteaseLoginInfoCache.at < NETEASE_LOGIN_INFO_CACHE_TTL_MS) {
+  const fresh = !!(options && options.fresh);
+  if (!fresh && neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.value && Date.now() - neteaseLoginInfoCache.at < NETEASE_LOGIN_INFO_CACHE_TTL_MS) {
     return neteaseLoginInfoCache.value;
   }
   if (neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.promise) return neteaseLoginInfoCache.promise;
@@ -6575,7 +6661,8 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 登录态查询 ----------
   if (pn === '/api/login/status') {
-    const info = await getLoginInfo();
+    // fresh=1 is the online check: skip the 30 s cache so a session revoked elsewhere shows up.
+    const info = await getLoginInfo({ fresh: url.searchParams.get('fresh') === '1' });
     sendJSON(res, info);
     return;
   }
@@ -6879,6 +6966,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 歌手主页 / 热门歌曲 ----------
+  if (pn === '/api/artist/albums') {
+    try {
+      const provider = url.searchParams.get('provider') || 'netease';
+      const id = url.searchParams.get('id') || url.searchParams.get('mid') || '';
+      sendJSON(res, await handleArtistAlbums(provider, id, parseInt(url.searchParams.get('limit') || '6', 10)));
+    } catch (err) {
+      console.error('[ArtistAlbums]', err.message);
+      sendJSON(res, { error: err.message, albums: [] }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/artist/detail') {
     try {
       const id = url.searchParams.get('id');
@@ -7072,6 +7171,7 @@ const server = http.createServer(async (req, res) => {
   serveStatic(res, filePath);
 });
 
+maintainBeatMapCache();
 server.listen(PORT, HOST, () => {
   console.log('======================================================');
   console.log(' 粒子音乐可视化 v2  →  http://localhost:' + PORT);

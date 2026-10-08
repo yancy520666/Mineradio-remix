@@ -118,3 +118,9 @@ This attribution concerns those adapter changes only. The pre-existing
 `345dbb2`; its separate provenance and redistribution terms, and those of the
 retained `qishui-auth-v6/` Web resources, remain unverified. See the
 [scoped audit](NEXT_PATH_AUDIT.md). Existing files have not been removed.
+
+## Kugou client QR and personal cloudlist request reference
+
+- Reference: [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi), GPL-3.0.
+- Reviewed 2026-10-09: `module/login_qr_key.js`, `module/login_qr_check.js`, `module/user_playlist.js` and `util/request.js`.
+- Remix implements the public client QR flow with Node HTTPS/crypto and its existing qrcode dependency; no upstream runtime or proprietary component is bundled. Personal cloudlist reads reuse the existing Android gateway transport. Actual authorization requires the user's confirmation in the official Kugou client.

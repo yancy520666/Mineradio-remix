@@ -167,6 +167,15 @@ renderer.domElement.addEventListener('contextmenu', function (e) {
     setShelfPinnedOpen(true, true);
     return;
   }
+  if (!shelfPinnedOpen && typeof openPanelAfterViewRecenter === 'function') {
+    // A second right-click while the view is still turning back cancels the open.
+    if (cancelPanelOpenAfterRecenter()) return;
+    openPanelAfterViewRecenter('shelf-context', function () {
+      if (shelfPinnedOpen || !shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return;
+      setShelfPinnedOpen(true, true);
+    });
+    return;
+  }
   setShelfPinnedOpen(!shelfPinnedOpen, true);
   if (!shelfPinnedOpen && typeof setFocusZone === 'function') setFocusZone(null, true);
 });
