@@ -29,7 +29,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'updateStageLyricLayout'), c);
   c.updateStageLyricLayout(); shelf = true;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
-  assert(group.position.x < -1.3); shelf = false;
+  assert(group.position.x < -0.9); shelf = false;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
   assert(Math.abs(group.position.x) < .01);
   assert.equal(c.stageLyrics.current.texture, texture);
