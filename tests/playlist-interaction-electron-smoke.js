@@ -173,13 +173,14 @@ if (!process.argv.includes('--child')) {
         assert(sample.clip !== 'none' && sample.clippedHit, JSON.stringify(geometry));
       }
       assert(geometry.iconOffset.every(offset => offset < 1));
-      const counts = new Map(); let active = 0, peak = 0;
+      const counts = new Map(), timeline = []; let active = 0, peak = 0, started = Date.now();
       const image = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#399"/></svg>';
       const server = require('node:http').createServer((req, res) => {
         const requestPath=req.url.split('?')[0];
         counts.set(requestPath, (counts.get(requestPath) || 0) + 1); peak = Math.max(peak, ++active);
+        timeline.push([Date.now() - started, '+' + requestPath, active]);
         // A cancelled cover aborts its request; count it as done when the socket closes.
-        res.once('close', () => active--);
+        res.once('close', () => { active--; timeline.push([Date.now() - started, '-' + requestPath, active]); });
         setTimeout(() => {
           if (requestPath === '/row16.svg' && counts.get(requestPath) === 1) {
             res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); return;
@@ -227,7 +228,7 @@ if (!process.argv.includes('--child')) {
       })()`);
       await new Promise(resolve => server.close(resolve));
       assert(covers.coldMs >= 250); assert(covers.cachedMs < 50);
-      assert.equal(counts.get('/cold.svg'), 1); assert(peak <= 4);
+      assert.equal(counts.get('/cold.svg'), 1); assert(peak <= 4, 'cover requests exceeded 4: ' + JSON.stringify(timeline));
       assert(covers.idle.loaded && covers.idle.after > covers.idle.before, JSON.stringify(covers));
       assert.deepEqual(covers.idle.pixel,[51,153,153,255]);
       assert.equal(counts.get('/row16.svg'), 2, 'one failed preload must retry and notify the idle row');
