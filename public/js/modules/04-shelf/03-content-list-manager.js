@@ -980,28 +980,9 @@ function makeContentListManager() {
       for (var ri = 0; ri < ordered.length; ri++) {
         var row = ordered[ri];
         var params = row.mesh.geometry && row.mesh.geometry.parameters || {};
-        var hw = (params.width || 2.50) / 2;
-        var hh = (params.height || 0.36) / 2;
-        var pts = [
-          new THREE.Vector3(-hw, -hh, 0),
-          new THREE.Vector3(hw, -hh, 0),
-          new THREE.Vector3(hw, hh, 0),
-          new THREE.Vector3(-hw, hh, 0),
-        ];
-        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        row.mesh.updateMatrixWorld(true);
-        for (var pi = 0; pi < pts.length; pi++) {
-          pts[pi].applyMatrix4(row.mesh.matrixWorld).project(camera);
-          var x = (pts[pi].x + 1) * innerWidth / 2;
-          var y = (1 - pts[pi].y) * innerHeight / 2;
-          minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-        }
-        var padX = 24, padY = 16;
-        if (sx < minX - padX || sx > maxX + padX || sy < minY - padY || sy > maxY + padY) continue;
-        var u = clampRange((sx - minX) / Math.max(1, maxX - minX), 0, 1);
-        var v = 1 - clampRange((sy - minY) / Math.max(1, maxY - minY), 0, 1);
-        return { row: row, uv: { x: u, y: v }, screenPick: true };
+        var rowUv = screenQuadHit(row.mesh, (params.width || 2.50) / 2, (params.height || 0.36) / 2, sx, sy, 8);
+        if (!rowUv) continue;
+        return { row: row, uv: rowUv, screenPick: true };
       }
       return null;
     },
@@ -1013,25 +994,7 @@ function makeContentListManager() {
     screenContainsPanel: function (sx, sy) {
       if (!panel || !panel.mesh || !open) return false;
       var params = panel.mesh.geometry && panel.mesh.geometry.parameters || {};
-      var hw = (params.width || 2.62) / 2;
-      var hh = (params.height || 3.02) / 2;
-      var pts = [
-        new THREE.Vector3(-hw, -hh, 0),
-        new THREE.Vector3(hw, -hh, 0),
-        new THREE.Vector3(hw, hh, 0),
-        new THREE.Vector3(-hw, hh, 0),
-      ];
-      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      panel.mesh.updateMatrixWorld(true);
-      for (var pi = 0; pi < pts.length; pi++) {
-        pts[pi].applyMatrix4(panel.mesh.matrixWorld).project(camera);
-        var x = (pts[pi].x + 1) * innerWidth / 2;
-        var y = (1 - pts[pi].y) * innerHeight / 2;
-        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-      }
-      var pad = 42;
-      return sx >= minX - pad && sx <= maxX + pad && sy >= minY - pad && sy <= maxY + pad;
+      return !!screenQuadHit(panel.mesh, (params.width || 2.62) / 2, (params.height || 3.02) / 2, sx, sy, 24);
     },
     rowActionAtScreen: function (row, sx, sy) {
       if (!row || !row.mesh || !row.mesh.visible) return null;
