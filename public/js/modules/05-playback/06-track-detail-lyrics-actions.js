@@ -661,6 +661,7 @@ function closeTrackDetailModal() {
 }
 var ARTIST_ALBUM_COUNT = 6;
 var detailArtistAlbums = [];
+var detailArtistAlbumQuery = '';
 function artistAlbumYear(item) {
   var t = Number(item && item.publishTime) || 0;
   return t > 0 ? String(new Date(t).getFullYear()) : '';
@@ -693,6 +694,13 @@ function loadArtistAlbumSection(provider, id, seq) {
     if (seq !== trackDetailSeq) return;
     if (r && !r.error) renderArtistAlbumSection(r.albums || [], Number(r.total) || 0);
   }).catch(function () { });
+}
+// "查看更多": leave the detail page and search more albums by this artist in the search panel.
+function openArtistAlbumSearch() {
+  var name = String(detailArtistAlbumQuery || '').trim();
+  if (!name || typeof searchArtistAlbums !== 'function') return;
+  closeTrackDetailModal();
+  searchArtistAlbums(name);
 }
 function openArtistAlbumDetail(i) {
   var item = detailArtistAlbums[i];
@@ -827,9 +835,10 @@ function openTrackDetailModal(type, songOverride) {
       detailRow('来源', songSourceLabel(song)) +
       '</div>' +
       '<div class="detail-chip-row">' + (artists.length ? artists.map(function (name) { return '<span class="detail-chip">' + escHtml(name) + '</span>'; }).join('') : '<span class="detail-chip">未知歌手</span>') + '</div>' +
-      '<div class="detail-section artist-albums-section" id="artist-albums-section" hidden><div class="detail-section-head"><div class="detail-section-title">专辑</div><div class="artist-albums-count" id="artist-albums-count"></div></div><div class="artist-album-grid" id="artist-albums-grid"></div></div>' +
+      '<div class="detail-section artist-albums-section" id="artist-albums-section" hidden><div class="detail-section-head"><div class="detail-section-title">专辑</div><div class="detail-section-actions"><span class="artist-albums-count" id="artist-albums-count"></span><button class="artist-albums-more" type="button" title="搜索该歌手的更多专辑" onclick="openArtistAlbumSearch()">查看更多 ›</button></div></div><div class="artist-album-grid" id="artist-albums-grid"></div></div>' +
       '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">热门歌曲</div></div><div id="artist-hot-songs">' + (artistDetailUrl ? '<div class="detail-loading">' + escHtml(artistLoadingText) + '</div>' : '<div class="detail-empty">' + escHtml(artistEmptyText) + '</div>') + '</div></div>';
     detailArtistAlbums = [];
+    detailArtistAlbumQuery = artistNamesForMatch[0] || '';
     if (artistId) loadArtistAlbumSection('netease', artistId, seq);
     else if (qqArtistMid) loadArtistAlbumSection('qq', qqArtistMid, seq);
     if (artistDetailUrl) {
