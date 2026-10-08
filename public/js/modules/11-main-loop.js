@@ -676,8 +676,10 @@ function animate() {
   if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !workshopPresetActive;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
-  particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;
-  particles.rotation.x += (targetRotX - particles.rotation.x) * 0.055;
+  if (!(typeof applyPanelViewRecenter === 'function' && applyPanelViewRecenter(now))) {
+    particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;
+    particles.rotation.x += (targetRotX - particles.rotation.x) * 0.055;
+  }
   if (bloomParticles) {
     bloomParticles.rotation.copy(particles.rotation);
   }

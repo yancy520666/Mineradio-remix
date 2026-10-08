@@ -101,12 +101,28 @@ function auditProviderVipState(provider, status) {
   writeProviderVipAuditState(state);
 }
 
+// The login panel keeps a wire drawn for sessions connected in this window. When the
+// platform ends the session elsewhere, drop that wire too so the panel shows it unplugged.
+function forgetProviderLiveSession(provider) {
+  if (typeof loginWorkflowVerifiedSession !== 'undefined' && loginWorkflowVerifiedSession) delete loginWorkflowVerifiedSession[provider];
+}
+function clearNeteaseSessionState() {
+  neteasePlaylists = [];
+  userPlaylists = (builtInPlaylists || []).concat(qqPlaylists || [], kugouPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
+  playlistCatalogRevision += 1;
+  myPodcastCollections = [];
+  myPodcastItems = {};
+  likedSongMap = {};
+  updateLikeButtons();
+}
 async function refreshLoginStatus(force) {
   try {
     var info = await apiJson('/api/login/status?t=' + Date.now());
+    var neteaseWasLoggedIn = !!(loginStatus && loginStatus.loggedIn);
     loginStatusChecked = true;
     loginStatusCheckFailed = false;
     loginStatus = info || { loggedIn: false };
+    loginPresenceState.netease.rejected = 0;
     auditProviderVipState('netease', loginStatus);
     if (loginStatus.loggedIn && !hasPlatformLogin(activeAccountProvider)) activeAccountProvider = 'netease';
     renderUserBtn();
@@ -117,13 +133,8 @@ async function refreshLoginStatus(force) {
       loadHomeDiscover(true);
       syncLikeStatusForSongs(playQueue.concat(playlist || []));
     } else {
-      neteasePlaylists = [];
-      userPlaylists = (builtInPlaylists || []).concat(qqPlaylists || [], kugouPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
-      playlistCatalogRevision += 1;
-      myPodcastCollections = [];
-      myPodcastItems = {};
-      likedSongMap = {};
-      updateLikeButtons();
+      if (neteaseWasLoggedIn) forgetProviderLiveSession('netease');
+      clearNeteaseSessionState();
     }
     return info;
   } catch (e) {
@@ -215,10 +226,14 @@ async function refreshQQLoginStatus(options) {
     var query = '/api/qq/login/status?t=' + Date.now() + (options.forceVip ? '&forceVip=1' : '');
     var info = await apiJson(query);
     var prevLogged = !!qqLoginStatus.loggedIn;
+    info = applyQQSessionRejection(info);
     qqLoginStatus = normalizeQQLoginStatus(info);
     auditProviderVipState('qq', qqLoginStatus);
     if (!qqLoginStatus.loggedIn) {
-      if (prevLogged || qqLoginWasLoggedIn) showToast(qqLoginStatus.stale ? 'QQ 音乐登录已失效' : 'QQ 音乐已掉登录');
+      if (prevLogged || qqLoginWasLoggedIn) {
+        forgetProviderLiveSession('qq');
+        showToast(qqLoginStatus.reauthRequired ? 'QQ 音乐账号已在别处退出，已断开连线，请重新连线登录' : (qqLoginStatus.stale ? 'QQ 音乐登录已失效' : 'QQ 音乐已掉登录'));
+      }
       qqPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'qq'; });
       playlistCatalogRevision += 1;
@@ -348,7 +363,10 @@ async function refreshKugouLoginStatus() {
     kugouLoginStatus = normalizeKugouLoginStatus(info);
     auditProviderVipState('kugou', kugouLoginStatus);
     if (!kugouLoginStatus.loggedIn) {
-      if (prevLogged || kugouLoginWasLoggedIn) showToast(kugouLoginStatus.stale ? '酷狗音乐登录已失效' : '酷狗音乐已掉登录');
+      if (prevLogged || kugouLoginWasLoggedIn) {
+        forgetProviderLiveSession('kugou');
+        showToast(kugouLoginStatus.stale ? '酷狗音乐登录已失效' : '酷狗音乐已掉登录');
+      }
       kugouPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'kugou'; });
       playlistCatalogRevision += 1;
@@ -420,7 +438,10 @@ async function refreshQishuiLoginStatus() {
     qishuiLoginStatus = normalizeQishuiLoginStatus(info);
     auditProviderVipState('qishui', qishuiLoginStatus);
     if (!qishuiLoginStatus.loggedIn) {
-      if (prevLogged || qishuiLoginWasLoggedIn) showToast(qishuiLoginStatus.reauthRequired ? '汽水音乐登录已失效，请重新扫码' : '汽水音乐授权已清除');
+      if (prevLogged || qishuiLoginWasLoggedIn) {
+        forgetProviderLiveSession('qishui');
+        showToast(qishuiLoginStatus.reauthRequired ? '汽水音乐登录已失效，请重新扫码' : '汽水音乐授权已清除');
+      }
       qishuiPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'qishui'; });
       playlistCatalogRevision += 1;
@@ -492,7 +513,10 @@ async function refreshSpotifyLoginStatus() {
     spotifyLoginStatus = normalizeSpotifyLoginStatus(info);
     auditProviderVipState('spotify', spotifyLoginStatus);
     if (!spotifyLoginStatus.loggedIn) {
-      if (prevLogged || spotifyLoginWasLoggedIn) showToast(spotifyLoginStatus.stale ? 'Spotify 登录已失效' : 'Spotify 已退出');
+      if (prevLogged || spotifyLoginWasLoggedIn) {
+        forgetProviderLiveSession('spotify');
+        showToast(spotifyLoginStatus.stale ? 'Spotify 登录已失效' : 'Spotify 已退出');
+      }
       spotifyPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'spotify'; });
       playlistCatalogRevision += 1;
@@ -519,6 +543,101 @@ function startSpotifyLoginStatusAutoRefresh() {
   spotifyLoginAutoRefreshTimer = setInterval(function () {
     refreshSpotifyLoginStatus().catch(function (e) { console.warn('Spotify login auto refresh failed:', e); });
   }, 45000);
+}
+
+// ---------- 账号在线检测 ----------
+// 登录后定期、窗口重新获得焦点时向平台确认会话仍有效。网络失败只算“未确认”，
+// 不会断开；平台明确回答“未登录”需要隔一小段时间再确认一次，才断开连线并提示。
+var LOGIN_PRESENCE_INTERVAL_MS = 5 * 60 * 1000;
+var LOGIN_PRESENCE_FOCUS_GAP_MS = 60 * 1000;
+var LOGIN_PRESENCE_CONFIRM_DELAY_MS = 15 * 1000;
+var loginPresenceState = {
+  netease: { rejected: 0, checking: false, lastAt: 0, confirmTimer: 0, timer: 0 },
+  qq: { rejected: 0, confirmTimer: 0 }
+};
+function applyQQSessionRejection(info) {
+  var state = loginPresenceState.qq;
+  if (!info || !info.loggedIn || !info.sessionRejected) {
+    state.rejected = 0;
+    return info;
+  }
+  state.rejected += 1;
+  if (state.rejected >= 2) return Object.assign({}, info, { loggedIn: false, stale: true, reauthRequired: true });
+  // First "not logged in" from QQ: ask again soon instead of waiting for the next poll.
+  if (!state.confirmTimer) {
+    state.confirmTimer = setTimeout(function () {
+      state.confirmTimer = 0;
+      refreshQQLoginStatus({ reason: 'presence-confirm' }).catch(function (e) { console.warn('QQ presence confirm failed:', e); });
+    }, LOGIN_PRESENCE_CONFIRM_DELAY_MS);
+  }
+  return info;
+}
+function disconnectNeteaseAfterRemoteLogout() {
+  loginStatus = { loggedIn: false, sessionRejected: true };
+  forgetProviderLiveSession('netease');
+  clearNeteaseSessionState();
+  homeDiscoverState.loaded = false;
+  if (!hasPlatformLogin('netease') || loggedProviderCount() < 2) dualAccountMode = false;
+  if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
+  if (typeof safeRenderQueuePanel === 'function') safeRenderQueuePanel('netease-session-lost', { scrollCurrent: miniQueueOpen });
+  renderUserBtn();
+  if (typeof safeShelfRebuild === 'function') safeShelfRebuild('netease-session-lost');
+  showToast('网易云音乐账号已在别处退出，已断开连线，请重新连线登录');
+}
+async function checkNeteaseLoginPresence(reason) {
+  var state = loginPresenceState.netease;
+  if (state.checking || !loginStatus || !loginStatus.loggedIn) return;
+  if (document.hidden && reason !== 'presence-confirm') return;
+  var userId = String(loginStatus.userId || '');
+  state.checking = true;
+  state.lastAt = Date.now();
+  try {
+    var info = await apiJson('/api/login/status?fresh=1&t=' + Date.now());
+    // The user logged out or switched account while this check was in flight.
+    if (!loginStatus || !loginStatus.loggedIn || String(loginStatus.userId || '') !== userId) return;
+    if (info && info.loggedIn) {
+      state.rejected = 0;
+      if (String(info.userId || '') !== userId) {
+        refreshLoginStatus(true);
+        return;
+      }
+      loginStatus = info;
+      auditProviderVipState('netease', loginStatus);
+      renderUserBtn();
+      return;
+    }
+    if (!info || !info.sessionRejected) return;
+    state.rejected += 1;
+    if (state.rejected < 2) {
+      if (state.confirmTimer) clearTimeout(state.confirmTimer);
+      state.confirmTimer = setTimeout(function () {
+        state.confirmTimer = 0;
+        checkNeteaseLoginPresence('presence-confirm');
+      }, LOGIN_PRESENCE_CONFIRM_DELAY_MS);
+      return;
+    }
+    state.rejected = 0;
+    disconnectNeteaseAfterRemoteLogout();
+  } catch (e) {
+    // Offline or the local service is busy: keep the session as it is.
+    console.warn('NetEase presence check failed:', e);
+  } finally {
+    state.checking = false;
+  }
+}
+function startLoginPresenceWatch() {
+  var state = loginPresenceState.netease;
+  if (state.timer) clearInterval(state.timer);
+  state.timer = setInterval(function () { checkNeteaseLoginPresence('interval'); }, LOGIN_PRESENCE_INTERVAL_MS);
+  if (startLoginPresenceWatch._bound) return;
+  startLoginPresenceWatch._bound = true;
+  function checkOnReturn(reason) {
+    if (document.hidden) return;
+    if (Date.now() - state.lastAt < LOGIN_PRESENCE_FOCUS_GAP_MS) return;
+    checkNeteaseLoginPresence(reason);
+  }
+  window.addEventListener('focus', function () { checkOnReturn('window-focus'); });
+  document.addEventListener('visibilitychange', function () { checkOnReturn('visibility'); });
 }
 
 function renderUserBtn() {

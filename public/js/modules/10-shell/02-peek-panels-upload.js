@@ -92,7 +92,13 @@ function setPeek(el, on, key) {
     var runPlaylistOpenAnimation = key === 'pl' && !wasPeek ? shouldAnimatePlaylistPanelOpen(el) : false;
     if (key === 'pl' && !wasPeek) preparePlaylistPanelTabOnOpen(el);
     el.classList.add('peek');
-    if (key === 'pl' && !wasPeek) markPlaylistPanelMotion(el, playlistPanelMotionMs('open'));
+    if (key === 'pl' && !wasPeek) {
+      markPlaylistPanelMotion(el, playlistPanelMotionMs('open'));
+      // The camera swings left as the panel slides in; render that at the display
+      // rate like the right-click shelf, and turn a dragged view back first.
+      if (typeof startPanelViewRecenter === 'function') startPanelViewRecenter('playlist-panel');
+      if (typeof markRenderInteraction === 'function') markRenderInteraction('playlist-panel', playlistPanelMotionMs('open') + 700);
+    }
     if (key === 'pl' && !wasPeek) {
       scheduleUiWarmTask(function () {
         flushDeferredQueuePanel('playlist-panel-peek');
@@ -110,7 +116,10 @@ function setPeek(el, on, key) {
     peekTimers[key] = setTimeout(function () {
       if (key === 'pl') el.classList.add('playlist-panel-closing');
       el.classList.remove('peek');
-      if (key === 'pl') markPlaylistPanelMotion(el, playlistPanelMotionMs('close'));
+      if (key === 'pl') {
+        markPlaylistPanelMotion(el, playlistPanelMotionMs('close'));
+        if (typeof markRenderInteraction === 'function') markRenderInteraction('playlist-panel', playlistPanelMotionMs('close') + 700);
+      }
       if (key === 'pl') setTimeout(function () { el.classList.remove('playlist-panel-closing'); }, playlistPanelMotionMs('close') + 80);
       if (key === 'fx') {
         var fabOff = document.getElementById('fx-fab');

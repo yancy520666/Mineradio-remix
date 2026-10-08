@@ -238,6 +238,8 @@ function setShelfPinnedOpen(open, immediate, persist) {
   var nextOpen = !!open;
   if (nextOpen && typeof suppressBottomControlsForShelf === 'function') suppressBottomControlsForShelf(980);
   if (nextOpen && !shelfPinnedOpen) {
+    // Card clicks and other direct opens turn a dragged view back at the same time.
+    if (typeof startPanelViewRecenter === 'function') startPanelViewRecenter('shelf-pin');
     var nowT = uniforms && uniforms.uTime ? uniforms.uTime.value : performance.now() / 1000;
     var previewVisible = shelfHoverCue.guide || shelfHoverCue.value > 0.28 || shelfVisibility > 0.20;
     var summon = shelfSummonSettings();
