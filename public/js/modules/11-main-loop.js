@@ -85,7 +85,12 @@ function getAdaptiveRenderFps(now) {
   if (isDeepBackgroundMode()) return 1;
   var mode = (typeof normalizeForegroundFpsMode === 'function') ? normalizeForegroundFpsMode(fx && fx.foregroundFpsMode) : 'adaptive';
   var fixedFps = (typeof foregroundFixedFpsForMode === 'function') ? foregroundFixedFpsForMode(mode) : null;
-  if (!(playing && audio && !audio.paused)) return fixedFps > 0 ? Math.min(60, fixedFps) : 60;
+  if (!(playing && audio && !audio.paused)) {
+    // Paused scenes idle at 60 Hz, but opening the shelf, dragging or scrolling
+    // moves the camera and cover: render those at the same rate as playback.
+    if (typeof isRenderInteractionActive === 'function' && isRenderInteractionActive(now)) return fixedFps > 0 ? fixedFps : 0;
+    return fixedFps > 0 ? Math.min(60, fixedFps) : 60;
+  }
   if (fx && Number(fx.preset) === 7 && window.MineradioSonicPerformance) {
     var sonicBudget = MineradioSonicPerformance.stageProfile();
     if (sonicBudget && sonicBudget.fps) return Math.min(fixedFps || sonicBudget.fps, sonicBudget.fps);
