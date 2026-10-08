@@ -76,7 +76,7 @@ document.addEventListener('keydown', function (e) {
   }
   else if (e.code === 'KeyL') { if (!immersiveMode) toggleLyricsPanel(); }
   else if (e.code === 'KeyP') {
-    if (!immersiveMode && diyPlayerMode) toggleFxPanel();
+    if (!immersiveMode && diyPlayerMode) toggleFxPanelFromUser();
     else if (!immersiveMode) showToast('开启 DIY 玩家模式后可打开视觉控制台');
   }
   else if (e.code === 'KeyI') toggleImmersiveMode();
