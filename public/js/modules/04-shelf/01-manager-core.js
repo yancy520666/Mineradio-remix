@@ -806,6 +806,8 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
         : Math.max(0.05, summonVis.closeDuration * 0.65);
       shelfVisibility += (targetVis - shelfVisibility) * durationEaseFactor(visDuration, dt);
       if (shelfVisibility < 0.01 && targetVis === 0) shelfVisibility = 0;
+      // While the shelf slides in or out, keep paused/low-cap scenes at the display rate.
+      if (Math.abs(targetVis - shelfVisibility) > 0.004 && typeof markRenderInteraction === 'function') markRenderInteraction('shelf-motion', 260);
       group.visible = appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (!guidePreview && contentList && contentList.isOpen()));
       if (connectorParticles) connectorParticles.visible = group.visible && mode === 'stage';
       if (mode === 'side') {
