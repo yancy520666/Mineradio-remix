@@ -1168,8 +1168,10 @@ function updateLoginProviderUi() {
   var canOpenNeteaseWeb = !!(window.desktopWindow && typeof window.desktopWindow.openNeteaseMusicLogin === 'function');
   var neteaseFallback = document.getElementById('netease-web-fallback-btn');
   if (neteaseFallback) {
-    neteaseFallback.style.display = loginProvider === 'netease' && canOpenNeteaseWeb ? '' : 'none';
-    neteaseFallback.disabled = !!neteaseWebLoginBusy;
+    neteaseFallback.style.display = (isNetease && canOpenNeteaseWeb) || ((isQQ || isKugou) && window.desktopWindow && window.desktopWindow.isDesktop) ? '' : 'none';
+    neteaseFallback.textContent = isQQ ? 'QQ 网页登录' : (isKugou ? '官方验证' : '网页登录');
+    neteaseFallback.onclick = openProviderOfficialWebLogin;
+    neteaseFallback.disabled = isNetease && !!neteaseWebLoginBusy;
   }
   var canUseQishuiQrLogin = true;
   var qishuiSearchReady = qishuiPublicSearchReady();
@@ -1253,7 +1255,7 @@ function updateLoginProviderUi() {
   if (qishuiBtn) qishuiBtn.classList.toggle('active', isQishui);
   if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label);
   var inlineQrDesc = inlineLoginQrSupported() && isQQ;
-  if (desc && inlineQrDesc) desc.innerHTML = '优先使用 <b>QQ 音乐 App</b> 扫码授权；失败时回退 QQ／微信官方网页登录。';
+  if (desc && inlineQrDesc) desc.innerHTML = '请用 <b>QQ 音乐 App</b> 扫码；QQ／微信扫一扫请点下方“QQ 网页登录”。';
   else if (desc) desc.innerHTML = isQQ
     ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
     : (isKugou
@@ -1565,7 +1567,7 @@ function inlineLoginQrSupported() {
   return !!(api && typeof api.cancelInlineLogin === 'function' && typeof api.onInlineLoginQr === 'function');
 }
 function inlineLoginQrAppLabel(provider) {
-  if (provider === 'qq') return '手机 QQ／微信 ';
+  if (provider === 'qq') return 'QQ 音乐 App（不是 QQ 的扫一扫）';
   if (provider === 'kugou') return '酷狗音乐 App ';
   return '网易云音乐 App ';
 }
@@ -1673,6 +1675,12 @@ async function openProviderLoginWithInlineQr(provider, open, options) {
     }
   }
   return open(options);
+}
+function openProviderOfficialWebLogin() {
+  cancelInlineLoginQr();
+  if (loginProvider === 'qq') return openQQWebLogin({ officialWindow: true });
+  if (loginProvider === 'kugou') return openKugouWebLogin({ officialWindow: true });
+  return openNeteaseWebLogin();
 }
 function openProviderWebLogin() {
   if (loginProvider === 'qq') return openQQWebLogin();
@@ -1786,7 +1794,8 @@ async function openNeteaseWebLogin() {
     }
   }
 }
-async function openQQWebLogin() {
+async function openQQWebLogin(options) {
+  options = options || {};
   if (qqWebLoginBusy) return;
   var statusEl = document.getElementById('qr-status');
   var api = window.desktopWindow;
@@ -1801,7 +1810,7 @@ async function openQQWebLogin() {
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入 QQ 音乐登录二维码…' : '已打开 QQ 音乐窗口，请扫码并确认登录…'; statusEl.className = 'preview'; }
   try {
-    var result = await openProviderLoginWithInlineQr('qq', function (opts) { return api.openQQMusicLogin(opts); }, {
+    var result = options.officialWindow ? await api.openQQMusicLogin({ nativeQr: false, forceReauth: true }) : await openProviderLoginWithInlineQr('qq', function (opts) { return api.openQQMusicLogin(opts); }, {
       forceReauth: !!(qqLoginStatus && qqLoginStatus.authorizationIncomplete && qqLoginStatus.playbackKeyReady === false)
     });
     if (!result) return;
@@ -1844,7 +1853,8 @@ async function openQQWebLogin() {
     }
   }
 }
-async function openKugouWebLogin() {
+async function openKugouWebLogin(options) {
+  options = options || {};
   if (kugouWebLoginBusy) return;
   var statusEl = document.getElementById('qr-status');
   var api = window.desktopWindow;
@@ -1859,7 +1869,7 @@ async function openKugouWebLogin() {
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入酷狗音乐登录二维码…' : '正在打开酷狗音乐官方登录页，加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
-    var result = await openProviderLoginWithInlineQr('kugou', function (opts) { return api.openKugouMusicLogin(opts); }, { forceReauth: true });
+    var result = options.officialWindow ? await api.openKugouMusicLogin({ nativeQr: false, forceReauth: true }) : await openProviderLoginWithInlineQr('kugou', function (opts) { return api.openKugouMusicLogin(opts); }, { forceReauth: true });
     if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || '酷狗登录未完成');

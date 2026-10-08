@@ -2651,11 +2651,16 @@ function parseJSONText(text) {
   return JSON.parse(json);
 }
 
+const { nativeCommForCookie } = require('./desktop/qq-native-qr');
+
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
+  const nativeComm = opts.cookie && nativeCommForCookie(qqCookieObject());
+  if (nativeComm) payload = { ...payload, comm: { ...payload.comm, ...nativeComm } };
   const body = JSON.stringify(payload);
   const headers = {
     ...QQ_HEADERS,
+    ...(nativeComm ? { 'User-Agent': 'QQMusic 14090008(android 10)' } : {}),
     'Content-Type': 'application/json;charset=UTF-8',
     'Content-Length': Buffer.byteLength(body),
   };
@@ -2898,6 +2903,16 @@ async function getQQLoginInfo(options) {
     return null;
   });
   try {
+    if (nativeCommForCookie(cookieObj)) {
+      const body = await qqMusicRequest({ req_0: { module: 'music.UserInfo.userInfoServer', method: 'GetLoginUserInfo', param: {} } }, { cookie: true, timeoutMs: 6500 });
+      const block = body && body.req_0;
+      const code = Number(block && block.code) || Number(body && body.code) || 0;
+      const accepted = !!(block && code === 0 && block.data && Object.keys(block.data).length);
+      const rejected = [1000, 10004, 301, -100008].includes(code);
+      const vipProbe = await vipProbePromise;
+      const profile = accepted ? normalizeQQProfile({ data: block.data }, cookieObj) : fallback;
+      return mergeQQVipStatus({ ...profile, profileUnavailable: !accepted, sessionRejected: rejected, unverified: !accepted && !rejected }, vipProbe, vipProbe && vipProbe.vipSource);
+    }
     const u = new URL('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg');
     u.searchParams.set('cid', '205360838');
     u.searchParams.set('userid', uin);
@@ -4082,9 +4097,10 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
   const mediaIds = [];
   if (fileMediaMid) mediaIds.push(fileMediaMid);
   if (songmid && !mediaIds.includes(songmid)) mediaIds.push(songmid);
+  const nativePlayback = !!nativeCommForCookie(cookieObj);
   const fileCandidates = mediaIds.flatMap(mediaId =>
     qualityCandidatesFrom(requestedQuality, QQ_QUALITY_CANDIDATE_TEMPLATES)
-      .map(item => ({ ...item, mediaId, filename: item.prefix + mediaId + item.ext }))
+      .map(item => ({ ...item, mediaId, filename: item.prefix + (nativePlayback ? songmid : '') + mediaId + item.ext }))
   );
   const filenames = fileCandidates.map(item => item.filename);
   const param = {
@@ -4096,21 +4112,25 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
     platform: '20',
   };
   if (filenames.length) param.filename = filenames;
+  if (nativePlayback) {
+    param.ctx = 0; param.guid = crypto.randomUUID().replace(/-/g, '');
+    delete param.platform; delete param.loginflag;
+  }
   const comm = { uin, format: 'json', ct: musicKey ? 19 : 24, cv: 0 };
   if (musicKey) comm.authst = musicKey;
   if (cookieObj.tmeLoginType === '6') comm.tmeLoginType = 6;
   const json = await qqMusicRequest({
     comm,
     req_0: {
-      module: 'vkey.GetVkeyServer',
-      method: 'CgiGetVkey',
+      module: nativePlayback ? 'music.vkey.GetVkey' : 'vkey.GetVkeyServer',
+      method: nativePlayback ? 'UrlGetVkey' : 'CgiGetVkey',
       param,
     },
   }, { cookie: true, timeoutMs: QQ_VKEY_REQUEST_TIMEOUT_MS });
   const data = json && json.req_0 && json.req_0.data;
   const infos = (data && Array.isArray(data.midurlinfo)) ? data.midurlinfo : [];
   const purlInfos = infos.filter(item => item && item.purl);
-  const sips = (data && Array.isArray(data.sip) && data.sip.length ? data.sip : ['https://ws.stream.qqmusic.qq.com/']).filter(Boolean);
+  const sips = (data && Array.isArray(data.sip) && data.sip.length ? data.sip : (nativePlayback ? ['https://sjy6.stream.qqmusic.qq.com/', 'https://dl.stream.qqmusic.qq.com/'] : ['https://ws.stream.qqmusic.qq.com/'])).filter(Boolean);
   const probeDeadline = Date.now() + QQ_AUDIO_PROBE_TOTAL_MS;
   const probeFailures = [];
   let playableInfo = null;

@@ -15,7 +15,7 @@ test('credentials migrate and round-trip; failed encryption preserves existing d
     encryptString: text => { const iv = crypto.randomBytes(12); const cipher = crypto.createCipheriv('aes-256-gcm', key, iv); const bytes = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]); return Buffer.concat([iv, cipher.getAuthTag(), bytes]); },
     decryptString: bytes => { const cipher = crypto.createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 12)); cipher.setAuthTag(bytes.subarray(12, 28)); return Buffer.concat([cipher.update(bytes.subarray(28)), cipher.final()]).toString(); }
   };
-  for (const name of ['.cookie', '.qq-cookie', '.kugou-cookie', '.qishui-cookie', '.qishui-token', '.qishui-qr-login.json']) {
+  for (const name of ['.cookie', '.qq-cookie', '.kugou-cookie', '.qishui-cookie', '.qishui-token', '.qishui-qr-login.json', '.qq-native-device.json']) {
     const file = path.join(temp, name), value = 'fixture-secret-' + name;
     fs.writeFileSync(file, value);
     const store = createCookieStore(file, { safeStorage, electronRuntime: true, logger: { warn() {} } });

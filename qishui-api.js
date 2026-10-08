@@ -6,6 +6,7 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const { createCookieStore } = require('./cookie-storage');
+const { nativePlaybackContext, signingHeaders } = require('./desktop/qishui-native-signing');
 
 const QISHUI_API_BASE = (process.env.QISHUI_API_BASE || 'https://open.douyin.com').replace(/\/+$/, '');
 const QISHUI_RELATED_MEDIA_PATH = '/api/luna/v1/platform/feed/related-media/';
@@ -3290,14 +3291,17 @@ async function fetchQishuiPcTrackV2Post(trackId, cookieText) {
     queue_type: 'favorite_track_playlist',
     scene_name: 'library',
   });
-  const json = await requestJson(qishuiPcUrl('/luna/pc/track_v2', qishuiPcAppParams()), {
-    method: 'POST',
-    timeoutMs: 3000,
-    headers: Object.assign(qishuiWebHeaders(cookieText, { sessionOnly: true, pcApp: true }), {
-      'Content-Length': Buffer.byteLength(body),
-      'Referer': 'https://www.qishui.com/',
-    }),
-  }, body);
+  const context = nativePlaybackContext();
+  const params = qishuiPcAppParams(context ? {
+    device_id: context.deviceId, fp: context.deviceId, iid: context.installId,
+    version_name: context.versionName, version_code: context.versionCode,
+  } : {});
+  const target = qishuiPcUrl('/luna/pc/track_v2', params);
+  let headers = Object.assign(qishuiWebHeaders(cookieText, { sessionOnly: true, pcApp: true }), {
+    'Content-Length': Buffer.byteLength(body), Referer: 'https://www.qishui.com/',
+  });
+  if (context) headers = await context.signer.sign(target, signingHeaders(headers, body, context));
+  const json = await requestJson(target, { method: 'POST', timeoutMs: 3000, headers }, body);
   const err = qishuiPcStatusError(json, 'QISHUI_PC_TRACK_V2_FAILED');
   if (err) throw err;
   return json;
@@ -3318,15 +3322,23 @@ async function fetchQishuiPcTrackV2Get(trackId, cookieText) {
   return json;
 }
 
+function requireQishuiPlaybackPayload(payload) {
+  const media = collectQishuiTrackV2Streams(payload);
+  if (!media.streams.length && !media.fallbackStreams.length && !media.player.url_player_info) {
+    const err = new Error('QISHUI_PC_AUDIO_MISSING'); err.code = 'QISHUI_PC_AUDIO_MISSING'; throw err;
+  }
+  return payload;
+}
+
 async function fetchQishuiPcTrackV2(trackId, cookieText) {
   const cookie = normalizeQishuiCookieInput(cookieText);
   const cacheKey = 'track-v2-meta|' + qishuiCookieFingerprint(cookie) + '|' + normalizeText(trackId);
   return qishuiTrackMetadataCache.wrap(cacheKey, 20 * 1000, async () => {
     try {
-      return await fetchQishuiPcTrackV2Post(trackId, cookie);
+      return requireQishuiPlaybackPayload(await fetchQishuiPcTrackV2Post(trackId, cookie));
     } catch (postError) {
       try {
-        return await fetchQishuiPcTrackV2Get(trackId, cookie);
+        return requireQishuiPlaybackPayload(await fetchQishuiPcTrackV2Get(trackId, cookie));
       } catch (getError) {
         getError.postError = postError && postError.message || String(postError);
         throw getError;

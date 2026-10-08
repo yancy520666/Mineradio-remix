@@ -321,3 +321,18 @@ test('cloudlist library and created-list tracks use the Android contract, retain
     assert.equal(calls.length, 2);
   });
 });
+
+test('Android tracker signs all parameters and does not request an unnecessary preview', async () => {
+  await withRequests(({ url }) => {
+    const params = Object.fromEntries(url.searchParams);
+    const signature = params.signature; delete params.signature;
+    const expected = kugou._test.signatureAndroidParams(params, '');
+    assert.equal(signature, expected);
+    assert.equal(params.clientver, '11430'); assert.equal(params.IsFreePart, '0');
+    assert.equal(params.page_id, '151369488');
+    return songResponse();
+  }, async () => {
+    const response = await kugou._test.kugouPlayViaGateway('signed', '1', '2', memberCookie, 'standard', { isVip: false }, 1000);
+    assert.equal(response.trial, false);
+  });
+});

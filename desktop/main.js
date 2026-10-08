@@ -2771,7 +2771,7 @@ async function openQQMusicLoginWindow(owner, options) {
   if (inline && options.nativeQr !== false) return openQQNativeInlineLogin(options);
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const initialCookie = await readQQLoginCookieHeader(cookieSession);
-  if (qqCookieHasPlaybackLogin(initialCookie)) {
+  if (!options.forceReauth && qqCookieHasPlaybackLogin(initialCookie)) {
     return { ok: true, cookie: initialCookie, reused: true, recovered: !!options.forceReauth };
   }
   if (options.forceReauth) {
@@ -5317,6 +5317,7 @@ function configureLocalServerEnvironment(port) {
   process.env.KUGOU_COOKIE_FILE = path.join(STABLE_USER_DATA_PATH, '.kugou-cookie');
   process.env.QISHUI_COOKIE_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-cookie');
   process.env.QISHUI_TOKEN_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-token');
+  process.env.QQ_NATIVE_DEVICE_FILE = path.join(STABLE_USER_DATA_PATH, '.qq-native-device.json');
   process.env.QISHUI_QR_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-qr-login.json');
   process.env.MINERADIO_LISTEN_SYNC_FILE = path.join(STABLE_USER_DATA_PATH, 'listen-sync-journal.json');
   if (!process.env.QISHUI_OAUTH_CONFIG_FILE) {

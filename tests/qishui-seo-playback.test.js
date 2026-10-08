@@ -203,3 +203,11 @@ test('unsafe public player origins are rejected before requesting an otherwise v
     });
   }
 });
+
+test('metadata-only PC success falls back instead of caching an empty playable source', async t => {
+  mockRequests(t, (url, options) => url.pathname === '/luna/pc/track_v2'
+    ? { body: { status_code: 0, track: { id: 'fixture', status: 10, duration: 240000 } } }
+    : fixtures(url, options));
+  const result = await qishui.handleQishuiSongUrl({ id: 'fixture' }, cookie);
+  assert.equal(result.playable, true); assert.equal(result.source, 'qishui-seo');
+});

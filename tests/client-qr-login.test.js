@@ -15,7 +15,7 @@ function fixture(extra={}){
 }
 test('QQ client QR exports validated music credentials and releases the session',async()=>{
  const f=fixture({checkQr:async()=>({code:803,cookie:'qqmusic_session=token'})});
- await settle();assert.equal(f.sent[0].scanApp,'QQ 音乐 App');await f.session.poll();
+ await settle();assert.match(f.sent[0].scanApp,/QQ 音乐 App/);await f.session.poll();
  assert.equal(f.results[0].ok,true);assert.match(f.results[0].cookie,/tmeLoginType=6/);assert.deepEqual(f.canceled,['key']);
 });
 test('QR create failure falls back without replacing the old login',async()=>{
@@ -47,4 +47,54 @@ test('authorization arriving after cancel is discarded and its SDK token is revo
  let release;const revoked=[];const f=fixture({checkQr:()=>new Promise(r=>release=r),logout:async t=>revoked.push(t)});
  await settle();const pending=f.session.poll();f.session.cancel();release({code:803,cookie:'qqmusic_session=late'});await pending;
  assert.equal(f.results.length,1);assert.equal(f.results[0].cancelled,true);assert.deepEqual(revoked,['late']);
+});
+
+test('QQ QR transient poll failures retry without discarding phone authorization',async()=>{
+ let count=0;const f=fixture({checkQr:async()=>{if(++count<3)throw Error('network');return {code:803,cookie:'qqmusic_session=token'};}});
+ await settle();await f.session.poll();await f.session.poll();assert.equal(f.results.length,0);await f.session.poll();assert.equal(f.results[0].ok,true);
+});
+test('official QQ and Kugou fallback bypasses client QR and requests fresh web authorization',async()=>{
+ for(const provider of ['qq','kugou']){
+ const calls=[];const ctx=vm.createContext({loginProvider:provider,cancelInlineLoginQr:()=>calls.push('cancel'),openQQWebLogin:o=>calls.push(o),openKugouWebLogin:o=>calls.push(o),openNeteaseWebLogin:()=>{throw Error('wrong provider');}});
+ loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['openProviderOfficialWebLogin']);ctx.openProviderOfficialWebLogin();assert.equal(calls[0],'cancel');assert.equal(calls[1].officialWindow,true);
+ }
+});
+
+test('native QQ requests restore the device used by QR authorization, with web login unchanged',()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const base=path.join(path.dirname(require.resolve('@yakult-green-tea/qq-music-api/package.json')),'dist/src/services/auth');
+ const device=require(path.join(base,'androidDevice.js')).createAndroidDevice();device.qimei='fixture-qimei';device.qimei36='fixture-qimei36';
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qq-native-device-'));const previous=process.env.QQ_NATIVE_DEVICE_FILE;
+ process.env.QQ_NATIVE_DEVICE_FILE=path.join(dir,'.qq-native-device.json');fs.writeFileSync(process.env.QQ_NATIVE_DEVICE_FILE,JSON.stringify(device));
+ try{
+ const {nativeCommForCookie}=require('../desktop/qq-native-qr');
+ const comm=nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'6'});
+ assert.equal(comm.ct,11);assert.equal(comm.QIMEI,'fixture-qimei');assert.equal(comm.authst,'fixture-key');assert.equal(comm.tmeLoginType,6);
+ assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key'}),null);
+ }finally{if(previous===undefined)delete process.env.QQ_NATIVE_DEVICE_FILE;else process.env.QQ_NATIVE_DEVICE_FILE=previous;fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('native QQ audio uses the client vkey endpoint and two-ID filenames; web sessions retain their route',async()=>{
+ for(const native of [true,false]){
+ let sent;
+ const ctx=vm.createContext({crypto:require('node:crypto'),qqCookieObject:()=>({uin:'123',qm_keyst:'fixture',tmeLoginType:native?'6':''}),qqCookieUin:c=>c.uin,qqCookiePlaybackKey:c=>c.qm_keyst,nativeCommForCookie:()=>native?{}:null,
+ normalizeQualityPreference:q=>q||'standard',qqPlaybackMemberHints:()=>false,qualityCandidatesFrom:()=>[{prefix:'M500',ext:'.mp3',level:'standard',label:'标准'}],QQ_QUALITY_CANDIDATE_TEMPLATES:[],QQ_VKEY_REQUEST_TIMEOUT_MS:6000,QQ_AUDIO_PROBE_TOTAL_MS:6200,QQ_AUDIO_PROBE_ATTEMPT_MS:2000,
+ qqMusicRequest:async payload=>{sent=payload;return {req_0:{data:{midurlinfo:[{filename:payload.req_0.param.filename[0],purl:'fixture.mp3'}],sip:[]}}};},probeQQAudioUrl:async()=>({ok:true})});
+ loadFunctions(ctx,'server.js',['handleQQSongUrl']);const result=await ctx.handleQQSongUrl('song','media','standard');
+ assert.equal(result.playable,true);assert.equal(sent.req_0.module,native?'music.vkey.GetVkey':'vkey.GetVkeyServer');
+ assert.equal(sent.req_0.param.filename[0],native?'M500songmedia.mp3':'M500media.mp3');
+ if(native){assert.equal(sent.req_0.param.ctx,0);assert.equal(sent.req_0.param.platform,undefined);assert.match(result.url,/sjy6/);}
+ }
+});
+
+test('native QQ profile uses client authorization and keeps temporary empty results distinct from expired credentials',async()=>{
+ for(const response of [{req_0:{code:0,data:{nick:'fixture-user'}}},{req_0:{code:0,data:{}}},{req_0:{code:1000}}]){
+ const ctx=vm.createContext({qqCookieObject:()=>({uin:'123',qm_keyst:'fixture'}),qqCookieUin:c=>c.uin,qqCookieMusicKey:c=>c.qm_keyst,
+ normalizeQQProfile:b=>({loggedIn:true,nickname:b?.data?.nick||'fallback'}),nativeCommForCookie:()=>({}),fetchQQVipStatus:async()=>null,mergeQQVipStatus:i=>i,
+ qqMusicRequest:async p=>{assert.equal(p.req_0.method,'GetLoginUserInfo');return response;},console});
+ loadFunctions(ctx,'server.js',['getQQLoginInfo']);const result=await ctx.getQQLoginInfo();
+ if(response.req_0.code===1000)assert.equal(result.sessionRejected,true);
+ else if(response.req_0.data.nick)assert.equal(result.nickname,'fixture-user');
+ else{assert.equal(result.sessionRejected,false);assert.equal(result.unverified,true);}
+ }
 });

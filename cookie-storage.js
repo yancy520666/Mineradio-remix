@@ -6,7 +6,7 @@ const path = require('path');
 const ENCRYPTED_COOKIE_PREFIX = 'MINERADIO_SAFE_STORAGE_V1:';
 
 function isProtectedCredentialFile(name) {
-  return /^(\.(?:qq-|kugou-|qishui-)?cookie|\.qishui-token|\.qishui-qr-login\.json)$/.test(name);
+  return /^(\.(?:qq-|kugou-|qishui-)?cookie|\.qishui-token|\.qishui-qr-login\.json|\.qq-native-device\.json)$/.test(name);
 }
 
 function loadElectronSafeStorage() {

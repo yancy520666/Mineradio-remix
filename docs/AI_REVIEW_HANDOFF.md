@@ -125,3 +125,11 @@
 - 定向回归、源码检查通过；真实隐藏隔离播放器确认网易 QR 解码、回退按钮可见、操作栏无溢出，以及 QQ App 二维码从主进程实际送达并解码。只同步开发源码，不重启用户播放器或发布包。
 
 - GitHub 后续调查：Mineradio-paused #451 的 2026-09-05 评论报告 PC 完整播放需要 X-Helios / X-Medusa 应用级签名，SEO 只能提供部分 VIP 试听；sodahub-org/libresoda 也明确 VIP 全曲需签名器，依赖官方专有安全组件。此为社区报告，未在维护者账号验证签名方案；遵守本仓库 CLAUDE.md 不引入 bdms.node / metasecml.dll、不伪造签名的约定。参考：https://github.com/XxHuberrr/Mineradio-paused/issues/451 与 https://github.com/sodahub-org/libresoda 。
+
+### 2026-10-09：客户端登录与个人汽水签名适配（仅源码）
+
+- QQ 音乐 App 二维码明确区分 QQ 扫一扫；新增 QQ 网页登录入口，强制重登不再直接复用旧会话。轮询网络错误有限重试，保留授权交接。QQ App 的设备上下文加密保存，客户端凭据用 Android comm、GetLoginUserInfo 与 UrlGetVkey，播放文件名包含 songmid + media_mid；网页凭据维持原路径。
+- 酷狗 Android tracker 补齐参数签名、页面上下文和客户端版本；不主动请求试听，完整音源仍由官方授权决定。新增明确官方验证入口。本机账号的 The Hills 仍返回 verification_required，会员探测暂未知，不能声称已恢复播放。
+- 按维护者本轮明确授权，增加可选的本机汽水原生签名桥。官方 SDK 从签名有效的 SodaMusic 2.1.0 官方安装包提取，只配置在本机 .local/qishui-native，私有 .qishui-native-local.json 启用；二进制和个人配置不提交、不打包。签名限 api.qishui.com/luna/pc/track_v2，隐蔽子进程最多两个待签请求，3.5 秒超时，20 秒闲置回收，失败保留原有公开音源回退。
+- 实机只读验证：VIP《下完这场雨》取得并实际解密为 236.62 秒、44.1kHz FLAC；The Hills 三个版本都只返回曲目信息，不能从 status:10 推断原因，公开回退仍为 29 秒试听。官方 SDK 两文件合计 9,001,040 字节（8.58 MiB）；加载初始化约 357–365ms，签名约 14–110ms；实际 Electron 签名子进程工作集约 92.7 MiB，按需存在，不占 GPU 或降低画质。
+- 隐藏真实界面验证：QQ App 二维码可见且明确扫码 App，QQ 网页登录及酷狗官方验证按钮可见，按钮行无溢出。QQ 本人用 QQ App 扫码，尚需重新用 QQ 音乐 App 完成授权后验收真实账号全曲播放；未代用户扫码，也未发布安装包。
