@@ -99,3 +99,38 @@ test('QQ treats "not logged in" from QQ as a logout only on the second reply', (
   assert.equal(ctx.applyQQSessionRejection({ provider: 'qq', loggedIn: true }).loggedIn, true);
   assert.equal(ctx.loginPresenceState.qq.rejected, 0);
 });
+
+const { loadFunctions } = require('./helpers/classic-functions');
+function serverPresenceFixture(code = 301) {
+  const saved = [];
+  const c = vm.createContext({ console: { warn() {} }, userCookie: 'fixture-session',
+    NETEASE_LOGIN_INFO_CACHE_TTL_MS: 30000,
+    neteaseLoginInfoCache: { cookie: '', at: 0, value: null, promise: null },
+    login_status: async () => ({ body: { code: 301 } }),
+    user_account: async () => { if (code === 'offline') throw new Error('offline'); return { body: { code } }; },
+    promiseWithTimeout: promise => promise, normalizeLoginInfo: () => ({ loggedIn: false }),
+    saveCookie: value => { saved.push(value); c.userCookie = value; c.neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null }; },
+  });
+  loadFunctions(c, 'server.js', ['normalizeApiCode', 'normalizeApiMessage', 'isNeteaseAuthInvalidPayload', 'fetchNeteaseLoginInfo', 'getLoginInfo']);
+  return { c, saved };
+}
+test('real server replies preserve credentials so the second confirmation can unplug the wire', async () => {
+  const server = serverPresenceFixture();
+  const ui = renderer([]);
+  ui.ctx.apiJson = () => server.c.getLoginInfo({ fresh: true });
+  await ui.ctx.checkNeteaseLoginPresence('interval');
+  assert.equal(ui.ctx.loginStatus.loggedIn, true);
+  assert.equal(server.c.userCookie, 'fixture-session', 'a status probe must not delete persisted credentials');
+  ui.timers[0](); await settle();
+  assert.equal(ui.ctx.loginStatus.loggedIn, false);
+  assert.equal(ui.ctx.loginWorkflowVerifiedSession.netease, undefined);
+  assert.equal(ui.notices.length, 1);
+  assert.equal(server.saved.length, 0);
+});
+test('real server network failure cannot unplug an existing session or erase its cookie', async () => {
+  const server = serverPresenceFixture('offline'), ui = renderer([]);
+  ui.ctx.apiJson = () => server.c.getLoginInfo({ fresh: true });
+  await ui.ctx.checkNeteaseLoginPresence('interval'); await ui.ctx.checkNeteaseLoginPresence('interval');
+  assert.equal(ui.ctx.loginStatus.loggedIn, true);
+  assert.equal(server.saved.length, 0);
+});
