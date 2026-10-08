@@ -133,10 +133,10 @@ test('an expired or other-provider QR is regenerated', () => {
   assert.deepEqual(other.calls, ['drawer:true', 'generate-qishui']);
 });
 
-test('web-window providers, cookie mode and an unconnected node do not generate a QR', () => {
+test('desktop NetEase generates App QR; cookie mode and an unconnected node do not', () => {
   const netease = drawerFixture({ loginWorkflowPendingProvider: 'netease', hasLoginWorkflowConnection: () => false });
   netease.ctx.selectLoginProviderNode('netease');
-  assert.deepEqual(netease.calls, ['drawer:true'], 'desktop NetEase logs in through its own login bridge');
+  assert.deepEqual(netease.calls, ['drawer:true', 'generate-netease'], 'desktop NetEase now prefers its App QR');
   const cookie = drawerFixture(Object.assign({ loginWorkflowActiveMode: () => 'cookie' }, waitingForScan));
   cookie.ctx.selectLoginProviderNode('qishui');
   assert.deepEqual(cookie.calls, ['drawer:true']);

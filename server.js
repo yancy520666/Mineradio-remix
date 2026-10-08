@@ -1274,7 +1274,7 @@ function classifyQQPlaybackRestriction(info, session) {
     return playbackRestriction('qq', 'login_required', 'QQ 音乐当前只拿到了网页登录状态，还缺少播放授权，请重新打开官方 QQ 音乐登录窗口完成授权', 'login', { code, rawMessage: rawMsg, missingPlaybackKey: true });
   }
   if (code === 104003) {
-    return playbackRestriction('qq', 'copyright_unavailable', 'QQ 音乐没有给当前版本返回播放地址，通常是版权、会员或官方版本限制，可以换一个搜索结果或切到网易云源', 'switch_source', { code, rawMessage: rawMsg });
+    return playbackRestriction('qq', 'url_unavailable', 'QQ 音乐已登录，但未返回当前版本的播放地址；可能是歌曲权限、版权或客户端限制，可尝试 App 扫码重新授权或其他平台版本', 'switch_source', { code, rawMessage: rawMsg });
   }
   if (/vip|会员|付费|购买|数字专辑|专辑|pay/.test(lower + rawMsg)) {
     return playbackRestriction('qq', 'paid_required', 'QQ 音乐歌曲需要会员、购买或数字专辑权限', 'upgrade', { code, rawMessage: rawMsg });
@@ -4098,6 +4098,7 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
   if (filenames.length) param.filename = filenames;
   const comm = { uin, format: 'json', ct: musicKey ? 19 : 24, cv: 0 };
   if (musicKey) comm.authst = musicKey;
+  if (cookieObj.tmeLoginType === '6') comm.tmeLoginType = 6;
   const json = await qqMusicRequest({
     comm,
     req_0: {

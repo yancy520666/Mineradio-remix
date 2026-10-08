@@ -367,7 +367,7 @@ function selectLoginProviderNode(provider) {
 function loginProviderUsesInlineQr(provider) {
   if (provider === 'qishui') return true;
   if (provider !== 'netease') return false;
-  return !(window.desktopWindow && typeof window.desktopWindow.openNeteaseMusicLogin === 'function');
+  return true;
 }
 function ensureLoginInlineQr() {
   if (!loginProviderUsesInlineQr(loginProvider) || loginWorkflowActiveMode() !== 'official') return;
@@ -1166,6 +1166,11 @@ function updateLoginProviderUi() {
   var qishuiBtn = document.getElementById('login-provider-qishui');
   var qqCookieSaveBtn = document.getElementById('qq-cookie-save-btn');
   var canOpenNeteaseWeb = !!(window.desktopWindow && typeof window.desktopWindow.openNeteaseMusicLogin === 'function');
+  var neteaseFallback = document.getElementById('netease-web-fallback-btn');
+  if (neteaseFallback) {
+    neteaseFallback.style.display = loginProvider === 'netease' && canOpenNeteaseWeb ? '' : 'none';
+    neteaseFallback.disabled = !!neteaseWebLoginBusy;
+  }
   var canUseQishuiQrLogin = true;
   var qishuiSearchReady = qishuiPublicSearchReady();
   var qishuiBusy = !!(qishuiTokenBusy || qishuiOAuthBusy);
@@ -1219,6 +1224,7 @@ function updateLoginProviderUi() {
     }
     if (qqCard) {
       qqCard.style.display = '';
+      qqCard.onclick = openSpotifyWebLogin;
       qqCard.disabled = spotifyBusy || !canOpenSpotifyOAuth || !spotifyLoginStatus.oauthConfigured;
       var spCardMark = qqCard.querySelector('b');
       var spCardLabel = qqCard.querySelector('span');
@@ -1246,23 +1252,21 @@ function updateLoginProviderUi() {
   if (kugouBtn) kugouBtn.classList.toggle('active', isKugou);
   if (qishuiBtn) qishuiBtn.classList.toggle('active', isQishui);
   if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label);
-  var inlineQrDesc = inlineLoginQrSupported() && (isQQ || isKugou || (isNetease && canOpenNeteaseWeb));
-  if (desc && inlineQrDesc) desc.innerHTML = '扫描 <b>' + meta.label + '官方登录页</b> 的二维码' + (isNetease ? '，避开接口二维码风控' : '') + '；成功后会自动同步账号会话。';
+  var inlineQrDesc = inlineLoginQrSupported() && isQQ;
+  if (desc && inlineQrDesc) desc.innerHTML = '优先使用 <b>QQ 音乐 App</b> 扫码授权；失败时回退 QQ／微信官方网页登录。';
   else if (desc) desc.innerHTML = isQQ
     ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
     : (isKugou
-      ? '打开 <b>酷狗音乐官方网页登录窗口</b> 登录，成功后会自动同步账号会话。'
+      ? '优先使用 <b>酷狗音乐 App</b> 扫码授权；失败时回退官方网页登录。'
     : (isQishui
-      ? '使用已登录账号的 <b>抖音 App</b> 扫描官方二维码并确认，登录后可同步我的喜欢、歌单并按账号权益播放。'
-    : (canOpenNeteaseWeb
-      ? '打开 <b>网易云音乐官方网页登录窗口</b> 扫码，避开接口二维码风控；成功后会自动同步账号会话。'
-      : '使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。')));
+      ? '使用已登录账号的 <b>抖音 App</b> 扫描官方二维码并确认；会员完整播放仍取决于播放接口返回的音源。'
+    : '优先使用 <b>网易云音乐 App</b> 扫码；遇到风控可改用官方网页登录。'));
   var manualCookieOpen = isManualCookieOpenForProvider(loginProvider);
   if (shell) {
-    var useWebPreview = isQQ || isKugou || (isNetease && (canOpenNeteaseWeb || manualCookieOpen));
+    var useWebPreview = isQQ || isKugou || (isNetease && manualCookieOpen);
     shell.classList.toggle('web-login-preview', useWebPreview);
     shell.classList.toggle('qq-preview', isQQ);
-    shell.classList.toggle('netease-preview', isNetease && canOpenNeteaseWeb);
+    shell.classList.toggle('netease-preview', isNetease && manualCookieOpen);
   }
   if (qqPanel) qqPanel.classList.toggle('show', isManualCookieProvider && manualCookieOpen);
   if (qqCookieToggle) {
@@ -1274,13 +1278,14 @@ function updateLoginProviderUi() {
   if (qqCookieSaveBtn) qqCookieSaveBtn.textContent = '保存 Cookie';
   if (qqCard) {
     qqCard.style.display = '';
+    qqCard.onclick = isNetease ? openNeteaseWebLogin : openProviderWebLogin;
     qqCard.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy));
     var cardMark = qqCard.querySelector('b');
     var cardLabel = qqCard.querySelector('span');
     if (cardMark) cardMark.textContent = isQQ ? 'QQ' : (isKugou ? 'KG' : (isQishui ? 'QS' : 'NE'));
     if (cardLabel) cardLabel.textContent = isQQ
-      ? (qqWebLoginBusy ? '等待扫码确认' : (qqLoginStatus.loggedIn ? '重新打开官方窗口同步会员' : '打开官方扫码窗口'))
-      : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '打开官方登录窗口') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口')));
+      ? (qqWebLoginBusy ? '等待扫码确认' : (qqLoginStatus.loggedIn ? 'QQ 音乐 App 重新授权' : 'QQ 音乐 App 扫码'))
+      : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '酷狗音乐 App 扫码') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口')));
   }
   if (st) {
     st.className = isManualCookieProvider ? 'preview' : '';
@@ -1290,7 +1295,7 @@ function updateLoginProviderUi() {
         ? (kugouLoginStatus.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouLoginStatus.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口')
         : (isQishui
           ? qishuiLoginStatusText()
-        : (canOpenNeteaseWeb ? '点击“网页登录”打开网易云官方窗口' : '正在生成二维码…')));
+        : '请使用网易云音乐 App 扫码；生成失败可打开官方窗口'));
   }
   if (refreshBtn) {
     refreshBtn.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy));
@@ -1299,8 +1304,8 @@ function updateLoginProviderUi() {
       qqLoginStatus.playbackKeyReady === false
     );
     var qqNeedsMembershipSync = isQQ && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(qqLoginStatus);
-    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码')));
-    refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : (canOpenNeteaseWeb ? openNeteaseWebLogin : refreshQr)));
+    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : '刷新二维码'));
+    refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : refreshQr));
     if (inlineLoginQrProvider && inlineLoginQrProvider === loginProvider) {
       refreshBtn.disabled = false;
       refreshBtn.textContent = '官网登录';
@@ -1418,17 +1423,6 @@ async function refreshQr() {
     if (kugouStatus) {
       kugouStatus.textContent = kugouInfo && kugouInfo.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouInfo.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口';
       kugouStatus.className = 'preview';
-    }
-    return;
-  }
-  if (window.desktopWindow && typeof window.desktopWindow.openNeteaseMusicLogin === 'function') {
-    qrKey = null;
-    var neImg = document.getElementById('qr-img');
-    var neStatus = document.getElementById('qr-status');
-    clearLoginQrImage(neImg);
-    if (neStatus) {
-      neStatus.textContent = loginStatus.loggedIn ? ('已保存网易云会话 · ' + (loginStatus.nickname || '')) : '点击“网页登录”打开网易云官方窗口';
-      neStatus.className = 'preview';
     }
     return;
   }
@@ -1571,7 +1565,7 @@ function inlineLoginQrSupported() {
   return !!(api && typeof api.cancelInlineLogin === 'function' && typeof api.onInlineLoginQr === 'function');
 }
 function inlineLoginQrAppLabel(provider) {
-  if (provider === 'qq') return '手机 QQ ';
+  if (provider === 'qq') return '手机 QQ／微信 ';
   if (provider === 'kugou') return '酷狗音乐 App ';
   return '网易云音乐 App ';
 }
@@ -1588,7 +1582,7 @@ function handleInlineLoginQr(payload) {
     setInlineLoginQrView(true);
     showLoginQrImage(img, payload.image, loginWorkflowProviderLabel(payload.provider) + '登录二维码');
     if (statusEl) {
-      statusEl.textContent = payload.expired ? '二维码已过期，点一下二维码刷新' : ('请使用' + inlineLoginQrAppLabel(payload.provider) + '扫码');
+      statusEl.textContent = payload.expired ? '二维码已过期，点一下二维码刷新' : ('请使用' + (payload.scanApp || inlineLoginQrAppLabel(payload.provider)) + '扫码');
       statusEl.className = payload.expired ? 'fail' : '';
     }
   } else if (payload.stage === 'scanned' && statusEl) {
@@ -1685,7 +1679,7 @@ function openProviderWebLogin() {
   if (loginProvider === 'kugou') return openKugouWebLogin();
   if (loginProvider === 'qishui') return openQishuiWebLogin();
   if (loginProvider === 'spotify') return openSpotifyWebLogin();
-  return openNeteaseWebLogin();
+  return refreshQr();
 }
 async function openSpotifyWebLogin() {
   if (spotifyOAuthBusy) return;
@@ -1751,6 +1745,9 @@ async function openNeteaseWebLogin() {
     return refreshQr();
   }
 
+  stopQrPoll();
+  qrKey = null;
+  loginRefreshRequestSeq++;
   neteaseWebLoginBusy = true;
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入网易云登录二维码…' : '正在打开网易云官方登录页，二维码加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
@@ -1994,9 +1991,12 @@ async function submitNeteaseCookieLogin() {
   }
 }
 async function checkQr() {
-  if (!qrKey) return;
+  if (!qrKey || loginProvider !== 'netease') return;
+  var checkedKey = qrKey;
+  var checkedSeq = loginRefreshRequestSeq;
   try {
-    var r = await apiJson('/api/login/qr/check?key=' + encodeURIComponent(qrKey));
+    var r = await apiJson('/api/login/qr/check?key=' + encodeURIComponent(checkedKey));
+    if (loginProvider !== 'netease' || qrKey !== checkedKey || loginRefreshRequestSeq !== checkedSeq) return;
     var $st = document.getElementById('qr-status');
     if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; stopQrPoll(); qrKey = null; }
     else if (r.code === 801) { $st.textContent = '请在 App 中扫码'; $st.className = ''; }

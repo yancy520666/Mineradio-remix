@@ -80,6 +80,8 @@ test('public 60-second audio remains a trial for both free and VIP accounts', as
       assert.equal(result.fullDuration, 240);
       assert.equal(result.isVip, vip);
       assert.equal(result.membershipKnown, true);
+      assert.equal(result.officialPlaybackUnavailable, true);
+      if (vip) assert.match(result.message, /已确认汽水 VIP/);
       assert.match(result.message, /60 秒试听/);
       // Exercise the actual renderer banner with a VIP response.
       const source = fs.readFileSync(path.join(__dirname, '../public/js/modules/05-playback/13-playback-start-audio.js'), 'utf8');
