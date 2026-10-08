@@ -23,6 +23,8 @@ const { WallpaperLoopWindow } = require('./wallpaper-loop-window');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createRemixUpdater } = require('./remix-updater');
 const { createInlineQrSession } = require('./login-inline-qr');
+const { prepareQQLoginPage } = require('./qq-login-page');
+const { createKugouNativeQrSession } = require('./kugou-native-qr');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
 const { createSonicPreferencesStore } = require('./sonic-performance-preferences');
@@ -2836,6 +2838,7 @@ async function openQQMusicLoginWindow(owner, options) {
       }
       resolve(result);
     };
+    prepareQQLoginPage(loginWindow);
     attachInlineLogin('qq', loginWindow, options, finish);
 
     const showLoginWindow = () => {
@@ -2956,18 +2959,6 @@ async function openQQMusicLoginWindow(owner, options) {
     loginWindow.webContents.on('did-finish-load', () => {
       checkCookies();
       showLoginWindow();
-      loginWindow.webContents.executeJavaScript(`
-        setTimeout(() => {
-          const nodes = Array.from(document.querySelectorAll('a, button, span, div'));
-          const loginNode = nodes.find((node) => {
-            const text = (node.textContent || '').trim();
-            if (!/登录|登陆/.test(text)) return false;
-            const rect = node.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-          });
-          if (loginNode) loginNode.click();
-        }, 700);
-      `, true).catch(() => {});
     });
 
     loginWindow.on('closed', async () => {
@@ -2998,9 +2989,27 @@ async function clearQQMusicLoginSession() {
   return { ok: true };
 }
 
+function openKugouNativeInlineLogin(options) {
+  const previous = inlineLoginSessions.get('kugou');
+  if (previous) previous.cancel();
+  return new Promise(resolve => {
+    let entry;
+    const qr = createKugouNativeQrSession({
+      notify: payload => { if (typeof options.notify === 'function') options.notify({ provider: 'kugou', requestId: options.requestId, ...payload }); },
+      finish: result => {
+        if (inlineLoginSessions.get('kugou') === entry) inlineLoginSessions.delete('kugou');
+        resolve(result);
+      },
+    });
+    entry = { session: qr, cancel: qr.cancel };
+    inlineLoginSessions.set('kugou', entry);
+  });
+}
+
 async function openKugouMusicLoginWindow(owner, options) {
   options = options && typeof options === 'object' ? options : {};
   const inline = !!options.inline;
+  if (inline && options.nativeQr !== false) return openKugouNativeInlineLogin(options);
   const cookieSession = session.fromPartition(KUGOU_LOGIN_PARTITION);
   // Explicit re-login must discard the revoked session before considering reuse.
   // Cookie presence alone cannot establish whether the server still accepts it.

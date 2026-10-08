@@ -175,7 +175,7 @@ test('Kugou renderer re-login options reach the main handler without an unlock s
 test('Kugou inline login runs offscreen, never shows, and falls back when no QR appears', async () => {
   const harness = loginHarness('');
   const notified = [];
-  const pending = harness.open(null, { inline: true, notify: (payload) => notified.push(payload) });
+  const pending = harness.open(null, { inline: true, nativeQr: false, notify: (payload) => notified.push(payload) });
   await new Promise((resolve) => setImmediate(resolve));
   const [win] = harness.state.windows;
   assert.equal(win.options.webPreferences.offscreen, true);
