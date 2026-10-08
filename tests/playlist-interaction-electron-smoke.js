@@ -178,13 +178,15 @@ if (!process.argv.includes('--child')) {
       const server = require('node:http').createServer((req, res) => {
         const requestPath=req.url.split('?')[0];
         counts.set(requestPath, (counts.get(requestPath) || 0) + 1); peak = Math.max(peak, ++active);
+        // A cancelled cover aborts its request; count it as done when the socket closes.
+        res.once('close', () => active--);
         setTimeout(() => {
           if (requestPath === '/row16.svg' && counts.get(requestPath) === 1) {
-            res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); active--; return;
+            res.writeHead(503, {'Access-Control-Allow-Origin':'*'}); res.end(); return;
           }
           res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Timing-Allow-Origin': '*', 'Cache-Control': 'public, max-age=86400' });
           res.write(image.slice(0, 70));
-          setTimeout(() => { res.end(image.slice(70)); active--; }, 25);
+          setTimeout(() => res.end(image.slice(70)), 25);
         }, req.url.startsWith('/row') ? 500 : 250);
       });
       await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
