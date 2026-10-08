@@ -19771,3 +19771,69 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
   padding: 0 10px;
   white-space: nowrap;
 }
+
+/* Artist detail: newest albums as compact glass tiles (cover left, text right). */
+#track-detail-body .artist-albums-section[hidden] { display: none !important; }
+#track-detail-body .artist-albums-count {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .38);
+  white-space: nowrap;
+}
+#track-detail-body .artist-album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+#track-detail-body .artist-album-card {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-areas: "cover name" "cover meta";
+  align-content: center;
+  column-gap: 10px;
+  min-width: 0;
+  padding: 7px 10px 7px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(255, 255, 255, .035);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+#track-detail-body .artist-album-card:hover,
+#track-detail-body .artist-album-card:focus-visible {
+  background: rgba(var(--fc-accent-rgb), .085);
+  border-color: rgba(var(--fc-accent-rgb), .28);
+  outline: none;
+  transform: translateY(-1px);
+}
+#track-detail-body .artist-album-cover {
+  grid-area: cover;
+  display: block;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, .06);
+}
+#track-detail-body .artist-album-name {
+  grid-area: name;
+  align-self: end;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, .90);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#track-detail-body .artist-album-meta {
+  grid-area: meta;
+  align-self: start;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .36);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
