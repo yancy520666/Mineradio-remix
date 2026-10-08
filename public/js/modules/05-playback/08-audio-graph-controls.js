@@ -3,7 +3,15 @@ function audioGraphHealthy() {
   return !!(audio && audioReady && audioCtx && audioCtx.state !== 'closed' && source && audioSourceMedia === audio && analyser && beatAnalyser && (gainNode || analysisSinkNode));
 }
 function disconnectAudioGraphNodes(keepSource) {
-  [source, analyser, beatAnalyser, gainNode, analysisSinkNode].forEach(function (node) {
+  var adoptedGraph = audioSourceMedia && audioSourceMedia.__mineradioAdoptedAudioGraph;
+  var nodes = [source, analyser, beatAnalyser, gainNode, analysisSinkNode];
+  if (adoptedGraph) {
+    nodes = nodes.concat([adoptedGraph.filterNode, adoptedGraph.bassNode, adoptedGraph.midNode,
+      adoptedGraph.highNode, adoptedGraph.echoSendNode, adoptedGraph.echoDelayNode,
+      adoptedGraph.echoFeedbackNode, adoptedGraph.echoWetNode]);
+    delete audioSourceMedia.__mineradioAdoptedAudioGraph;
+  }
+  nodes.forEach(function (node) {
     if (!node) return;
     try { node.disconnect(); } catch (e) { }
   });
@@ -101,6 +109,7 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     audioSourceMedia = audio;
     audio.__mineradioMediaSourceBound = true;
     preparedGraph.adopted = true;
+    audio.__mineradioAdoptedAudioGraph = preparedGraph;
     audioReady = true;
     // The active graph now belongs to the player. Keeping this marker would
     // let a later track switch re-adopt these disconnected nodes.

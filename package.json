@@ -41,6 +41,7 @@
       "music-dns.js",
       "audio-spill-relay.js",
       "cover-cache.js",
+      "generated-cache-pruner.js",
       "netease-like-cache.js",
       "cookie-storage.js",
       "*-api.js",

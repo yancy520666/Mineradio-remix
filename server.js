@@ -64,6 +64,7 @@ const { createCookieStore } = require('./cookie-storage');
 const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
 const { createSpillRelay, cleanupStaleSpillFiles, defaultSpillDirectory } = require('./audio-spill-relay');
 const { createCoverCache } = require('./cover-cache');
+const { createGeneratedCachePruner } = require('./generated-cache-pruner');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -714,6 +715,17 @@ async function fetchManifestUpdateInfo(ref) {
     return localUpdateFallback(err.message || 'Update manifest failed', { configured: true });
   }
 }
+let beatCachePinnedFile = '';
+const pruneBeatMapCache = createGeneratedCachePruner({
+  root: BEATMAP_CACHE_DIR,
+  pattern: /^[a-z0-9_.-]{1,48}-[a-f0-9]{40}\.json$/i,
+  maxBytes: 96 * 1024 * 1024,
+  maxEntries: 2000,
+  keep: () => beatCachePinnedFile ? [beatCachePinnedFile] : [],
+});
+function maintainBeatMapCache() {
+  pruneBeatMapCache().catch(error => console.warn('beat cache cleanup deferred:', error.code || error.message));
+}
 function beatCacheRootInfo() {
   const dir = path.resolve(BEATMAP_CACHE_DIR);
   const root = path.parse(dir).root;
@@ -767,6 +779,10 @@ function readBeatMapCache(key) {
   const file = safeBeatMapCacheFile(key);
   if (!file || !fs.existsSync(file)) return null;
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (raw && raw.map) {
+    beatCachePinnedFile = file;
+    try { const now = new Date(); fs.utimesSync(file, now, now); } catch (_) { }
+  }
   return raw && raw.map ? raw : null;
 }
 function writeBeatMapCache(body) {
@@ -775,8 +791,12 @@ function writeBeatMapCache(body) {
   const file = safeBeatMapCacheFile(payload.key);
   if (!file) return { ok: false, error: 'INVALID_BEATMAP_CACHE_KEY' };
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(payload));
+  const serialized = JSON.stringify(payload);
+  if (Buffer.byteLength(serialized) > 8 * 1024 * 1024) return { ok: false, error: 'BEATMAP_CACHE_TOO_LARGE' };
+  fs.writeFileSync(tmp, serialized);
   fs.renameSync(tmp, file);
+  beatCachePinnedFile = file;
+  maintainBeatMapCache();
   return { ok: true, key: payload.key, savedAt: payload.savedAt, dir: path.dirname(file) };
 }
 function localUpdateFallback(reason, opts) {
@@ -7081,6 +7101,7 @@ const server = http.createServer(async (req, res) => {
   serveStatic(res, filePath);
 });
 
+maintainBeatMapCache();
 server.listen(PORT, HOST, () => {
   console.log('======================================================');
   console.log(' 粒子音乐可视化 v2  →  http://localhost:' + PORT);
