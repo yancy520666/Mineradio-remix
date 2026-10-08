@@ -4,6 +4,19 @@ var playlistCoverSession = 0;
 var playlistCoverMetrics = [];
 var shelfCoverFrame = 0;
 var playlistCoverOrder = 0;
+var playlistCoverViewportUpdating = false;
+var playlistCoverViewportVisible = new Set(), playlistCoverViewportNearby = new Set();
+function trimPlaylistCoverCache() {
+  var loaded = Object.keys(playlistCoverCache).map(function (url) { return { url: url, rec: playlistCoverCache[url] }; }).filter(function (entry) { return entry.rec.loaded && entry.rec.img; });
+  var bytes = loaded.reduce(function (sum, entry) { return sum + (entry.rec.bytes || 0); }, 0), count = loaded.length;
+  loaded.sort(function (a, b) { return (a.rec.usedAt || 0) - (b.rec.usedAt || 0); });
+  loaded.forEach(function (entry) {
+    if (count <= 160 && bytes <= 24 * 1024 * 1024) return;
+    if (playlistCoverViewportVisible.has(entry.url) || playlistCoverViewportNearby.has(entry.url)) return;
+    delete playlistCoverCache[entry.url]; bytes -= entry.rec.bytes || 0; count--;
+    entry.rec.img.removeAttribute('src'); entry.rec.img = null;
+  });
+}
 function requestShelfCoverFrame() {
   if (shelfCoverFrame || typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
   shelfCoverFrame = requestAnimationFrame(function () {
@@ -38,12 +51,17 @@ function shelfCoverSource(url) {
   return url;
 }
 function pumpPlaylistCovers() {
+  if (playlistCoverViewportUpdating) return;
   while (playlistCoverActive < 4 && playlistCoverQueue.length) {
     playlistCoverQueue.sort(function (a, b) { return a.priority - b.priority || (a.priority === 0 ? b.order - a.order : a.order - b.order); });
-    // Keep one network slot free for a newly visible cover.
-    if (playlistCoverActive >= 3 && playlistCoverQueue[0].priority > 0) break;
-    var task = playlistCoverQueue.shift();
-    if (playlistCoverCache[task.url] !== task.rec) continue;
+    // Keep two network slots free for a newly visible cover.
+    if (playlistCoverActive >= 2 && playlistCoverQueue[0].priority > 0) break;
+    var task = playlistCoverQueue[0];
+    if (playlistCoverCache[task.url] !== task.rec) { playlistCoverQueue.shift(); continue; }
+    if (task.priority > 0 && typeof reserveBackgroundImageSlot === 'function') {
+      task.releaseSlot = reserveBackgroundImageSlot(); if (!task.releaseSlot) break;
+    }
+    playlistCoverQueue.shift();
     startPlaylistCoverRequest(task);
   }
 }
@@ -53,14 +71,16 @@ function startPlaylistCoverRequest(task) {
   playlistCoverActive++;
   rec.attempts++;
   if (!isInlineCoverSrc(task.url)) img.crossOrigin = 'anonymous';
-  function finish(image, decodeMs) {
+  function finish(image, decodeMs, cancelled) {
     if (settled) return;
     settled = true;
     clearTimeout(timer);
     img.onload = img.onerror = null;
     playlistCoverActive--;
+    if (task.releaseSlot) { task.releaseSlot(); task.releaseSlot = null; }
     if (playlistCoverCache[task.url] !== rec) { pumpPlaylistCovers(); return; }
-    if (!image && rec.attempts < 2) {
+    rec.cancel = null;
+    if (!image && !cancelled && rec.attempts < 2) {
       rec.retryTimer = setTimeout(function () {
         rec.retryTimer = 0;
         if (playlistCoverCache[task.url] !== rec) return;
@@ -68,6 +88,7 @@ function startPlaylistCoverRequest(task) {
       }, 800);
     } else {
       rec.loading = false; rec.loaded = !!image; rec.failed = !image; rec.img = image;
+      rec.bytes = image ? image.naturalWidth * image.naturalHeight * 4 : 0; rec.usedAt = performance.now();
       rec.failedAt = image ? 0 : performance.now();
       var entries = performance.getEntriesByName ? performance.getEntriesByName(img.src) : [];
       var timing = entries[entries.length - 1];
@@ -77,10 +98,16 @@ function startPlaylistCoverRequest(task) {
         decodeMs: decodeMs || 0, totalMs: performance.now() - rec.requestedAt, success: !!image };
       playlistCoverMetrics.push(rec.metrics);
       if (playlistCoverMetrics.length > 32) playlistCoverMetrics.shift();
-      rec.waiters.splice(0).forEach(function (callback) { setTimeout(function () { callback(image); }, 0); });
+      rec.waiters.splice(0).forEach(function (callback) { setTimeout(function () { if (!callback.isCurrent || callback.isCurrent()) callback(image); }, 0); });
+      trimPlaylistCoverCache();
     }
     pumpPlaylistCovers();
   }
+  rec.cancel = function () {
+    if (rec.retryTimer) clearTimeout(rec.retryTimer);
+    if (playlistCoverCache[task.url] === rec) delete playlistCoverCache[task.url];
+    finish(null, 0, true); img.removeAttribute('src');
+  };
   img.onload = function () {
     var decodeStart = performance.now();
     if (typeof img.decode === 'function') img.decode().then(function () { finish(img, performance.now() - decodeStart); }, function () { finish(img, performance.now() - decodeStart); });
@@ -94,7 +121,9 @@ function startPlaylistCoverRequest(task) {
 }
 function requestPlaylistCover(url, callback, options) {
   if (!url) { if (callback) callback(null); return; }
+  if (callback && options && options.isCurrent) callback.isCurrent = options.isCurrent;
   var rec = playlistCoverCache[url];
+  if (rec) rec.usedAt = performance.now();
   if (rec && rec.loaded) { if (callback) setTimeout(function () { callback(rec.img); }, 0); return; }
   if (rec && rec.failed && !playlistCoverCanRetry(rec)) { if (callback) setTimeout(function () { callback(null); }, 0); return; }
   if (rec && rec.loading) {
@@ -107,7 +136,8 @@ function requestPlaylistCover(url, callback, options) {
   }
   rec = playlistCoverCache[url] = { loaded: false, loading: true, failed: false, img: null,
     attempts: 0, session: playlistCoverSession, requestedAt: performance.now(), waiters: callback ? [callback] : [] };
-  playlistCoverQueue.push({ url: url, rec: rec, priority: options && options.priority === 0 ? 0 : 1, order: ++playlistCoverOrder, scope: options && options.scope || '' });
+  var task = { url: url, rec: rec, priority: options && options.priority === 0 ? 0 : 1, order: ++playlistCoverOrder, scope: options && options.scope || '' };
+  rec.task = task; playlistCoverQueue.push(task);
   pumpPlaylistCovers();
 }
 function beginPlaylistCoverSession() {
@@ -126,7 +156,7 @@ function prewarmPlaylistCatalogCovers() {
 window.addEventListener('online', function () {
   beginPlaylistCoverSession();
   Object.keys(playlistCoverCache).forEach(function (url) {
-    if (playlistCoverCache[url].failed) requestPlaylistCover(url);
+    if (playlistCoverCache[url].failed && (playlistCoverViewportVisible.has(url) || playlistCoverViewportNearby.has(url))) requestPlaylistCover(url);
   });
 });
 
@@ -134,7 +164,19 @@ function playlistCoverCanRetry(rec) {
   return !!(rec && rec.failed && (rec.session !== playlistCoverSession || performance.now() - rec.failedAt >= 30000));
 }
 function updatePlaylistCoverViewport(visible, nearby) {
+  playlistCoverViewportUpdating = true;
   var visibleSet = new Set(visible), nearbySet = new Set(nearby);
+  playlistCoverViewportVisible = visibleSet; playlistCoverViewportNearby = nearbySet;
+  Object.keys(playlistCoverCache).forEach(function (url) {
+    var rec = playlistCoverCache[url];
+    if (!rec.task || rec.task.scope !== 'content') return;
+    rec.waiters = rec.waiters.filter(function (callback) { return !callback.isCurrent || callback.isCurrent(); });
+    if (!visibleSet.has(url) && !nearbySet.has(url) && !rec.waiters.length && rec.loading) {
+      if (rec.retryTimer) clearTimeout(rec.retryTimer);
+      if (rec.cancel) rec.cancel();
+      else { delete playlistCoverCache[url]; rec.loading = false; }
+    }
+  });
   playlistCoverQueue = playlistCoverQueue.filter(function (task) {
     if (task.scope !== 'content') return true;
     task.priority = visibleSet.has(task.url) ? 0 : (nearbySet.has(task.url) ? 1 : 2);
@@ -144,6 +186,8 @@ function updatePlaylistCoverViewport(visible, nearby) {
     task.rec.loading = false;
     return false;
   });
+  playlistCoverViewportUpdating = false;
+  pumpPlaylistCovers(); trimPlaylistCoverCache();
 }
 
 function shelfSongCoverSrc(song) {
@@ -151,3 +195,12 @@ function shelfSongCoverSrc(song) {
   var profile = typeof shelfTextureQualityProfile === 'function' ? shelfTextureQualityProfile() : { maxScale: 1 };
   return songCoverSrc(song, Math.round(80 * profile.maxScale));
 }
+
+window.addEventListener('mineradio-background-image-slot', pumpPlaylistCovers);
+window.addEventListener('pagehide', function () {
+  playlistCoverViewportUpdating = true; playlistCoverQueue = [];
+  Object.keys(playlistCoverCache).forEach(function (url) {
+    var rec = playlistCoverCache[url]; clearTimeout(rec.retryTimer);
+    if (rec.cancel) rec.cancel();
+  });
+});

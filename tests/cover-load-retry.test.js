@@ -17,7 +17,9 @@ function setup() {
     removeAttribute(name) { if (name === 'src') this.src = ''; } });
   const nodes = { 'thumb-cover': el() };
   const c = vm.createContext({
-    Image, URL,
+    Image, URL, Event, window: { addEventListener() {}, dispatchEvent() {} },
+    performance: { now: () => 0 }, navigator: { onLine: true },
+    audio: { paused: false }, playing: true, persistentLyricCacheKey: song => String(song.id),
     setTimeout(fn, ms) { const t = { fn, ms, done: false }; timers.push(t); return t; },
     clearTimeout(t) { if (t) t.done = true; },
     document: {
@@ -37,6 +39,7 @@ function setup() {
     setCoverDepthState() {}, resetFloatColorsToIdle() {}, openGsapModal() {},
   });
   vm.runInContext(read('05-playback/01-cover-custom-map.js'), c);
+  vm.runInContext(read('03-beat/05a-adjacent-preparation.js'), c);
   vm.runInContext(read('03-beat/05-cover-loading-crop.js'), c);
   // Album background crossfade is covered elsewhere; record what it is told.
   c.setAlbumBackground = src => { c.shown.bg = src; };
@@ -126,6 +129,6 @@ test('failed and cancelled prefetches can retry; only loaded covers are marked d
   assert.equal(cancelled.onload, null);
   s.c.runUpcomingCoverPrefetch(1);
   s.last().onload();
-  assert.equal(s.c.upcomingCoverPrefetch.done[proxied], true);
+  assert(Number(s.c.upcomingCoverPrefetch.done[proxied]) > Date.now() - 30000, 'successful warm-up stores its freshness timestamp');
   assert.equal(s.c.upcomingCoverPrefetchUrls().length, 0);
 });

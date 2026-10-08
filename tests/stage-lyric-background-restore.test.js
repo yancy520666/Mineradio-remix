@@ -26,7 +26,7 @@ function makeLyricsContext() {
   const audio = { src: 'song-a', paused: true, ended: false, currentTime: 12 };
   const context = vm.createContext({
     fx: { particleLyrics: true }, audio, lyricsLines, stageLyrics, scene,
-    trackSwitchToken: 1, playing: false,
+    trackSwitchToken: 1, playing: false, stageLyricIntro: null,
     stageLyricBackgroundRestoreLastAt: 0,
     stageLyricPlaybackSeconds: () => audio.currentTime,
     stageLyricNowMs: () => 1000,
@@ -48,6 +48,7 @@ function makeLyricsContext() {
     stageLyricProgressPreviewActive: () => false,
   });
   vm.runInContext([
+    functionSource('stageLyricIntroActive'),
     functionSource('restoreCurrentStageLyrics'),
     functionSource('restorePausedStageLyrics'),
     functionSource('restoreStageLyricsAfterBackground'),

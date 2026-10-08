@@ -1318,7 +1318,7 @@ function checkLyricScrollPerformanceGuard() {
   ) {
     fail('progress dragging must keep the shared lyric track easing continuously while only decorative motion is locked');
   }
-  if (!/function stageLyricUsesSingleLineSwap/.test(stageText) || !/mode === 'single' && !data\.usesTrack/.test(stageText) || !/if \(singleLineSwap\) \{[\s\S]{0,220}mesh\.position\.z -= dt \* 0\.26/.test(stageText) || !/if \(!singleLineSwap\) group\.position\.y \+= enterDir \* lineWorldStep/.test(meshText)) {
+  if (!/function stageLyricUsesSingleLineSwap/.test(stageText) || !/mode === 'single' && !data\.usesTrack/.test(stageText) || !/if \(singleLineSwap(?: && !mesh\.userData\.trackIntroTitle)?\) \{[\s\S]{0,220}mesh\.position\.z -= dt \* 0\.26/.test(stageText) || !/if \(!singleLineSwap\) group\.position\.y \+= enterDir \* lineWorldStep/.test(meshText)) {
     fail('single-line lyrics must keep the old GitHub fade/float swap instead of inheriting multi-line scroll offsets');
   }
   if (!/function stageLyricPayloadIsSingleLine/.test(stageText) || !/function stageLyricSingleLineTrackStub/.test(stageText) || !/if \(stageLyricPayloadIsSingleLine\(payload\)\) return false;/.test(stageText) || !/singleLineBoundaryNoSyncBuild/.test(stageText) || !/var singleLineDemand = stageLyricPayloadIsSingleLine\(payload\)/.test(stageText) || !/var delay = singleLineDemand \? 0 : 16/.test(stageText)) {
@@ -1327,7 +1327,7 @@ function checkLyricScrollPerformanceGuard() {
   if (!/if \(mode === 'single'\) \{[\s\S]{0,160}stageLyricSingleLineTrackStub\(index\)/.test(stageText) || !/trackKey: '',[\s\S]{0,140}trackEntries: singleTrack\.entries/.test(stageText) || !/function stageLyricMultiLineWarmupLoad\(\) \{[\s\S]{0,120}return mode !== 'single';/.test(stageText)) {
     fail('single-line lyric payloads must bypass buffered trackEntries even when translations are enabled');
   }
-  if (!/var singleLineStartX = singleLineSwap \? 0 : \(Math\.random\(\) - 0\.5\) \* 0\.045/.test(meshText) || !/var singleLineStartX = singleLineSwap \? 0 : \(Math\.random\(\) - 0\.5\) \* 0\.045/.test(stageText) || !/if \(singleLineSwap\) \{[\s\S]{0,220}mesh\.position\.y \+= \(\(0\.18 \+ \(verticalFloatOn \?/.test(stageText)) {
+  if (!/var singleLineStartX = singleLineSwap \? 0 : \(Math\.random\(\) - 0\.5\) \* 0\.045/.test(meshText) || !/var singleLineStartX = singleLineSwap \? 0 : \(Math\.random\(\) - 0\.5\) \* 0\.045/.test(stageText) || !/if \(singleLineSwap(?: && !mesh\.userData\.trackIntroTitle)?\) \{[\s\S]{0,220}mesh\.position\.y \+= \(\(0\.18 \+ \(verticalFloatOn \?/.test(stageText)) {
     fail('single-line lyric sentence endings must avoid random lateral jumps and hard visual stops');
   }
   if (!/var stageLyricSingleLinePrewarm = \{ items: \{\}, order: \[\], max: 10 \};/.test(stageText) || !/var stageLyricTrackSwitchBootstrapUntil = 0;/.test(stageText) || !/function scheduleStageLyricSingleLineNextPrewarm/.test(stageText) || !/stageLyricSingleLineNextPrewarmReady\(currentIndex\)/.test(stageText) || !/function stageLyricSingleLineIndexPrewarmReady[\s\S]{0,420}stageLyricSingleLinePrewarmCanServePayload\(payload\)[\s\S]{0,220}stageLyricPrewarmCanServePayload\(payload\)/.test(stageText) || !/function stageLyricSingleLineWarmupPending[\s\S]{0,520}stageLyricSingleLineIndexPrewarmReady\(singleLineIndex\)/.test(stageText.replace(/function stageLyricWarmupPending/, 'function stageLyricSingleLineWarmupPending')) || !/function stageLyricSingleLineUpcomingIndexes/.test(stageText) || !/function stageLyricSingleLinePrewarmDelay/.test(stageText) || !/function scheduleStageLyricSingleLineBootstrapPrewarm/.test(stageText) || !/function scheduleStageLyricSingleLineCachePrewarm/.test(stageText) || !/takeStageLyricSingleLinePrewarmMesh\(payload\) \|\| takeStageLyricPrewarmMesh\(payload\)/.test(stageText) || !/stageLyricSingleLineUpcomingIndexes\(currentIndex, 6\)/.test(stageText) || !/stageLyricTrackSwitchBootstrapUntil = stageLyricNowMs\(\) \+ 4800/.test(stageText) || !/return 0;[\s\S]{0,260}var idx = -1;/.test(stageText) || !/stageLyricSingleLineBootstrapIndex\(\)/.test(stageText) || !/scheduleStageLyricSingleLineBootstrapPrewarm\(prewarmReason, restoreWarmup \? 24 : 44\)/.test(lyricText) || /if \(stageLyricSingleLineNextPrewarmReady\(currentIndex\)\) return true;/.test(stageText) || !/single-line-lookahead-/.test(stageText) || !/markRenderInteraction\('lyric-swap', 360\)/.test(stageText) || !/scheduleStageLyricSingleLineNextPrewarm\(newIdx, lyricT/.test(stageText)) {
@@ -1364,7 +1364,7 @@ function checkLyricScrollPerformanceGuard() {
   if (!/function scheduleStageLyricFullTrackWarmup/.test(stageText) || !/stageLyricFullTrackWarmupTargetAt/.test(stageText) || !/scheduleStageLyricFullTrackWarmup\(restoreWarmup \? 'track-ready-fast' : 'lyrics-ready-preload', restoreWarmup \? 120 : 24\)/.test(lyricText)) {
     fail('lyrics must schedule full-track warmup as soon as a lyric response is parsed');
   }
-  if (!/function requestStageLyricRestoreWarmup/.test(stageText) || !/function scheduleStageLyricRestorePrewarm/.test(stageText) || !/var restoreWarmup = typeof stageLyricRestoreWarmupSeconds === 'function'/.test(lyricText) || !/requestStageLyricRestoreWarmup\(restoreResumeAt, token, 'startup-restore'\)/.test(playbackText)) {
+  if (!/function requestStageLyricRestoreWarmup/.test(stageText) || !/function scheduleStageLyricRestorePrewarm/.test(stageText) || !/var restoreWarmup = typeof stageLyricRestoreWarmupSeconds === 'function'/.test(lyricText) || !/requestStageLyricRestoreWarmup\((?:restoreResumeAt|initialResumeAt), token, 'startup-restore'\)/.test(playbackText)) {
     fail('startup resume lyrics must prewarm around the restored playback time instead of rebuilding uneven chunks from the first line');
   }
   if (!/function clearStageLyricFullTrackWarmup/.test(stageText) || /function disposeStageLyricPrewarmMesh\(\)\s*\{[\s\S]{0,220}stageLyricFullTrackWarmupTimer/.test(stageText)) {
@@ -1376,8 +1376,8 @@ function checkLyricScrollPerformanceGuard() {
   if (!/function lyricsAreFallbackTitleOnly/.test(lyricText) || !/var fallbackTitleOnly = lyricsAreFallbackTitleOnly\(lyricsLines\)/.test(lyricText) || !/if \(!fallbackTitleOnly && typeof scheduleStageLyricFullTrackWarmup === 'function'\)/.test(lyricText)) {
     fail('track-title fallback lyrics must not schedule a full multi-line track warmup before real lyrics arrive');
   }
-  if (!/function resetLyricsForTrackSwitch/.test(lyricText) || !/function scheduleTrackSwitchFallbackLyrics/.test(lyricText) || !/multiLineDelay/.test(lyricText) || !/scheduleTrackSwitchFallbackLyrics\(song, token, 1500\)/.test(playbackText) || !/cancelPendingTrackFallbackLyrics\(\)/.test(lyricText)) {
-    fail('track switches must delay title fallback lyrics so real lyrics do not trigger a double load');
+  if (!/function resetLyricsForTrackSwitch/.test(lyricText) || !/function scheduleTrackSwitchFallbackLyrics/.test(lyricText) || !/titleDelay/.test(lyricText) || !/scheduleTrackSwitchFallbackLyrics\(song, token, 320\)/.test(playbackText) || !/cancelPendingTrackFallbackLyrics\(\)/.test(lyricText)) {
+    fail('track switches must use a bounded title fallback delay and cancel its stale timer');
   }
   if (!/var trackLightweight = false/.test(payloadText) || !/trackLightweight = input\.trackLightweight === true/.test(payloadText) || !/trackLightweight: trackLightweight/.test(payloadText)) {
     fail('stage lyric payload normalization must preserve lightweight track windows for stutter-free multi-line first paint');
@@ -1400,7 +1400,7 @@ function checkLyricScrollPerformanceGuard() {
   if (!/requestStageLyricWarmup\('setParticleLyricsSilently'/.test(fxBindText) || !/scheduleStageLyricPrewarm\('setParticleLyricsSilently', 48\)/.test(fxBindText) || !/scheduleStageLyricFullTrackWarmup\('track-ready', 220\)/.test(fxBindText)) {
     fail('silent lyric activation must also use the warmup/prewarm path');
   }
-  if (!/function scheduleQueueLyricPrefetch/.test(lyricText) || !/async function runQueueLyricPrefetch/.test(lyricText) || !/if \(audio && audio\.paused\) return false;/.test(lyricText) || /\/api\/(?:song\/url|qq\/song\/url|kugou\/song\/url|qishui\/song\/url|spotify\/song\/url)/.test(lyricText) || !/scheduleQueueLyricPrefetch\(idx, 2400\)/.test(playbackText)) {
+  if (!/function scheduleQueueLyricPrefetch/.test(lyricText) || !/async function runQueueLyricPrefetch/.test(lyricText) || !(/if \(audio && audio\.paused\) return false;/.test(lyricText) || /!adjacentPreparationAllowed\(\)/.test(lyricText)) || /\/api\/(?:song\/url|qq\/song\/url|kugou\/song\/url|qishui\/song\/url|spotify\/song\/url)/.test(lyricText) || !/scheduleQueueLyricPrefetch\(idx, 2400\)/.test(playbackText)) {
     fail('queue lyric prefetch must stay isolated from audio URL switching and only run after playback is stable');
   }
   if (!/function shouldDeferStageLyricSyncBuild/.test(stageText) || !/showStageLine\(displayPayload, false, \{ noSyncBuild: true \}\)/.test(stageText)) {
@@ -1436,7 +1436,7 @@ function checkLyricScrollPerformanceGuard() {
   if (!/function scheduleStageLyricCooperativeWork/.test(stageText) || !/stageLyricPrewarm\.workRaf/.test(stageText) || !/requestAnimationFrame\(function \(\)/.test(stageText) || !/function stageLyricShouldYieldToPendingInput/.test(stageText) || !/isInputPending/.test(stageText)) {
     fail('lyric cooperative work must run after a rendered frame and yield to pending continuous input');
   }
-  if (!/var stageLyricResidentBuild = \{ job: null, timer: 0, raf: 0, token: 0 \}/.test(stageText) || !/function startStageLyricResidentBuild/.test(stageText) || !/function ensureStageLyricPersistentTrackRows/.test(stageText) || !/function mergeStageLyricResidentBundle/.test(stageText) || !/function trimStageLyricPersistentTrackRows/.test(stageText) || !/function stageLyricResidentJobIsCurrent/.test(stageText) || !/stageLyrics\.current === job\.mesh && data\.trackKey === job\.trackKey/.test(stageText) || !/job\.singleEffects && job\.trackToken === trackSwitchToken/.test(stageText)) {
+  if (!/var stageLyricResidentBuild = \{ job: null, timer: 0, raf: 0, token: 0 \}/.test(stageText) || !/function startStageLyricResidentBuild/.test(stageText) || !/function ensureStageLyricPersistentTrackRows/.test(stageText) || !/function mergeStageLyricResidentBundle/.test(stageText) || !/function trimStageLyricPersistentTrackRows/.test(stageText) || !/function stageLyricResidentJobIsCurrent/.test(stageText) || !/stageLyricResidentMeshIsCurrent\(job\.mesh\) && data\.trackKey === job\.trackKey/.test(stageText) || !/job\.trackToken === trackSwitchToken/.test(stageText) || !/preparedTrackToken === trackSwitchToken/.test(stageText)) {
     fail('multi-line lyrics must stream bounded resident rows into one persistent root with a single cancellable build job');
   }
   if (!/function stageLyricPersistentTargetRowsReady/.test(stageText) || !/function stageLyricPersistentTargetEffectsReady/.test(stageText) || !/function commitStageLyricPersistentPendingTarget/.test(stageText) || !/pending target committed before upload/.test(fs.readFileSync(__filename, 'utf8')) || !/d\.trackPendingProgress =/.test(meshText) || !/pendingWindowAllowed/.test(rowText)) {
@@ -3587,7 +3587,7 @@ function checkShuffleQueueOrderGuard() {
   if (!/playMode === 'shuffle'\)\s*currentIdx = currentIdx < 0 \? 0 : \(currentIdx \+ 1\) % playQueue\.length/.test(controlsText) || !/opts\.skipShuffleOrder = true/.test(controlsText)) {
     fail('shuffle next/previous controls must walk the randomized queue order without reshuffling every button press');
   }
-  if (!/playMode === 'shuffle'[\s\S]{0,220}reorderQueueForShufflePlaybackOrder\(idx/.test(playbackText)) {
+  if (!/playMode === 'shuffle'[\s\S]{0,500}reorderQueueForShufflePlaybackOrder\(idx/.test(playbackText)) {
     fail('playQueueAt must normalize a selected track into the front of the randomized queue while shuffle is enabled');
   }
   if (!/playMode === 'shuffle' && prevMode !== 'shuffle'[\s\S]{0,120}reorderQueueForShufflePlaybackOrder\(currentIdx/.test(controlsText)) {

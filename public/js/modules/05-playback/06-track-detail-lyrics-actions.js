@@ -358,7 +358,7 @@ function renderDetailComments(comments) {
     var like = commentLikeHtml(c);
     var replies = typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c, like) : '';
     return '<div class="comment-item' + (replies ? '' : ' is-compact') + '">' +
-      (avatar ? '<img class="comment-avatar" src="' + escHtml(avatar) + '" alt="" loading="lazy">' : '<div class="comment-avatar"></div>') +
+      (avatar ? (typeof commentAvatarHtml === 'function' ? commentAvatarHtml(user.avatar, 64, 'comment-avatar') : '<img class="comment-avatar" src="' + escHtml(coverProxySrc(avatar)) + '" alt="" loading="lazy">') : '<div class="comment-avatar"></div>') +
       '<div class="comment-main">' + commentHeadHtml(c) +
       '<div class="comment-text">' + commentContentHtml(c.content) + '</div>' +
       (replies || '<div class="comment-actions"><span></span>' + like + '</div>') + '</div>' +

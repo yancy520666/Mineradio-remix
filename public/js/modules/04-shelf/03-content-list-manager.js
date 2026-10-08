@@ -392,7 +392,10 @@ function makeContentListManager() {
           requestPlaylistCover(songCover, function () {
             if (!open || rowToken !== requestToken || row.disposed || row.song !== song || shelfSongCoverSrc(row.song) !== songCover) return;
             drawRow(row, row.song, !!row.lastCenter); requestShelfCoverFrame();
-          }, { priority: 0, scope: 'content' });
+          }, { priority: 0, scope: 'content', isCurrent: function () {
+            return open && rowToken === requestToken && !row.disposed && row.song === song
+              && Math.abs(row.index - centerTarget) <= CONTENT_VISIBLE_RADIUS + 1;
+          } });
           row.coverWaitRecord = playlistCoverCache[songCover];
         }
       }
@@ -690,6 +693,7 @@ function makeContentListManager() {
       contentCoverPrefetchCenter = 0; contentCoverPrefetchDirection = 1;
       if (!group) {
         group = new THREE.Group();
+        group.userData.mineradioUiLayer = true;
         group.renderOrder = 320;
         scene.add(group);
       }

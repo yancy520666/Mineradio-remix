@@ -602,8 +602,8 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   // Read a small canvas so high-resolution covers cannot stall the first frame.
   var paletteReady = false;
   if (fx.preset === 8) {
-    var paletteCanvas = cv;
-    if (cv.width > 128 || cv.height > 128) {
+    var paletteCanvas = opts.paletteCanvas || cv;
+    if (!opts.paletteCanvas && (cv.width > 128 || cv.height > 128)) {
       paletteCanvas = document.createElement('canvas');
       paletteCanvas.width = paletteCanvas.height = 128;
       var paletteContext = typeof coverCpuContext === 'function' ? coverCpuContext(paletteCanvas) : paletteCanvas.getContext('2d');

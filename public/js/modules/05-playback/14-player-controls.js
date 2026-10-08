@@ -564,9 +564,11 @@ async function attemptAudioPlay(opts) {
       if (expectedMedia.paused && !expectedMedia.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
     }
     if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    expectedMedia.__mineradioLastPlayError = null;
     return await completeAudioPlayStart(opts, 'playback-started', expectedMedia, expectedToken);
   } catch (err) {
     if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    expectedMedia.__mineradioLastPlayError = err;
     if (opts.trackSwitch && expectedMedia && expectedMedia.src) {
       try {
         var recovered = await retryTrackSwitchAudioPlayOnce(opts, err, expectedMedia, expectedToken);
@@ -574,6 +576,7 @@ async function attemptAudioPlay(opts) {
         return false;
       } catch (retryErr) {
         err = retryErr;
+        expectedMedia.__mineradioLastPlayError = retryErr;
       }
     }
     console.warn('Audio play blocked:', err && (err.message || err));
@@ -721,6 +724,7 @@ function reorderQueueForShufflePlaybackOrder(startIdx, opts) {
   return currentIdx;
 }
 function nextTrack(userInitiated) {
+  if (typeof adjacentPreparationDirection !== 'undefined') adjacentPreparationDirection = 1;
   if (!playQueue.length) return;
   playToggleBusy = false;
   forcePlaybackControlsInteractive();
@@ -745,6 +749,7 @@ function nextTrack(userInitiated) {
   Promise.resolve(playQueueAt(currentIdx, opts)).finally(forcePlaybackControlsInteractive);
 }
 function prevTrack(userInitiated) {
+  if (typeof adjacentPreparationDirection !== 'undefined') adjacentPreparationDirection = -1;
   if (!playQueue.length) return;
   playToggleBusy = false;
   forcePlaybackControlsInteractive();

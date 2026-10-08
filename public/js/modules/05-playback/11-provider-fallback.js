@@ -238,6 +238,25 @@ function removeSourceFallbackCard(card) {
     if (card.parentNode) card.parentNode.removeChild(card);
   }, 260);
 }
+function setSourceFallbackCardActions(card, actions) {
+  var old = card.querySelector('.source-fallback-actions');
+  if (old) old.remove();
+  if (!Array.isArray(actions) || !actions.length) return;
+  var row = document.createElement('div');
+  row.className = 'source-fallback-actions';
+  actions.forEach(function (action) {
+    var button = document.createElement('button');
+    button.type = 'button'; button.textContent = action.label;
+    button.onclick = async function () {
+      if (button.disabled || card.classList.contains('leaving')) return;
+      button.disabled = true;
+      try { await action.onClick(); } catch (e) { console.warn('Playback recovery action failed', e); }
+      finally { button.disabled = false; }
+    };
+    row.appendChild(button);
+  });
+  card.appendChild(row);
+}
 function showSourceFallbackNotice(title, body, options) {
   options = options || {};
   var stack = ensureSourceFallbackStack();
@@ -246,6 +265,7 @@ function showSourceFallbackNotice(title, body, options) {
     if (existingCard) {
       existingCard.querySelector('.source-fallback-title').textContent = title || '自动换源';
       existingCard.querySelector('.source-fallback-body').textContent = body || '';
+      setSourceFallbackCardActions(existingCard, options.actions);
       clearTimeout(existingCard._mineradioNoticeTimer);
       existingCard._mineradioNoticeTimer = options.persist ? 0 : setTimeout(function () { removeSourceFallbackCard(existingCard); }, 5600);
       return;
@@ -270,6 +290,7 @@ function showSourceFallbackNotice(title, body, options) {
     head.appendChild(close);
     card.appendChild(head);
     card.appendChild(bodyElNew);
+    setSourceFallbackCardActions(card, options.actions);
     stack.insertBefore(card, stack.firstChild || null);
     // Removal waits for the exit animation, so DOM length cannot bound a loop.
     Array.prototype.slice.call(stack.children, 4).forEach(removeSourceFallbackCard);
@@ -1030,14 +1051,14 @@ async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
   var previewStarted = await playQueueAt(idx, Object.assign({}, opts, { qishuiTrialUpgradeTried: true }));
   return previewStarted === true;
 }
-function handlePlaybackUnavailable(song, data) {
+function handlePlaybackUnavailable(song, data, options) {
   hideLoading();
   forcePlaybackControlsInteractive();
   var provider = playbackLoginProvider(song);
   var notice = playbackRestrictionNotice(song, data);
   var category = notice.category;
   showToast(notice.toast || notice.title || playbackRestrictionMessage(song, data));
-  showSourceFallbackNotice(notice.title, notice.body);
+  if (!(options && options.skipCard)) showSourceFallbackNotice(notice.title, notice.body);
   if (category === 'login_required') {
     setTimeout(function () {
       var modal = document.getElementById('login-modal');
