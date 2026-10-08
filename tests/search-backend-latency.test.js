@@ -79,3 +79,31 @@ test('overview search keeps a few artists, albums and playlists from one NetEase
   assert.equal(overview.playlists.length, 6);
   assert.equal(sandbox.overview({}).playlists.length, 0);
 });
+
+test('artist albums keep the newest releases first and cap the list', async () => {
+  const sandbox = { Date, Promise, Array, Map, Math, Number, String };
+  const calls = [];
+  vm.runInNewContext([
+    'const ARTIST_ALBUMS_DEFAULT = 6; const ARTIST_ALBUMS_MAX = 12; const userCookie = "";',
+    'const SEARCH_RESULT_CACHE_TTL_MS = 120000;',
+    'const searchCookieScope = () => "t";',
+    topLevelFunction('createSearchResultCache'),
+    'const typedSearchCache = createSearchResultCache(8);',
+    topLevelFunction('neteaseTypedSearchItem'),
+    'const artist_album = async (o) => { calls.push(o); return { body: { artist: { albumSize: 30 }, hotAlbums: albums } }; };',
+    topLevelFunction('fetchNeteaseArtistAlbums'),
+    'const fetchQQArtistAlbums = async () => ({ items: [], total: 0 });',
+    topLevelFunction('handleArtistAlbums'),
+    'this.run = handleArtistAlbums;',
+  ].join('\n'), Object.assign(sandbox, {
+    calls,
+    albums: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ id: n, name: `专辑${n}`, publishTime: n * 1000, picUrl: `c${n}.jpg`, size: 10, artists: [{ id: 9, name: '歌手' }] })),
+  }));
+  const r = await sandbox.run('netease', '9', 6);
+  assert.equal(r.albums.length, 6);
+  assert.equal(r.albums[0].name, '专辑8', 'newest first');
+  assert.equal(r.total, 30);
+  assert.equal(r.albums[0].type, 'album');
+  assert.deepEqual(JSON.parse(JSON.stringify(await sandbox.run('netease', '', 6))), { provider: 'netease', albums: [], total: 0 });
+  assert.match(serverSource, /pn === '\/api\/artist\/albums'/);
+});
