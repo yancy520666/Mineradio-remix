@@ -10,7 +10,7 @@ function fixture(extra={}){
  const sent=[], results=[], canceled=[];
  const service={createSession:async channel=>{assert.equal(channel,'qq');return 'key';},createQr:async()=>image,
  checkQr:async()=>({code:801}),cancelSession:key=>canceled.push(key),logout:async()=>{},...extra};
- const session=createQQNativeQrSession({service,sessions:()=>[{token:'token',credential:{musicid:'123',musickey:'fixture-key',loginType:6}}],notify:r=>sent.push(r),finish:r=>results.push(r),timeoutMs:100,...extra.options});
+ const session=createQQNativeQrSession({service,sessions:()=>[{token:'token',credential:{musicid:'123',musickey:'fixture-key',loginType:6}}],notify:r=>sent.push(r),finish:r=>results.push(r),timeoutMs:100,confirmationGraceMs:0,...extra.options});
  return {session,sent,results,canceled,service};
 }
 test('QQ client QR exports validated music credentials and releases the session',async()=>{
@@ -18,17 +18,17 @@ test('QQ client QR exports validated music credentials and releases the session'
  await settle();assert.match(f.sent[0].scanApp,/QQ 音乐 App/);await f.session.poll();
  assert.equal(f.results[0].ok,true);assert.match(f.results[0].cookie,/tmeLoginType=6/);assert.deepEqual(f.canceled,['key']);
 });
-test('QR create failure falls back without replacing the old login',async()=>{
- const f=fixture({createQr:async()=>{throw Error('network');}});await settle();assert.equal(f.results[0].fallback,true);
+test('QR create failure stays on the client path without replacing the old login',async()=>{
+ const f=fixture({createQr:async()=>{throw Error('network');}});await settle();assert.equal(f.results.length,0);assert.equal(f.sent.at(-1).stage,'failed');f.session.stop();
 });
 test('cancel during generation rejects late QR and cleans up returned key',async()=>{
  let release;const f=fixture({createSession:()=>new Promise(r=>release=r)});f.session.cancel();release('late');await settle();
- assert.equal(f.sent.length,0);assert.equal(f.results[0].cancelled,true);assert.deepEqual(f.canceled,['late']);
+ assert.equal(f.sent.filter(r=>r.stage==='qr').length,0);assert.equal(f.results[0].cancelled,true);assert.deepEqual(f.canceled,['late']);
 });
-test('expired code refreshes once, and hung refresh has its own deadline',async()=>{
- const f=fixture({checkQr:async()=>({code:800})});await settle();await f.session.poll();assert.equal(f.sent.at(-1).expired,true);
+test('expired code refreshes once, and hung refresh stays retryable on the client path',async()=>{
+ const f=fixture({checkQr:async()=>({code:800,message:'QR code expired',failureReason:'qr-timeout'})});await settle();await f.session.poll();assert.equal(f.sent.at(-1).expired,true);
  f.service.createSession=()=>new Promise(()=>{});assert.equal(f.session.click(),true);assert.equal(f.session.click(),false);
- await new Promise(r=>setTimeout(r,130));assert.equal(f.results[0].error,'QQ_APP_QR_TIMEOUT');
+ await new Promise(r=>setTimeout(r,130));assert.equal(f.results.length,0);assert.equal(f.sent.at(-1).stage,'failed');f.session.stop();
 });
 test('credential injection and incomplete authorization are rejected',()=>{
  for(const c of [{musicid:'123',musickey:'x; y=z',loginType:6},{musicid:'123',musickey:'key',loginType:2},{}])assert.throws(()=>credentialCookie(c));
@@ -102,4 +102,35 @@ test('native QQ profile uses client authorization and keeps temporary empty resu
 test('clicking the official button while QR is waiting transitions the active request instead of being rejected as busy',()=>{
  const calls=[];const ctx=vm.createContext({loginProvider:'qq',inlineLoginQrProvider:'qq',openInlineLoginInWindow:()=>calls.push('transition'),cancelInlineLoginQr:()=>{throw Error('wrong cancellation path');},openQQWebLogin:()=>{throw Error('would fail busy guard');}});
  loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['openProviderOfficialWebLogin']);ctx.openProviderOfficialWebLogin();assert.deepEqual(calls,['transition']);
+});
+
+test('QQ authorization failures are not displayed as expired, and mention unsupported scanners without claiming which App was used',async()=>{
+ const f=fixture({checkQr:async()=>({code:800,message:'QR login failed',failureReason:'missing-credential',failureStage:'credential-payload'})});
+ await settle();await f.session.poll();const notice=f.sent.at(-1);
+ assert.equal(notice.stage,'failed');assert.equal(notice.expired,false);assert.match(notice.message,/QQ 或微信/);assert.equal(f.results.length,0);f.session.stop();
+});
+test('a credential issued after SDK expiry still completes the current QR within the grace window',async()=>{
+ const issued=[];const f=fixture({checkQr:async()=>({code:800,message:'QR code expired'}),options:{confirmationGraceMs:8000,sessions:()=>issued}});
+ await settle();await f.session.poll();assert.equal(f.sent.at(-1).stage,'scanned');assert.equal(f.session.click(),false);
+ issued.push({token:'late-confirmed',credential:{musicid:'123',musickey:'fixture-key',loginType:6},expiresAt:Date.now()+60000});
+ await f.session.poll();assert.equal(f.results[0].ok,true);
+});
+test('refresh creates an isolated client auth store; old QR authorization cannot confirm the replacement code',async()=>{
+ const stores=[],notices=[],results=[];
+ const session=createQQNativeQrSession({confirmationGraceMs:0,timeoutMs:100,
+ createRuntime:()=>{const records=[];stores.push(records);return {sessions:()=>records,service:{createSession:async()=>String(stores.length),createQr:async()=>image,cancelSession(){},checkQr:async()=>({code:801}),logout:async()=>{}}};},notify:r=>notices.push(r),finish:r=>results.push(r)});
+ await settle();assert.equal(session.click(),true);await settle();
+ stores[0].push({token:'old-confirmed',credential:{musicid:'123',musickey:'fixture-key',loginType:6},expiresAt:Date.now()+60000});
+ await session.poll();assert.equal(stores.length,2);assert.equal(results.length,0);session.stop();
+});
+test('refresh IPC never opens the official webpage',async()=>{
+ const calls=[];const ctx=vm.createContext({inlineLoginQrProvider:'qq',window:{desktopWindow:{clickInlineLoginQr:async p=>calls.push(p)}},openInlineLoginInWindow:()=>{throw Error('web fallback invoked');}});
+ loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['refreshInlineLoginQr']);await ctx.refreshInlineLoginQr();assert.deepEqual(calls,['qq']);
+});
+
+test('even a displayed expiry cannot discard a later valid credential for the same unrefreshed code',async()=>{
+ const issued=[];const f=fixture({checkQr:async()=>({code:800,message:'QR code expired'}),options:{sessions:()=>issued}});
+ await settle();await f.session.poll();assert.equal(f.sent.at(-1).expired,true);
+ issued.push({token:'confirmed-after-expiry',credential:{musicid:'123',musickey:'fixture-key',loginType:6},expiresAt:Date.now()+60000});
+ await f.session.poll();assert.equal(f.results[0].ok,true);
 });

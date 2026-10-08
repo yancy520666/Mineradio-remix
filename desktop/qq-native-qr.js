@@ -52,67 +52,111 @@ function credentialCookie(credential) {
 }
 function createQQNativeQrSession(options) {
   let service = options.service, sessions = options.sessions;
-  let key = '', stopped = false, busy = false, expired = false, image = '';
-  let epoch = 0, failures = 0;
+  let key = '', stopped = false, busy = false, refreshing = false, confirming = false, retryable = false, image = '';
+  let epoch = 0, failures = 0, terminalSince = 0, retryAt = 0;
+  let baselineTokens = new Set(), deadline, retryTimer, wakeRetry;
+  const scanApp = 'QQ 音乐 App（不支持 QQ／微信扫一扫）';
   const finish = result => { if (!stopped) { stop(); options.finish(result); } };
-  let deadline;
-  function startDeadline() {
-    clearTimeout(deadline);
-    deadline = setTimeout(() => finish({ ok: false, inline: true, fallback: true, error: 'QQ_APP_QR_TIMEOUT' }), options.timeoutMs || 45000);
+  function fail(message, detail) {
+    retryable = true; refreshing = false; confirming = false; clearTimeout(deadline);
+    options.notify({ stage: 'failed', image, expired: false, retryable: true, scanApp, message,
+      failureStage: detail && detail.failureStage, failureReason: detail && detail.failureReason,
+      upstreamCode: detail && detail.upstreamCode });
+  }
+  function delay(ms) {
+    return new Promise(resolve => { wakeRetry = resolve; retryTimer = setTimeout(() => { wakeRetry = null; resolve(); }, ms); });
   }
   async function refresh() {
     const generation = ++epoch;
-    startDeadline();
-    expired = false;
+    refreshing = true; confirming = false; retryable = false; terminalSince = 0; image = '';
     if (key && service) service.cancelSession(key);
     key = '';
+    options.notify({ stage: 'loading', scanApp, message: retryAt > Date.now() ? '稍候自动刷新客户端二维码…' : '正在生成 QQ 音乐 App 二维码…' });
+    clearTimeout(deadline);
+    deadline = setTimeout(() => {
+      if (stopped || generation !== epoch) return;
+      epoch++; if (key && service) service.cancelSession(key); key = '';
+      fail('客户端二维码生成超时，请点击刷新重试；也可以选择 QQ 网页登录。', { failureReason: 'network-timeout' });
+    }, options.timeoutMs || 45000);
     try {
-      if (!service) { const runtime = nativeService(); service = runtime.service; sessions = runtime.sessions; }
-      const nextKey = await service.createSession('qq');
-      if (stopped || generation !== epoch) { service.cancelSession(nextKey); return; }
+      if (retryAt > Date.now()) await delay(Math.min(retryAt - Date.now(), 30000));
+      if (stopped || generation !== epoch) return;
+      // Each code owns its auth store: a late confirmation for the old code cannot log in the new one.
+      if (!options.service) { const runtime = (options.createRuntime || nativeService)(); service = runtime.service; sessions = runtime.sessions; }
+      baselineTokens = new Set((sessions ? sessions() : []).map(item => item.token));
+      const currentService = service;
+      const nextKey = await currentService.createSession('qq');
+      if (stopped || generation !== epoch) { currentService.cancelSession(nextKey); return; }
       key = nextKey;
-      const nextImage = await service.createQr(key);
+      const nextImage = await currentService.createQr(key);
       if (stopped || generation !== epoch) return;
       if (!/^data:image\/(png|jpeg);base64,/.test(nextImage) || nextImage.length > 1024 * 1024) throw new Error('QQ_APP_QR_INVALID');
-      clearTimeout(deadline);
+      clearTimeout(deadline); refreshing = false; failures = 0;
       image = nextImage;
-      options.notify({ stage: 'qr', image, expired: false, scanApp: 'QQ 音乐 App（不是 QQ 的扫一扫）' });
-    } catch (_) {
-      if (!stopped && generation === epoch) finish({ ok: false, inline: true, fallback: true, error: 'QQ_APP_QR_UNAVAILABLE' });
+      options.notify({ stage: 'qr', image, expired: false, scanApp });
+    } catch (error) {
+      if (stopped || generation !== epoch) return;
+      const wait = Math.max(0, Number(error.retryAfterMs) || 0);
+      retryAt = Date.now() + Math.min(wait, 30000);
+      fail('客户端二维码暂时无法生成，请刷新重试；不会自动切到网页登录。', error.diagnostics);
     }
   }
   async function poll() {
-    if (stopped || busy || !key || !image || expired) return;
-    const generation = epoch;
+    if (stopped || busy || refreshing || !key || !image) return;
+    const generation = epoch, currentService = service, currentSessions = sessions;
     busy = true;
     try {
-      const result = await service.checkQr(key, 1000);
+      const delivered = retryable && (currentSessions ? currentSessions() : []).find(item => !baselineTokens.has(item.token) && item.credential && Number(item.credential.loginType) === 6 && item.expiresAt > Date.now());
+      if (retryable && !delivered) return;
+      const result = delivered ? { code: 803, cookie: 'qqmusic_session=' + delivered.token } : await currentService.checkQr(key, 1000);
       failures = 0;
       if (stopped || generation !== epoch) {
-        if (result.code === 803 && result.cookie) await service.logout(String(result.cookie).replace(/^qqmusic_session=/, ''));
+        if (result.code === 803 && result.cookie) await currentService.logout(String(result.cookie).replace(/^qqmusic_session=/, ''));
         return;
       }
-      if (result.code === 803) {
-        const token = String(result.cookie || '').replace(/^qqmusic_session=/, '');
-        const auth = (sessions ? sessions() : []).find(item => item.token === token);
-        const cookie = credentialCookie(auth && auth.credential);
-        // Export only conventional music credentials, then drop the SDK session.
-        await service.logout(token);
+      const issued = (currentSessions ? currentSessions() : []);
+      const token = String(result.cookie || '').replace(/^qqmusic_session=/, '');
+      const auth = result.code === 803 ? issued.find(item => item.token === token)
+        : issued.find(item => !baselineTokens.has(item.token) && item.credential && item.expiresAt > Date.now());
+      if (result.code === 803 || auth) {
+        let cookie;
+        try { cookie = credentialCookie(auth && auth.credential); } catch (_) {
+          if (auth) baselineTokens.add(auth.token);
+          fail('手机已确认，但没有收到完整播放凭据。请用 QQ 音乐 App 刷新重试，或选择 QQ 网页登录。', { failureStage: 'credential-validation', failureReason: 'missing-credential' }); return;
+        }
+        await currentService.logout(auth.token);
         if (!stopped && generation === epoch) finish({ ok: true, cookie, nativeQr: true });
-      } else if (result.code === 802) options.notify({ stage: 'scanned' });
-      else if (result.code === 800) {
-        expired = true;
-        options.notify({ stage: 'qr', image, expired: true, scanApp: 'QQ 音乐 App（不是 QQ 的扫一扫）' });
+      } else if (result.code === 802) {
+        confirming = true; terminalSince = 0; options.notify({ stage: 'scanned', message: '已扫码，正在接收 QQ 音乐授权…' });
+      } else if (result.code === 800) {
+        // SDK 800 covers both expiry and failure. Keep polling briefly for an in-flight credential exchange.
+        if (!terminalSince) terminalSince = Date.now();
+        const grace = options.confirmationGraceMs ?? 8000;
+        if (Date.now() - terminalSince < grace) {
+          confirming = true; options.notify({ stage: 'scanned', message: '正在核对手机端授权结果…' }); return;
+        }
+        retryAt = Math.max(retryAt, Date.now() + Math.min(Math.max(0, Number(result.retryAfterMs) || 0), 30000));
+        if (result.failureReason === 'qr-timeout' || (!result.failureReason && result.message === 'QR code expired')) {
+          retryable = true; confirming = false;
+          options.notify({ stage: 'qr', image, expired: true, retryable: true, scanApp });
+        } else {
+          fail('扫码授权未完成。此二维码仅支持 QQ 音乐 App；若用了 QQ 或微信，请刷新后换 QQ 音乐 App 扫码。', result);
+        }
       }
     } catch (_) {
-      if (!stopped && generation === epoch && ++failures >= 3) finish({ ok: false, inline: true, fallback: true, error: 'QQ_APP_QR_UNAVAILABLE', message: 'QQ 音乐 App 授权没有完成，请使用 QQ 音乐 App 扫码，或改用 QQ 网页登录。' });
+      if (!stopped && generation === epoch && ++failures >= 3) fail('授权连接暂时中断，请刷新客户端二维码重试；手机上的成功提示不代表播放凭据已经收到。');
     } finally { busy = false; }
   }
   const timer = setInterval(poll, 1200);
   if (timer.unref) timer.unref();
-  function stop() { stopped = true; epoch++; clearTimeout(deadline); clearInterval(timer); if (key && service) service.cancelSession(key); key = ''; }
+  function stop() {
+    stopped = true; epoch++; clearTimeout(deadline); clearTimeout(retryTimer); clearInterval(timer);
+    if (wakeRetry) { wakeRetry(); wakeRetry = null; }
+    if (key && service) service.cancelSession(key); key = '';
+  }
   refresh();
   return { stop, poll, cancel: () => finish({ ok: false, inline: true, cancelled: true }),
-    click: () => { if (stopped || !expired) return false; image = ''; refresh(); return true; } };
+    click: () => { if (stopped || refreshing || busy || confirming) return false; refresh(); return true; } };
 }
+
 module.exports = { createQQNativeQrSession, credentialCookie, nativeCommForCookie };
