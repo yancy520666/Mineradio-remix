@@ -32,6 +32,7 @@ try {
   run(electron, [path.join(root, 'tests', 'visual-effect-controls-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'wallpaper-cover-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'fx-slider-electron-smoke.js')]);
+  run(process.execPath, [path.join(root, 'tests', 'aero-input-electron-smoke.js')]);
   run(electron, [path.join(root, 'tests', 'lyric-edit-electron-smoke.js')], 180000);
   run(electron, [path.join(root, 'tests', 'original-profile-entry-electron-smoke.js')]);
   profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-lyric-layout-'));
