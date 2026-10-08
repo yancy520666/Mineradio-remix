@@ -67,3 +67,9 @@ tmp/
 *.png.tmp
 verification/
 screenshots/
+
+# Personal official SDK bridge; never include these files in Git or distributable builds
+.qishui-native-local.json
+.local/qishui-native/
+
+.qq-native-device.json

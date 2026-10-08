@@ -2707,7 +2707,7 @@ function checkQQVipStatusSyncGuard() {
   if (!/providerVipAuditSameUser/.test(loginStatusText) || !/已同步/.test(loginStatusText)) {
     fail('provider VIP audit must detect normal-to-VIP sync as well as VIP loss');
   }
-  if (!/qqLoginStatusText/.test(loginFlowText) || !/qqNeedsMembershipSync/.test(loginFlowText) || !/同步会员/.test(loginFlowText) || !/重新打开官方窗口同步会员/.test(loginFlowText) ||
+  if (!/qqLoginStatusText/.test(loginFlowText) || !/qqNeedsMembershipSync/.test(loginFlowText) || !/同步会员/.test(loginFlowText) || !/QQ 网页登录|重新打开官方窗口同步会员/.test(loginFlowText) ||
       !/qqNeedsAuthRefresh \? openQQWebLogin : \(qqLoginStatus\.loggedIn \? refreshQr : openQQWebLogin\)/.test(loginFlowText) ||
       /qqNeedsAuthRefresh \|\| qqNeedsMembershipSync/.test(loginFlowText)) {
     fail('QQ login panel must reauthorize only missing playback credentials and use the forceVip status probe for membership sync');

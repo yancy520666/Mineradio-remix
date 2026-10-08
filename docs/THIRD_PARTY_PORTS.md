@@ -129,3 +129,9 @@ retained `qishui-auth-v6/` Web resources, remain unverified. See the
 
 - 来源：https://github.com/yakult-green-tea/qq-music-api ，npm `@yakult-green-tea/qq-music-api` 固定 3.1.3，MIT 许可；该项目源于 Rain120/qq-music-api，署名和许可证随 npm 包保留。
 - 使用范围：desktop/qq-native-qr.js 延迟加载扫码、MQTT 与 HTTP 认证模块，不导入会启动 Koa 服务的包入口。库为社区兼容实现，并非腾讯提供的第三方官方 SDK。二维码使用 QQ 音乐 App 确认，实际歌曲权益仍由平台验证。
+
+## 个人汽水本地签名桥（2026-10-09）
+
+- 协议参考：https://github.com/sodahub-org/libresoda/blob/main/docs/FULL-QUALITY-STREAM.md 。本次独立编写桥接代码，没有导入 libresoda/libmssdk 的 AGPL 实现。
+- 本机可选 SDK 来源：官方 https://www.qishui.com/ 指向的 SodaMusic-v2.1.0-official-win32_x64.exe；下载文件 Authenticode 验证有效，发布者 Douyin Vision Co., Ltd.。仅提取 bdms.node 与 metasecml.dll 到用户本机私有目录。官方二进制不属于社区开源许可，不随源码、npm 依赖或安装包分发。
+- 桥接不启动官方播放器，只在隔离进程生成特定取流请求的 X-Helios/X-Medusa；使用本人已确认的会话和扫码设备标识，仍验证实际会员等级、流授权与试听时长。
