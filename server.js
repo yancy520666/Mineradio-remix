@@ -2898,13 +2898,15 @@ async function getQQLoginInfo(options) {
     const info = normalizeQQProfile(body, cookieObj);
     const vipProbe = await vipProbePromise;
     if (body && (body.code === 1000 || body.result === 301)) {
-      return mergeQQVipStatus({ ...fallback, profileUnavailable: true }, vipProbe, vipProbe && vipProbe.vipSource);
+      // QQ answered "not logged in" for this cookie. The page confirms it on a
+      // second check before disconnecting, so one odd reply cannot log anyone out.
+      return mergeQQVipStatus({ ...fallback, profileUnavailable: true, sessionRejected: true }, vipProbe, vipProbe && vipProbe.vipSource);
     }
     return mergeQQVipStatus(info, vipProbe, vipProbe && vipProbe.vipSource);
   } catch (e) {
     console.warn('[QQLogin] profile check failed:', e.message);
     const vipProbe = await vipProbePromise;
-    return mergeQQVipStatus({ ...fallback, profileUnavailable: true }, vipProbe, vipProbe && vipProbe.vipSource);
+    return mergeQQVipStatus({ ...fallback, profileUnavailable: true, unverified: true }, vipProbe, vipProbe && vipProbe.vipSource);
   }
 }
 
@@ -4716,11 +4718,16 @@ async function fetchNeteaseLoginInfo() {
     const body = acc.body || {};
     const info = normalizeLoginInfo(body.profile, body.account, body);
     if (info.loggedIn) return await enrichNeteaseLoginInfo(info, body.profile, body.account, body);
-    if (isNeteaseAuthInvalidPayload(acc)) saveCookie('');
-    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    const authInvalid = isNeteaseAuthInvalidPayload(acc);
+    if (authInvalid) saveCookie('');
+    // Only an explicit answer from NetEase means the session ended elsewhere;
+    // risk-control or other non-200 replies leave the session unverified.
+    const code = normalizeApiCode(acc);
+    const sessionRejected = authInvalid || (code === 200 && !body.account && !body.profile);
+    return { loggedIn: false, hasCookie: !!userCookie, sessionRejected, unverified: !sessionRejected, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   } catch (e) {
     console.warn('[Login] account check failed:', e.message);
-    return { loggedIn: false, hasCookie: !!userCookie, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    return { loggedIn: false, hasCookie: !!userCookie, unverified: true, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   }
 }
 const NETEASE_LOGIN_INFO_CACHE_TTL_MS = 30 * 1000;
@@ -4729,10 +4736,11 @@ function clearNeteaseLoginInfoCache() {
   neteaseLikeCache.reset();
   neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 }
-async function getLoginInfo() {
+async function getLoginInfo(options) {
   if (!userCookie) return { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   const cookieKey = userCookie;
-  if (neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.value && Date.now() - neteaseLoginInfoCache.at < NETEASE_LOGIN_INFO_CACHE_TTL_MS) {
+  const fresh = !!(options && options.fresh);
+  if (!fresh && neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.value && Date.now() - neteaseLoginInfoCache.at < NETEASE_LOGIN_INFO_CACHE_TTL_MS) {
     return neteaseLoginInfoCache.value;
   }
   if (neteaseLoginInfoCache.cookie === cookieKey && neteaseLoginInfoCache.promise) return neteaseLoginInfoCache.promise;
@@ -6575,7 +6583,8 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 登录态查询 ----------
   if (pn === '/api/login/status') {
-    const info = await getLoginInfo();
+    // fresh=1 is the online check: skip the 30 s cache so a session revoked elsewhere shows up.
+    const info = await getLoginInfo({ fresh: url.searchParams.get('fresh') === '1' });
     sendJSON(res, info);
     return;
   }
