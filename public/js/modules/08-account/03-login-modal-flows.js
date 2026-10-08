@@ -1289,7 +1289,7 @@ function updateLoginProviderUi() {
       ? (qqWebLoginBusy ? '等待扫码确认' : (qqLoginStatus.loggedIn ? 'QQ 音乐 App 重新授权' : 'QQ 音乐 App 扫码'))
       : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '酷狗音乐 App 扫码') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口')));
   }
-  if (st) {
+  if (st && !(inlineLoginQrProvider === loginProvider && inlineLoginQrPhase)) {
     st.className = isManualCookieProvider ? 'preview' : '';
     st.textContent = isQQ
       ? qqLoginStatusText(qqLoginStatus)
@@ -1310,8 +1310,9 @@ function updateLoginProviderUi() {
     refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : refreshQr));
     if (inlineLoginQrProvider && inlineLoginQrProvider === loginProvider) {
       refreshBtn.disabled = false;
-      refreshBtn.textContent = '官网登录';
-      refreshBtn.onclick = openInlineLoginInWindow;
+      refreshBtn.textContent = loginProvider === 'qq' ? (inlineLoginQrPhase === 'loading' ? '生成中…' : (inlineLoginQrPhase === 'scanned' ? '确认中…' : '刷新二维码')) : '官网登录';
+      refreshBtn.disabled = loginProvider === 'qq' && (inlineLoginQrPhase === 'loading' || inlineLoginQrPhase === 'scanned');
+      refreshBtn.onclick = loginProvider === 'qq' ? refreshInlineLoginQr : openInlineLoginInWindow;
     }
   }
   updateLoginNodeGraphUi();
@@ -1559,6 +1560,7 @@ function toggleQQCookiePanel() {
 // sends its QR here, so the scan happens inside this drawer. If no QR shows up
 // the shell reports a fallback and the official window opens as before.
 var inlineLoginQrProvider = '';
+var inlineLoginQrPhase = '';
 var inlineLoginQrRequest = null;
 var inlineLoginQrRequestSeq = 0;
 var inlineLoginQrUnsubscribe = null;
@@ -1580,6 +1582,7 @@ function handleInlineLoginQr(payload) {
   if (!inlineLoginQrRequest || payload.requestId != null && payload.requestId !== inlineLoginQrRequest.id) return;
   var img = document.getElementById('qr-img');
   var statusEl = document.getElementById('qr-status');
+  inlineLoginQrPhase = payload.stage === 'qr' ? (payload.expired ? 'expired' : 'qr') : payload.stage;
   if (payload.stage === 'qr' && payload.image) {
     setInlineLoginQrView(true);
     showLoginQrImage(img, payload.image, loginWorkflowProviderLabel(payload.provider) + '登录二维码');
@@ -1588,9 +1591,23 @@ function handleInlineLoginQr(payload) {
       statusEl.className = payload.expired ? 'fail' : '';
     }
   } else if (payload.stage === 'scanned' && statusEl) {
-    statusEl.textContent = '已扫码，正在完成登录…';
+    statusEl.textContent = payload.message || '已扫码，正在完成登录…';
     statusEl.className = 'scan';
+  } else if (payload.stage === 'failed' && statusEl) {
+    setLoginQrLoading(false);
+    statusEl.textContent = payload.message || '客户端扫码授权未完成，请刷新二维码重试';
+    statusEl.className = 'fail';
+  } else if (payload.stage === 'loading') {
+    clearLoginQrImage(img); setLoginQrLoading(true);
+    if (statusEl) { statusEl.textContent = payload.message || '正在刷新客户端二维码…'; statusEl.className = 'preview'; }
   }
+  updateLoginProviderUi();
+}
+async function refreshInlineLoginQr() {
+  var provider = inlineLoginQrProvider;
+  var api = window.desktopWindow;
+  if (provider !== 'qq' || !api || typeof api.clickInlineLoginQr !== 'function') return;
+  await api.clickInlineLoginQr(provider, 0.5, 0.5);
 }
 function bindInlineLoginQr() {
   if (inlineLoginQrUnsubscribe || !inlineLoginQrSupported()) return;
@@ -1646,6 +1663,7 @@ async function openProviderLoginWithInlineQr(provider, open, options) {
     var request = { id: ++inlineLoginQrRequestSeq, wantsWindow: false };
     inlineLoginQrRequest = request;
     inlineLoginQrProvider = provider;
+    inlineLoginQrPhase = 'loading';
     clearLoginQrImage();
     setInlineLoginQrView(true);
     setLoginQrLoading(true);
