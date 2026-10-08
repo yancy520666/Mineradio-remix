@@ -184,6 +184,17 @@ function runSearchHistory(q) {
   doSearch(q);
   $input.focus();
 }
+// Artist detail "查看更多": album search for the artist across the album-capable platforms.
+function searchArtistAlbums(name) {
+  name = String(name || '').trim();
+  if (!name || !$input) return;
+  // Only the all-platform tab and the NetEase / QQ tabs can search albums.
+  $input.value = name;
+  if (searchMode !== 'song' && searchMode !== 'netease' && searchMode !== 'qq') setSearchMode('song');
+  setPeek(document.getElementById('search-area'), true, 'search');
+  setSearchResultType('album', { force: true });
+  $input.focus();
+}
 function updateSearchModeTabs() {
   var songBtn = document.getElementById('search-mode-song');
   var neteaseBtn = document.getElementById('search-mode-netease');

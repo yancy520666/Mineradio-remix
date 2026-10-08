@@ -19932,3 +19932,29 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Artist detail: "查看更多" next to the album count. */
+#track-detail-body .artist-albums-section .detail-section-head { gap: 8px; }
+#track-detail-body .artist-albums-section .detail-section-actions { min-width: 0; gap: 10px; }
+#track-detail-body .artist-albums-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#track-detail-body .artist-albums-more {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .05);
+  color: rgba(255, 255, 255, .78);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s;
+}
+#track-detail-body .artist-albums-more:hover,
+#track-detail-body .artist-albums-more:focus-visible {
+  background: rgba(var(--fc-accent-rgb), .12);
+  border-color: rgba(var(--fc-accent-rgb), .32);
+  color: #fff;
+  outline: none;
+}
