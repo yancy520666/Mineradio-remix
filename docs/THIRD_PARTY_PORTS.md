@@ -124,3 +124,8 @@ retained `qishui-auth-v6/` Web resources, remain unverified. See the
 - Reference: [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi), GPL-3.0.
 - Reviewed 2026-10-09: `module/login_qr_key.js`, `module/login_qr_check.js`, `module/user_playlist.js` and `util/request.js`.
 - Remix implements the public client QR flow with Node HTTPS/crypto and its existing qrcode dependency; no upstream runtime or proprietary component is bundled. Personal cloudlist reads reuse the existing Android gateway transport. Actual authorization requires the user's confirmation in the official Kugou client.
+
+## QQ 音乐 App 扫码适配（2026-10-09）
+
+- 来源：https://github.com/yakult-green-tea/qq-music-api ，npm `@yakult-green-tea/qq-music-api` 固定 3.1.3，MIT 许可；该项目源于 Rain120/qq-music-api，署名和许可证随 npm 包保留。
+- 使用范围：desktop/qq-native-qr.js 延迟加载扫码、MQTT 与 HTTP 认证模块，不导入会启动 Koa 服务的包入口。库为社区兼容实现，并非腾讯提供的第三方官方 SDK。二维码使用 QQ 音乐 App 确认，实际歌曲权益仍由平台验证。

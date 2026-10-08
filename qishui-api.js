@@ -3498,8 +3498,15 @@ async function handleQishuiSongUrl(opts, cookieText) {
     }
     let fallbackError;
     try {
-      return await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
+      const fallback = await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
         Math.max(0, 14000 - (Date.now() - startedAt)));
+      return Object.assign({}, fallback, {
+        officialPlaybackUnavailable: true,
+        officialPlaybackError: err && err.code || 'QISHUI_PC_PLAYBACK_UNAVAILABLE',
+        message: fallback.trial && checked.isVip
+          ? '已确认汽水 VIP，但官方完整播放接口未返回音源；当前公开音源仅提供约 ' + fallback.duration + ' 秒试听。可尝试其他平台的完整版本。'
+          : fallback.message,
+      });
     } catch (seoError) {
       fallbackError = seoError && seoError.message || String(seoError);
     }

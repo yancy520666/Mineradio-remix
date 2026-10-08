@@ -25,6 +25,7 @@ const { createRemixUpdater } = require('./remix-updater');
 const { createInlineQrSession } = require('./login-inline-qr');
 const { prepareQQLoginPage } = require('./qq-login-page');
 const { createKugouNativeQrSession } = require('./kugou-native-qr');
+const { createQQNativeQrSession } = require('./qq-native-qr');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
 const { createSonicPreferencesStore } = require('./sonic-performance-preferences');
@@ -2767,6 +2768,7 @@ async function openNeteaseMusicLoginWindow(owner, options) {
 async function openQQMusicLoginWindow(owner, options) {
   options = options || {};
   const inline = !!options.inline;
+  if (inline && options.nativeQr !== false) return openQQNativeInlineLogin(options);
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const initialCookie = await readQQLoginCookieHeader(cookieSession);
   if (qqCookieHasPlaybackLogin(initialCookie)) {
@@ -2987,6 +2989,23 @@ async function clearQQMusicLoginSession() {
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
   });
   return { ok: true };
+}
+
+function openQQNativeInlineLogin(options) {
+  const previous = inlineLoginSessions.get('qq');
+  if (previous) previous.cancel();
+  return new Promise(resolve => {
+    let entry;
+    const qr = createQQNativeQrSession({
+      notify: payload => { if (typeof options.notify === 'function') options.notify({ provider: 'qq', requestId: options.requestId, ...payload }); },
+      finish: result => {
+        if (inlineLoginSessions.get('qq') === entry) inlineLoginSessions.delete('qq');
+        resolve(result);
+      },
+    });
+    entry = { session: qr, cancel: qr.cancel };
+    inlineLoginSessions.set('qq', entry);
+  });
 }
 
 function openKugouNativeInlineLogin(options) {
