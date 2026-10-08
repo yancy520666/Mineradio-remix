@@ -184,13 +184,13 @@ function runSearchHistory(q) {
   doSearch(q);
   $input.focus();
 }
-// Artist detail "查看更多": album search for the artist across the album-capable platforms.
+// Artist detail "查看更多": search more albums on the album-capable platforms.
 function searchArtistAlbums(name) {
   name = String(name || '').trim();
   if (!name || !$input) return;
   // Only the all-platform tab and the NetEase / QQ tabs can search albums.
   $input.value = name;
-  if (searchMode !== 'song' && searchMode !== 'netease' && searchMode !== 'qq') setSearchMode('song');
+  if (searchMode !== 'song' && searchMode !== 'netease' && searchMode !== 'qq') setSearchMode('song', { deferSearch: true });
   setPeek(document.getElementById('search-area'), true, 'search');
   setSearchResultType('album', { force: true });
   $input.focus();
@@ -234,7 +234,7 @@ function updateSearchModeTabs() {
   if ($input && searchMode === 'qishui') $input.placeholder = '搜索汽水音乐匹配源...';
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
 }
-function setSearchMode(mode) {
+function setSearchMode(mode, opts) {
   mode = (mode === 'podcast' || mode === 'netease' || mode === 'qq' || mode === 'kugou' || mode === 'qishui') ? mode : 'song';
   if (searchMode === mode) return;
   searchMode = mode;
@@ -242,6 +242,7 @@ function setSearchMode(mode) {
   clearSearchResults();
   var searchArea = document.getElementById('search-area');
   if (searchArea) setPeek(searchArea, true, 'search');
+  if (opts && opts.deferSearch) return;
   var q = $input ? $input.value.trim() : '';
   if (searchMode === 'podcast') {
     if (q) doSearch(q);
