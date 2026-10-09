@@ -176,3 +176,16 @@ test('native layered wrapper exposes explicit icon visibility and terminal diagn
   assert.equal(stopped.terminalError, 'DESKTOP_ICON_TEST_TERMINAL');
   assert.equal(exitDetails && exitDetails.terminalError, 'DESKTOP_ICON_TEST_TERMINAL');
 });
+
+
+test('native desktop guard repairs physical bounds and watches Electron child reorders', () => {
+  const script = nativeIconLayerGuardScript({ iconHostWindowId: '8200', listViewWindowId: '8300', mainWindowId: '424242', physicalBounds: { x: 2560, y: -163, width: 1600, height: 2560 }, ownerProcessId: 77 });
+  assert.match(script, /ScreenToClient\(_iconHost, ref local\)/);
+  assert.match(script, /SetThreadDpiAwarenessContext\(new IntPtr\(-4\)\)/);
+  assert.match(script, /_mainWindowHook = SetWinEventHook/);
+  assert.match(script, /_mainLocationHook = SetWinEventHook/);
+  assert.match(script, /EventCallback, _mainProcessId, _mainThreadId/);
+  assert.match(script, /UnhookWinEvent\(_mainWindowHook\)/);
+  assert.match(script, /UnhookWinEvent\(_mainLocationHook\)/);
+  assert.match(script, /DESKTOP_ICON_LAYER_BOUNDS_ACK_FAILED/);
+});
