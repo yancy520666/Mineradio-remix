@@ -34,6 +34,22 @@ function setup() {
   return ctx;
 }
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+test('short and tall audio links keep forward travel and horizontal port tangents', () => {
+  const c = setup();
+  for (const [gap, height] of [[12, 0], [20, 80], [42, -220], [180, 12], [420, 300]]) {
+    const values = c.audioRouteBezierPath({ x: 10, y: 240 }, { x: 10 + gap, y: 240 + height }).match(/-?\d+(?:\.\d+)?/g).map(Number);
+    const [x0, y0, x1, y1, x2, y2, x3, y3] = values;
+    assert.deepEqual([x0, y0, x3, y3], [10, 240, 10 + gap, 240 + height]);
+    assert.equal(y0, y1, 'leave the source horizontally');
+    assert.equal(y2, y3, 'enter the destination horizontally');
+    assert.ok(x0 < x1 && x1 <= x2 && x2 < x3, 'short links must not reverse around the middle');
+    for (let step = 0; step <= 100; step++) {
+      const t = step / 100;
+      const derivative = 3 * (1 - t) ** 2 * (x1 - x0) + 6 * (1 - t) * t * (x2 - x1) + 3 * t ** 2 * (x3 - x2);
+      assert.ok(derivative > 0);
+    }
+  }
+});
 test('two virtual microphones receive the same graph, with independent levels and delay', async () => {
   const c = setup(); c.syncAudioOutputMirrors('play'); await flush();
   assert.equal(c.audioOutputDeviceId, 'speaker');

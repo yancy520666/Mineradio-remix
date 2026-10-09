@@ -224,6 +224,8 @@ const wallpaperLoopWindow = new WallpaperLoopWindow({
 const fullDesktopModeRuntime = new FullDesktopModeRuntime({
   screen,
   platform: process.platform,
+  windowIcon: APP_ICON_ICO,
+  beforeReveal: ({ win, status }) => prepareFullDesktopRendererReveal(win, status),
   execFileImpl: execFile,
   nativeTempPath: NATIVE_HELPER_TEMP_PATH,
   beforePassive: ({ win, reason }) => prepareWallpaperEngineProjectPreviewBeforeDesktopEmbedding(win, reason),
@@ -870,6 +872,29 @@ function broadcastDesktopWallpaperStatus(status) {
     escapeShortcutRegistered: fullDesktopEscapeRegistered === true,
   });
   if (tray) createOrUpdateTray();
+}
+
+async function prepareFullDesktopRendererReveal(win, status) {
+  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) {
+    throw new Error('FULL_DESKTOP_RENDERER_UNAVAILABLE');
+  }
+  const frame = win.webContents.mainFrame;
+  const script = `(() => {
+    if (typeof applyDesktopWallpaperRuntimeStatus !== 'function') return false;
+    applyDesktopWallpaperRuntimeStatus(${JSON.stringify(status)});
+    document.body.getBoundingClientRect();
+    return document.body.classList.contains('desktop-wallpaper-mode');
+  })()`;
+  let timer;
+  try {
+    const prepared = await Promise.race([
+      frame.executeJavaScript(script, true),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('FULL_DESKTOP_RENDERER_PREPARE_TIMEOUT')), 2000); }),
+    ]);
+    if (prepared !== true) throw new Error('FULL_DESKTOP_RENDERER_PREPARE_FAILED');
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function wallpaperEngineProvidesDesktopBackdrop() {

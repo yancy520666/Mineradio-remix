@@ -19980,3 +19980,54 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #audio-output-workflow-modal .route-node-grid { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.3) transparent; }
 #audio-output-workflow-modal .route-node-grid::-webkit-scrollbar { width: 5px; }
 #audio-output-workflow-modal .route-node-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border-radius: 5px; }
+
+/* Audio connections keep one warm gold palette across route states. */
+#audio-output-workflow-modal .audio-link-layer .workflow-link {
+  stroke: rgba(235, 192, 109, .88);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px rgba(217, 163, 64, .24));
+}
+#audio-output-workflow-modal .audio-link-layer .workflow-link.pending {
+  stroke: rgba(235, 192, 109, .55);
+  filter: drop-shadow(0 0 4px rgba(217, 163, 64, .14));
+}
+#audio-output-workflow-modal .audio-link-layer .workflow-link.temp {
+  stroke: rgba(255, 218, 145, .95);
+  filter: drop-shadow(0 0 6px rgba(235, 192, 109, .3));
+}
+#audio-output-workflow-modal .flow-port {
+  border-color: rgba(235, 192, 109, .78);
+  box-shadow: 0 0 0 3px rgba(217, 163, 64, .08), 0 0 10px rgba(217, 163, 64, .22);
+}
+#audio-output-workflow-modal .flow-port::after {
+  background: #ebc06d;
+  box-shadow: 0 0 6px rgba(235, 192, 109, .3);
+}
+#audio-output-workflow-modal .audio-route-controls {
+  gap: 6px 12px;
+  padding: 8px 12px;
+}
+#audio-output-workflow-modal .audio-route-controls label {
+  min-height: 28px;
+  gap: 6px;
+}
+#audio-output-workflow-modal .audio-route-controls input[data-route-setting="delay"] {
+  box-sizing: border-box;
+  flex: 0 0 64px;
+  width: 64px;
+  min-width: 0;
+  height: 28px;
+  min-height: 28px;
+  padding: 3px 5px;
+  border: 1px solid rgba(235, 192, 109, .28);
+  border-radius: 7px;
+  background: rgba(12, 14, 18, .65);
+  color: rgba(255, 255, 255, .92);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+}
+#audio-output-workflow-modal .audio-route-controls input[data-route-setting="delay"]:focus-visible {
+  outline: 2px solid rgba(235, 192, 109, .8);
+  outline-offset: 2px;
+}

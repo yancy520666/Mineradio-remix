@@ -514,7 +514,12 @@ function audioRoutePointFromEvent(e, root) {
   return { x: e.clientX - rootRect.left, y: e.clientY - rootRect.top };
 }
 function audioRouteBezierPath(a, b) {
-  var dx = Math.max(42, Math.abs(b.x - a.x) * 0.42);
+  var gap = b.x - a.x;
+  // Keep forward control points ordered even for very close ports. The former
+  // 42px minimum overshot short links and reversed their middle tangent.
+  var span = Math.abs(gap);
+  var bend = Math.min(1, Math.abs(b.y - a.y) / Math.max(1, span));
+  var dx = gap >= 0 ? span * (0.38 + 0.12 * bend) : Math.max(24, span * 0.42);
   return 'M ' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) +
     ' C ' + (a.x + dx).toFixed(1) + ' ' + a.y.toFixed(1) +
     ', ' + (b.x - dx).toFixed(1) + ' ' + b.y.toFixed(1) +
@@ -798,7 +803,7 @@ function renderAudioOutputDeviceUi() {
       '<button type="button" class="audio-route-node mirror workflow-node' + (active ? ' active connected' : '') + '" data-output-mirror="' + escHtml(id) + '" aria-pressed="' + active + '"' + (disabled ? ' disabled' : '') + '>' +
       '<span class="flow-port in" data-output-mirror-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + escHtml(audioOutputMirrorStatusText(id, active, disabled)) + '</small></span><span class="audio-route-toggle">' + (active ? '断开' : disabled ? '主监听' : '连接') + '</span></button>' +
       (active ? '<div class="audio-route-controls" data-route-id="' + escHtml(id) + '"><label>音量 <input type="range" min="0" max="100" value="' + value.volume + '" data-route-setting="volume" aria-label="' + escHtml(device.label + ' 音量') + '"><output>' + value.volume + '%</output></label>' +
-      '<label>延迟 <input type="number" min="0" max="1000" step="10" value="' + value.delay + '" data-route-setting="delay" aria-label="' + escHtml(device.label + ' 延迟毫秒') + '"> ms</label>' +
+      '<label>延迟 <input type="number" inputmode="numeric" min="0" max="1000" step="10" value="' + value.delay + '" data-route-setting="delay" aria-label="' + escHtml(device.label + ' 延迟毫秒') + '"> ms</label>' +
       '<button type="button" data-route-mute aria-pressed="' + value.muted + '" aria-label="' + (value.muted ? '取消静音' : '静音') + '" title="' + (value.muted ? '取消静音' : '静音') + '">' + audioRouteMuteIcon(value.muted) + '</button></div>' : '') + '</div>';
   }
   var virtual = outputs.filter(isVirtualMicOutputDevice);
