@@ -81,3 +81,5 @@ const shared = sandbox.lyricShelfTranslationScale(translated, 1.2, 1);
 assert(shared * .6 <= .4 * .5 * .78 + 1e-9, 'translation ink remains subordinate after the original shrinks');
 assert.strictEqual(sandbox.lyricShelfTranslationScale(translated,1.2,0),1.2,'closing restores the authored translation size');
 assert(sandbox.lyricShelfTranslationScale(translated,1.2,.5)>shared,'hierarchy blends in rather than snapping');
+
+assert.strictEqual(sandbox.lyricShelfTranslationScale(translated,.2,1),.2,'an already-small translation is not reduced by the primary viewport fit twice');
