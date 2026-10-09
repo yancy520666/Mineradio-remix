@@ -43,16 +43,21 @@ test('shelf hit testing follows the projected card shape instead of its bounding
   assert.equal(hit(bbox.maxX + 30, 400, 12), null, 'blank space beside the card is not a hit');
 });
 
-test('lyrics pushed aside by the shelf never end up in the far-left strip of the screen', () => {
+test('lyrics beside the shelf keep a fixed gap to it whatever their width', () => {
   const ctx = threeContext();
   camera(ctx, 1400 / 653);
-  loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['clampStageLyricTargetForShelf']);
-  vm.runInContext(`var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.40; var lyricShelfClampProbe = null; var lyricShelfClampRight = null;`, ctx);
-  const ndcX = (x) => vm.runInContext(`new THREE.Vector3(${x}, 0, 0).project(camera).x`, ctx);
-  const clampedX = (x) => vm.runInContext(`(function () { var t = new THREE.Vector3(${x}, 0, 0); clampStageLyricTargetForShelf(t); return t.x; })()`, ctx);
-  assert(ndcX(-6) < -0.9, 'fixture: this target is hugging the left edge');
-  assert(Math.abs(ndcX(clampedX(-6)) + 0.40) < 1e-6, 'pulled back to 30% of the screen width');
-  assert.equal(clampedX(-0.3), -0.3, 'lyrics already inside the safe area stay where they are');
+  loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricShelfHalfWidthNdc', 'stageLyricShelfFit', 'clampStageLyricTargetForShelf']);
+  vm.runInContext(`var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08; var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96; var STAGE_LYRIC_SHELF_MIN_FIT = 0.6; var lyricShelfClampProbe = null; var lyricShelfClampRight = null; function clampRange(v, a, b) { return Math.min(b, Math.max(a, v)); }`, ctx);
+  const edges = (x, w) => vm.runInContext(`(function () { var t = new THREE.Vector3(${x}, 0, 0); clampStageLyricTargetForShelf(t, ${w}); var half = stageLyricShelfHalfWidthNdc(t, ${w}); var c = t.clone().project(camera).x; return [c - half, c + half]; })()`, ctx);
+  const rightEdgeNdc = (x, w) => edges(x, w)[1];
+  const leftEdgeNdc = (x, w) => edges(x, w)[0];
+  const shortEdge = rightEdgeNdc(-0.3, 1.5);
+  const longEdge = rightEdgeNdc(-6, 4.2);
+  assert(Math.abs(shortEdge + 0.08) < 0.02, 'short lyric ends just left of the shelf edge');
+  assert(Math.abs(longEdge - shortEdge) < 0.1, 'a long lyric ends at about the same distance from the shelf');
+  assert(leftEdgeNdc(-6, 4.2) >= -0.97, 'a long lyric stays on screen');
+  assert(vm.runInContext('stageLyricShelfFit(new THREE.Vector3(0, 0, 0), 30)', ctx) >= 0.6, 'shrinking is limited');
+  assert.equal(vm.runInContext('stageLyricShelfFit(new THREE.Vector3(0, 0, 0), 0.5)', ctx), 1, 'short lyrics are not shrunk');
 });
 
 test('the left playlist panel and the right shelf yield to each other', () => {
