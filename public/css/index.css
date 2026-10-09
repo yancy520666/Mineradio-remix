@@ -10612,87 +10612,6 @@ body.login-guide-active #login-guide-canvas {
   background: rgba(255, 201, 104, .13)
 }
 
-.cookie-export-prompt {
-  position: fixed;
-  z-index: 203;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none
-}
-
-.cookie-export-prompt.show {
-  display: flex;
-  pointer-events: auto
-}
-
-.cookie-export-card {
-  width: min(360px, calc(100vw - 40px));
-  padding: 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  background: rgba(15, 17, 23, .48);
-  color: rgba(255, 255, 255, .86);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .13);
-  backdrop-filter: blur(30px) saturate(1.45);
-  -webkit-backdrop-filter: blur(30px) saturate(1.45);
-  transform: translateY(8px) scale(.98);
-  opacity: 0;
-  transition: opacity .22s ease, transform .22s ease
-}
-
-.cookie-export-prompt.show .cookie-export-card {
-  opacity: 1;
-  transform: translateY(0) scale(1)
-}
-
-.cookie-export-kicker {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .16em;
-  color: rgba(var(--fc-accent-rgb), .88);
-  margin-bottom: 7px
-}
-
-.cookie-export-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 6px
-}
-
-.cookie-export-desc {
-  font-size: 11px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, .52)
-}
-
-.cookie-export-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 15px
-}
-
-.cookie-export-actions button {
-  height: 32px;
-  padding: 0 13px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, .13);
-  background: rgba(255, 255, 255, .06);
-  color: rgba(255, 255, 255, .74);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer
-}
-
-.cookie-export-actions button.primary {
-  border-color: rgba(var(--fc-accent-rgb), .52);
-  background: rgba(var(--fc-accent-rgb), .16);
-  color: #fff
-}
-
 #source-fallback-stack {
   position: fixed;
   z-index: 202;
@@ -19954,3 +19873,51 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
   color: rgb(var(--fc-accent-rgb));
   outline: none;
 }
+
+/* Browser login import: note on its own line, the two actions share the row below. */
+#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end
+}
+
+#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-note {
+  flex: 1 0 100%
+}
+
+#login-modal #browser-cookie-import-btn {
+  flex: 1 1 auto
+}
+
+/* 音质预设：一键档位 + 各平台默认档位 */
+#playback-quality-preset-panel {
+  margin: 8px 0 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .035)
+}
+#playback-quality-preset-panel .quality-output-head { margin-bottom: 8px }
+#playback-quality-preset-panel .quality-preset-summary { color: var(--fc-ink-2); font-weight: 700; letter-spacing: .2px }
+#playback-quality-preset-panel .quality-preset-seg { margin-bottom: 10px }
+#playback-quality-preset-panel .quality-preset-providers { display: grid; gap: 6px }
+#playback-quality-preset-panel .quality-preset-provider { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 8px }
+#playback-quality-preset-panel .quality-preset-provider-name { color: var(--fc-ink-2); font-size: 11px; font-weight: 700; white-space: nowrap }
+#playback-quality-preset-panel .quality-preset-provider-seg { margin-bottom: 0; min-width: 0 }
+#playback-quality-preset-panel .quality-preset-provider-seg button { min-width: 0; padding: 6px 2px; font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+#playback-quality-preset-panel .quality-preset-provider-seg button:disabled { opacity: .38; cursor: not-allowed }
+#playback-quality-preset-panel .quality-preset-note { color: var(--fc-ink-2); font-size: 11px; line-height: 1.6; margin: 8px 0 0; opacity: .8 }
+
+/* 换源菜单：搜到但当前账号不能播放 / 只能试听 */
+#control-source-switcher .control-source-option.blocked small { color: rgba(255, 138, 128, .82) }
+#control-source-switcher .control-source-option.limited small { color: rgba(255, 210, 120, .86) }
+#control-source-switcher .control-source-option:disabled:hover { transform: none; background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .07) }
+
+/* Cookie 导入：收起二维码卡片，导入面板占满右栏 */
+#login-modal .login-auth-drawer.cookie-mode { grid-template-columns: minmax(0, 1fr) minmax(250px, 48%) }
+#login-modal .login-auth-drawer.cookie-mode #qr-shell { display: none !important }
+#login-modal .login-auth-drawer.cookie-mode .login-auth-body { justify-items: stretch }
+#login-modal .login-auth-drawer.cookie-mode .qq-cookie-panel.show { margin: 0 }
+#login-modal .login-auth-drawer.cookie-mode .qq-cookie-input { height: 92px }
+
+#track-detail-body .artist-albums-more[hidden] { display: none !important }
+#track-detail-body .artist-albums-more:disabled { opacity: .55; cursor: default }

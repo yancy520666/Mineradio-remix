@@ -25,6 +25,8 @@ const { createRemixUpdater } = require('./remix-updater');
 const { createInlineQrSession } = require('./login-inline-qr');
 const { prepareQQLoginPage } = require('./qq-login-page');
 const { createKugouNativeQrSession } = require('./kugou-native-qr');
+const { createQQNativeQrSession } = require('./qq-native-qr');
+const { importBrowserLogin } = require('./browser-cookie-import');
 const { createOriginalProfileImporter } = require('./original-profile-import');
 const { createOnboardingStore } = require('./onboarding-state');
 const { createSonicPreferencesStore } = require('./sonic-performance-preferences');
@@ -2767,9 +2769,10 @@ async function openNeteaseMusicLoginWindow(owner, options) {
 async function openQQMusicLoginWindow(owner, options) {
   options = options || {};
   const inline = !!options.inline;
+  if (inline && options.nativeQr !== false) return openQQNativeInlineLogin(options);
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const initialCookie = await readQQLoginCookieHeader(cookieSession);
-  if (qqCookieHasPlaybackLogin(initialCookie)) {
+  if (!options.forceReauth && qqCookieHasPlaybackLogin(initialCookie)) {
     return { ok: true, cookie: initialCookie, reused: true, recovered: !!options.forceReauth };
   }
   if (options.forceReauth) {
@@ -2987,6 +2990,23 @@ async function clearQQMusicLoginSession() {
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
   });
   return { ok: true };
+}
+
+function openQQNativeInlineLogin(options) {
+  const previous = inlineLoginSessions.get('qq');
+  if (previous) previous.cancel();
+  return new Promise(resolve => {
+    let entry;
+    const qr = createQQNativeQrSession({
+      notify: payload => { if (typeof options.notify === 'function') options.notify({ provider: 'qq', requestId: options.requestId, ...payload }); },
+      finish: result => {
+        if (inlineLoginSessions.get('qq') === entry) inlineLoginSessions.delete('qq');
+        resolve(result);
+      },
+    });
+    entry = { session: qr, cancel: qr.cancel };
+    inlineLoginSessions.set('qq', entry);
+  });
 }
 
 function openKugouNativeInlineLogin(options) {
@@ -4936,36 +4956,20 @@ ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
   return configureMineradioGlobalHotkeys(bindings);
 });
 
-function loginCookieExportMeta(provider) {
-  const key = String(provider || '').toLowerCase();
-  const userData = app.getPath('userData');
-  const entries = {
-    netease: { label: '网易云音乐', files: [process.env.COOKIE_FILE, path.join(userData, '.cookie')] },
-    qq: { label: 'QQ音乐', files: [process.env.QQ_COOKIE_FILE, path.join(userData, '.qq-cookie')] },
-    kugou: { label: '酷狗音乐', files: [process.env.KUGOU_COOKIE_FILE, path.join(userData, '.kugou-cookie')] },
-    qishui: { label: '汽水音乐', files: [process.env.QISHUI_COOKIE_FILE, path.join(userData, '.qishui-cookie'), process.env.QISHUI_TOKEN_FILE, path.join(userData, '.qishui-token')] },
-    spotify: { label: 'Spotify', files: [process.env.SPOTIFY_TOKEN_FILE, path.join(userData, '.spotify-token.json')] },
-  };
-  return entries[key] || null;
-}
-
-ipcMain.handle('mineradio-export-login-cookie', async (event, provider) => {
+// One-click login import from this PC's browsers. Only the renderer's explicit,
+// confirmed click reaches here; the cookie goes back to the renderer, which
+// validates and stores it through the same local endpoint as a pasted cookie.
+let browserLoginImportBusy = false;
+ipcMain.handle('mineradio-import-browser-login', async (event, provider) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'COOKIE_UNTRUSTED_SENDER' };
+  if (browserLoginImportBusy) return { ok: false, error: 'BUSY', message: '正在读取浏览器，请稍候' };
+  browserLoginImportBusy = true;
   try {
-    const meta = loginCookieExportMeta(provider);
-    if (!meta) return { ok: false, error: 'UNKNOWN_PROVIDER', message: '未知平台，无法导出登录 cookie' };
-    const source = (meta.files || []).filter(Boolean).find((file) => {
-      try { return fs.existsSync(file) && fs.statSync(file).isFile() && fs.readFileSync(file, 'utf8').trim(); } catch (_) { return false; }
-    });
-    if (!source) return { ok: false, error: 'COOKIE_NOT_FOUND', message: `${meta.label} 当前没有可导出的登录 cookie` };
-    const text = createCookieStore(source).read();
-    if (!text) return { ok: false, error: 'COOKIE_UNAVAILABLE' };
-    const safeName = String(`${meta.label}_登录cookie.txt`).replace(/[\\/:*?"<>|]+/g, '-');
-    const filePath = path.join(app.getPath('desktop'), safeName);
-    fs.writeFileSync(filePath, text, 'utf8');
-    return { ok: true, filePath };
-  } catch (e) {
-    return { ok: false, error: e.message || 'EXPORT_LOGIN_COOKIE_FAILED' };
+    return await importBrowserLogin(provider);
+  } catch (_) {
+    return { ok: false, error: 'IMPORT_FAILED', message: '读取浏览器登录失败，请改用扫码登录' };
+  } finally {
+    browserLoginImportBusy = false;
   }
 });
 
@@ -5298,6 +5302,7 @@ function configureLocalServerEnvironment(port) {
   process.env.KUGOU_COOKIE_FILE = path.join(STABLE_USER_DATA_PATH, '.kugou-cookie');
   process.env.QISHUI_COOKIE_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-cookie');
   process.env.QISHUI_TOKEN_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-token');
+  process.env.QQ_NATIVE_DEVICE_FILE = path.join(STABLE_USER_DATA_PATH, '.qq-native-device.json');
   process.env.QISHUI_QR_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-qr-login.json');
   process.env.MINERADIO_LISTEN_SYNC_FILE = path.join(STABLE_USER_DATA_PATH, 'listen-sync-journal.json');
   if (!process.env.QISHUI_OAUTH_CONFIG_FILE) {

@@ -1017,6 +1017,18 @@
             <button data-startup-resume-mode="resume">按上次进度</button>
             <button data-startup-resume-mode="restart">重播整首</button>
           </div>
+          <div class="fx-section-label">音质预设</div>
+          <div class="quality-preset-section" id="playback-quality-preset-panel">
+            <div class="quality-output-head"><span>默认播放音质</span><span id="quality-preset-summary" class="quality-preset-summary"></span></div>
+            <div class="fx-seg quality-preset-seg" id="quality-preset-seg" role="group" aria-label="一键音质预设">
+              <button type="button" data-quality-preset="saver" title="各平台 128k，省流量、弱网更稳">省流</button>
+              <button type="button" data-quality-preset="balanced" title="各平台 320k MP3 / 极高">均衡</button>
+              <button type="button" data-quality-preset="lossless" title="各平台无损 FLAC">无损</button>
+              <button type="button" data-quality-preset="best" title="各平台最高可用档：网易云 SVIP 为超清母带，其余为 Hi-Res">最高</button>
+            </div>
+            <div class="quality-preset-providers" id="quality-preset-providers"></div>
+            <p class="fx-sub quality-preset-note">新歌按这里的档位请求；歌曲或账号没有该档位时自动换到可用档位。汽水音频需整首下载解密后才开始播放，选 320k 起播明显更快。</p>
+          </div>
           <div class="fx-section-label">输出接口</div>
           <div class="audio-output-section" id="audio-output-panel">
             <div class="quality-output-head"><span>播放输出设备</span><span class="quality-output-actions"><button class="quality-output-refresh" type="button"
@@ -1572,6 +1584,8 @@
                 placeholder="uin=...; qqmusic_key=...; qm_keyst=..."></textarea>
               <div class="qq-cookie-actions">
                 <div class="qq-cookie-note">从 y.qq.com 的登录会话导入。</div>
+                <button id="browser-cookie-import-btn" class="modal-btn" type="button"
+                  onclick="importBrowserCookieLogin()">从浏览器导入</button>
                 <button id="qq-cookie-save-btn" class="modal-btn primary" type="button"
                   onclick="submitQQCookieLogin()">保存</button>
               </div>
@@ -1581,6 +1595,7 @@
             <button class="modal-btn" onclick="skipLoginAndFocusSearch()">先搜索一首歌</button>
             <button id="qq-cookie-toggle-btn" class="modal-btn" type="button"
               onclick="toggleQQCookiePanel()">手动导入</button>
+            <button id="netease-web-fallback-btn" class="modal-btn" type="button" style="display:none" onclick="openProviderOfficialWebLogin()">网页登录</button>
             <button id="refresh-qr-btn" class="modal-btn primary" onclick="startSelectedLoginConnection()">开始登录</button>
           </div>
         </div>
@@ -1887,17 +1902,6 @@
         <button type="button" onclick="submitCuefieldFeedback(1)">顺滑</button>
         <button type="button" onclick="submitCuefieldFeedback(2)">生硬</button>
         <button type="button" onclick="submitCuefieldFeedback(3)">不确定</button>
-      </div>
-    </div>
-    <div id="cookie-export-prompt" class="cookie-export-prompt" aria-live="polite">
-      <div class="cookie-export-card">
-        <div class="cookie-export-kicker">LOGIN COOKIE</div>
-        <div id="cookie-export-title" class="cookie-export-title">是否导出登录 cookie 到桌面？</div>
-        <div id="cookie-export-desc" class="cookie-export-desc">导出的文件会用于备份当前平台登录态。</div>
-        <div class="cookie-export-actions">
-          <button type="button" onclick="dismissCookieExportPrompt(false)">暂不导出</button>
-          <button class="primary" type="button" onclick="confirmCookieExportPrompt()">导出到桌面</button>
-        </div>
       </div>
     </div>
     <div id="source-fallback-notice" aria-live="polite">

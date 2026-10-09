@@ -1133,7 +1133,7 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
     mid: auth.mid,
     uuid: '-',
     appid: KUGOU_APPID,
-    clientver: KUGOU_CLIENTVER,
+    clientver: 11430,
     clienttime,
     token: auth.token,
     userid: auth.userid,
@@ -1142,17 +1142,19 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
     hash: String(hash || '').toLowerCase(),
     ssa_flag: 'is_fromtrack',
     version: 11430,
+    page_id: 151369488, ppage_id: '463467626,350369493,788954147',
     quality,
     album_audio_id: Number(albumAudioId || 0),
     behavior: 'play',
     pid: 2,
     cmd: 26,
     pidversion: 3001,
-    IsFreePart: membership.isVip ? 0 : 1,
+    IsFreePart: 0,
     cdnBackup: 1,
     module: '',
   };
   params.key = signKey(params.hash, auth.mid, auth.userid, KUGOU_APPID);
+  params.signature = signatureAndroidParams(params, '');
   const u = new URL('/v5/url', KUGOU_GATEWAY);
   Object.keys(params).forEach(key => u.searchParams.set(key, String(params[key])));
   const json = await requestJson(u.toString(), {
@@ -1164,6 +1166,7 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
       mid: auth.mid,
       clienttime: String(clienttime),
       'x-router': 'trackercdn.kugou.com',
+      'kg-rc': '1', 'kg-thash': '5d816a0', 'kg-rec': '1', 'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
       Cookie: buildKugouRequestCookie(cookie),
     },
   });
@@ -2297,6 +2300,8 @@ module.exports = {
   kugouAudioReferer,
   mapKugouSearchItem,
   _test: {
+    signatureAndroidParams,
+    kugouPlayViaGateway,
     pickKugouPlayUrl,
     kugouPlaybackTrial,
     normalizeKugouVipPayloadV2,

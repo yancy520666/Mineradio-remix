@@ -1337,7 +1337,8 @@ async function playQueueAt(idx, opts) {
       }
       if (isQishuiPlayback && typeof endQishuiPlaybackProgress === 'function') endQishuiPlaybackProgress(token);
       var resolvedQualityText = playbackResolvedQualityText(data, playbackProvider);
-      var qualityDowngraded = !!(data && data.level && playbackQualityWasDowngraded(requestedQuality, data.level, playbackProvider));
+      // Qishui's top tier means "best stream available", so whatever it resolves to is not a downgrade.
+      var qualityDowngraded = !!(data && data.level && !(isQishuiPlayback && requestedQuality === 'hires') && playbackQualityWasDowngraded(requestedQuality, data.level, playbackProvider));
       if (qualityDowngraded) markPlaybackQualityRuntimeCap(song, playbackProvider, data.level, 'resolved-lower');
       if (!opts.startupAutoplay && !isQQPlayback && qualityDowngraded) {
         showSourceFallbackNotice((isKugouPlayback ? '酷狗' : (isQishuiPlayback ? '汽水' : '网易云')) + '音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality, playbackProvider) + '，实际播放 ' + resolvedQualityText + '。');

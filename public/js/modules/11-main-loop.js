@@ -348,7 +348,7 @@ function animate() {
       updateFreeCamera(uiDt);
       updateCamera();
       applySkullCameraPose(uiDt);
-      updateStageLyricLayout();
+      updateStageLyricLayout(uiDt);
     }
     drawMainUiFrame(false);
     return;
@@ -721,7 +721,7 @@ function animate() {
   var stageLyricsPerfStart = performance.now();
   var stageLyricsStepDt = consumeFrameGate(mainFrameGates.stageLyrics, now, dt, targetMainStageLyricsFps(now), false, 'stage-lyrics');
   if (stageLyricsStepDt > 0) updateStageLyrics3D(stageLyricsStepDt);
-  else if (uiMotionActive) updateStageLyricLayout();
+  else if (uiMotionActive) updateStageLyricLayout(uiDt);
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('visual.stage-lyrics', stageLyricsPerfStart);
   var desktopOverlayPerfStart = performance.now();
   var desktopOverlayStepDt = consumeFrameGate(mainFrameGates.desktopOverlay, now, dt, targetMainDesktopOverlayFps(now), false, 'desktop-overlay');

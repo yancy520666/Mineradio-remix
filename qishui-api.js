@@ -6,6 +6,7 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const { createCookieStore } = require('./cookie-storage');
+const { nativePlaybackContext, signingHeaders } = require('./desktop/qishui-native-signing');
 
 const QISHUI_API_BASE = (process.env.QISHUI_API_BASE || 'https://open.douyin.com').replace(/\/+$/, '');
 const QISHUI_RELATED_MEDIA_PATH = '/api/luna/v1/platform/feed/related-media/';
@@ -3290,14 +3291,17 @@ async function fetchQishuiPcTrackV2Post(trackId, cookieText) {
     queue_type: 'favorite_track_playlist',
     scene_name: 'library',
   });
-  const json = await requestJson(qishuiPcUrl('/luna/pc/track_v2', qishuiPcAppParams()), {
-    method: 'POST',
-    timeoutMs: 3000,
-    headers: Object.assign(qishuiWebHeaders(cookieText, { sessionOnly: true, pcApp: true }), {
-      'Content-Length': Buffer.byteLength(body),
-      'Referer': 'https://www.qishui.com/',
-    }),
-  }, body);
+  const context = nativePlaybackContext();
+  const params = qishuiPcAppParams(context ? {
+    device_id: context.deviceId, fp: context.deviceId, iid: context.installId,
+    version_name: context.versionName, version_code: context.versionCode,
+  } : {});
+  const target = qishuiPcUrl('/luna/pc/track_v2', params);
+  let headers = Object.assign(qishuiWebHeaders(cookieText, { sessionOnly: true, pcApp: true }), {
+    'Content-Length': Buffer.byteLength(body), Referer: 'https://www.qishui.com/',
+  });
+  if (context) headers = await context.signer.sign(target, signingHeaders(headers, body, context));
+  const json = await requestJson(target, { method: 'POST', timeoutMs: 3000, headers }, body);
   const err = qishuiPcStatusError(json, 'QISHUI_PC_TRACK_V2_FAILED');
   if (err) throw err;
   return json;
@@ -3318,15 +3322,23 @@ async function fetchQishuiPcTrackV2Get(trackId, cookieText) {
   return json;
 }
 
+function requireQishuiPlaybackPayload(payload) {
+  const media = collectQishuiTrackV2Streams(payload);
+  if (!media.streams.length && !media.fallbackStreams.length && !media.player.url_player_info) {
+    const err = new Error('QISHUI_PC_AUDIO_MISSING'); err.code = 'QISHUI_PC_AUDIO_MISSING'; throw err;
+  }
+  return payload;
+}
+
 async function fetchQishuiPcTrackV2(trackId, cookieText) {
   const cookie = normalizeQishuiCookieInput(cookieText);
   const cacheKey = 'track-v2-meta|' + qishuiCookieFingerprint(cookie) + '|' + normalizeText(trackId);
   return qishuiTrackMetadataCache.wrap(cacheKey, 20 * 1000, async () => {
     try {
-      return await fetchQishuiPcTrackV2Post(trackId, cookie);
+      return requireQishuiPlaybackPayload(await fetchQishuiPcTrackV2Post(trackId, cookie));
     } catch (postError) {
       try {
-        return await fetchQishuiPcTrackV2Get(trackId, cookie);
+        return requireQishuiPlaybackPayload(await fetchQishuiPcTrackV2Get(trackId, cookie));
       } catch (getError) {
         getError.postError = postError && postError.message || String(postError);
         throw getError;
@@ -3350,7 +3362,7 @@ async function fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership, opts
   const data = pickObject(result.Data, result.data, json && json.Data, json && json.data);
   const list = pickArray(data.PlayInfoList, data.playInfoList, data.play_info_list, json && json.PlayInfoList);
   const streams = list.map(item => qishuiStreamFromObject(item)).filter(Boolean);
-  const best = qishuiBestStreamCandidateForMembership(streams, membership);
+  const best = qishuiStreamForRequestedQuality(streams, membership, opts && opts.requestedQuality);
   if (best) return best;
   // Keep a blocked candidate internal so the caller can report the precise
   // VIP/SVIP boundary without ever exposing its URL in an unavailable result.
@@ -3381,19 +3393,43 @@ function collectQishuiTrackV2Streams(payload) {
   return { track, player, streams, fallbackStreams };
 }
 
-async function resolveQishuiDownloadInfo(trackId, payload, cookieText, membership) {
+// Highest qishuiQualityRank a requested tier accepts. Encrypted Qishui audio is downloaded whole
+// before it can be decrypted, so a lower tier is also what makes playback start sooner.
+function qishuiRankCeilingForQuality(quality) {
+  const q = normalizeText(quality).toLowerCase();
+  if (q === 'standard') return 64;
+  if (q === 'exhigh') return 79;
+  if (q === 'lossless') return 109;
+  return Infinity;
+}
+
+// Best allowed stream at or below the requested tier. A shorter (preview) stream never wins over a
+// full-length one just because it fits the tier, and with nothing at or below the tier the best stream plays.
+function qishuiStreamForRequestedQuality(candidates, membership, requestedQuality) {
+  const best = qishuiBestStreamCandidateForMembership(candidates, membership);
+  const ceiling = qishuiRankCeilingForQuality(requestedQuality);
+  if (!best || ceiling === Infinity) return best;
+  const capped = qishuiBestStreamCandidateForMembership((candidates || []).filter(item =>
+    qishuiQualityRank(item && item.quality, item && item.format, item && item.bitrate) <= ceiling), membership);
+  if (!capped) return best;
+  const fullDuration = qishuiNormalizeDurationSeconds(best.duration);
+  const cappedDuration = qishuiNormalizeDurationSeconds(capped.duration);
+  return fullDuration > 0 && cappedDuration + 1 < fullDuration ? best : capped;
+}
+
+async function resolveQishuiDownloadInfo(trackId, payload, cookieText, membership, requestedQuality) {
   const collected = collectQishuiTrackV2Streams(payload);
   const playerInfoUrl = qishuiObjectString(collected.player, ['url_player_info', 'URLPlayerInfo', 'urlPlayerInfo']);
   if (playerInfoUrl) {
     try {
-      const stream = await fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership);
+      const stream = await fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership, { requestedQuality });
       if (stream) collected.streams.push(stream);
     } catch (err) {
       collected.playerInfoError = err && err.message || String(err);
     }
   }
-  const best = qishuiBestStreamCandidateForMembership(collected.streams, membership) ||
-    qishuiBestStreamCandidateForMembership(collected.fallbackStreams, membership);
+  const best = qishuiStreamForRequestedQuality(collected.streams, membership, requestedQuality) ||
+    qishuiStreamForRequestedQuality(collected.fallbackStreams, membership, requestedQuality);
   if (!best) {
     const unrestricted = qishuiBestStreamCandidate(collected.streams) ||
       qishuiBestStreamCandidate(collected.fallbackStreams);
@@ -3498,8 +3534,15 @@ async function handleQishuiSongUrl(opts, cookieText) {
     }
     let fallbackError;
     try {
-      return await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
+      const fallback = await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
         Math.max(0, 14000 - (Date.now() - startedAt)));
+      return Object.assign({}, fallback, {
+        officialPlaybackUnavailable: true,
+        officialPlaybackError: err && err.code || 'QISHUI_PC_PLAYBACK_UNAVAILABLE',
+        message: fallback.trial && checked.isVip
+          ? '已确认汽水 VIP，但官方完整播放接口未返回音源；当前公开音源仅提供约 ' + fallback.duration + ' 秒试听。可尝试其他平台的完整版本。'
+          : fallback.message,
+      });
     } catch (seoError) {
       fallbackError = seoError && seoError.message || String(seoError);
     }
@@ -3558,7 +3601,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
           entitlementEvidence: trackRestriction.evidence.concat(requestRestriction.evidence),
         });
       }
-      const resolved = await resolveQishuiDownloadInfo(id, payload, cookie, membership);
+      const resolved = await resolveQishuiDownloadInfo(id, payload, cookie, membership, requestedQuality);
       const track = resolved.track || {};
       const stream = resolved.best;
       const duration = stream.duration || qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0);
@@ -3621,6 +3664,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
 }
 
 module.exports = {
+  qishuiStreamForRequestedQuality,
   getQishuiStatus,
   handleQishuiStatus,
   normalizeQishuiCookieInput,
