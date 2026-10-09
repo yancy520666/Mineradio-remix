@@ -58,7 +58,7 @@ function normalizePlaybackProvider(provider) {
 function normalizePlaybackQualityForProvider(value, provider) {
   provider = normalizePlaybackProvider(provider);
   var q = normalizePlaybackQuality(value);
-  if (provider === 'qq' && q === 'jymaster') return 'hires';
+  if ((provider === 'qq' || provider === 'qishui') && q === 'jymaster') return 'hires';
   return q;
 }
 function playbackQualityOptions(provider) {
@@ -94,7 +94,12 @@ function playbackQualityLabel(value, provider) {
   provider = normalizePlaybackProvider(provider || currentPlaybackQualityProvider());
   value = normalizePlaybackQualityForProvider(value, provider);
   if (provider === 'spotify') return 'Spotify 匹配源';
-  if (provider === 'qishui') return '汽水音质';
+  if (provider === 'qishui') {
+    if (value === 'lossless') return '汽水无损';
+    if (value === 'exhigh') return '汽水 320k';
+    if (value === 'standard') return '汽水 128k';
+    return '汽水最高';
+  }
   if (provider === 'qq') {
     if (value === 'hires') return 'Hi-Res FLAC';
     if (value === 'lossless') return '无损 FLAC';
@@ -120,7 +125,12 @@ function playbackQualityShortLabel(value, provider) {
   provider = normalizePlaybackProvider(provider || currentPlaybackQualityProvider());
   value = normalizePlaybackQualityForProvider(value, provider);
   if (provider === 'spotify') return 'SP';
-  if (provider === 'qishui') return 'QS';
+  if (provider === 'qishui') {
+    if (value === 'lossless') return 'QS SQ';
+    if (value === 'exhigh') return 'QS 320';
+    if (value === 'standard') return 'QS 128';
+    return 'QS Hi';
+  }
   if (provider === 'qq') {
     if (value === 'hires') return 'QQ Hires';
     if (value === 'lossless') return 'QQ SQ';
@@ -241,7 +251,7 @@ function readPlaybackQualityPreference() {
       netease: normalizePlaybackQualityForProvider(parsed.netease || fallback.netease, 'netease'),
       qq: normalizePlaybackQualityForProvider(parsed.qq || fallback.qq, 'qq'),
       kugou: normalizePlaybackQualityForProvider(parsed.kugou || fallback.kugou || 'lossless', 'kugou'),
-      qishui: normalizePlaybackQualityForProvider(parsed.qishui || fallback.qishui || 'standard', 'qishui'),
+      qishui: normalizePlaybackQualityForProvider(parsed.qishuiTiers ? (parsed.qishui || fallback.qishui) : fallback.qishui, 'qishui'),
       spotify: normalizePlaybackQualityForProvider(parsed.spotify || fallback.spotify || 'standard', 'spotify')
     };
   } catch (e) {
@@ -249,7 +259,8 @@ function readPlaybackQualityPreference() {
   }
 }
 function savePlaybackQualityPreference() {
-  try { localStorage.setItem(PLAYBACK_QUALITY_STORE_KEY, JSON.stringify(playbackQualityPrefs || {})); } catch (e) { }
+  // qishuiTiers marks a Qishui value chosen after it gained real tiers.
+  try { localStorage.setItem(PLAYBACK_QUALITY_STORE_KEY, JSON.stringify(Object.assign({}, playbackQualityPrefs || {}, { qishuiTiers: 1 }))); } catch (e) { }
 }
 function updatePlaybackQualityUi() {
   var provider = currentPlaybackQualityProvider();
@@ -325,7 +336,7 @@ function canReloadCurrentTrackForQuality() {
   if (!audio || !audio.src || audio.paused || audio.ended) return false;
   var song = playQueue[currentIdx];
   if (!song || song.type === 'local' || song.source === 'local') return false;
-  return songProviderKey(song) === 'netease' || songProviderKey(song) === 'qq' || songProviderKey(song) === 'kugou';
+  return songProviderKey(song) === 'netease' || songProviderKey(song) === 'qq' || songProviderKey(song) === 'kugou' || songProviderKey(song) === 'qishui';
 }
 function applyPlaybackQualityToCurrentTrack(nextQuality, provider) {
   var song = currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
@@ -372,17 +383,18 @@ function bindQualityControl() {
   if (typeof bindQualityPresetControls === 'function') bindQualityPresetControls();
   updatePlaybackQualityUi();
 }
-// Settings-side defaults for every tiered platform at once. Qishui / Spotify are matched sources
-// with a single tier, so they have nothing to choose here.
+// Settings-side defaults for every tiered platform at once.
 var QUALITY_PRESET_PROVIDERS = [
   { key: 'netease', title: '网易云' },
   { key: 'qq', title: 'QQ 音乐' },
-  { key: 'kugou', title: '酷狗' }
+  { key: 'kugou', title: '酷狗' },
+  { key: 'qishui', title: '汽水' }
 ];
 var QUALITY_PRESET_SHORT = {
   netease: { jymaster: '母带', hires: '臻音', lossless: '无损', exhigh: '极高', standard: '标准' },
   qq: { hires: 'Hi-Res', lossless: '无损', exhigh: '320k', standard: '128k' },
-  kugou: { hires: 'Hi-Res', lossless: '无损', exhigh: '320k', standard: '128k' }
+  kugou: { hires: 'Hi-Res', lossless: '无损', exhigh: '320k', standard: '128k' },
+  qishui: { hires: '最高', lossless: '无损', exhigh: '320k', standard: '128k' }
 };
 var QUALITY_PRESET_NAMES = { saver: '省流', balanced: '均衡', lossless: '无损', best: '最高' };
 function qualityPresetTarget(preset, provider) {

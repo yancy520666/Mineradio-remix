@@ -19911,3 +19911,13 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #control-source-switcher .control-source-option.blocked small { color: rgba(255, 138, 128, .82) }
 #control-source-switcher .control-source-option.limited small { color: rgba(255, 210, 120, .86) }
 #control-source-switcher .control-source-option:disabled:hover { transform: none; background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .07) }
+
+/* Cookie 导入：收起二维码卡片，导入面板占满右栏 */
+#login-modal .login-auth-drawer.cookie-mode { grid-template-columns: minmax(0, 1fr) minmax(250px, 48%) }
+#login-modal .login-auth-drawer.cookie-mode #qr-shell { display: none !important }
+#login-modal .login-auth-drawer.cookie-mode .login-auth-body { justify-items: stretch }
+#login-modal .login-auth-drawer.cookie-mode .qq-cookie-panel.show { margin: 0 }
+#login-modal .login-auth-drawer.cookie-mode .qq-cookie-input { height: 92px }
+
+#track-detail-body .artist-albums-more[hidden] { display: none !important }
+#track-detail-body .artist-albums-more:disabled { opacity: .55; cursor: default }

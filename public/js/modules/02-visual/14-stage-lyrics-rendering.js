@@ -2520,6 +2520,55 @@ function stageLyricShelfAnchor() {
   }
   return { left: clampRange(left - 24 / Math.max(320, innerWidth), -0.72, 0.6), centerY: (top + bottom) / 2 };
 }
+var STAGE_LYRIC_SHELF_FLIP_SECONDS = 0.62;
+var STAGE_LYRIC_SHELF_TURN_DEG = 30;
+var STAGE_LYRIC_SHELF_FLIP_OVERSHOOT_DEG = 12;
+var STAGE_LYRIC_SHELF_FLIP_DEPTH = 0.32;
+var STAGE_LYRIC_SHELF_ANCHOR_SETTLE_SECONDS = 0.9;
+var lyricShelfFlipTarget = null;
+var lyricShelfFlipDepthDir = null;
+function stageLyricShelfFlipEase(t) {
+  t = clampRange(Number(t) || 0, 0, 1);
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+// The shelf's exclusion edge is measured while it animates in, then held: scrolling or focusing
+// other cards no longer pushes the lyrics around. Reopening, toggling a detail list or resizing
+// measures again.
+function stageLyricStableShelfAnchor(detailOpen, dt) {
+  var key = (detailOpen ? 'detail' : 'cards') + '|' + innerWidth + 'x' + innerHeight;
+  var state = stageLyrics.shelfAnchorState;
+  if (!state || state.key !== key) state = stageLyrics.shelfAnchorState = { key: key, age: 0, anchor: null };
+  state.age += Number(dt) || 0;
+  if (!state.anchor || state.age < STAGE_LYRIC_SHELF_ANCHOR_SETTLE_SECONDS) {
+    var measured = stageLyricShelfAnchor();
+    if (measured) {
+      state.anchor = state.anchor
+        ? { left: state.anchor.left + (measured.left - state.anchor.left) * 0.3, centerY: state.anchor.centerY + (measured.centerY - state.anchor.centerY) * 0.3 }
+        : measured;
+    }
+  }
+  return state.anchor;
+}
+// Writes the settled beside-the-shelf pose: position into lyricShelfFlipTarget, turn into lyricShelfTurnQuat.
+function stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, caption, anchor) {
+  if (!lyricShelfFlipTarget) { lyricShelfFlipTarget = new THREE.Vector3(); lyricShelfFlipDepthDir = new THREE.Vector3(); }
+  lyricShelfFlipTarget.copy(base);
+  applyStageLyricLayoutOffset(lyricShelfFlipTarget, x, y, z);
+  stageLyricTargetQuaternion(turnBaseQuat, tiltX, clampRange(tiltY, -84, 84));
+  lyricShelfTurnQuat.copy(lyricTargetQuat);
+  setStageLyricViewBasisFromCameraOrQuaternion(null);
+  clampStageLyricTargetForShelf(lyricShelfFlipTarget, worldW, caption, lyricShelfTurnQuat, anchor);
+}
+// Blends from the resting pose (target + lyricShelfCoverQuat) to the shelf pose along the flip
+// curve; mid-flip the block swings slightly away from the camera so it reads as a turn, not a slide.
+function blendStageLyricShelfFlip(target, mix, arc) {
+  target.lerp(lyricShelfFlipTarget, mix);
+  if (camera && arc > 0) {
+    camera.getWorldDirection(lyricShelfFlipDepthDir);
+    target.addScaledVector(lyricShelfFlipDepthDir, arc * STAGE_LYRIC_SHELF_FLIP_DEPTH);
+  }
+  lyricTargetQuat.slerpQuaternions(lyricShelfCoverQuat, lyricShelfTurnQuat, mix);
+}
 function stageLyricShelfProjectedCaption(target, worldW, caption, quat) {
   var centerY = caption ? caption.centerY || 0 : 0, centerZ = caption ? caption.centerZ || 0 : 0;
   var halfHeight = caption ? (caption.h || 0) / 2 : 0;
@@ -2591,28 +2640,37 @@ function updateStageLyricLayout(dt) {
   var shelfLyricAvoid = shouldAvoidStageLyricsForShelf();
   if (!isFinite(stageLyrics.shelfLayoutMix)) stageLyrics.shelfLayoutMix = 0;
   stageLyrics.shelfLayoutMix += ((shelfLyricAvoid ? 1 : 0) - stageLyrics.shelfLayoutMix) * layoutEase;
-  var shelfLayoutMix = stageLyrics.shelfLayoutMix;
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
+  // Opening the shelf flips the lyrics to its left on one timed curve (position, turn and a small
+  // overshoot together) instead of an exponential slide; closing plays it backwards.
+  var shelfFlipEligible = !wallpaperLyricLock && !skullMouthLyrics;
+  if (!isFinite(stageLyrics.shelfFlipT)) stageLyrics.shelfFlipT = 0;
+  stageLyrics.shelfFlipT = shelfFlipEligible
+    ? clampRange(stageLyrics.shelfFlipT + (shelfLyricAvoid ? 1 : -1) * layoutDt / STAGE_LYRIC_SHELF_FLIP_SECONDS, 0, 1)
+    : 0;
+  var shelfFlip = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
+  var shelfFlipArc = Math.sin(Math.PI * shelfFlip);
+  var shelfFlipActive = shelfFlipEligible && (shelfLyricAvoid || stageLyrics.shelfFlipT > 0);
+  var shelfLayoutMix = shelfFlipEligible ? shelfFlip : stageLyrics.shelfLayoutMix;
+  if (!shelfFlipActive) { stageLyrics.shelfAnchorState = null; stageLyrics.shelfRefW = 0; }
   var shelfLyricShifted = false;
+  var shelfScaleMul = 1, shelfDX = 0, shelfDY = 0, shelfDZ = 0;
   if (wallpaperLyricLock) {
     shelfLyricShifted = wallpaperShelfLyrics;
     layoutScale *= wallpaperShelfLyrics ? 0.84 : 0.88;
     layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.4 : 0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -2.4, 2.7);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 0.55 : 0.80), -3.2, 3.2);
-  } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
+  } else if (shelfFlipActive && fx.lyricCameraLock) {
     shelfLyricShifted = true;
-    layoutScale *= 0.88;
-    layoutX = clampRange(layoutX - 0.4, -4.0, 4.0);
-    layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
-    layoutZ = clampRange(layoutZ + 0.32, -3.2, 3.2);
-  } else if (!skullMouthLyrics && shelfLyricAvoid) {
+    shelfScaleMul = 0.92; shelfDX = -0.4; shelfDY = 0.06; shelfDZ = 0.16;
+  } else if (shelfFlipActive) {
     shelfLyricShifted = true;
-    layoutScale *= normalShelfDetailOpen ? 0.86 : 0.88;
-    layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.06 : 1.00), -4.0, 4.0);
-    layoutY = clampRange(layoutY + (normalShelfDetailOpen ? 0.18 : 0.08), -2.4, 2.7);
-    layoutZ = clampRange(layoutZ + 0.36, -3.2, 3.2);
+    shelfScaleMul = normalShelfDetailOpen ? 0.90 : 0.92;
+    shelfDX = normalShelfDetailOpen ? -1.06 : -1.00;
+    shelfDY = normalShelfDetailOpen ? 0.18 : 0.08;
+    shelfDZ = 0.16;
   }
   if (skullMouthLyrics) {
     layoutScale *= skullShelfDetailOpen ? 0.52 : (shelfLyricAvoid ? 0.58 : 0.66);
@@ -2626,6 +2684,9 @@ function updateStageLyricLayout(dt) {
     layoutY = clampRange(layoutY - 0.34, -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.16, -3.2, 3.2);
   }
+  var shelfX = clampRange(layoutX + shelfDX, -4.0, 4.0);
+  var shelfY = clampRange(layoutY + shelfDY, -2.4, 2.7);
+  var shelfZ = clampRange(layoutZ + shelfDZ, -3.2, 3.2);
   var lockBaseDistance = wallpaperShelfLyrics ? 5.58 : 4.85;
   var lockDistance = lockBaseDistance + layoutZ;
   var cameraLockedLyrics = (fx.lyricCameraLock || wallpaperLyricLock) && camera;
@@ -2636,23 +2697,35 @@ function updateStageLyricLayout(dt) {
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
   var stageLyricFinalScale = layoutScale * stageLyrics.lockFitScale;
   var shelfLyricWorldW = 0;
-  var shelfAnchor = shelfLyricShifted ? stageLyricShelfAnchor() : null;
+  var shelfAnchor = shelfLyricShifted ? stageLyricStableShelfAnchor(shelfDetailOpen, layoutDt) : null;
   var shelfCaption = shelfLyricShifted && !skullMouthLyrics ? stageLyricShelfCaptionMetrics() : null;
+  var shelfFinalScale = stageLyricFinalScale;
   if (shelfLyricShifted && !skullMouthLyrics) {
-    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, shelfCaption.w * stageLyricFinalScale, shelfCaption.centerZ * stageLyricFinalScale, shelfAnchor);
+    // Lay out against the widest line of this shelf session (slowly relaxing), so lines of different
+    // length neither slide the block sideways nor rescale it line by line.
+    var refW = Number(stageLyrics.shelfRefW) || 0;
+    refW = Math.max(shelfCaption.w, refW - (refW - shelfCaption.w) * Math.min(1, layoutDt * 0.08));
+    stageLyrics.shelfRefW = refW;
+    shelfFinalScale = stageLyricFinalScale * (shelfFlipEligible ? shelfScaleMul : 1);
+    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, refW * shelfFinalScale, shelfCaption.centerZ * shelfFinalScale, shelfAnchor);
     if (!isFinite(stageLyrics.shelfFitScale)) stageLyrics.shelfFitScale = 1;
     stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * 0.18;
-    stageLyricFinalScale *= stageLyrics.shelfFitScale;
-    shelfLyricWorldW = shelfCaption.w * stageLyricFinalScale;
-    shelfCaption.centerY *= stageLyricFinalScale;
-    shelfCaption.centerZ *= stageLyricFinalScale;
-    shelfCaption.h *= stageLyricFinalScale;
+    shelfFinalScale *= stageLyrics.shelfFitScale;
+    shelfLyricWorldW = refW * shelfFinalScale;
+    shelfCaption.centerY *= shelfFinalScale;
+    shelfCaption.centerZ *= shelfFinalScale;
+    shelfCaption.h *= shelfFinalScale;
   } else {
     stageLyrics.shelfFitScale = 1;
   }
-  var displayedScale = Number(stageLyrics.group.scale.x) || 1;
-  stageLyrics.group.scale.setScalar(shelfLyricShifted || shelfLayoutMix > 0.001
-    ? displayedScale + (stageLyricFinalScale - displayedScale) * layoutEase : stageLyricFinalScale);
+  if (shelfFlipEligible) {
+    stageLyrics.group.scale.setScalar(stageLyricFinalScale + (shelfFinalScale - stageLyricFinalScale) * shelfFlip);
+  } else {
+    var displayedScale = Number(stageLyrics.group.scale.x) || 1;
+    stageLyrics.group.scale.setScalar(shelfLyricShifted || shelfLayoutMix > 0.001
+      ? displayedScale + (shelfFinalScale - displayedScale) * layoutEase : shelfFinalScale);
+  }
+  var shelfTurn = STAGE_LYRIC_SHELF_TURN_DEG + STAGE_LYRIC_SHELF_FLIP_OVERSHOOT_DEG * shelfFlipArc;
   if (skullMouthLyrics) {
     stageLyrics.snapCameraLockFrames = 0;
     skullParticleGroup.updateMatrixWorld(true);
@@ -2680,8 +2753,15 @@ function updateStageLyricLayout(dt) {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
-    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY - 17 * shelfLayoutMix, -84, 84));
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
+    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
+    if (shelfLyricShifted && shelfFlipEligible) {
+      lyricShelfCoverQuat.copy(lyricTargetQuat);
+      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, shelfZ, camera.quaternion, layoutTiltX, layoutTiltY - shelfTurn,
+        shelfLyricWorldW, shelfCaption, shelfAnchor);
+      blendStageLyricShelfFlip(lyricCameraTarget, shelfFlip, shelfFlipArc);
+    } else if (shelfLyricShifted) {
+      clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
+    }
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
       stageLyrics.group.quaternion.copy(lyricTargetQuat);
@@ -2708,23 +2788,14 @@ function updateStageLyricLayout(dt) {
     lyricLayoutTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
-    if (camera && shelfLayoutMix > 0.001) {
+    if (camera && shelfLyricShifted) {
       lyricShelfCoverQuat.copy(lyricTargetQuat);
-      stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY - 17, -84, 84));
-      lyricShelfTurnQuat.copy(lyricTargetQuat);
-      lyricTargetQuat.slerpQuaternions(lyricShelfCoverQuat, lyricShelfTurnQuat, shelfLayoutMix);
+      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, shelfZ, camera.quaternion, layoutTiltX, layoutTiltY - shelfTurn,
+        shelfLyricWorldW, shelfCaption, shelfAnchor);
+      blendStageLyricShelfFlip(lyricLayoutTarget, shelfFlip, shelfFlipArc);
     }
-    if (shelfLyricShifted) {
-      setStageLyricViewBasisFromCameraOrQuaternion(null);
-      clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
-    }
-    if (shelfLyricShifted || shelfLayoutMix > 0.001) {
-      stageLyrics.group.position.lerp(lyricLayoutTarget, layoutEase);
-      stageLyrics.group.quaternion.slerp(lyricTargetQuat, layoutEase);
-    } else {
-      stageLyrics.group.position.copy(lyricLayoutTarget);
-      stageLyrics.group.quaternion.copy(lyricTargetQuat);
-    }
+    stageLyrics.group.position.copy(lyricLayoutTarget);
+    stageLyrics.group.quaternion.copy(lyricTargetQuat);
   }
   return { skullMouthLyrics: skullMouthLyrics, shelfDetailOpen: shelfDetailOpen, stageLyricRenderBase: stageLyricRenderBase, shelfDetailLyricProfile: shelfDetailLyricProfile };
 }

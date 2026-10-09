@@ -35,8 +35,6 @@ assert(
 );
 
 [
-  '/api/spotify/song/like',
-  '/api/spotify/playlist/add-song',
   '/api/qishui/song/like',
   '/api/qishui/playlist/add-song',
   '/api/qishui/song/comments',
