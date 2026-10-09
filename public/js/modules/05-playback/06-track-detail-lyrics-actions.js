@@ -659,7 +659,7 @@ function closeTrackDetailModal() {
     detailCommentSubmitBusy = false;
   });
 }
-var ARTIST_ALBUM_COUNT = 6;
+var ARTIST_ALBUM_COUNT = 8;
 var detailArtistAlbums = [];
 var detailArtistAlbumQuery = '';
 function artistAlbumYear(item) {
