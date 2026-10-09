@@ -43,16 +43,21 @@ test('shelf hit testing follows the projected card shape instead of its bounding
   assert.equal(hit(bbox.maxX + 30, 400, 12), null, 'blank space beside the card is not a hit');
 });
 
-test('lyrics pushed aside by the shelf never end up in the far-left strip of the screen', () => {
+test('lyrics beside the shelf keep a fixed gap to it whatever their width', () => {
   const ctx = threeContext();
   camera(ctx, 1400 / 653);
-  loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['clampStageLyricTargetForShelf']);
-  vm.runInContext(`var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.52; var lyricShelfClampProbe = null; var lyricShelfClampRight = null;`, ctx);
-  const ndcX = (x) => vm.runInContext(`new THREE.Vector3(${x}, 0, 0).project(camera).x`, ctx);
-  const clampedX = (x) => vm.runInContext(`(function () { var t = new THREE.Vector3(${x}, 0, 0); clampStageLyricTargetForShelf(t); return t.x; })()`, ctx);
-  assert(ndcX(-6) < -0.9, 'fixture: this target is hugging the left edge');
-  assert(Math.abs(ndcX(clampedX(-6)) + 0.52) < 1e-6, 'pulled back to 26% of the screen width');
-  assert.equal(clampedX(-0.3), -0.3, 'lyrics already inside the safe area stay where they are');
+  loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricShelfHalfWidthNdc', 'stageLyricShelfFit', 'stageLyricShelfProjectedCaption', 'clampStageLyricTargetForShelf']);
+  vm.runInContext(`var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08; var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96; var STAGE_LYRIC_SHELF_MIN_FIT = 0.6; var lyricShelfClampProbe = null; var lyricShelfClampRight = null; function clampRange(v, a, b) { return Math.min(b, Math.max(a, v)); }`, ctx);
+  const edges = (x, w) => vm.runInContext(`(function () { var t = new THREE.Vector3(${x}, 0, 0); clampStageLyricTargetForShelf(t, ${w}); var half = stageLyricShelfHalfWidthNdc(t, ${w}); var c = t.clone().project(camera).x; return [c - half, c + half]; })()`, ctx);
+  const rightEdgeNdc = (x, w) => edges(x, w)[1];
+  const leftEdgeNdc = (x, w) => edges(x, w)[0];
+  const shortEdge = rightEdgeNdc(-0.3, 1.5);
+  const longEdge = rightEdgeNdc(-6, 4.2);
+  assert(Math.abs(shortEdge + 0.08) < 0.02, 'short lyric ends just left of the shelf edge');
+  assert(Math.abs(longEdge - shortEdge) < 0.1, 'a long lyric ends at about the same distance from the shelf');
+  assert(leftEdgeNdc(-6, 4.2) >= -0.97, 'a long lyric stays on screen');
+  assert(vm.runInContext('stageLyricShelfFit(new THREE.Vector3(0, 0, 0), 30)', ctx) >= 0.6, 'shrinking is limited');
+  assert.equal(vm.runInContext('stageLyricShelfFit(new THREE.Vector3(0, 0, 0), 0.5)', ctx), 1, 'short lyrics are not shrunk');
 });
 
 test('the left playlist panel and the right shelf yield to each other', () => {
@@ -114,4 +119,35 @@ test('the visual console closes from a second button click, an outside click, or
   handlers['root:mouseleave']();
   assert.equal(classes.has('peek'), false, 'leaving the window closes it');
   assert.equal(ctx.fxPanelDismissed, false, 'coming back over the button can open it again');
+});
+
+
+test('shelf caption follows the focused card or song row and projects its tilted ink beside it', () => {
+  const ctx = threeContext({ innerWidth: 1400 }); camera(ctx, 1400 / 800);
+  loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['stageLyricShelfAnchor', 'stageLyricShelfHalfWidthNdc', 'stageLyricShelfProjectedCaption', 'clampStageLyricTargetForShelf']);
+  vm.runInContext(`var STAGE_LYRIC_SHELF_EDGE_NDC_X=-0.08, STAGE_LYRIC_SCREEN_LEFT_NDC_X=-0.96;
+    var lyricShelfClampProbe=null, lyricShelfClampRight=null;
+    function clampRange(v,a,b){return Math.min(b,Math.max(a,v));}
+    var card=new THREE.Mesh(new THREE.PlaneGeometry(2,1));card.position.set(1.2,-0.7,0);
+    var row=new THREE.Mesh(new THREE.PlaneGeometry(3.5,.5));row.position.set(.1,.4,0);
+    var detail=false, shelfManager={hasOpenContent:()=>detail,getCards:()=>[{index:0,mesh:card}],getCenterIdx:()=>0,
+      getContentList:()=>({getRows:()=>[{index:0,mesh:row}],getCenterIdx:()=>0})};`,ctx);
+  const verify = () => vm.runInContext(`(function(){
+    var anchor=stageLyricShelfAnchor(), q=new THREE.Quaternion().setFromEuler(new THREE.Euler(.06,-17*Math.PI/180,0,'YXZ'));
+    var target=new THREE.Vector3(0,1,0), caption={h:.6,centerY:.3,centerZ:.1};
+    clampStageLyricTargetForShelf(target,1.1,caption,q,anchor);
+    var short=stageLyricShelfProjectedCaption(target,1.1,caption,q);
+    clampStageLyricTargetForShelf(target,6,caption,q,anchor);
+    var long=stageLyricShelfProjectedCaption(target,6,caption,q);
+    return {anchor,short,long};
+  })()`,ctx);
+  const card=verify();vm.runInContext('detail=true',ctx);const row=verify();
+  assert(row.anchor.left < card.anchor.left,'opening a wide list changes the actual exclusion boundary');
+  assert(row.anchor.centerY > card.anchor.centerY,'the caption follows the new focused row centre');
+  for(const result of [card,row]){
+    assert(Math.abs(result.short.centerY-result.anchor.centerY)<.006,'caption centre aligns even when tilted');
+    assert(Math.abs(result.short.right-result.anchor.left)<.012,'short caption stays beside the card');
+    assert(result.long.right<=result.anchor.left+.115,'long caption overlap stays limited');
+    assert(Math.abs(result.long.centerY-result.anchor.centerY)<.015,'long tilted caption stays vertically aligned');
+  }
 });

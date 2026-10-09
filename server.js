@@ -1274,7 +1274,7 @@ function classifyQQPlaybackRestriction(info, session) {
     return playbackRestriction('qq', 'login_required', 'QQ 音乐当前只拿到了网页登录状态，还缺少播放授权，请重新打开官方 QQ 音乐登录窗口完成授权', 'login', { code, rawMessage: rawMsg, missingPlaybackKey: true });
   }
   if (code === 104003) {
-    return playbackRestriction('qq', 'copyright_unavailable', 'QQ 音乐没有给当前版本返回播放地址，通常是版权、会员或官方版本限制，可以换一个搜索结果或切到网易云源', 'switch_source', { code, rawMessage: rawMsg });
+    return playbackRestriction('qq', 'url_unavailable', 'QQ 音乐已登录，但未返回当前版本的播放地址；可能是歌曲权限、版权或客户端限制，可尝试 App 扫码重新授权或其他平台版本', 'switch_source', { code, rawMessage: rawMsg });
   }
   if (/vip|会员|付费|购买|数字专辑|专辑|pay/.test(lower + rawMsg)) {
     return playbackRestriction('qq', 'paid_required', 'QQ 音乐歌曲需要会员、购买或数字专辑权限', 'upgrade', { code, rawMessage: rawMsg });
@@ -2651,11 +2651,17 @@ function parseJSONText(text) {
   return JSON.parse(json);
 }
 
+const { nativeCommForCookie } = require('./desktop/qq-native-qr');
+const { qqNativeUserAgent } = require('./desktop/qq-native-protocol');
+
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
+  const nativeComm = opts.cookie && nativeCommForCookie(qqCookieObject());
+  if (nativeComm) payload = { ...payload, comm: { ...payload.comm, ...nativeComm } };
   const body = JSON.stringify(payload);
   const headers = {
     ...QQ_HEADERS,
+    ...(nativeComm ? { 'User-Agent': qqNativeUserAgent(nativeComm.os_ver) } : {}),
     'Content-Type': 'application/json;charset=UTF-8',
     'Content-Length': Buffer.byteLength(body),
   };
@@ -2898,6 +2904,16 @@ async function getQQLoginInfo(options) {
     return null;
   });
   try {
+    if (nativeCommForCookie(cookieObj)) {
+      const body = await qqMusicRequest({ req_0: { module: 'music.UserInfo.userInfoServer', method: 'GetLoginUserInfo', param: {} } }, { cookie: true, timeoutMs: 6500 });
+      const block = body && body.req_0;
+      const code = Number(block && block.code) || Number(body && body.code) || 0;
+      const accepted = !!(block && code === 0 && block.data && Object.keys(block.data).length);
+      const rejected = [1000, 10004, 301, -100008].includes(code);
+      const vipProbe = await vipProbePromise;
+      const profile = accepted ? normalizeQQProfile({ data: block.data }, cookieObj) : fallback;
+      return mergeQQVipStatus({ ...profile, profileUnavailable: !accepted, sessionRejected: rejected, unverified: !accepted && !rejected }, vipProbe, vipProbe && vipProbe.vipSource);
+    }
     const u = new URL('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg');
     u.searchParams.set('cid', '205360838');
     u.searchParams.set('userid', uin);
@@ -3924,10 +3940,12 @@ async function handleTypedSearch(provider, type, keywords, limit, offset) {
 // Newest albums of one artist for the artist detail page. Items share the shape of
 // typed album search results so the renderer can open them the same way.
 const ARTIST_ALBUMS_DEFAULT = 6;
-const ARTIST_ALBUMS_MAX = 12;
+const ARTIST_ALBUMS_MAX = 60;
+// The newest-first preview sorts a slightly larger first page so a misordered upstream page cannot hide a new album.
+const ARTIST_ALBUMS_PREVIEW_POOL = 12;
 
-async function fetchNeteaseArtistAlbums(id, limit) {
-  const result = await artist_album({ id, limit: Math.max(limit, ARTIST_ALBUMS_MAX), offset: 0, cookie: userCookie });
+async function fetchNeteaseArtistAlbums(id, limit, offset) {
+  const result = await artist_album({ id, limit: offset ? limit : Math.max(limit, ARTIST_ALBUMS_PREVIEW_POOL), offset: offset || 0, cookie: userCookie });
   const body = (result && result.body) || {};
   const raw = Array.isArray(body.hotAlbums) ? body.hotAlbums : [];
   const items = raw
@@ -3937,13 +3955,13 @@ async function fetchNeteaseArtistAlbums(id, limit) {
   return { items, total: Number(body.artist && body.artist.albumSize) || items.length };
 }
 
-async function fetchQQArtistAlbums(mid, limit) {
+async function fetchQQArtistAlbums(mid, limit, offset) {
   const json = await qqMusicRequest({
     comm: { ct: 24, cv: 0 },
     albums: {
       module: 'music.musichallAlbum.AlbumListServer',
       method: 'GetAlbumList',
-      param: { singerMid: mid, order: 1, begin: 0, num: Math.max(limit, ARTIST_ALBUMS_MAX), songNumTag: 0, singerID: 0 },
+      param: { singerMid: mid, order: 1, begin: offset || 0, num: offset ? limit : Math.max(limit, ARTIST_ALBUMS_PREVIEW_POOL), songNumTag: 0, singerID: 0 },
     },
   }, { cookie: true });
   const block = json && json.albums;
@@ -3963,14 +3981,15 @@ async function fetchQQArtistAlbums(mid, limit) {
   return { items, total: Number(data.total || 0) || items.length };
 }
 
-async function handleArtistAlbums(provider, id, limit) {
+async function handleArtistAlbums(provider, id, limit, offset) {
   id = String(id || '').trim();
   limit = Math.max(1, Math.min(ARTIST_ALBUMS_MAX, Number(limit) || ARTIST_ALBUMS_DEFAULT));
   provider = provider === 'qq' ? 'qq' : 'netease';
+  offset = Math.max(0, Math.min(5000, Number(offset) || 0));
   if (!id) return { provider, albums: [], total: 0 };
-  const key = [provider + '-artist-albums', provider === 'netease' ? searchCookieScope(userCookie) : 'public', id, limit].join(':');
+  const key = [provider + '-artist-albums', provider === 'netease' ? searchCookieScope(userCookie) : 'public', id, limit, offset].join(':');
   const cached = await typedSearchCache.wrap(key, async () => {
-    const r = provider === 'qq' ? await fetchQQArtistAlbums(id, limit) : await fetchNeteaseArtistAlbums(id, limit);
+    const r = provider === 'qq' ? await fetchQQArtistAlbums(id, limit, offset) : await fetchNeteaseArtistAlbums(id, limit, offset);
     // The cache keeps arrays only; an empty list is retried next time.
     return r.items.length ? [{ items: r.items.slice(0, limit), total: r.total }] : [];
   });
@@ -4082,9 +4101,10 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
   const mediaIds = [];
   if (fileMediaMid) mediaIds.push(fileMediaMid);
   if (songmid && !mediaIds.includes(songmid)) mediaIds.push(songmid);
+  const nativePlayback = !!nativeCommForCookie(cookieObj);
   const fileCandidates = mediaIds.flatMap(mediaId =>
     qualityCandidatesFrom(requestedQuality, QQ_QUALITY_CANDIDATE_TEMPLATES)
-      .map(item => ({ ...item, mediaId, filename: item.prefix + mediaId + item.ext }))
+      .map(item => ({ ...item, mediaId, filename: item.prefix + (nativePlayback ? songmid : '') + mediaId + item.ext }))
   );
   const filenames = fileCandidates.map(item => item.filename);
   const param = {
@@ -4096,20 +4116,25 @@ async function handleQQSongUrl(mid, mediaMid, qualityPreference, playbackHints) 
     platform: '20',
   };
   if (filenames.length) param.filename = filenames;
+  if (nativePlayback) {
+    param.ctx = 0; param.guid = crypto.randomUUID().replace(/-/g, '');
+    delete param.platform; delete param.loginflag;
+  }
   const comm = { uin, format: 'json', ct: musicKey ? 19 : 24, cv: 0 };
   if (musicKey) comm.authst = musicKey;
+  if (cookieObj.tmeLoginType === '6') comm.tmeLoginType = 6;
   const json = await qqMusicRequest({
     comm,
     req_0: {
-      module: 'vkey.GetVkeyServer',
-      method: 'CgiGetVkey',
+      module: nativePlayback ? 'music.vkey.GetVkey' : 'vkey.GetVkeyServer',
+      method: nativePlayback ? 'UrlGetVkey' : 'CgiGetVkey',
       param,
     },
   }, { cookie: true, timeoutMs: QQ_VKEY_REQUEST_TIMEOUT_MS });
   const data = json && json.req_0 && json.req_0.data;
   const infos = (data && Array.isArray(data.midurlinfo)) ? data.midurlinfo : [];
   const purlInfos = infos.filter(item => item && item.purl);
-  const sips = (data && Array.isArray(data.sip) && data.sip.length ? data.sip : ['https://ws.stream.qqmusic.qq.com/']).filter(Boolean);
+  const sips = (data && Array.isArray(data.sip) && data.sip.length ? data.sip : (nativePlayback ? ['https://sjy6.stream.qqmusic.qq.com/', 'https://dl.stream.qqmusic.qq.com/'] : ['https://ws.stream.qqmusic.qq.com/'])).filter(Boolean);
   const probeDeadline = Date.now() + QQ_AUDIO_PROBE_TOTAL_MS;
   const probeFailures = [];
   let playableInfo = null;
@@ -5363,296 +5388,6 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouRecommendations]', err);
       sendJSON(res, { provider: 'kugou', error: err.message, songs: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/status') {
-    try {
-      sendJSON(res, await handleSpotifyStatus());
-    } catch (err) {
-      console.error('[SpotifyStatus]', err);
-      sendJSON(res, { provider: 'spotify', configured: false, loggedIn: false, error: err.message }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/setup/diagnostics') {
-    try {
-      sendJSON(res, await handleSpotifySetupDiagnostics());
-    } catch (err) {
-      console.error('[SpotifySetupDiagnostics]', err);
-      sendJSON(res, {
-        provider: 'spotify',
-        ok: false,
-        ready: false,
-        error: err.code || err.message,
-        message: err.message || 'Spotify 接口体检失败',
-        checks: [],
-      }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/config') {
-    try {
-      if (req.method !== 'POST') {
-        sendJSON(res, { provider: 'spotify', ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
-        return;
-      }
-      const body = await readRequestBody(req);
-      const saved = saveSpotifyConfig(body);
-      const status = await handleSpotifyStatus();
-      sendJSON(res, Object.assign({}, status, saved, {
-        ok: true,
-        configured: true,
-        oauthConfigured: true,
-        message: status.loggedIn
-          ? status.message
-          : 'Spotify Client ID 已保存，可打开官方 OAuth 授权。'
-      }));
-    } catch (err) {
-      console.error('[SpotifyConfig]', err);
-      const missing = err && err.missing || [];
-      sendJSON(res, {
-        provider: 'spotify',
-        ok: false,
-        configured: getSpotifyConfig().configured,
-        loggedIn: false,
-        error: err.code || err.message,
-        message: err.code === 'SPOTIFY_CLIENT_ID_REQUIRED' || err.message === 'SPOTIFY_CLIENT_ID_REQUIRED'
-          ? '请先粘贴 Spotify Client ID。'
-          : (err.code === 'SPOTIFY_CLIENT_ID_INVALID'
-            ? 'Client ID 格式不正确，请只复制 Spotify Dashboard 中的 Client ID。'
-            : (err.code === 'SPOTIFY_REDIRECT_URI_INVALID'
-              ? '回调地址无效，请使用 Mineradio 显示的 127.0.0.1 回调地址。'
-              : err.message)),
-        missing,
-      }, err && /^SPOTIFY_(?:CLIENT_ID|REDIRECT_URI)_/.test(String(err.code || '')) ? 400 : 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/logout') {
-    try {
-      sendJSON(res, clearSpotifyToken());
-    } catch (err) {
-      console.error('[SpotifyLogout]', err);
-      sendJSON(res, { provider: 'spotify', ok: false, error: err.message }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/user/playlists') {
-    try {
-      const limit = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '300', 10) || 300));
-      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-      sendJSON(res, await handleSpotifyUserPlaylists({ limit, offset }));
-    } catch (err) {
-      console.error('[SpotifyUserPlaylists]', err);
-      sendJSON(res, { provider: 'spotify', loggedIn: false, error: err.message, playlists: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/song/like/check') {
-    try {
-      const ids = String(url.searchParams.get('ids') || url.searchParams.get('id') || '')
-        .split(',').map(value => value.trim()).filter(Boolean);
-      sendJSON(res, await handleSpotifyLibraryCheck('track', ids));
-    } catch (err) {
-      console.error('[SpotifyLikeCheck]', err);
-      sendJSON(res, { provider: 'spotify', liked: {}, error: err.code || err.message, message: err.message }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/song/like') {
-    try {
-      const body = req.method === 'POST' ? await readRequestBody(req) : {};
-      const song = body.song || {
-        id: body.id || url.searchParams.get('id') || '',
-        spotifyId: body.spotifyId || url.searchParams.get('spotifyId') || '',
-        spotifyUri: body.spotifyUri || body.uri || url.searchParams.get('uri') || '',
-      };
-      const liked = String(body.like != null ? body.like : (url.searchParams.get('like') || 'true')) !== 'false';
-      sendJSON(res, await handleSpotifyLibrarySet('track', song, liked));
-    } catch (err) {
-      console.error('[SpotifyLike]', err);
-      sendJSON(res, {
-        provider: 'spotify',
-        success: false,
-        error: err.code || err.message,
-        message: err.code === 'SPOTIFY_WRITE_SCOPE_REQUIRED'
-          ? '请在账号面板重新连接 Spotify，授予资料库写入权限。'
-          : err.message,
-        missingScopes: err.missingScopes || [],
-      }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/album/like/check') {
-    try {
-      const ids = String(url.searchParams.get('ids') || url.searchParams.get('id') || '')
-        .split(',').map(value => value.trim()).filter(Boolean);
-      sendJSON(res, await handleSpotifyLibraryCheck('album', ids));
-    } catch (err) {
-      console.error('[SpotifyAlbumLikeCheck]', err);
-      sendJSON(res, { provider: 'spotify', liked: {}, error: err.code || err.message, message: err.message }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/album/like') {
-    try {
-      const body = req.method === 'POST' ? await readRequestBody(req) : {};
-      const album = body.album || {
-        id: body.id || body.albumId || url.searchParams.get('id') || '',
-        albumId: body.albumId || '',
-        spotifyUri: body.spotifyUri || body.uri || '',
-      };
-      const liked = String(body.like != null ? body.like : (url.searchParams.get('like') || 'true')) !== 'false';
-      sendJSON(res, await handleSpotifyLibrarySet('album', album, liked));
-    } catch (err) {
-      console.error('[SpotifyAlbumLike]', err);
-      sendJSON(res, { provider: 'spotify', success: false, error: err.code || err.message, message: err.message, missingScopes: err.missingScopes || [] }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/playlist/add-song') {
-    try {
-      if (req.method !== 'POST') {
-        sendJSON(res, { provider: 'spotify', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
-        return;
-      }
-      const body = await readRequestBody(req);
-      sendJSON(res, await handleSpotifyPlaylistAddSong(body.pid || body.playlistId || '', body.song || body));
-    } catch (err) {
-      console.error('[SpotifyPlaylistAddSong]', err);
-      sendJSON(res, {
-        provider: 'spotify',
-        success: false,
-        error: err.code || err.message,
-        message: err.code === 'SPOTIFY_WRITE_SCOPE_REQUIRED'
-          ? '请重新连接 Spotify，授予歌单写入权限。'
-          : err.message,
-        missingScopes: err.missingScopes || [],
-      }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/playlist/create') {
-    try {
-      if (req.method !== 'POST') {
-        sendJSON(res, { provider: 'spotify', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
-        return;
-      }
-      const body = await readRequestBody(req);
-      sendJSON(res, await handleSpotifyCreatePlaylist(body.name || '', {
-        public: body.public === true,
-        description: body.description || '',
-      }));
-    } catch (err) {
-      console.error('[SpotifyPlaylistCreate]', err);
-      sendJSON(res, { provider: 'spotify', success: false, error: err.code || err.message, message: err.message, missingScopes: err.missingScopes || [] }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/playlist/collect') {
-    try {
-      if (req.method !== 'POST') {
-        sendJSON(res, { provider: 'spotify', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
-        return;
-      }
-      const body = await readRequestBody(req);
-      const collected = String(body.collected != null ? body.collected : 'true') !== 'false';
-      const result = await handleSpotifyLibrarySet('playlist', {
-        id: body.id || body.playlistId || '',
-        spotifyUri: body.spotifyUri || body.uri || '',
-      }, collected);
-      sendJSON(res, Object.assign({ collected, success: true }, result));
-    } catch (err) {
-      console.error('[SpotifyPlaylistCollect]', err);
-      sendJSON(res, { provider: 'spotify', success: false, error: err.code || err.message, message: err.message, missingScopes: err.missingScopes || [] }, Number(err.statusCode) || 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/playlist/tracks') {
-    try {
-      const id = url.searchParams.get('id') || url.searchParams.get('playlistId') || '';
-      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '48', 10) || 48));
-      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-      sendJSON(res, await handleSpotifyPlaylistTracks(id, { limit, offset, market: url.searchParams.get('market') || '' }));
-    } catch (err) {
-      console.error('[SpotifyPlaylistTracks]', err);
-      sendJSON(res, { provider: 'spotify', error: err.message, tracks: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/album/detail') {
-    try {
-      const id = url.searchParams.get('id') || url.searchParams.get('albumId') || '';
-      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '80', 10) || 80));
-      sendJSON(res, await handleSpotifyAlbumDetail(id, { limit, market: url.searchParams.get('market') || '' }));
-    } catch (err) {
-      console.error('[SpotifyAlbumDetail]', err);
-      sendJSON(res, { provider: 'spotify', error: err.message, album: null, songs: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/search') {
-    try {
-      const kw = url.searchParams.get('keywords') || '';
-      const limit = Math.max(4, Math.min(20, parseInt(url.searchParams.get('limit') || '10', 10) || 10));
-      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-      sendJSON(res, await handleSpotifySearch(kw, limit, offset));
-    } catch (err) {
-      console.error('[SpotifySearch]', err);
-      sendJSON(res, { provider: 'spotify', configured: getSpotifyConfig().configured, error: err.message, songs: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/recommendations') {
-    try {
-      const limit = Math.max(4, Math.min(10, parseInt(url.searchParams.get('limit') || '10', 10) || 10));
-      sendJSON(res, await handleSpotifyRecommendations(limit));
-    } catch (err) {
-      console.error('[SpotifyRecommendations]', err);
-      sendJSON(res, { provider: 'spotify', error: err.message, songs: [] }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/song/url') {
-    try {
-      sendJSON(res, await handleSpotifySongUrl({
-        id: url.searchParams.get('id') || '',
-        providerSongId: url.searchParams.get('providerSongId') || '',
-        spotifyId: url.searchParams.get('spotifyId') || '',
-        uri: url.searchParams.get('uri') || '',
-      }));
-    } catch (err) {
-      console.error('[SpotifySongUrl]', err);
-      sendJSON(res, { provider: 'spotify', url: '', playable: false, error: err.message }, 500);
-    }
-    return;
-  }
-
-  if (pn === '/api/spotify/lyric') {
-    try {
-      const id = url.searchParams.get('id') || '';
-      sendJSON(res, await handleSpotifyLyric(id));
-    } catch (err) {
-      console.error('[SpotifyLyric]', err);
-      sendJSON(res, { provider: 'spotify', error: err.message, lyric: '', tlyric: '', yrc: '', ytlrc: '' }, 500);
     }
     return;
   }
@@ -6970,7 +6705,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const provider = url.searchParams.get('provider') || 'netease';
       const id = url.searchParams.get('id') || url.searchParams.get('mid') || '';
-      sendJSON(res, await handleArtistAlbums(provider, id, parseInt(url.searchParams.get('limit') || '6', 10)));
+      sendJSON(res, await handleArtistAlbums(provider, id, parseInt(url.searchParams.get('limit') || '6', 10), parseInt(url.searchParams.get('offset') || '0', 10)));
     } catch (err) {
       console.error('[ArtistAlbums]', err.message);
       sendJSON(res, { error: err.message, albums: [] }, 500);

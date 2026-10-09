@@ -316,6 +316,22 @@ function lyricRowLiveViewportScale(row, intendedScale) {
   return ratio;
 }
 
+// Keep the original/translation pair in one visual hierarchy beside the shelf.
+// Logical ink metrics stay identical when a higher-resolution texture arrives.
+function lyricShelfTranslationScale(row, intendedScale, mix) {
+  var primary = row && row.tightParent;
+  if (!row || !row.isTranslation || !primary || !primary.mesh || !(mix > 0)) return intendedScale;
+  var original = lyricMaskInkBounds(primary.lineMask);
+  var translated = lyricMaskInkBounds(row.lineMask);
+  if (!original || !translated) return intendedScale;
+  var originalHeight = Math.max(0, original.bottom - original.top) * primary.mesh.scale.x;
+  var translatedHeight = Math.max(0, translated.bottom - translated.top);
+  if (!(originalHeight > 0 && translatedHeight > 0)) return intendedScale;
+  // primary.mesh.scale already includes viewport fitting; do not apply that reduction twice.
+  var target = Math.min(intendedScale, originalHeight * 0.78 / translatedHeight);
+  return intendedScale + (target - intendedScale) * clampRange(mix, 0, 1);
+}
+
 function makeLyricRowGlowMesh(row, pal, worldW, preparedGlowTexture) {
   if (!row || !row.lineMask) return null;
   pal = pal || {};
@@ -1762,6 +1778,9 @@ function updateLyricRowLayers(data, opts) {
       baseScale *= lyricRowLiveViewportScale(row, baseScale);
     } else if (row.viewportFitScale !== 1) {
       row.viewportFitScale = 1;
+    }
+    if (!editPreview && row.isTranslation) {
+      baseScale = lyricShelfTranslationScale(row, baseScale, Number(stageLyrics.shelfLayoutMix) || 0);
     }
     var stableMotionIndex = row.virtualIndex != null && isFinite(Number(row.virtualIndex))
       ? Number(row.virtualIndex)

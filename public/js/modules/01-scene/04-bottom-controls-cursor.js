@@ -41,13 +41,21 @@ function shouldShowHomeForPausedStartupRestore() {
     && !immersiveMode);
 }
 
+function bottomControlsMenuActive() {
+  if (document.hidden) return false;
+  var source = document.getElementById('control-source-switcher');
+  var quality = document.getElementById('quality-control');
+  return !!((source && source.classList.contains('show'))
+    || (quality && quality.classList.contains('open')));
+}
+
 function setControlsHidden(hidden) {
   var bar = document.getElementById('bottom-bar');
   if (!bar) return;
   if (hidden && typeof visualGuideKeepsBottomControlsVisible === 'function' && visualGuideKeepsBottomControlsVisible()) hidden = false;
   if (hidden && desktopWallpaperKeepsPlayerConsoleVisible()) hidden = false;
   if (hidden && controlsRevealHoldUntil > performance.now()) hidden = false;
-  if (hidden && (controlsHovering || miniQueueOpen)) hidden = false;
+  if (hidden && (controlsHovering || miniQueueOpen || bottomControlsMenuActive())) hidden = false;
   bar.classList.toggle('soft-hidden', !!hidden && controlsAutoHide && bar.classList.contains('visible'));
   if (hidden && typeof closeLyricTimingPopover === 'function') closeLyricTimingPopover(true);
   bar.style.pointerEvents = '';
@@ -322,7 +330,13 @@ function applyControlsAutoHidePreference() {
   window.addEventListener('pointerup', releaseControlsPointer, true);
   window.addEventListener('pointercancel', releaseControlsPointer, true);
   document.addEventListener('mouseleave', leaveControls);
-  window.addEventListener('blur', function () { bar._controlsPointerHeld = false; leaveControls(); });
+  window.addEventListener('blur', function () {
+    bar._controlsPointerHeld = false;
+    if (typeof closeControlSourceSwitcher === 'function') closeControlSourceSwitcher();
+    var quality = document.getElementById('quality-control');
+    if (quality) quality.classList.remove('open');
+    leaveControls();
+  });
   document.addEventListener('visibilitychange', function () { if (document.hidden) leaveControls(); });
   if (handle) {
     handle.addEventListener('mouseenter', function () {

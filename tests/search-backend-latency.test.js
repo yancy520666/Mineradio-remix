@@ -84,7 +84,7 @@ test('artist albums keep the newest releases first and cap the list', async () =
   const sandbox = { Date, Promise, Array, Map, Math, Number, String };
   const calls = [];
   vm.runInNewContext([
-    'const ARTIST_ALBUMS_DEFAULT = 6; const ARTIST_ALBUMS_MAX = 12; const userCookie = "";',
+    'const ARTIST_ALBUMS_DEFAULT = 6; const ARTIST_ALBUMS_MAX = 60; const ARTIST_ALBUMS_PREVIEW_POOL = 12; const userCookie = "";',
     'const SEARCH_RESULT_CACHE_TTL_MS = 120000;',
     'const searchCookieScope = () => "t";',
     topLevelFunction('createSearchResultCache'),

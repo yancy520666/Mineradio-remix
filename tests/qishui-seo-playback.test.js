@@ -80,6 +80,8 @@ test('public 60-second audio remains a trial for both free and VIP accounts', as
       assert.equal(result.fullDuration, 240);
       assert.equal(result.isVip, vip);
       assert.equal(result.membershipKnown, true);
+      assert.equal(result.officialPlaybackUnavailable, true);
+      if (vip) assert.match(result.message, /已确认汽水 VIP/);
       assert.match(result.message, /60 秒试听/);
       // Exercise the actual renderer banner with a VIP response.
       const source = fs.readFileSync(path.join(__dirname, '../public/js/modules/05-playback/13-playback-start-audio.js'), 'utf8');
@@ -200,4 +202,12 @@ test('unsafe public player origins are rejected before requesting an otherwise v
       assert.equal(playerRequests, 0, 'unsafe VOD URL must be rejected before any request');
     });
   }
+});
+
+test('metadata-only PC success falls back instead of caching an empty playable source', async t => {
+  mockRequests(t, (url, options) => url.pathname === '/luna/pc/track_v2'
+    ? { body: { status_code: 0, track: { id: 'fixture', status: 10, duration: 240000 } } }
+    : fixtures(url, options));
+  const result = await qishui.handleQishuiSongUrl({ id: 'fixture' }, cookie);
+  assert.equal(result.playable, true); assert.equal(result.source, 'qishui-seo');
 });

@@ -130,6 +130,15 @@ function playbackRestrictionNotice(song, data) {
       toast: '当前平台未登录'
     };
   }
+  if (category === 'verification_required') {
+    return {
+      category: category,
+      title: provider + '需要安全验证',
+      body: provider + ' 要求先完成官方安全验证。正在打开登录入口，点“官方验证”完成后重新播放即可。',
+      action: 'login',
+      toast: provider + '需要安全验证'
+    };
+  }
   if (category === 'provider_limited') {
     return {
       category: category,
@@ -1059,7 +1068,7 @@ function handlePlaybackUnavailable(song, data, options) {
   var category = notice.category;
   showToast(notice.toast || notice.title || playbackRestrictionMessage(song, data));
   if (!(options && options.skipCard)) showSourceFallbackNotice(notice.title, notice.body);
-  if (category === 'login_required') {
+  if (category === 'login_required' || category === 'verification_required') {
     setTimeout(function () {
       var modal = document.getElementById('login-modal');
       if (!modal || modal.classList.contains('show')) return;
