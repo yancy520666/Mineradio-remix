@@ -17,7 +17,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
     shelfManager: { hasOpenContent: () => false }, orbit: {},
     normalizeLyricDisplayMode: () => 'single', normalizeLyricTranslationMode: () => 'off',
     shouldAvoidStageLyricsForShelf: () => shelf, shouldUseWallpaperLyricCameraLock: () => false,
-    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1, clampStageLyricTargetForShelf: () => false,
+    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1, clampStageLyricTargetForShelf: () => false, stageLyricShelfFit: () => 1, getStageLyricLockBounds: () => ({ w: 5, h: 1 }),
     clampRange: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
     lyricCameraDir: new THREE.Vector3(0, 0, -1), lyricLayoutBase: new THREE.Vector3(),
     lyricCameraTarget: new THREE.Vector3(), lyricTargetQuat: new THREE.Quaternion(),
@@ -29,7 +29,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'updateStageLyricLayout'), c);
   c.updateStageLyricLayout(); shelf = true;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
-  assert(group.position.x < -0.8 && group.position.x > -1.3); shelf = false;
+  assert(group.position.x < -0.3); shelf = false;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
   assert(Math.abs(group.position.x) < .01);
   assert.equal(c.stageLyrics.current.texture, texture);

@@ -2437,24 +2437,42 @@ function stageLyricUsesSingleLineSwap(mesh) {
   return mode === 'single' && !data.usesTrack;
 }
 
-// 歌单架打开时歌词会往左让位，但镜头同时在往右摆；两段位移叠加，歌词可能被推到
-// 屏幕最左边甚至出界（设置里的歌词横向偏移会进一步放大）。这里按屏幕位置兜底：
-// 让位后的歌词中心不得比屏幕左侧 30% 更靠左，只在歌单架占用画面时生效。
-var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.40;
+// 歌单架打开时歌词不再用固定位移，而是按歌词实际宽度贴着歌单架左缘摆放：
+// 歌词右边缘固定在歌单架左缘稍靠左一点（留一小段空隙），越长的歌词中心越往左，
+// 所以“一转头就能看到歌单架”的距离对长短歌词都一样；太长放不下时才略微缩小。
+var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08;
+var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
+var STAGE_LYRIC_SHELF_MIN_FIT = 0.6;
 var lyricShelfClampProbe = null;
 var lyricShelfClampRight = null;
-function clampStageLyricTargetForShelf(target) {
-  if (!camera || !target || typeof THREE === 'undefined') return false;
+function stageLyricShelfHalfWidthNdc(target, worldW) {
+  if (!camera || !target || typeof THREE === 'undefined') return 0;
   if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
   camera.updateMatrixWorld();
   lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
   var depth = -lyricShelfClampProbe.z;
-  if (!(depth > 0.2)) return false;
+  if (!(depth > 0.2)) return 0;
+  var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
+  return (worldW / 2) / halfWorld;
+}
+// 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 60%）
+function stageLyricShelfFit(target, worldW) {
+  var half = stageLyricShelfHalfWidthNdc(target, worldW);
+  if (!(half > 0)) return 1;
+  var avail = (STAGE_LYRIC_SHELF_EDGE_NDC_X - STAGE_LYRIC_SCREEN_LEFT_NDC_X) / 2;
+  return clampRange(avail / half, STAGE_LYRIC_SHELF_MIN_FIT, 1);
+}
+function clampStageLyricTargetForShelf(target, worldW) {
+  var half = stageLyricShelfHalfWidthNdc(target, worldW);
+  if (!(half > 0)) return false;
+  var depthProbe = lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
+  var depth = -depthProbe.z;
   lyricShelfClampProbe.copy(target).project(camera);
-  if (!isFinite(lyricShelfClampProbe.x) || lyricShelfClampProbe.x >= STAGE_LYRIC_SHELF_MIN_NDC_X) return false;
-  var halfWidth = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
+  if (!isFinite(lyricShelfClampProbe.x)) return false;
+  var want = Math.max(STAGE_LYRIC_SHELF_EDGE_NDC_X - half, STAGE_LYRIC_SCREEN_LEFT_NDC_X + half);
+  var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
   lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
-  target.addScaledVector(lyricShelfClampRight, (STAGE_LYRIC_SHELF_MIN_NDC_X - lyricShelfClampProbe.x) * halfWidth);
+  target.addScaledVector(lyricShelfClampRight, (want - lyricShelfClampProbe.x) * halfWorld);
   return true;
 }
 // Only move the existing lyric scene on interactive UI frames. Texture uploads,
@@ -2498,13 +2516,13 @@ function updateStageLyricLayout() {
   if (wallpaperLyricLock) {
     shelfLyricShifted = wallpaperShelfLyrics;
     layoutScale *= wallpaperShelfLyrics ? 0.84 : 0.88;
-    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.92 : 0), -4.0, 4.0);
+    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.4 : 0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -2.4, 2.7);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 0.55 : 0.80), -3.2, 3.2);
   } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
     shelfLyricShifted = true;
     layoutScale *= 0.88;
-    layoutX = clampRange(layoutX - 0.90, -4.0, 4.0);
+    layoutX = clampRange(layoutX - 0.4, -4.0, 4.0);
     layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.32, -3.2, 3.2);
   } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
@@ -2534,7 +2552,18 @@ function updateStageLyricLayout() {
   if (skullMouthLyrics) lockFit = Math.min(lockFit, 1.12);
   if (!isFinite(stageLyrics.lockFitScale)) stageLyrics.lockFitScale = 1;
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
-  stageLyrics.group.scale.setScalar(layoutScale * stageLyrics.lockFitScale);
+  var stageLyricFinalScale = layoutScale * stageLyrics.lockFitScale;
+  var shelfLyricWorldW = 0;
+  if (shelfLyricShifted && !skullMouthLyrics) {
+    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, getStageLyricLockBounds().w * stageLyricFinalScale);
+    if (!isFinite(stageLyrics.shelfFitScale)) stageLyrics.shelfFitScale = 1;
+    stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * 0.18;
+    stageLyricFinalScale *= stageLyrics.shelfFitScale;
+    shelfLyricWorldW = getStageLyricLockBounds().w * stageLyricFinalScale;
+  } else {
+    stageLyrics.shelfFitScale = 1;
+  }
+  stageLyrics.group.scale.setScalar(stageLyricFinalScale);
   if (skullMouthLyrics) {
     stageLyrics.snapCameraLockFrames = 0;
     skullParticleGroup.updateMatrixWorld(true);
@@ -2562,7 +2591,7 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget);
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW);
     stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
@@ -2589,7 +2618,7 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(lyricCoverWorldPos);
     lyricLayoutTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricLayoutTarget);
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW);
     stageLyrics.group.position.copy(lyricLayoutTarget);
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
     stageLyrics.group.quaternion.copy(lyricTargetQuat);
@@ -2645,6 +2674,8 @@ function updateStageLyrics3D(dt) {
   var layout = updateStageLyricLayout();
   var skullMouthLyrics = layout.skullMouthLyrics;
   var shelfDetailOpen = layout.shelfDetailOpen;
+  // 歌单架占着画面时歌词上下漂浮、呼吸缩放只保留三成，免得歌词在歌单架旁边晃来晃去
+  var shelfFloatDamp = shelfDetailOpen ? 0.3 : 1;
   var stageLyricRenderBase = layout.stageLyricRenderBase;
   var shelfDetailLyricProfile = layout.shelfDetailLyricProfile;
   function tickMesh(mesh, isCurrent) {
@@ -2822,7 +2853,7 @@ function updateStageLyrics3D(dt) {
             data.context.scale.setScalar(data.context.userData.progressPreviewHoldScale);
           } else {
             data.context.userData.progressPreviewMotionLocked = false;
-            var contextY = ((0.5 - shownProgress) * lyricMotion.contextDrift + (style === 'float' && verticalFloatOn ? Math.sin(t * 0.84 + seed) * 0.016 : 0)) * previewMotionBlend + (mesh.userData.enterDirection || 0) * (1 - a) * lineStepWorld * 0.12;
+            var contextY = ((0.5 - shownProgress) * lyricMotion.contextDrift + (style === 'float' && verticalFloatOn ? Math.sin(t * 0.84 + seed) * 0.016 * shelfFloatDamp : 0)) * previewMotionBlend + (mesh.userData.enterDirection || 0) * (1 - a) * lineStepWorld * 0.12;
             var contextScale = 1.0 + (verticalFloatOn ? Math.sin(t * 0.72 + seed) * (style === 'float' ? 0.014 : (style === 'smooth' ? 0.002 : 0.005)) * previewMotionBlend : 0);
             data.context.position.y += (contextY - data.context.position.y) * 0.11;
             data.context.scale.setScalar(previewMotionBlend < 1 ? data.context.scale.x + (contextScale - data.context.scale.x) * 0.06 : contextScale);
@@ -2893,7 +2924,7 @@ function updateStageLyrics3D(dt) {
         data.sun.scale.set(0.82 + sunPulse * 0.36 + beatScale + Math.sin(t * 1.6) * sunPulse * 0.018, 0.60 + sunPulse * 0.34 + beatScale * 0.72 + Math.cos(t * 1.25) * sunPulse * 0.020, 1);
         data.sun.rotation.z += Math.sin(t * 0.32 + seed) * 0.010 * sunPulse;
       }
-      var breathe = (Math.sin(t * 0.92 + seed) * 0.050 + Math.sin(t * 0.41 + seed * 0.7) * 0.028) * lyricFloatAmp * previewMotionBlend;
+      var breathe = (Math.sin(t * 0.92 + seed) * 0.050 + Math.sin(t * 0.41 + seed * 0.7) * 0.028) * lyricFloatAmp * previewMotionBlend * shelfFloatDamp;
       if (previewMotionLock) {
         mesh.position.set(
           Number(mesh.userData.progressPreviewHoldX) || 0,
@@ -2922,14 +2953,14 @@ function updateStageLyrics3D(dt) {
         var rootScaleTarget = 0.96 + a * 0.055 + breathe + bass * 0.038 + beatPulse * 0.014;
         mesh.scale.setScalar(previewMotionBlend < 1 ? mesh.scale.x + (rootScaleTarget - mesh.scale.x) * 0.06 : rootScaleTarget);
         if (singleLineSwap) {
-          mesh.position.y += ((0.18 + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) * previewMotionBlend : 0)) - mesh.position.y) * 0.075;
-          mesh.position.z += ((1.48 + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.080 * previewMotionBlend : 0)) - mesh.position.z) * 0.080;
+          mesh.position.y += ((0.18 + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * 0.075;
+          mesh.position.z += ((1.48 + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.080 * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.080;
         } else {
           var enterDir = mesh.userData.enterDirection || 0;
           var enterOffsetY = enterDir * lineStepWorld * (1 - a);
           var progressLift = -shownProgress * 0.026;
-          mesh.position.y += ((0.20 + enterOffsetY + progressLift + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.046 + Math.sin(t * 1.35 + seed) * 0.012) * previewMotionBlend : 0)) - mesh.position.y) * (enterDir ? 0.115 : 0.080);
-          mesh.position.z += ((1.48 - Math.abs(enterDir) * 0.045 * (1 - a) + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.070 * previewMotionBlend : 0)) - mesh.position.z) * 0.090;
+          mesh.position.y += ((0.20 + enterOffsetY + progressLift + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.046 + Math.sin(t * 1.35 + seed) * 0.012) * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * (enterDir ? 0.115 : 0.080);
+          mesh.position.z += ((1.48 - Math.abs(enterDir) * 0.045 * (1 - a) + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.070 * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.090;
         }
         var rootRotationTarget = (Math.sin(t * 0.34 + seed) * (style === 'smooth' ? 0.006 : (style === 'float' ? 0.026 : 0.018)) + textJitterX * 0.18 + glitchCameraDrive * glitchAmount * 0.014) * previewMotionBlend;
         mesh.rotation.z = previewMotionBlend < 1 ? mesh.rotation.z + (rootRotationTarget - mesh.rotation.z) * 0.18 : rootRotationTarget;
