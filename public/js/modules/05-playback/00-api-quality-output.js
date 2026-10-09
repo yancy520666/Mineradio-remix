@@ -297,6 +297,7 @@ function updatePlaybackQualityUi() {
       option.title = '当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
     });
   }
+  if (typeof syncQualityPresetUi === 'function') syncQualityPresetUi();
 }
 function setPlaybackQuality(value) {
   var provider = currentPlaybackQualityProvider();
@@ -368,7 +369,115 @@ function bindQualityControl() {
       wrap.classList.remove('open'); scheduleControlsHide(520);
     }
   });
+  if (typeof bindQualityPresetControls === 'function') bindQualityPresetControls();
   updatePlaybackQualityUi();
+}
+// Settings-side defaults for every tiered platform at once. Qishui / Spotify are matched sources
+// with a single tier, so they have nothing to choose here.
+var QUALITY_PRESET_PROVIDERS = [
+  { key: 'netease', title: '网易云' },
+  { key: 'qq', title: 'QQ 音乐' },
+  { key: 'kugou', title: '酷狗' }
+];
+var QUALITY_PRESET_SHORT = {
+  netease: { jymaster: '母带', hires: '臻音', lossless: '无损', exhigh: '极高', standard: '标准' },
+  qq: { hires: 'Hi-Res', lossless: '无损', exhigh: '320k', standard: '128k' },
+  kugou: { hires: 'Hi-Res', lossless: '无损', exhigh: '320k', standard: '128k' }
+};
+var QUALITY_PRESET_NAMES = { saver: '省流', balanced: '均衡', lossless: '无损', best: '最高' };
+function qualityPresetTarget(preset, provider) {
+  if (preset === 'saver') return 'standard';
+  if (preset === 'balanced') return 'exhigh';
+  if (preset === 'lossless') return 'lossless';
+  if (provider === 'netease' && hasProviderSvip('netease', loginStatus)) return 'jymaster';
+  return 'hires';
+}
+function activeQualityPreset() {
+  var names = Object.keys(QUALITY_PRESET_NAMES);
+  for (var i = 0; i < names.length; i += 1) {
+    var preset = names[i];
+    var matches = QUALITY_PRESET_PROVIDERS.every(function (item) {
+      var current = getProviderPlaybackQuality(item.key);
+      // Without SVIP the top NetEase tier plays as Hi-Res, so either counts as 最高.
+      if (preset === 'best' && item.key === 'netease') return current === 'jymaster' || current === 'hires';
+      return current === qualityPresetTarget(preset, item.key);
+    });
+    if (matches) return preset;
+  }
+  return '';
+}
+function syncQualityPresetUi() {
+  var panel = document.getElementById('playback-quality-preset-panel');
+  if (!panel) return;
+  var canUseSvip = hasProviderSvip('netease', loginStatus);
+  var rows = document.getElementById('quality-preset-providers');
+  if (rows) {
+    rows.innerHTML = QUALITY_PRESET_PROVIDERS.map(function (item) {
+      var current = getProviderPlaybackQuality(item.key);
+      var buttons = playbackQualityOptions(item.key).map(function (option) {
+        var locked = !!(option.svip && !canUseSvip);
+        var short = (QUALITY_PRESET_SHORT[item.key] || {})[option.key] || option.title;
+        return '<button type="button" data-quality-provider="' + item.key + '" data-quality="' + option.key + '"' +
+          (option.key === current ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"') +
+          (locked ? ' disabled' : '') + ' title="' + escHtml(locked ? '需要网易云 SVIP 账号' : (option.title + ' · ' + option.sub)) + '">' + escHtml(short) + '</button>';
+      }).join('');
+      return '<div class="quality-preset-provider"><span class="quality-preset-provider-name">' + escHtml(item.title) + '</span>' +
+        '<div class="fx-seg quality-preset-provider-seg" role="group" aria-label="' + escHtml(item.title) + ' 默认音质">' + buttons + '</div></div>';
+    }).join('');
+  }
+  var active = activeQualityPreset();
+  panel.querySelectorAll('[data-quality-preset]').forEach(function (btn) {
+    var on = btn.getAttribute('data-quality-preset') === active;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  var summary = document.getElementById('quality-preset-summary');
+  if (summary) summary.textContent = active ? QUALITY_PRESET_NAMES[active] : '自定义';
+}
+// Applies new defaults; only the playing song's platform reloads, the rest take effect on next play.
+function applyQualityPresetChanges(changes, label) {
+  var provider = currentPlaybackQualityProvider();
+  var changedCurrent = '';
+  changes.forEach(function (change) {
+    if (getProviderPlaybackQuality(change.provider) === normalizePlaybackQualityForProvider(change.value, change.provider)) return;
+    setProviderPlaybackQuality(change.provider, change.value);
+    if (change.provider === provider) changedCurrent = getProviderPlaybackQuality(provider);
+  });
+  updatePlaybackQualityUi();
+  var song = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
+  if (changedCurrent && canReloadCurrentTrackForQuality()) {
+    applyPlaybackQualityToCurrentTrack(effectivePlaybackQualityForSong(song, provider, changedCurrent), provider);
+  } else {
+    showToast(label + ' · 下次播放生效');
+  }
+}
+function setQualityPreset(preset) {
+  if (!QUALITY_PRESET_NAMES[preset]) return;
+  applyQualityPresetChanges(QUALITY_PRESET_PROVIDERS.map(function (item) {
+    return { provider: item.key, value: qualityPresetTarget(preset, item.key) };
+  }), '音质预设：' + QUALITY_PRESET_NAMES[preset]);
+}
+function setProviderQualityPreset(provider, value) {
+  provider = normalizePlaybackProvider(provider);
+  if (provider === 'netease' && normalizePlaybackQuality(value) === 'jymaster' && !hasProviderSvip('netease', loginStatus)) {
+    showToast('超清母带需要网易云 SVIP');
+    return;
+  }
+  var title = (QUALITY_PRESET_PROVIDERS.filter(function (item) { return item.key === provider; })[0] || {}).title || '';
+  applyQualityPresetChanges([{ provider: provider, value: value }], title + ' 默认音质：' + playbackQualityLabel(value, provider));
+}
+function bindQualityPresetControls() {
+  var panel = document.getElementById('playback-quality-preset-panel');
+  if (!panel || panel._bound) return;
+  panel._bound = true;
+  panel.addEventListener('click', function (e) {
+    var target = e.target && e.target.closest ? e.target : null;
+    if (!target) return;
+    var preset = target.closest('[data-quality-preset]');
+    if (preset) { setQualityPreset(preset.getAttribute('data-quality-preset')); return; }
+    var option = target.closest('[data-quality-provider]');
+    if (option && !option.disabled) setProviderQualityPreset(option.getAttribute('data-quality-provider'), option.getAttribute('data-quality'));
+  });
 }
 var audioRouteWorkflowDrag = null;
 function audioRoutePointForPort(port, root) {

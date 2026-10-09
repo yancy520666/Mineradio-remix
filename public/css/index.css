@@ -19887,3 +19887,27 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #login-modal #browser-cookie-import-btn {
   flex: 1 1 auto
 }
+
+/* 音质预设：一键档位 + 各平台默认档位 */
+#playback-quality-preset-panel {
+  margin: 8px 0 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .035)
+}
+#playback-quality-preset-panel .quality-output-head { margin-bottom: 8px }
+#playback-quality-preset-panel .quality-preset-summary { color: var(--fc-ink-2); font-weight: 700; letter-spacing: .2px }
+#playback-quality-preset-panel .quality-preset-seg { margin-bottom: 10px }
+#playback-quality-preset-panel .quality-preset-providers { display: grid; gap: 6px }
+#playback-quality-preset-panel .quality-preset-provider { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 8px }
+#playback-quality-preset-panel .quality-preset-provider-name { color: var(--fc-ink-2); font-size: 11px; font-weight: 700; white-space: nowrap }
+#playback-quality-preset-panel .quality-preset-provider-seg { margin-bottom: 0; min-width: 0 }
+#playback-quality-preset-panel .quality-preset-provider-seg button { min-width: 0; padding: 6px 2px; font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+#playback-quality-preset-panel .quality-preset-provider-seg button:disabled { opacity: .38; cursor: not-allowed }
+#playback-quality-preset-panel .quality-preset-note { color: var(--fc-ink-2); font-size: 11px; line-height: 1.6; margin: 8px 0 0; opacity: .8 }
+
+/* 换源菜单：搜到但当前账号不能播放 / 只能试听 */
+#control-source-switcher .control-source-option.blocked small { color: rgba(255, 138, 128, .82) }
+#control-source-switcher .control-source-option.limited small { color: rgba(255, 210, 120, .86) }
+#control-source-switcher .control-source-option:disabled:hover { transform: none; background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .07) }
