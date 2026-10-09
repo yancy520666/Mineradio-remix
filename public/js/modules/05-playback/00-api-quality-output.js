@@ -358,8 +358,15 @@ function applyPlaybackQualityToCurrentTrack(nextQuality, provider) {
     showToast('音质切换失败，已保留偏好');
   }).finally(forcePlaybackControlsInteractive);
 }
+// The quality button stops click propagation, so the source menu's outside-click close never fires.
+function closeSourceSwitcherForQuality() {
+  if (typeof controlSourceSwitcherState !== 'undefined' && controlSourceSwitcherState.open && typeof closeControlSourceSwitcher === 'function') {
+    closeControlSourceSwitcher();
+  }
+}
 function toggleQualityPanel(e) {
   if (e) e.stopPropagation();
+  closeSourceSwitcherForQuality();
   var wrap = document.getElementById('quality-control');
   if (wrap) {
     wrap.classList.toggle('open');
@@ -370,7 +377,7 @@ function toggleQualityPanel(e) {
 function bindQualityControl() {
   var wrap = document.getElementById('quality-control');
   if (wrap) {
-    wrap.addEventListener('mouseenter', function () { wrap.classList.add('open'); revealBottomControls(520); });
+    wrap.addEventListener('mouseenter', function () { closeSourceSwitcherForQuality(); wrap.classList.add('open'); revealBottomControls(520); });
     wrap.addEventListener('mouseleave', function () { setTimeout(function () {
       if (!wrap.matches(':hover')) { wrap.classList.remove('open'); scheduleControlsHide(520); }
     }, 260); });
