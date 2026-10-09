@@ -19921,3 +19921,6 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 
 #track-detail-body .artist-albums-more[hidden] { display: none !important }
 #track-detail-body .artist-albums-more:disabled { opacity: .55; cursor: default }
+
+/* 收藏到歌单弹窗要盖在歌曲/专辑/歌单详情之上 */
+#collect-modal.modal-mask { z-index: 80 }
