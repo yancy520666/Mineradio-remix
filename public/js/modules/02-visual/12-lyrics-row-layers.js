@@ -281,6 +281,13 @@ function lyricRowLiveViewportScale(row, intendedScale) {
     ? Math.max(1, Number(window.innerWidth) || documentWidth || 1)
     : Math.max(1, documentWidth || 1);
   if (viewportWidth <= 1) return 1;
+  // While the lyrics fly to or from the shelf their size stays what it was at rest. Re-fitting against the
+  // moving camera and the block's moving position made the text swell and shrink along the way, and the
+  // shelf layout already keeps the block clear of the screen edge and of the shelf.
+  if (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.shelfFlipT > 0 && isFinite(row.viewportFitHeld)) {
+    row.viewportFitScale = row.viewportFitHeld;
+    return row.viewportFitHeld;
+  }
   var currentScale = Math.max(0.001, Math.abs(Number(row.mesh.scale && row.mesh.scale.x) || 1));
   var maskWidth = Math.max(1, Number(row.lineMask.width) || 1);
   var textWidth = Math.max(1, Number(row.lineMask.activeTextWidth) || Number(row.lineMask.textWidth) || maskWidth);
@@ -311,6 +318,7 @@ function lyricRowLiveViewportScale(row, intendedScale) {
     safeMargin
   );
   row.viewportFitScale = ratio;
+  row.viewportFitHeld = ratio;
   row.viewportFitAvailableLeft = Math.max(0, centerX - safeMargin);
   row.viewportFitAvailableRight = Math.max(0, viewportWidth - safeMargin - centerX);
   return ratio;

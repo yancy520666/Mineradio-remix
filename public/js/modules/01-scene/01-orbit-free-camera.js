@@ -265,9 +265,13 @@ function settleOrbitRecenterTarget() {
   orbit.recenterStartedAt = 0;
 }
 function captureCurrentOrbitAsBaseline() {
-  var theta = Number.isFinite(orbit.theta) ? orbit.theta - (orbit.cineTheta || 0) : orbit.userTheta;
-  var phi = Number.isFinite(orbit.phi) ? orbit.phi - (orbit.cinePhi || 0) : orbit.userPhi;
-  var radius = Number.isFinite(orbit.radius) ? orbit.radius - (orbit.cineRadius || 0) : orbit.userRadius;
+  // While the shelf (or a panel) holds the camera on its focus pose, the live camera is that pose, not the
+  // user's view. Capturing it would make the zoomed-in shelf view the new home: after closing, the shelf,
+  // lyrics and 视角回正 would all come back too close. Keep the pose the focus left.
+  var focused = !!(orbit.focus && orbit.focus.active);
+  var theta = !focused && Number.isFinite(orbit.theta) ? orbit.theta - (orbit.cineTheta || 0) : orbit.userTheta;
+  var phi = !focused && Number.isFinite(orbit.phi) ? orbit.phi - (orbit.cinePhi || 0) : orbit.userPhi;
+  var radius = !focused && Number.isFinite(orbit.radius) ? orbit.radius - (orbit.cineRadius || 0) : orbit.userRadius;
   orbit.baselineTheta = theta;
   orbit.baselinePhi = clampRange(phi, orbit.minPhi, orbit.maxPhi);
   orbit.baselineRadius = clampRange(radius, orbit.minRadius, orbit.maxRadius);

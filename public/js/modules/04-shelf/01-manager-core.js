@@ -19,6 +19,8 @@ function makeShelfManager() {
   var cardBuildQueue = null;
   var selectedIdx = -1;
   var coverBindResumeUntil = -10;
+  var settledPose = new THREE.Object3D();
+  var settledMatrix = new THREE.Matrix4();
 
   function shelfPointerSelectionForegroundActive() {
     return selectedIdx >= 0 && !document.body.classList.contains('cursor-hidden');
@@ -412,12 +414,9 @@ function makeShelfManager() {
     lastSig = sig(allItems);
     lastCardRedrawAt = -10;
     lastCardPulseBucket = -1;
-    // center 起始 = currentIdx (如果是 queue), 否则 0
-    if (allItems.length && allItems[0].type === 'queue' && currentIdx >= 0) {
-      centerTarget = Math.min(allItems.length - 1, currentIdx);
-      centerSmooth = centerTarget;
-      centerIdx = centerTarget;
-    } else if (centerTarget >= allItems.length) {
+    // currentIdx is a position in the play queue, not in the shelf: using it as the start card put a
+    // restored session on some late playlist. The shelf starts at the first card.
+    if (centerTarget >= allItems.length) {
       centerTarget = Math.max(0, allItems.length - 1);
       centerSmooth = centerTarget;
     }
@@ -505,7 +504,7 @@ function makeShelfManager() {
         card.mesh.rotateX(layout.sideRotX - delta * 0.008 - parY * 0.004 * parWeight * summon.parallax);
         card.mesh.rotateY(layout.sideRotY + (1 - reveal) * 0.012 * summon.slide + parX * 0.006 * parWeight * summon.parallax);
       } else {
-        var safeRotY = wallpaperShelfPose ? 0.12 : layout.sideRotY;
+        var safeRotY = shelfSideRestYaw(layout, wallpaperShelfPose);
         var safeEntryRotY = wallpaperShelfPose ? 0.05 : 0.16;
         card.mesh.rotation.y = (safeShelfPose ? safeRotY : layout.sideRotY) + (1 - reveal) * safeEntryRotY * summon.slide + parX * (safeShelfPose ? 0.014 : 0.038) * parWeight * summon.parallax;
         var safeRotX = wallpaperShelfPose ? 0.020 : layout.sideRotX;
@@ -882,6 +881,42 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
     getCenterIdx: function () { return Math.round(centerSmooth); },
     getCardAt: function (idx) { return cards.find(function (c) { return c.index === idx; }); },
     getCards: function () { return cards; },
+    // Back to the first card (a freshly opened shelf starts at the beginning, not where it was last left).
+    resetToStart: function () {
+      if (contentList && contentList.isOpen && contentList.isOpen()) return;
+      centerTarget = 0; centerSmooth = 0; centerIdx = 0;
+      paneMemory[shelfPane] = 0;
+      syncRenderedWindow(false);
+    },
+    // World corners of the centred card at rest (see shelfSideRestYaw), seen from `cam`.
+    getSettledCenterQuad: function (cam, out) {
+      if (mode !== 'side' || !cam || !group) return false;
+      var geometry = null;
+      for (var i = 0; i < cards.length && !geometry; i++) {
+        var params = cards[i].mesh && cards[i].mesh.geometry && cards[i].mesh.geometry.parameters;
+        if (params && params.width > 0 && params.height > 0) geometry = params;
+      }
+      if (!geometry) return false;
+      var layout = shelfLayoutProfile();
+      var wallpaperPose = shouldUseWallpaperSafeShelfCamera();
+      var skullPose = shouldUseSkullSafeShelfCamera();
+      settledPose.position.set(layout.sideX, layout.sideY || 0, layout.sideZ);
+      settledPose.scale.setScalar(shelfSideRestScale(layout, wallpaperPose, skullPose));
+      if (skullPose) {
+        settledPose.quaternion.copy(cam.quaternion);
+        settledPose.rotateX(layout.sideRotX);
+        settledPose.rotateY(layout.sideRotY);
+      } else {
+        settledPose.rotation.set(0, shelfSideRestYaw(layout, wallpaperPose), 0);
+      }
+      group.updateMatrixWorld(true);
+      settledPose.matrix.compose(settledPose.position, settledPose.quaternion, settledPose.scale);
+      settledMatrix.multiplyMatrices(group.matrixWorld, settledPose.matrix);
+      for (var corner = 0; corner < 4; corner++) {
+        out[corner].set((corner & 1 ? 1 : -1) * geometry.width / 2, (corner & 2 ? 1 : -1) * geometry.height / 2, 0).applyMatrix4(settledMatrix);
+      }
+      return true;
+    },
     getGuideScreenBounds: function () {
       if (!group || !group.visible || shelfVisibility < 0.06) return null;
       var bounds = null;

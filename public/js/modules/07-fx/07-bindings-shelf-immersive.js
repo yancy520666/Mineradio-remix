@@ -21,7 +21,7 @@ function bindFxPanel() {
     ['fx-bgopacity', 'backgroundOpacity'], ['fx-bgcropx', 'backgroundMediaCropX'], ['fx-bgcropy', 'backgroundMediaCropY'], ['fx-bgzoom', 'backgroundMediaZoom'], ['fx-windowbgopacity', 'windowBackgroundOpacity'], ['fx-bgglassopacity', 'backgroundGlassOpacity'], ['fx-glassaberration', 'controlGlassChromaticOffset'],
     ['fx-playlistblur', 'playlistPanelGlassBlur'], ['fx-playlistdensity', 'playlistPanelGlassDensity'], ['fx-playlistopen', 'playlistPanelOpenDuration'], ['fx-playlistclose', 'playlistPanelCloseDuration'],
     ['fx-desktoplyricssize', 'desktopLyricsSize'], ['fx-desktoplyricsopacity', 'desktopLyricsOpacity'], ['fx-desktoplyricsy', 'desktopLyricsY'], ['fx-wallpaperopacity', 'wallpaperOpacity'],
-    ['fx-shelfsize', 'shelfSize'], ['fx-shelfx', 'shelfOffsetX'], ['fx-shelfy', 'shelfOffsetY'], ['fx-shelfz', 'shelfOffsetZ'], ['fx-shelfangle', 'shelfAngleY'], ['fx-shelfopacity', 'shelfOpacity'], ['fx-shelfbgalpha', 'shelfBgOpacity'],
+    ['fx-shelfsize', 'shelfSize'], ['fx-shelfx', 'shelfOffsetX'], ['fx-shelfy', 'shelfOffsetY'], ['fx-shelfz', 'shelfOffsetZ'], ['fx-shelfangle', 'shelfAngleY'], ['fx-lyricshelfx', 'lyricShelfOffsetX'], ['fx-lyricshelfy', 'lyricShelfOffsetY'], ['fx-shelfopacity', 'shelfOpacity'], ['fx-shelfbgalpha', 'shelfBgOpacity'],
     ['fx-shelfdetailx', 'shelfDetailOffsetX'], ['fx-shelfdetaily', 'shelfDetailOffsetY'], ['fx-shelfdetailz', 'shelfDetailOffsetZ'], ['fx-shelfdetailscale', 'shelfDetailScale'], ['fx-shelfdetailanglex', 'shelfDetailAngleX'], ['fx-shelfdetailangley', 'shelfDetailAngleY'], ['fx-shelfdetailrowgap', 'shelfDetailRowGap'],
     ['fx-shelfdetailopen', 'shelfDetailOpenDuration'], ['fx-shelfdetailclose', 'shelfDetailCloseDuration'], ['fx-shelfdetailrowtime', 'shelfDetailRowDuration'], ['fx-shelfdetailintro', 'shelfDetailIntroStrength'], ['fx-shelfdetailparallax', 'shelfDetailParallax'],
     ['fx-shelfsummonopen', 'shelfSummonOpenDuration'], ['fx-shelfsummonclose', 'shelfSummonCloseDuration'], ['fx-shelfsummonslide', 'shelfSummonSlide'], ['fx-shelfsummonstagger', 'shelfSummonStagger'], ['fx-shelfsummonscale', 'shelfSummonScale'], ['fx-shelfsummonparallax', 'shelfSummonParallax'],
@@ -102,6 +102,7 @@ function bindFxPanel() {
         fx.shelfAngleYManual = true;
         fx.shelfAngleY = Math.round(clampRange(fx.shelfAngleY, -30, 30));
       }
+      if (pair[1] === 'lyricShelfOffsetX' || pair[1] === 'lyricShelfOffsetY') fx[pair[1]] = clampRange(fx[pair[1]], -0.5, 0.5);
       if (pair[1] === 'shelfOpacity') fx.shelfOpacity = clampRange(fx.shelfOpacity, 0.25, 1);
       if (pair[1] === 'shelfBgOpacity') fx.shelfBgOpacity = clampRange(fx.shelfBgOpacity, 0.25, 0.98);
       if (pair[1] === 'shelfDetailOffsetX') fx.shelfDetailOffsetX = clampRange(fx.shelfDetailOffsetX, -4.8, 4.8);

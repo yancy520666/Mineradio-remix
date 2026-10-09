@@ -2437,31 +2437,41 @@ function stageLyricUsesSingleLineSwap(mesh) {
   return mode === 'single' && !data.usesTrack;
 }
 
-// Align active lyrics with the focused shelf card or song row, retaining a slight 3D turn.
+// Beside-the-shelf placement. The lyrics are measured against the shelf's REST pose, seen from a settled
+// reference camera, rather than against the meshes and camera while they animate. They then run one timed
+// curve (as long as the shelf takes to appear) to a fixed spot next to the shelf, so scrolling, the camera
+// gliding in or the cards sliding in never push them around.
 var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08;
 var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
-var STAGE_LYRIC_SHELF_MIN_FIT = 0.6;
+var STAGE_LYRIC_SHELF_MIN_FIT = 0.5;
+var STAGE_LYRIC_SHELF_NOMINAL_ROOT_SCALE = 1.06;
+// With a detail list open the lyrics may reach into the song rows' left margin (they are drawn over the
+// rows, dimmed, so the overlap reads as transparency); this much of the screen, measured from the row's edge.
+var STAGE_LYRIC_DETAIL_OVERLAP_NDC = 0.12;
 var lyricShelfClampProbe = null;
 var lyricShelfClampRight = null;
 var lyricShelfCoverQuat = new THREE.Quaternion();
 var lyricShelfTurnQuat = new THREE.Quaternion();
+var lyricShelfRestQuat = new THREE.Quaternion();
+var lyricShelfSettledQuad = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+var lyricShelfProbeAxis = new THREE.Vector3();
+var lyricShelfRefCam = null;
+var lyricShelfPoseCam = null;
+var lyricShelfRefKey = '';
+// Camera the beside-the-shelf pose is measured with: the settled reference, or the live camera when the
+// lyrics ride the camera. Null means the live camera.
+var lyricShelfCam = null;
+function lyricShelfActiveCamera() { return lyricShelfCam || camera; }
 function stageLyricShelfHalfWidthNdc(target, worldW, centerZ) {
-  if (!camera || !target || typeof THREE === 'undefined') return 0;
+  var cam = lyricShelfActiveCamera();
+  if (!cam || !target || typeof THREE === 'undefined') return 0;
   if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
-  camera.updateMatrixWorld();
-  lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
+  cam.updateMatrixWorld();
+  lyricShelfClampProbe.copy(target).applyMatrix4(cam.matrixWorldInverse);
   var depth = -lyricShelfClampProbe.z - (Number(centerZ) || 0);
   if (!(depth > 0.2)) return 0;
-  var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
+  var halfWorld = depth * Math.tan((cam.fov || 50) * Math.PI / 360) * (cam.aspect || 1);
   return (worldW / 2) / halfWorld;
-}
-// 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 60%）
-function stageLyricShelfFit(target, worldW, centerZ, anchor) {
-  var half = stageLyricShelfHalfWidthNdc(target, worldW, centerZ);
-  if (!(half > 0)) return 1;
-  var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
-  var avail = Math.max(0.12, edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X) / 2;
-  return clampRange(avail / half, STAGE_LYRIC_SHELF_MIN_FIT, 1);
 }
 function stageLyricShelfCaptionMetrics() {
   var mesh = stageLyrics.current;
@@ -2476,7 +2486,9 @@ function stageLyricShelfCaptionMetrics() {
   }
   if (!primary) return { w: fallback.w, h: fallback.h, centerY: 0, centerZ: 0 };
   var width = 0, top = -Infinity, bottom = Infinity;
-  var rootScale = Number(mesh.scale.x) || 1;
+  // The block breathes and pulses with the music (root scale 0.96 - 1.06). Measure it at a fixed nominal
+  // scale, not the animated one, so the layout width does not jump with every beat; the slack covers the peaks.
+  var rootScale = STAGE_LYRIC_SHELF_NOMINAL_ROOT_SCALE;
   for (var j = 0; j < rows.length; j++) {
     var row = rows[j];
     if (row !== primary && !(row.isTranslation && row.tightParent === primary)) continue;
@@ -2495,26 +2507,19 @@ function stageLyricShelfCaptionMetrics() {
     centerZ: mesh.position.z + primary.mesh.position.z * rootScale };
 }
 
-function stageLyricShelfAnchor() {
-  if (!camera || !shelfManager) return null;
+// Left edge and vertical middle of the shelf's centred card (or the open list's centred row) at rest, in
+// screen units as seen from cam. The shelf managers own the rest-pose arithmetic.
+function stageLyricShelfAnchor(cam) {
+  cam = cam || lyricShelfActiveCamera();
+  if (!cam || !shelfManager) return null;
   var owner = shelfManager.hasOpenContent && shelfManager.hasOpenContent()
     && shelfManager.getContentList ? shelfManager.getContentList() : shelfManager;
-  if (!owner) return null;
-  var items = owner.getRows ? owner.getRows() : (owner.getCards ? owner.getCards() : []);
-  var index = owner.getCenterIdx ? owner.getCenterIdx() : 0;
-  var item = null;
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].mesh && items[i].mesh.visible && (!item || Math.abs(items[i].index - index) < Math.abs(item.index - index))) item = items[i];
-  }
-  if (!item) return null;
-  var mesh = item.mesh, geometry = mesh.geometry && mesh.geometry.parameters;
-  if (!geometry || !(geometry.width > 0 && geometry.height > 0)) return null;
-  mesh.updateWorldMatrix(true, false);
-  var left = Infinity, top = -Infinity, bottom = Infinity;
+  if (!owner || !owner.getSettledCenterQuad || !owner.getSettledCenterQuad(cam, lyricShelfSettledQuad)) return null;
   if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
+  cam.updateMatrixWorld();
+  var left = Infinity, top = -Infinity, bottom = Infinity;
   for (var corner = 0; corner < 4; corner++) {
-    lyricShelfClampProbe.set((corner & 1 ? 1 : -1) * geometry.width / 2, (corner & 2 ? 1 : -1) * geometry.height / 2, 0)
-      .applyMatrix4(mesh.matrixWorld).project(camera);
+    lyricShelfClampProbe.copy(lyricShelfSettledQuad[corner]).project(cam);
     if (!isFinite(lyricShelfClampProbe.x) || !isFinite(lyricShelfClampProbe.y) || Math.abs(lyricShelfClampProbe.z) > 1) return null;
     left = Math.min(left, lyricShelfClampProbe.x); top = Math.max(top, lyricShelfClampProbe.y); bottom = Math.min(bottom, lyricShelfClampProbe.y);
   }
@@ -2524,66 +2529,165 @@ var STAGE_LYRIC_SHELF_FLIP_SECONDS = 0.62;
 var STAGE_LYRIC_SHELF_TURN_DEG = 30;
 var STAGE_LYRIC_SHELF_FLIP_OVERSHOOT_DEG = 12;
 var STAGE_LYRIC_SHELF_FLIP_DEPTH = 0.32;
-var STAGE_LYRIC_SHELF_ANCHOR_SETTLE_SECONDS = 0.9;
 var lyricShelfFlipTarget = null;
 var lyricShelfFlipDepthDir = null;
+// Same S-curve the shelf cards use to appear (smoothstep), so lyrics and shelf start and land together.
 function stageLyricShelfFlipEase(t) {
   t = clampRange(Number(t) || 0, 0, 1);
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  return t * t * (3 - 2 * t);
 }
-// The shelf's exclusion edge is measured while it animates in, then held: scrolling or focusing
-// other cards no longer pushes the lyrics around. Reopening, toggling a detail list or resizing
-// measures again.
-function stageLyricStableShelfAnchor(detailOpen, dt) {
-  var key = (detailOpen ? 'detail' : 'cards') + '|' + innerWidth + 'x' + innerHeight;
-  var state = stageLyrics.shelfAnchorState;
-  if (!state || state.key !== key) state = stageLyrics.shelfAnchorState = { key: key, age: 0, anchor: null };
-  state.age += Number(dt) || 0;
-  if (!state.anchor || state.age < STAGE_LYRIC_SHELF_ANCHOR_SETTLE_SECONDS) {
-    var measured = stageLyricShelfAnchor();
-    if (measured) {
-      state.anchor = state.anchor
-        ? { left: state.anchor.left + (measured.left - state.anchor.left) * 0.3, centerY: state.anchor.centerY + (measured.centerY - state.anchor.centerY) * 0.3 }
-        : measured;
-    }
+// The flip lasts as long as the shelf takes to appear / leave (the 歌单架出现 / 收起 durations).
+function stageLyricShelfFlipSeconds(opening) {
+  var summon = typeof shelfSummonSettings === 'function' ? shelfSummonSettings() : null;
+  var seconds = summon ? (opening ? summon.openDuration : summon.closeDuration) : STAGE_LYRIC_SHELF_FLIP_SECONDS;
+  return opening ? clampRange(seconds, 0.2, 1.6) : clampRange(seconds, 0.16, 1.2);
+}
+// The shelf focus the camera is gliding to, or null while it is not heading anywhere (static camera mode,
+// free camera, shelf not pinned, view reset). Read from the camera's own focus so the two cannot disagree.
+function stageLyricShelfIntendedFocus() {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return null;
+  if (typeof freeCamera !== 'undefined' && freeCamera && (freeCamera.active || freeCamera.locked)) return null;
+  var focus = orbit && orbit.focus;
+  return focus && focus.active && (focus.type === 'shelf-side' || focus.type === 'shelf-detail') ? focus.type : null;
+}
+// A camera parked on the pose the shelf focus settles on. The live camera glides there over half a
+// second; measuring against the glide would drag the lyrics along with it. It follows the live camera
+// while no focus is coming, and eases only when the intended focus changes under lyrics already in place.
+function stageLyricShelfReferenceCamera(dt, fresh, avoiding) {
+  if (!camera || typeof THREE === 'undefined') return null;
+  if (!lyricShelfRefCam) { lyricShelfRefCam = new THREE.PerspectiveCamera(); lyricShelfPoseCam = new THREE.PerspectiveCamera(); }
+  var ref = lyricShelfRefCam, pose = lyricShelfPoseCam;
+  var type = stageLyricShelfIntendedFocus();
+  var key = type || 'live';
+  // The shelf has been closed: the lyrics fly back along the view they left from, not the camera gliding home.
+  if (!fresh && key === 'live' && lyricShelfRefKey !== 'live' && !avoiding) return ref;
+  var spec = type ? shelfFocusPose(type) : null;
+  if (spec) {
+    var cy = Math.cos(spec.phi), sy = Math.sin(spec.phi), ct = Math.cos(spec.theta), st = Math.sin(spec.theta);
+    pose.position.set(spec.x + spec.radius * cy * st, spec.y + spec.radius * sy, spec.z + spec.radius * cy * ct);
+    pose.up.set(0, 1, 0);
+    pose.lookAt(spec.x, spec.y, spec.z);
+    pose.fov = BASE_FOV;
+  } else {
+    pose.position.copy(camera.position);
+    pose.quaternion.copy(camera.quaternion);
+    pose.fov = camera.fov;
   }
+  var ease = fresh || (key === 'live' && lyricShelfRefKey === 'live') ? 1 : durationEaseFactor(0.16, dt);
+  ref.position.lerp(pose.position, ease);
+  ref.quaternion.slerp(pose.quaternion, ease);
+  ref.fov += (pose.fov - ref.fov) * ease;
+  ref.aspect = camera.aspect;
+  ref.near = camera.near;
+  ref.far = camera.far;
+  ref.updateProjectionMatrix();
+  ref.updateMatrixWorld(true);
+  lyricShelfRefKey = key;
+  return ref;
+}
+// The shelf anchor is the measurement, held exactly while the shelf keeps still. It only eases when the
+// measurement itself moves under lyrics already in place (a detail list opening, a slider, a resize).
+// 歌词左右 / 歌词上下 shift it on screen.
+function stageLyricStableShelfAnchor(dt, cam) {
+  var measured = stageLyricShelfAnchor(cam);
+  var state = stageLyrics.shelfAnchorState;
+  if (!measured) return state ? state.anchor : null;
+  var offsetX = clampRange(Number(fx && fx.lyricShelfOffsetX) || 0, -0.5, 0.5);
+  var offsetY = clampRange(Number(fx && fx.lyricShelfOffsetY) || 0, -0.5, 0.5);
+  var detailOpen = typeof shelfManager !== 'undefined' && shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent();
+  var overlap = detailOpen ? STAGE_LYRIC_DETAIL_OVERLAP_NDC : 0;
+  measured = { left: clampRange(measured.left + overlap + offsetX, -0.9, 0.9), centerY: clampRange(measured.centerY + offsetY, -0.9, 0.9) };
+  if (!state) { stageLyrics.shelfAnchorState = { anchor: measured }; return measured; }
+  var ease = durationEaseFactor(0.2, dt);
+  state.anchor = {
+    left: state.anchor.left + (measured.left - state.anchor.left) * ease,
+    centerY: state.anchor.centerY + (measured.centerY - state.anchor.centerY) * ease
+  };
   return state.anchor;
 }
+// The point the shelf pose is offset from: the cover's position, or the point in front of the camera the
+// camera-locked lyrics ride. Built from stable inputs, never from the block's current position.
+function stageLyricShelfBasePosition(out, cameraLocked, lockDistance) {
+  if (cameraLocked && camera) {
+    camera.getWorldDirection(lyricShelfProbeAxis);
+    out.copy(camera.position).addScaledVector(lyricShelfProbeAxis, lockDistance);
+  } else if (typeof particles !== 'undefined' && particles) {
+    particles.updateMatrixWorld(true);
+    particles.getWorldPosition(out);
+  } else {
+    out.set(0, 0, 0);
+  }
+  return out;
+}
 // Writes the settled beside-the-shelf pose: position into lyricShelfFlipTarget, turn into lyricShelfTurnQuat.
+// x / y / z are offsets along the reference view's right / up / toward-the-viewer axes.
 function stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, caption, anchor) {
   if (!lyricShelfFlipTarget) { lyricShelfFlipTarget = new THREE.Vector3(); lyricShelfFlipDepthDir = new THREE.Vector3(); }
   lyricShelfFlipTarget.copy(base);
+  var cam = lyricShelfActiveCamera();
+  lyricCameraRight.setFromMatrixColumn(cam.matrixWorld, 0).normalize();
+  lyricCameraUp.setFromMatrixColumn(cam.matrixWorld, 1).normalize();
+  lyricCameraDir.setFromMatrixColumn(cam.matrixWorld, 2).normalize();
   applyStageLyricLayoutOffset(lyricShelfFlipTarget, x, y, z);
   stageLyricTargetQuaternion(turnBaseQuat, tiltX, clampRange(tiltY, -84, 84));
   lyricShelfTurnQuat.copy(lyricTargetQuat);
-  setStageLyricViewBasisFromCameraOrQuaternion(null);
   clampStageLyricTargetForShelf(lyricShelfFlipTarget, worldW, caption, lyricShelfTurnQuat, anchor);
+}
+// 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 50%）。
+// Solved on the real projected block: it is placed beside the shelf (turn and depth included) and measured
+// there, twice, because shrinking it moves it. A line that fits is not shrunk for room it does not need.
+function stageLyricShelfFit(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, caption, anchor) {
+  var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
+  var avail = Math.max(0.24, edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X);
+  var fit = 1;
+  for (var pass = 0; pass < 2; pass++) {
+    var scaled = { centerY: (caption ? caption.centerY || 0 : 0) * fit, centerZ: (caption ? caption.centerZ || 0 : 0) * fit, h: (caption ? caption.h || 0 : 0) * fit };
+    stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW * fit, scaled, anchor);
+    var rect = stageLyricShelfProjectedCaption(lyricShelfFlipTarget, worldW * fit, scaled, lyricShelfTurnQuat);
+    var width = rect.right - rect.left;
+    if (!(width > 0) || !isFinite(width)) return fit;
+    fit = clampRange(fit * avail / width, STAGE_LYRIC_SHELF_MIN_FIT, 1);
+  }
+  return fit;
+}
+// Where the flip starts from. While the shelf opens the lyrics leave the pose they were dragged to and
+// head straight for the spot beside the shelf; the cover turning back to centre underneath must not
+// carry them through the middle first. While it closes the start hands over to the live resting pose.
+function stageLyricShelfSourcePose(restPos, restQuat, follow) {
+  var from = stageLyrics.shelfFrom;
+  if (!from || !from.ready || !(follow < 1)) return;
+  restPos.lerpVectors(from.pos, restPos, follow);
+  lyricShelfRestQuat.copy(restQuat);
+  restQuat.copy(from.quat).slerp(lyricShelfRestQuat, follow);
 }
 // Blends from the resting pose (target + lyricShelfCoverQuat) to the shelf pose along the flip
 // curve; mid-flip the block swings slightly away from the camera so it reads as a turn, not a slide.
 function blendStageLyricShelfFlip(target, mix, arc) {
   target.lerp(lyricShelfFlipTarget, mix);
-  if (camera && arc > 0) {
-    camera.getWorldDirection(lyricShelfFlipDepthDir);
+  var cam = lyricShelfActiveCamera();
+  if (cam && arc > 0) {
+    cam.getWorldDirection(lyricShelfFlipDepthDir);
     target.addScaledVector(lyricShelfFlipDepthDir, arc * STAGE_LYRIC_SHELF_FLIP_DEPTH);
   }
   lyricTargetQuat.slerpQuaternions(lyricShelfCoverQuat, lyricShelfTurnQuat, mix);
 }
 function stageLyricShelfProjectedCaption(target, worldW, caption, quat) {
+  var cam = lyricShelfActiveCamera();
   var centerY = caption ? caption.centerY || 0 : 0, centerZ = caption ? caption.centerZ || 0 : 0;
   var halfHeight = caption ? (caption.h || 0) / 2 : 0;
   var left = Infinity, right = -Infinity, top = -Infinity, bottom = Infinity;
   for (var corner = 0; corner < 4; corner++) {
     lyricShelfClampProbe.set((corner & 1 ? 1 : -1) * worldW / 2, centerY + (corner & 2 ? halfHeight : -halfHeight), centerZ);
     if (quat) lyricShelfClampProbe.applyQuaternion(quat);
-    lyricShelfClampProbe.add(target).project(camera);
+    lyricShelfClampProbe.add(target).project(cam);
     left = Math.min(left, lyricShelfClampProbe.x); right = Math.max(right, lyricShelfClampProbe.x);
     top = Math.max(top, lyricShelfClampProbe.y); bottom = Math.min(bottom, lyricShelfClampProbe.y);
   }
   return { left: left, right: right, centerY: (top + bottom) / 2 };
 }
 function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
-  if (!(stageLyricShelfHalfWidthNdc(target, worldW, caption && caption.centerZ) > 0)) return false;
+  var cam = lyricShelfActiveCamera();
+  if (!cam || !(stageLyricShelfHalfWidthNdc(target, worldW, caption && caption.centerZ) > 0)) return false;
   var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
   var wantedY = anchor ? anchor.centerY : -0.08;
   // Reproject after moving: yaw gives each edge a different perspective depth.
@@ -2591,12 +2695,12 @@ function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
     var rect = stageLyricShelfProjectedCaption(target, worldW, caption, quat);
     if (!isFinite(rect.right + rect.centerY)) return false;
     var available = edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X;
-    var overlap = Math.min(0.10, Math.max(0, rect.right - rect.left - available) * 0.5);
-    lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
-    var halfHeight = Math.max(0.2, -lyricShelfClampProbe.z - (caption ? caption.centerZ || 0 : 0)) * Math.tan((camera.fov || 50) * Math.PI / 360);
-    lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
-    target.addScaledVector(lyricShelfClampRight, (edge + overlap - rect.right) * halfHeight * (camera.aspect || 1));
-    lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 1);
+    var overlap = Math.min(0.05, Math.max(0, rect.right - rect.left - available) * 0.5);
+    lyricShelfClampProbe.copy(target).applyMatrix4(cam.matrixWorldInverse);
+    var halfHeight = Math.max(0.2, -lyricShelfClampProbe.z - (caption ? caption.centerZ || 0 : 0)) * Math.tan((cam.fov || 50) * Math.PI / 360);
+    lyricShelfClampRight.setFromMatrixColumn(cam.matrixWorld, 0);
+    target.addScaledVector(lyricShelfClampRight, (edge + overlap - rect.right) * halfHeight * (cam.aspect || 1));
+    lyricShelfClampRight.setFromMatrixColumn(cam.matrixWorld, 1);
     target.addScaledVector(lyricShelfClampRight, (wantedY - rect.centerY) * halfHeight);
   }
   return true;
@@ -2618,7 +2722,9 @@ function updateStageLyricLayout(dt) {
   var skullShelfDetailOpen = !!(fx && fx.preset === SKULL_PRESET_INDEX && shelfDetailOpen);
   var normalShelfDetailOpen = !!(shelfDetailOpen && !skullShelfDetailOpen);
   var multiLayerLyricsActive = normalizeLyricDisplayMode(fx && fx.lyricDisplayMode) !== 'single' || normalizeLyricTranslationMode(fx && fx.lyricTranslationMode) !== 'off';
-  var stageLyricRenderBase = shelfDetailOpen ? 24 : 260;
+  // Behind everything while the shelf only previews; over the song rows (240-324) and panel (320) once a
+  // detail list is open, where the dimmed lyrics may overlap the rows.
+  var stageLyricRenderBase = shelfDetailOpen ? 340 : 260;
   stageLyrics.group.renderOrder = stageLyricRenderBase;
   var shelfDetailLyricProfile = shelfDetailOpen ? {
     opacity: skullShelfDetailOpen ? 0.30 : 0.38,
@@ -2643,17 +2749,33 @@ function updateStageLyricLayout(dt) {
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
   // Opening the shelf flips the lyrics to its left on one timed curve (position, turn and a small
-  // overshoot together) instead of an exponential slide; closing plays it backwards.
+  // overshoot together) that lasts as long as the shelf takes to appear, so the two move as one;
+  // closing plays it backwards over the shelf's closing time.
   var shelfFlipEligible = !wallpaperLyricLock && !skullMouthLyrics;
+  var shelfFlipSeconds = stageLyricShelfFlipSeconds(shelfLyricAvoid);
   if (!isFinite(stageLyrics.shelfFlipT)) stageLyrics.shelfFlipT = 0;
   stageLyrics.shelfFlipT = shelfFlipEligible
-    ? clampRange(stageLyrics.shelfFlipT + (shelfLyricAvoid ? 1 : -1) * layoutDt / STAGE_LYRIC_SHELF_FLIP_SECONDS, 0, 1)
+    ? clampRange(stageLyrics.shelfFlipT + (shelfLyricAvoid ? 1 : -1) * layoutDt / shelfFlipSeconds, 0, 1)
     : 0;
   var shelfFlip = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
   var shelfFlipArc = Math.sin(Math.PI * shelfFlip);
   var shelfFlipActive = shelfFlipEligible && (shelfLyricAvoid || stageLyrics.shelfFlipT > 0);
   var shelfLayoutMix = shelfFlipEligible ? shelfFlip : stageLyrics.shelfLayoutMix;
-  if (!shelfFlipActive) { stageLyrics.shelfAnchorState = null; stageLyrics.shelfRefW = 0; }
+  // A fresh engagement: the shelf lyrics were at rest a frame ago. Remember the pose they leave from.
+  var shelfFrom = stageLyrics.shelfFrom || (stageLyrics.shelfFrom = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), ready: false, follow: 0 });
+  var shelfFresh = shelfFlipActive && !shelfFrom.ready;
+  if (!shelfFlipActive) {
+    shelfFrom.ready = false;
+    stageLyrics.shelfAnchorState = null;
+    stageLyrics.shelfRefW = 0;
+  } else if (shelfFresh) {
+    shelfFrom.pos.copy(stageLyrics.group.position);
+    shelfFrom.quat.copy(stageLyrics.group.quaternion);
+    shelfFrom.ready = true;
+    shelfFrom.follow = 0;
+  } else if (!shelfLyricAvoid) {
+    shelfFrom.follow = Math.min(1, shelfFrom.follow + layoutDt / shelfFlipSeconds);
+  }
   var shelfLyricShifted = false;
   var shelfScaleMul = 1, shelfDX = 0, shelfDY = 0, shelfDZ = 0;
   if (wallpaperLyricLock) {
@@ -2697,7 +2819,11 @@ function updateStageLyricLayout(dt) {
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
   var stageLyricFinalScale = layoutScale * stageLyrics.lockFitScale;
   var shelfLyricWorldW = 0;
-  var shelfAnchor = shelfLyricShifted ? stageLyricStableShelfAnchor(shelfDetailOpen, layoutDt) : null;
+  // Measure the shelf from the view it settles on, not from the camera while it glides there.
+  var shelfRefCamera = shelfLyricShifted ? stageLyricShelfReferenceCamera(layoutDt, shelfFresh || !stageLyrics.shelfEngaged, shelfLyricAvoid) : null;
+  stageLyrics.shelfEngaged = shelfLyricShifted;
+  lyricShelfCam = shelfFlipActive && !cameraLockedLyrics ? shelfRefCamera : null;
+  var shelfAnchor = shelfLyricShifted ? stageLyricStableShelfAnchor(layoutDt, shelfRefCamera) : null;
   var shelfCaption = shelfLyricShifted && !skullMouthLyrics ? stageLyricShelfCaptionMetrics() : null;
   var shelfFinalScale = stageLyricFinalScale;
   if (shelfLyricShifted && !skullMouthLyrics) {
@@ -2707,9 +2833,14 @@ function updateStageLyricLayout(dt) {
     refW = Math.max(shelfCaption.w, refW - (refW - shelfCaption.w) * Math.min(1, layoutDt * 0.08));
     stageLyrics.shelfRefW = refW;
     shelfFinalScale = stageLyricFinalScale * (shelfFlipEligible ? shelfScaleMul : 1);
-    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, refW * shelfFinalScale, shelfCaption.centerZ * shelfFinalScale, shelfAnchor);
+    var shelfFitTarget = stageLyricShelfFit(stageLyricShelfBasePosition(lyricLayoutBase, cameraLockedLyrics, lockBaseDistance),
+      shelfX, shelfY, cameraLockedLyrics ? -shelfZ : shelfZ, lyricShelfActiveCamera().quaternion, layoutTiltX, layoutTiltY - STAGE_LYRIC_SHELF_TURN_DEG,
+      refW * shelfFinalScale, { centerY: shelfCaption.centerY * shelfFinalScale, centerZ: shelfCaption.centerZ * shelfFinalScale, h: shelfCaption.h * shelfFinalScale },
+      shelfAnchor);
     if (!isFinite(stageLyrics.shelfFitScale)) stageLyrics.shelfFitScale = 1;
-    stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * 0.18;
+    // Land on the fit at once while the flip is still running (it scales along the same curve); only a
+    // longer line arriving later on a settled shelf eases in.
+    stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * (shelfFlip < 1 ? 1 : 0.18);
     shelfFinalScale *= stageLyrics.shelfFitScale;
     shelfLyricWorldW = refW * shelfFinalScale;
     shelfCaption.centerY *= shelfFinalScale;
@@ -2756,13 +2887,14 @@ function updateStageLyricLayout(dt) {
     stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
     if (shelfLyricShifted && shelfFlipEligible) {
       lyricShelfCoverQuat.copy(lyricTargetQuat);
-      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, shelfZ, camera.quaternion, layoutTiltX, layoutTiltY - shelfTurn,
+      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, -shelfZ, camera.quaternion, layoutTiltX, layoutTiltY - shelfTurn,
         shelfLyricWorldW, shelfCaption, shelfAnchor);
       blendStageLyricShelfFlip(lyricCameraTarget, shelfFlip, shelfFlipArc);
     } else if (shelfLyricShifted) {
       clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
     }
-    if (stageLyrics.snapCameraLockFrames > 0) {
+    if (stageLyrics.snapCameraLockFrames > 0 || (shelfFlipActive && shelfFlipEligible)) {
+      // While the shelf flip runs the timed curve owns the motion; chasing it with another ease would lag it.
       stageLyrics.group.position.copy(lyricCameraTarget);
       stageLyrics.group.quaternion.copy(lyricTargetQuat);
       if (stageLyrics.snapCameraLockFrames > 0) stageLyrics.snapCameraLockFrames -= 1;
@@ -2790,7 +2922,9 @@ function updateStageLyricLayout(dt) {
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
     if (camera && shelfLyricShifted) {
       lyricShelfCoverQuat.copy(lyricTargetQuat);
-      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, shelfZ, camera.quaternion, layoutTiltX, layoutTiltY - shelfTurn,
+      // Leave from where the lyrics are (possibly dragged away), not from the centre the cover is turning back to.
+      stageLyricShelfSourcePose(lyricLayoutTarget, lyricShelfCoverQuat, shelfFrom.follow);
+      stageLyricShelfFlipTarget(lyricLayoutBase, shelfX, shelfY, shelfZ, lyricShelfActiveCamera().quaternion, layoutTiltX, layoutTiltY - shelfTurn,
         shelfLyricWorldW, shelfCaption, shelfAnchor);
       blendStageLyricShelfFlip(lyricLayoutTarget, shelfFlip, shelfFlipArc);
     }

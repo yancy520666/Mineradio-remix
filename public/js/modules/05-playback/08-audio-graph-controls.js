@@ -309,8 +309,13 @@ async function ensurePlaybackAudioGraph(reason) {
 function ensureUiSfxContext() {
   var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) return null;
-  if (!uiSfxCtx || uiSfxCtx.state === 'closed') uiSfxCtx = new AudioContextCtor();
-  applyAudioOutputDevice(audio);
+  if (!uiSfxCtx || uiSfxCtx.state === 'closed') {
+    uiSfxCtx = new AudioContextCtor();
+    // Route it to the chosen output once, when it is created. Re-applying the sink on every tick
+    // re-opened the device in the middle of a scroll and swallowed ticks at random; a device change
+    // goes through setAudioOutputDevice, which already covers this context.
+    applyAudioOutputDevice(audio);
+  }
   if (uiSfxCtx.state === 'suspended' && uiSfxCtx.resume) uiSfxCtx.resume().catch(function () { });
   return uiSfxCtx;
 }
@@ -322,6 +327,15 @@ function playShelfSelectTick(direction, variant) {
   var ctx = ensureUiSfxContext();
   if (!ctx) return;
   lastShelfSelectSfxAt = nowMs;
+  if (ctx.state === 'running') { renderShelfSelectTick(ctx, direction, variant); return; }
+  // A context that was just created or suspended renders nothing, and its clock stands still, until
+  // resume() settles. Scheduling the tick now would play it late or lose it to the cleanup timer, so
+  // wait for the resume and drop the tick if it takes too long to still feel attached to the scroll.
+  ctx.resume().then(function () {
+    if (ctx.state === 'running' && performance.now() - nowMs < 240) renderShelfSelectTick(ctx, direction, variant);
+  }).catch(function () { });
+}
+function renderShelfSelectTick(ctx, direction, variant) {
   var dir = direction < 0 ? -1 : 1;
   var pitch = dir > 0 ? 1.035 : 0.965;
   var rowScale = variant === 'row' ? 0.74 : 1.0;

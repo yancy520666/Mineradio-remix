@@ -224,6 +224,10 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-shelfopacity', '整体透明度', '歌单架透明'),
         fxConsoleItem('fx-shelfbgalpha', '背景透明度', '歌单架背景')
       ] },
+      { key: 'lyric-beside', title: '歌词让位位置', hint: '歌单架打开时，歌词停在它旁边的位置', items: [
+        fxConsoleItem('fx-lyricshelfx', '歌词左右', '歌词偏转 让位 水平 歌单架旁边'),
+        fxConsoleItem('fx-lyricshelfy', '歌词上下', '歌词偏转 让位 垂直 歌单架旁边')
+      ] },
       { key: 'detail-position', title: '详情页位置', hint: '详情页位置、比例、角度与行距', items: [
         fxConsoleItem('fx-shelfdetailx', '详情左右', '详情页水平'),
         fxConsoleItem('fx-shelfdetaily', '详情上下', '详情页垂直'),

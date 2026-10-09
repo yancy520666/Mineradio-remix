@@ -34,11 +34,14 @@ function makeContentListManager() {
   var detailCameraRight = new THREE.Vector3();
   var detailCameraUp = new THREE.Vector3();
   var detailCameraPos = new THREE.Vector3();
+  var settledGroup = new THREE.Object3D();
+  var settledRow = new THREE.Object3D();
+  var settledMatrix = new THREE.Matrix4();
   function detailLayout() {
     return shelfLayoutProfile().detail || DETAIL_BASE;
   }
-  function placeDynamicDetailFromCamera(layout, intro, parX, parY) {
-    if (!group || !camera) return false;
+  // Where the detail group sits relative to `cam`: it rides in front of the camera, so it keeps its place on screen.
+  function detailCameraPosition(layout, intro, parX, parY, cam, out) {
     var portrait = isPortraitShelfViewport();
     var narrow = !portrait && innerWidth < 980;
     var introMix = intro * (layout.intro == null ? 1 : layout.intro);
@@ -53,14 +56,17 @@ function makeContentListManager() {
     upOffset -= introMix * (portrait ? 0.050 : 0.040);
     upOffset += parY * (portrait ? 0.042 : 0.045) * parallax;
     distance += introMix * 0.12 + parY * 0.018 * parallax - parX * 0.012 * parallax;
-    camera.getWorldDirection(detailCameraDir);
-    detailCameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-    detailCameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
-    detailCameraPos.copy(camera.position)
+    cam.getWorldDirection(detailCameraDir);
+    detailCameraRight.set(1, 0, 0).applyQuaternion(cam.quaternion).normalize();
+    detailCameraUp.set(0, 1, 0).applyQuaternion(cam.quaternion).normalize();
+    return out.copy(cam.position)
       .addScaledVector(detailCameraDir, distance)
       .addScaledVector(detailCameraRight, rightOffset)
       .addScaledVector(detailCameraUp, upOffset);
-    group.position.copy(detailCameraPos);
+  }
+  function placeDynamicDetailFromCamera(layout, intro, parX, parY) {
+    if (!group || !camera) return false;
+    group.position.copy(detailCameraPosition(layout, intro, parX, parY, camera, detailCameraPos));
     return true;
   }
 
@@ -959,6 +965,40 @@ function makeContentListManager() {
       }
     },
     getRows: function () { return rows; },
+    // World corners of the centred row once the open animation has settled (the same arithmetic as
+    // update() and place() with the intro, parallax and cover turn at zero), seen from `cam`.
+    getSettledCenterQuad: function (cam, out) {
+      if (!group || !open || !cam) return false;
+      var geometry = null;
+      for (var i = 0; i < rows.length && !geometry; i++) {
+        var params = rows[i].mesh && rows[i].mesh.geometry && rows[i].mesh.geometry.parameters;
+        if (params && params.width > 0 && params.height > 0) geometry = params;
+      }
+      if (!geometry) return false;
+      var layout = detailLayout();
+      var skullDetail = shouldUseSkullSafeShelfCamera();
+      var dynamicDetail = !skullDetail && shouldUseShelfDynamicCamera('shelf-detail');
+      if (dynamicDetail) detailCameraPosition(layout, 0, 0, 0, cam, settledGroup.position);
+      else settledGroup.position.set(layout.x, layout.y, layout.z);
+      settledGroup.scale.setScalar(layout.scale);
+      if (skullDetail || dynamicDetail) {
+        settledGroup.quaternion.copy(cam.quaternion);
+        settledGroup.rotateX(layout.rx);
+        settledGroup.rotateY(layout.ry);
+      } else {
+        settledGroup.rotation.set(layout.rx, layout.ry, 0);
+      }
+      settledGroup.matrix.compose(settledGroup.position, settledGroup.quaternion, settledGroup.scale);
+      settledRow.position.set(skullDetail ? 0.22 : -0.04, 0, 0.62);
+      settledRow.rotation.set(skullDetail ? 0.010 : 0, skullDetail ? -0.070 : 0.10, 0);
+      settledRow.scale.setScalar(layout.rowScale);
+      settledRow.matrix.compose(settledRow.position, settledRow.quaternion, settledRow.scale);
+      settledMatrix.multiplyMatrices(settledGroup.matrix, settledRow.matrix);
+      for (var corner = 0; corner < 4; corner++) {
+        out[corner].set((corner & 1 ? 1 : -1) * geometry.width / 2, (corner & 2 ? 1 : -1) * geometry.height / 2, 0).applyMatrix4(settledMatrix);
+      }
+      return true;
+    },
     getCenterIdx: function () { return Math.round(centerSmooth); },
     pulseRow: function (row, amount) {
       if (!row) return;
