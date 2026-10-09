@@ -2680,7 +2680,7 @@ function updateStageLyricLayout(dt) {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
-    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY + 17 * shelfLayoutMix, -84, 84));
+    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY - 17 * shelfLayoutMix, -84, 84));
     if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
@@ -2710,7 +2710,7 @@ function updateStageLyricLayout(dt) {
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
     if (camera && shelfLayoutMix > 0.001) {
       lyricShelfCoverQuat.copy(lyricTargetQuat);
-      stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY + 17, -84, 84));
+      stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY - 17, -84, 84));
       lyricShelfTurnQuat.copy(lyricTargetQuat);
       lyricTargetQuat.slerpQuaternions(lyricShelfCoverQuat, lyricShelfTurnQuat, shelfLayoutMix);
     }

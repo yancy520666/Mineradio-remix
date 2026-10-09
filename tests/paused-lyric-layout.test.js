@@ -31,7 +31,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
   c.updateStageLyricLayout(); shelf = true;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
   assert(group.position.x < -0.3);
-  assert(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y > 10 * Math.PI / 180, 'opening retains a visible 3D side turn');
+  assert(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y < -10 * Math.PI / 180, 'opening retains a visible 3D side turn');
   shelf = false;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
   assert(Math.abs(group.position.x) < .01);

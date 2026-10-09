@@ -81,9 +81,9 @@ test('native QQ requests restore the device used by QR authorization, with web l
  try{
  const {nativeCommForCookie}=require('../desktop/qq-native-qr');
  const comm=nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'6'});
- assert.equal(comm.ct,11);assert.equal(comm.QIMEI,'fixture-qimei');assert.equal(comm.authst,'fixture-key');assert.equal(comm.tmeLoginType,6);
+ assert.equal(comm.ct,'11');assert.equal(comm.QIMEI,undefined);assert.equal(comm.QIMEI36,'fixture-qimei36');assert.equal(comm.authst,'fixture-key');assert.equal(comm.tmeLoginType,'6');
  assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key'}),null);
- assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'1',mineradio_qq_native:'1'}).tmeLoginType,1);
+ assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'1',mineradio_qq_native:'1'}).tmeLoginType,'1');
  // A web-login cookie can carry its own tmeLoginType; without the App QR marker it keeps the web route.
  assert.equal(nativeCommForCookie({uin:'123',qm_keyst:'fixture-key',tmeLoginType:'2'}),null);
  }finally{if(previous===undefined)delete process.env.QQ_NATIVE_DEVICE_FILE;else process.env.QQ_NATIVE_DEVICE_FILE=previous;fs.rmSync(dir,{recursive:true,force:true});}

@@ -133,7 +133,7 @@ test('shelf caption follows the focused card or song row and projects its tilted
     var detail=false, shelfManager={hasOpenContent:()=>detail,getCards:()=>[{index:0,mesh:card}],getCenterIdx:()=>0,
       getContentList:()=>({getRows:()=>[{index:0,mesh:row}],getCenterIdx:()=>0})};`,ctx);
   const verify = () => vm.runInContext(`(function(){
-    var anchor=stageLyricShelfAnchor(), q=new THREE.Quaternion().setFromEuler(new THREE.Euler(.06,17*Math.PI/180,0,'YXZ'));
+    var anchor=stageLyricShelfAnchor(), q=new THREE.Quaternion().setFromEuler(new THREE.Euler(.06,-17*Math.PI/180,0,'YXZ'));
     var target=new THREE.Vector3(0,1,0), caption={h:.6,centerY:.3,centerZ:.1};
     clampStageLyricTargetForShelf(target,1.1,caption,q,anchor);
     var short=stageLyricShelfProjectedCaption(target,1.1,caption,q);
