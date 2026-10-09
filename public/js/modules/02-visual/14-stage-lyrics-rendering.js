@@ -2497,22 +2497,22 @@ function updateStageLyricLayout() {
   var shelfLyricShifted = false;
   if (wallpaperLyricLock) {
     shelfLyricShifted = wallpaperShelfLyrics;
-    layoutScale *= wallpaperShelfLyrics ? 0.78 : 0.84;
-    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.96 : 0), -4.0, 4.0);
+    layoutScale *= wallpaperShelfLyrics ? 0.84 : 0.88;
+    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.92 : 0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -2.4, 2.7);
-    layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 1.02 : 1.15), -3.2, 3.2);
+    layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 0.55 : 0.80), -3.2, 3.2);
   } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
     shelfLyricShifted = true;
-    layoutScale *= 0.86;
-    layoutX = clampRange(layoutX - 0.96, -4.0, 4.0);
+    layoutScale *= 0.88;
+    layoutX = clampRange(layoutX - 0.90, -4.0, 4.0);
     layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
-    layoutZ = clampRange(layoutZ + 0.72, -3.2, 3.2);
+    layoutZ = clampRange(layoutZ + 0.32, -3.2, 3.2);
   } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
     shelfLyricShifted = true;
-    layoutScale *= normalShelfDetailOpen ? 0.82 : 0.84;
-    layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.05 : 1.0), -4.0, 4.0);
+    layoutScale *= normalShelfDetailOpen ? 0.86 : 0.88;
+    layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.06 : 1.00), -4.0, 4.0);
     layoutY = clampRange(layoutY + (normalShelfDetailOpen ? 0.18 : 0.08), -2.4, 2.7);
-    layoutZ = clampRange(layoutZ + 0.84, -3.2, 3.2);
+    layoutZ = clampRange(layoutZ + 0.36, -3.2, 3.2);
   }
   if (skullMouthLyrics) {
     layoutScale *= skullShelfDetailOpen ? 0.52 : (shelfLyricAvoid ? 0.58 : 0.66);

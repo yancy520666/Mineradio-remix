@@ -821,7 +821,7 @@ async function importBrowserCookieLogin() {
   var armed = browserCookieImportArmed;
   if (!armed || armed.provider !== provider || armed.until < Date.now()) {
     browserCookieImportArmed = { provider: provider, until: Date.now() + 10000 };
-    setStatus('将只读取本机 Edge、Chrome 或 Firefox 里的' + label + '登录信息，保存在本机，不会上传。再点一次“从浏览器导入”确认。', 'preview');
+    setStatus('将只读取本机 Edge、Chrome、Brave 或 Firefox 里的' + label + '登录信息，保存在本机，不会上传。再点一次“从浏览器导入”确认。', 'preview');
     return;
   }
   browserCookieImportArmed = null;
