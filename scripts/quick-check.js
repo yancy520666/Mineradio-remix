@@ -2990,9 +2990,10 @@ function checkAudioOutputWorkflowPanelGuard() {
   if (!/id="audio-output-workflow-modal"/.test(indexText) || !/id="audio-output-workflow-body"/.test(indexText) || !/openAudioOutputWorkflowPanel\(\)/.test(indexText)) {
     fail('audio output workflow must have a dedicated derivative modal entry instead of only the compact settings panel');
   }
-  if (!/function openAudioOutputWorkflowPanel/.test(qualityText) || !/function closeAudioOutputWorkflowPanel/.test(qualityText) || !/renderAudioRouteWorkflowEdgesForRoot/.test(qualityText) || !/document\.querySelectorAll\('\.audio-route-graph'\)/.test(qualityText) || !/audio-output-summary-card/.test(qualityText) || !/audio-route-board-head/.test(qualityText) || !/route-board-title/.test(qualityText) || !/route-lane-state/.test(qualityText) || !/audio-source-meter/.test(qualityText) || !/sortedRouteItems/.test(qualityText) || !/audioOutputMirrorRuntime/.test(qualityText) || !/audioOutputMirrorStatusText/.test(qualityText) || !/实验镜像监听/.test(qualityText) || !/不是系统级多输出/.test(qualityText)) {
-    fail('audio output workflow must render compact settings summary and full modal route graph');
+  if (!/function openAudioOutputWorkflowPanel/.test(qualityText) || !/function closeAudioOutputWorkflowPanel/.test(qualityText) || !/renderAudioRouteWorkflowEdgesForRoot/.test(qualityText) || !/audio-output-summary-card/.test(qualityText) || !/audio-route-controls/.test(qualityText) || !/data-route-setting/.test(qualityText) || !/createMediaStreamDestination/.test(qualityText) || !/mirror.srcObject = destination.stream/.test(qualityText) || !/audioOutputMirrorStatusText/.test(qualityText)) {
+    fail('audio output workflow must expose per-route controls and distribute the shared playback stream');
   }
+  if (/mirror.src = src/.test(qualityText)) fail('audio output routes must not reload the song URL per device');
   if (!/audio-output-workflow-modal/.test(cssText) || !/audio-output-workflow-modal \.audio-route-graph[\s\S]{0,320}grid-template-areas: "source board" "status board"/.test(cssText) || !/audio-route-board/.test(cssText) || !/route-board-badges/.test(cssText) || !/route-lane-state/.test(cssText) || !/audio-source-meter/.test(cssText) || !/audio-route-node\.pending/.test(cssText) || !/audio-route-node\.warning/.test(cssText) || !/audio-output-workflow-modal \.workflow-link-layer[\s\S]{0,120}display: none/.test(cssText) || !/audio-output-summary-card/.test(cssText)) {
     fail('audio output workflow modal must expose a Loopback-style patch bay board instead of a three-column device table');
   }

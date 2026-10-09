@@ -1632,7 +1632,8 @@
         </div>
         <div id="audio-output-workflow-body" class="audio-output-workflow-body"></div>
         <div class="btn-row audio-output-workflow-actions">
-          <button class="modal-btn" type="button" onclick="setAudioOutputDevice('', true)">系统默认</button>
+          <button class="modal-btn" type="button" onclick="disconnectAdditionalAudioRoutes()">断开附加输出</button>
+          <button class="modal-btn" type="button" onclick="retryAudioRoutes()">重试连接</button>
           <button class="modal-btn primary" type="button" onclick="refreshAudioOutputDevices(true)">刷新接口</button>
         </div>
       </div>
