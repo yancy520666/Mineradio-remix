@@ -2439,8 +2439,8 @@ function stageLyricUsesSingleLineSwap(mesh) {
 
 // 歌单架打开时歌词会往左让位，但镜头同时在往右摆；两段位移叠加，歌词可能被推到
 // 屏幕最左边甚至出界（设置里的歌词横向偏移会进一步放大）。这里按屏幕位置兜底：
-// 让位后的歌词中心不得比屏幕左侧 25% 更靠左，只在歌单架占用画面时生效。
-var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.52;
+// 让位后的歌词中心不得比屏幕左侧 30% 更靠左，只在歌单架占用画面时生效。
+var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.40;
 var lyricShelfClampProbe = null;
 var lyricShelfClampRight = null;
 function clampStageLyricTargetForShelf(target) {
@@ -2497,20 +2497,20 @@ function updateStageLyricLayout() {
   var shelfLyricShifted = false;
   if (wallpaperLyricLock) {
     shelfLyricShifted = wallpaperShelfLyrics;
-    layoutScale *= wallpaperShelfLyrics ? 0.60 : 0.84;
-    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -1.34 : 0), -4.0, 4.0);
+    layoutScale *= wallpaperShelfLyrics ? 0.78 : 0.84;
+    layoutX = clampRange(layoutX + (wallpaperShelfLyrics ? -0.96 : 0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (wallpaperShelfLyrics ? -0.04 : 0.08), -2.4, 2.7);
     layoutZ = clampRange(layoutZ + (wallpaperShelfLyrics ? 1.02 : 1.15), -3.2, 3.2);
   } else if (!skullMouthLyrics && shelfLyricAvoid && fx.lyricCameraLock) {
     shelfLyricShifted = true;
-    layoutScale *= 0.72;
-    layoutX = clampRange(layoutX - 1.36, -4.0, 4.0);
+    layoutScale *= 0.86;
+    layoutX = clampRange(layoutX - 0.96, -4.0, 4.0);
     layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.72, -3.2, 3.2);
   } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
     shelfLyricShifted = true;
-    layoutScale *= normalShelfDetailOpen ? 0.56 : 0.70;
-    layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.78 : 1.58), -4.0, 4.0);
+    layoutScale *= normalShelfDetailOpen ? 0.82 : 0.84;
+    layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.05 : 1.0), -4.0, 4.0);
     layoutY = clampRange(layoutY + (normalShelfDetailOpen ? 0.18 : 0.08), -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.84, -3.2, 3.2);
   }
