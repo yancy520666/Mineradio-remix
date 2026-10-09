@@ -107,6 +107,7 @@ class FakeBrowserWindow extends EventEmitter {
   setFocusable(value) { this.focusable = !!value; this.calls.push(['setFocusable', !!value]); }
   setSkipTaskbar(value) { this.skipTaskbar = !!value; this.calls.push(['setSkipTaskbar', !!value]); }
   setHasShadow(value) { this.shadowEnabled = !!value; this.calls.push(['setHasShadow', !!value]); }
+  setIcon(value) { this.icon = value; this.calls.push(['setIcon', value]); }
 
   setIgnoreMouseEvents(value, options) {
     this.ignoreMouse = !!value;
@@ -165,6 +166,9 @@ function makeRuntime(options = {}) {
   const runtime = new FullDesktopModeRuntime({
     screen,
     platform: 'win32',
+    normalSkipTaskbar: options.normalSkipTaskbar,
+    windowIcon: options.windowIcon,
+    beforeReveal: options.beforeReveal,
     nativeTempPath: 'D:\\MineradioCache\\native-helper-temp',
     requestReconcile: typeof options.requestReconcile === 'function'
       ? options.requestReconcile
@@ -275,6 +279,109 @@ function makeRuntime(options = {}) {
   });
   return { runtime, calls };
 }
+
+test('desktop entry, focus changes, exit and re-entry keep taskbar policy symmetric', async () => {
+  const win = new FakeBrowserWindow();
+  const { runtime } = makeRuntime({
+    attachCoexistNative: async () => {
+      assert.equal(win.visible, false);
+      assert.equal(win.skipTaskbar, true, 'hide taskbar before native reparenting');
+      return { ok: true, coexist: true, parentWindowId: '8200', topLevelHostWindowId: '8100', desktopViewWindowId: '8200', desktopListWindowId: '8300' };
+    },
+    detachNative: async () => {
+      assert.equal(win.visible, false, 'detach must not expose an intermediate top-level window');
+      assert.equal(win.skipTaskbar, true);
+      return { ok: true };
+    },
+    startDesktopIconWatcher: (_input, _count, watcher) => {
+      const stop = watcher.stop;
+      watcher.stop = async () => {
+        assert.equal(win.visible, false, 'hide before restoring Explorer');
+        return stop();
+      };
+      return watcher;
+    },
+  });
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    assert.equal((await runtime.enable(win)).ok, true);
+    assert.equal(win.skipTaskbar, true);
+    runtime.requestKeyboardFocus();
+    assert.equal(win.skipTaskbar, true);
+    await runtime.setSoftwareInteractionLocked(true);
+    await runtime.setSoftwareInteractionLocked(false);
+    assert.equal(win.skipTaskbar, true);
+    assert.equal((await runtime.disable()).ok, true);
+    assert.equal(win.skipTaskbar, false);
+    assert.equal(win.visible, true);
+  }
+});
+
+test('failed desktop entry restores the configured taskbar policy', async () => {
+  for (const normalSkipTaskbar of [false, true]) {
+    const win = new FakeBrowserWindow();
+    win.skipTaskbar = normalSkipTaskbar;
+    const { runtime } = makeRuntime({
+      normalSkipTaskbar,
+      attachCoexistNative: async () => { throw new Error('TEST_ATTACH_FAILED'); },
+    });
+    assert.equal((await runtime.enable(win)).ok, false);
+    assert.equal(win.skipTaskbar, normalSkipTaskbar);
+    assert.equal(win.visible, true);
+  }
+});
+
+test('prepare renderer before an atomic native reveal and restore the app icon before the taskbar', async () => {
+  const win = new FakeBrowserWindow();
+  const order = [];
+  const { runtime } = makeRuntime({
+    windowIcon: 'app.ico',
+    beforeReveal: async ({ status }) => {
+      assert.equal(win.visible, false);
+      assert.equal(status.enabled, true);
+      order.push('renderer');
+    },
+    startDesktopIconWatcher: (_input, _count, watcher) => {
+      watcher.reveal = async () => {
+        assert.equal(win.visible, false);
+        assert.equal(order.at(-1), 'renderer');
+        order.push('native-reveal');
+        win.visible = true;
+        return watcher.getLastLayout();
+      };
+      return watcher;
+    },
+  });
+  for (let cycle = 0; cycle < 2; cycle++) {
+    win.calls = [];
+    assert.equal((await runtime.enable(win)).ok, true);
+    assert.equal(win.visible, true);
+    assert.equal(win.calls.some(call => call[0] === 'showInactive'), false, 'no visible Electron move before native placement');
+    assert.ok(runtime.getStatus().transitionTimings.totalMs >= 0);
+    assert.equal((await runtime.disable()).ok, true);
+    assert.equal(win.icon, 'app.ico');
+    const icon = win.calls.findIndex(call => call[0] === 'setIcon');
+    const taskbar = win.calls.findIndex(call => call[0] === 'setSkipTaskbar' && call[1] === false);
+    const show = win.calls.findIndex(call => call[0] === 'show');
+    assert.ok(icon >= 0 && icon < taskbar && taskbar < show);
+  }
+  assert.deepEqual(order, ['renderer', 'native-reveal', 'renderer', 'native-reveal']);
+});
+
+test('a failed renderer preparation restores a normal window without revealing the desktop child', async () => {
+  const win = new FakeBrowserWindow();
+  let nativeReveal = false;
+  const { runtime } = makeRuntime({
+    beforeReveal: async () => { throw new Error('FULL_DESKTOP_RENDERER_PREPARE_FAILED'); },
+    startDesktopIconWatcher: (_input, _count, watcher) => {
+      watcher.reveal = async () => { nativeReveal = true; return watcher.getLastLayout(); };
+      return watcher;
+    },
+  });
+  assert.equal((await runtime.enable(win)).ok, false);
+  assert.equal(nativeReveal, false);
+  assert.equal(win.visible, true);
+  assert.equal(win.skipTaskbar, false);
+});
 
 test('enable defaults to a fully interactive Mineradio desktop', async () => {
   const win = new FakeBrowserWindow();

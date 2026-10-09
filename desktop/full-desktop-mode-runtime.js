@@ -459,6 +459,12 @@ class FullDesktopModeRuntime {
     if (!options.screen) throw new Error('FULL_DESKTOP_SCREEN_REQUIRED');
     this.screen = options.screen;
     this.platform = options.platform || process.platform;
+    // Electron exposes setSkipTaskbar but no Windows getter. The main window
+    // starts as a normal taskbar window; embedders can supply their own policy.
+    this.normalSkipTaskbar = options.normalSkipTaskbar === true;
+    this.windowIcon = options.windowIcon || null;
+    this.beforeReveal = typeof options.beforeReveal === 'function' ? options.beforeReveal : null;
+    this.transitionTimings = {};
     this.execFileImpl = options.execFileImpl || execFile;
     this.nativeTempPath = String(options.nativeTempPath || '');
     this.attachTimeoutMs = options.attachTimeoutMs;
@@ -596,6 +602,7 @@ class FullDesktopModeRuntime {
       attaching: this.phase === 'enabling' || this.phase === 'attaching'
         || this.phase === 'detaching' || this.phase === 'disabling',
       phase: this.phase,
+      transitionTimings: { ...this.transitionTimings },
       generation: this.generation,
       windowId: this.window && typeof this.window.id !== 'undefined' ? this.window.id : null,
       nativeWindowId: this.nativeWindowId || this.attachment && this.attachment.targetWindowId || '',
@@ -1210,6 +1217,7 @@ class FullDesktopModeRuntime {
     // can disturb Explorer/ListView/DWM ordering, so a real renderer click may
     // only restore Chromium's web-content focus here.
     safeCall(win, 'setFocusable', null, true);
+    safeCall(win, 'setSkipTaskbar', null, true);
     safeCall(webContents, 'focus', null);
     return {
       ok: true,
@@ -1248,6 +1256,7 @@ class FullDesktopModeRuntime {
         // pointerdown restores web-content focus without stealing it here.
         safeCall(this.window, 'setFocusable', null, true);
       }
+      safeCall(this.window, 'setSkipTaskbar', null, true);
       const ignoreMouseEvents = this.applyInteractivePointerRoute(this.window, { force: true });
       this.generation += 1;
       return {
@@ -1506,8 +1515,8 @@ class FullDesktopModeRuntime {
 
   async recoverAfterDetachFailure(win, display, snapshot, originalError, reason) {
     const originalMessage = String(originalError && originalError.message || originalError || 'FULL_DESKTOP_DETACH_FAILED');
-    await this.stopIconShapeWatcher();
     safeCall(win, 'hide', null);
+    await this.stopIconShapeWatcher();
     const cleared = this.clearIconShapeState(win, { clearWindow: false });
     if (!cleared || cleared.ok !== true) {
       this.lastError = `${originalMessage}|${String(cleared && cleared.error || 'DESKTOP_ICON_SHAPE_CLEAR_FAILED')}`;
@@ -1613,6 +1622,7 @@ class FullDesktopModeRuntime {
 
   prepareWindow(win, bounds, options = {}) {
     if (options.hide !== false) safeCall(win, 'hide', null);
+    safeCall(win, 'setSkipTaskbar', null, true);
     // The visual HWND remains one continuous Mineradio surface below Explorer's
     // color-keyed icon layer. Clear legacy BrowserWindow holes before reparenting.
     safeCall(win, 'setShape', null, []);
@@ -1632,21 +1642,52 @@ class FullDesktopModeRuntime {
     this.pointerIgnoreMouseEvents = null;
     safeCall(win && win.webContents, 'setBackgroundThrottling', null, false);
     safeCall(win, 'setFocusable', null, false);
+    safeCall(win, 'setSkipTaskbar', null, true);
     safeCall(win, 'setResizable', null, false);
     safeCall(win, 'setMovable', null, false);
     safeCall(win, 'showInactive', null);
   }
 
-  applyInteractive(win, bounds) {
+  applyInteractive(win, bounds, options = {}) {
     if (!this.attachment || this.attachment.kind !== 'icon-host') {
       safeCall(win, 'setBounds', null, bounds, false);
     }
     safeCall(win && win.webContents, 'setBackgroundThrottling', null, false);
     safeCall(win, 'setFocusable', null, true);
+    safeCall(win, 'setSkipTaskbar', null, true);
     safeCall(win, 'setResizable', null, false);
     safeCall(win, 'setMovable', null, false);
     this.applyInteractivePointerRoute(win, { force: true });
-    safeCall(win, 'showInactive', null);
+    if (options.show !== false) safeCall(win, 'showInactive', null);
+  }
+
+  async transitionStage(name, operation) {
+    const started = performance.now();
+    try { return await operation(); }
+    finally { this.transitionTimings[name] = Math.round(performance.now() - started); }
+  }
+
+  async revealInteractiveWindow(win, display, reason) {
+    this.applyInteractive(win, display.bounds, { show: false });
+    if (this.beforeReveal) {
+      await this.transitionStage('rendererMs', () => this.beforeReveal({ win, status: this.getStatus(reason) }));
+    }
+    const watcher = this.iconShapeWatcher;
+    if (!this.isWindowAlive(win) || this.disposeRequested || this.window !== win
+      || (watcher && this.iconShapeStopRequested.has(watcher))) {
+      throw new Error('FULL_DESKTOP_REVEAL_SUPERSEDED');
+    }
+    await this.transitionStage('revealMs', async () => {
+      if (watcher && typeof watcher.reveal === 'function') {
+        // One native operation places and shows the child below the icon view.
+        // BrowserWindow.showInactive() can first expose cached top-level bounds.
+        const layout = await watcher.reveal();
+        this.applyIconShapeLayout(win, display, layout, reason + '-revealed', true);
+      } else {
+        safeCall(win, 'showInactive', null);
+        await this.ensureIconLayerOrder();
+      }
+    });
   }
 
   restoreWindow(win, snapshot) {
@@ -1679,6 +1720,12 @@ class FullDesktopModeRuntime {
     safeCall(win, 'setResizable', null, snapshot.resizable);
     safeCall(win, 'setMovable', null, snapshot.movable);
     safeCall(win, 'setHasShadow', null, snapshot.hasShadow);
+    // Reapply the application icon after native reparenting and Electron style
+    // changes, before Windows creates the returning taskbar item.
+    if (this.windowIcon) safeCall(win, 'setIcon', null, this.windowIcon);
+    // Restore only after native detach and the Electron style setters, before
+    // showing the top-level HWND. No delayed taskbar repair can race re-entry.
+    safeCall(win, 'setSkipTaskbar', null, this.normalSkipTaskbar);
     if (snapshot.maximized) safeCall(win, 'maximize', null);
     if (snapshot.fullScreen) safeCall(win, 'setFullScreen', null, true);
     if (snapshot.minimized) safeCall(win, 'minimize', null);
@@ -1691,8 +1738,8 @@ class FullDesktopModeRuntime {
     try {
       this.cancelIconHostReconcile();
       this.cancelIconHostRecoveryStableTimer();
-      await this.stopIconShapeWatcher();
       safeCall(win, 'hide', null);
+      await this.stopIconShapeWatcher();
       const cleared = this.clearIconShapeState(win, { clearWindow: false });
       if (!cleared || cleared.ok !== true) throw new Error(String(cleared && cleared.error || 'DESKTOP_ICON_SHAPE_CLEAR_FAILED'));
       if (this.isWindowAlive(win)) await this.detach(win, snapshot.physicalBounds || snapshot.bounds);
@@ -1742,6 +1789,8 @@ class FullDesktopModeRuntime {
       this.nativeWindowId = nativeWindowHandleDecimal(win);
       this.snapshot = captureBrowserWindowState(win, this.screen);
       this.phase = 'enabling';
+      this.transitionTimings = {};
+      const transitionStarted = performance.now();
       const display = this.displaySnapshot(win);
       try {
         if (!interactive) await this.preparePassive(win, display, reason);
@@ -1752,12 +1801,11 @@ class FullDesktopModeRuntime {
         // icon ListView. Keep it hidden until the native color-key ACK.
         this.prepareWindow(win, display.bounds, { hide: true });
         if (interactive) {
-          await this.attachCoexist(win, display);
+          await this.transitionStage('attachMs', () => this.attachCoexist(win, display));
           this.enabled = true;
           this.interactive = true;
-          await this.enableIconShape(win, display, reason);
-          this.applyInteractive(win, display.bounds);
-          await this.ensureIconLayerOrder();
+          await this.transitionStage('iconLayerMs', () => this.enableIconShape(win, display, reason));
+          await this.revealInteractiveWindow(win, display, reason);
         } else {
           await this.attach(win, display);
           this.enabled = true;
@@ -1766,6 +1814,7 @@ class FullDesktopModeRuntime {
         }
         this.phase = this.interactive ? 'interactive' : 'passive';
         this.lastError = '';
+        this.transitionTimings.totalMs = Math.round(performance.now() - transitionStarted);
         this.generation += 1;
         return { ok: true, enabled: true, interactive: this.interactive, status: this.emitStatus(reason) };
       } catch (error) {
@@ -1794,8 +1843,8 @@ class FullDesktopModeRuntime {
   async reconcileInteractiveInternal(reason = 'interactive-reconcile') {
     const display = this.displaySnapshot(this.window);
     try {
-      await this.stopIconShapeWatcher();
       safeCall(this.window, 'hide', null);
+      await this.stopIconShapeWatcher();
       const cleared = this.clearIconShapeState(this.window, {
         preserveShields: true,
         preserveDesktopIconsVisible: true,
@@ -1820,8 +1869,7 @@ class FullDesktopModeRuntime {
         preserveShields: true,
         preserveDesktopIconsVisible: true,
       });
-      this.applyInteractive(this.window, display.bounds);
-      await this.ensureIconLayerOrder();
+      await this.revealInteractiveWindow(this.window, display, reason);
       this.phase = 'interactive';
       this.lastError = '';
       this.generation += 1;
@@ -1861,13 +1909,12 @@ class FullDesktopModeRuntime {
     this.phase = desired ? 'detaching' : 'attaching';
     if (desired) {
       try {
-        await this.detach(win, display.physicalBounds);
         safeCall(win, 'hide', null);
+        await this.detach(win, display.physicalBounds);
         await this.attachCoexist(win, display);
         this.interactive = true;
         await this.enableIconShape(win, display, reason || 'interactive');
-        this.applyInteractive(win, display.bounds);
-        await this.ensureIconLayerOrder();
+        await this.revealInteractiveWindow(win, display, reason || 'interactive');
         this.phase = 'interactive';
         this.lastError = '';
         this.generation += 1;
@@ -1969,6 +2016,9 @@ class FullDesktopModeRuntime {
   async disableInternal(reason = 'disabled', preservedError = null) {
     this.cancelIconHostReconcile();
     this.cancelIconHostRecoveryStableTimer();
+    // The guard restores Explorer's opaque background when it stops. Hide our
+    // surface first so it cannot flash through the intermediate native state.
+    if (this.snapshot && this.isWindowAlive()) safeCall(this.window, 'hide', null);
     await this.stopIconShapeWatcher();
     if (!this.enabled && !this.snapshot) {
       this.clearIconShapeState(this.window, { clearWindow: this.isWindowAlive(this.window) });
@@ -2051,6 +2101,7 @@ class FullDesktopModeRuntime {
   }
 
   disable(reason = 'disabled', preservedError = null) {
+    if (this.snapshot && this.isWindowAlive()) safeCall(this.window, 'hide', null);
     this.abortNative();
     this.abortIconShapeProbe();
     this.requestIconShapeWatcherStop();
@@ -2059,6 +2110,7 @@ class FullDesktopModeRuntime {
 
   dispose(reason = 'dispose') {
     this.disposeRequested = true;
+    if (this.snapshot && this.isWindowAlive()) safeCall(this.window, 'hide', null);
     this.abortNative();
     this.abortIconShapeProbe();
     this.requestIconShapeWatcherStop();

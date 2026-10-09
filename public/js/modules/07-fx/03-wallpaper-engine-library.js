@@ -224,10 +224,10 @@ function wallpaperEngineVisualSettings() {
 function syncWallpaperEngineVisualControls() {
   var settings = wallpaperEngineVisualSettings();
   var controls = [
-    ['wallpaper-engine-opacity', settings.opacity, Math.round(settings.opacity * 100) + '%'],
-    ['wallpaper-engine-position-x', settings.positionX * 100, Math.round(settings.positionX * 100) + '%'],
-    ['wallpaper-engine-position-y', settings.positionY * 100, Math.round(settings.positionY * 100) + '%'],
-    ['wallpaper-engine-scale', settings.scale, settings.scale.toFixed(2) + '×']
+    ['wallpaper-engine-opacity', settings.opacity, Math.round(settings.opacity * 100) + '%', 'opacity'],
+    ['wallpaper-engine-position-x', settings.positionX * 100, Math.round(settings.positionX * 100) + '%', 'positionX'],
+    ['wallpaper-engine-position-y', settings.positionY * 100, Math.round(settings.positionY * 100) + '%', 'positionY'],
+    ['wallpaper-engine-scale', settings.scale, settings.scale.toFixed(2) + '×', 'scale']
   ];
   controls.forEach(function (entry) {
     var input = document.getElementById(entry[0]);
@@ -235,6 +235,11 @@ function syncWallpaperEngineVisualControls() {
     input.value = String(entry[1]);
     var output = input.parentElement && input.parentElement.querySelector('output');
     if (output) output.textContent = entry[2];
+    if (typeof ensureFxSliderResetButton === 'function') {
+      ensureFxSliderResetButton(entry[0], null, function (button) {
+        resetWallpaperEngineVisualSetting(entry[3], button);
+      });
+    }
   });
 }
 
@@ -266,7 +271,7 @@ function applyWallpaperEngineVisualSettings(immediate) {
   else wallpaperEngineVisualSettingsTimer = setTimeout(flushWallpaperEngineVisualSettings, 42);
 }
 
-function setWallpaperEngineVisualSetting(name, rawValue) {
+function setWallpaperEngineVisualSetting(name, rawValue, immediate) {
   var value = Number(rawValue);
   if (!Number.isFinite(value)) return;
   if (name === 'opacity') wallpaperEngineSelection.visualOpacity = Math.max(0.15, Math.min(1, value));
@@ -275,7 +280,18 @@ function setWallpaperEngineVisualSetting(name, rawValue) {
   else if (name === 'scale') wallpaperEngineSelection.visualScale = Math.max(1, Math.min(1.6, value));
   else return;
   saveWallpaperEngineSelection();
-  applyWallpaperEngineVisualSettings(false);
+  applyWallpaperEngineVisualSettings(immediate === true);
+}
+
+function resetWallpaperEngineVisualSetting(name, button) {
+  var fields = { opacity: 'visualOpacity', positionX: 'visualPositionX', positionY: 'visualPositionY', scale: 'visualScale' };
+  if (!Object.prototype.hasOwnProperty.call(fields, name)) return;
+  // The same normalizer supplies defaults when no saved selection exists.
+  var value = normalizeWallpaperEngineSelection({})[fields[name]];
+  if (name === 'positionX' || name === 'positionY') value *= 100;
+  setWallpaperEngineVisualSetting(name, value, true);
+  if (typeof animateFxResetButton === 'function') animateFxResetButton(button);
+  showToast('已恢复默认数值');
 }
 
 function saveWallpaperEngineSelection() {
