@@ -258,6 +258,27 @@ function shouldAvoidStageLyricsForShelf() {
   if (shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return true;
   return !!(shelfVisibility > 0.24 || (shelfHoverCue && shelfHoverCue.value > 0.28));
 }
+// The pose the camera settles on for a side-shelf focus (null for other types). Shared by the live
+// focus below and by the lyrics, which line up against the settled view instead of the gliding one.
+function shelfFocusPose(type, shelfProfile) {
+  shelfProfile = shelfProfile || shelfLayoutProfile();
+  var portrait = shelfProfile.portrait;
+  var wallpaper = shouldUseWallpaperSafeShelfCamera();
+  if (type === 'shelf-side') {
+    if (wallpaper) return { theta: portrait ? 0.18 : 0.24, phi: portrait ? 0.00 : 0.02, radius: portrait ? 5.74 : 5.32,
+      x: portrait ? 1.04 : 2.24, y: -0.08, z: 0.78, punch: 0.28, snapLyrics: true };
+    // 侧栏 (右): 近一点、侧一点，让歌单架打开时有明确的镜头推近。
+    return { theta: portrait ? 0.24 : 0.42, phi: portrait ? -0.06 : -0.12, radius: portrait ? 5.28 : 4.20,
+      x: portrait ? 1.08 : 2.32, y: portrait ? -0.18 : -0.10, z: 0.72, punch: 0.82, snapLyrics: false };
+  }
+  if (type === 'shelf-detail') {
+    if (wallpaper) return { theta: portrait ? 0.16 : 0.26, phi: portrait ? -0.02 : 0.02, radius: portrait ? 5.88 : 5.18,
+      x: portrait ? 0.72 : 2.28, y: portrait ? -0.36 : -0.32, z: 0.84, punch: 0.30, snapLyrics: true };
+    return { theta: portrait ? 0.16 : 0.34, phi: portrait ? -0.03 : -0.06, radius: portrait ? 5.90 : 4.86,
+      x: portrait ? 0.62 : 1.74, y: portrait ? -0.08 : 0.02, z: 0.82, punch: 0.38, snapLyrics: false };
+  }
+  return null;
+}
 function activateFocusZone(type) {
   // The camera glides to the panel over ~0.5 s; keep that glide at the display rate.
   if (typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', 900);
@@ -265,37 +286,14 @@ function activateFocusZone(type) {
   orbit.focus.active = true;
   orbit.focus.type = type;
   var shelfProfile = shelfLayoutProfile();
-  if (type === 'shelf-side') {
-    if (shouldUseWallpaperSafeShelfCamera()) {
-      orbit.focus.theta = shelfProfile.portrait ? 0.18 : 0.24;
-      orbit.focus.phi = shelfProfile.portrait ? 0.00 : 0.02;
-      orbit.focus.radius = shelfProfile.portrait ? 5.74 : 5.32;
-      orbit.focus.lookAt.set(shelfProfile.portrait ? 1.04 : 2.24, -0.08, 0.78);
-      camPunch = Math.max(camPunch, 0.28);
-      requestStageLyricCameraSnap(10);
-    } else {
-      // 侧栏 (右): 近一点、侧一点，让歌单架打开时有明确的镜头推近。
-      orbit.focus.theta = shelfProfile.portrait ? 0.24 : 0.42;
-      orbit.focus.phi = shelfProfile.portrait ? -0.06 : -0.12;
-      orbit.focus.radius = shelfProfile.portrait ? 5.28 : 4.20;
-      orbit.focus.lookAt.set(shelfProfile.portrait ? 1.08 : 2.32, shelfProfile.portrait ? -0.18 : -0.10, 0.72);
-      camPunch = Math.max(camPunch, 0.82);
-    }
-  } else if (type === 'shelf-detail') {
-    if (shouldUseWallpaperSafeShelfCamera()) {
-      orbit.focus.theta = shelfProfile.portrait ? 0.16 : 0.26;
-      orbit.focus.phi = shelfProfile.portrait ? -0.02 : 0.02;
-      orbit.focus.radius = shelfProfile.portrait ? 5.88 : 5.18;
-      orbit.focus.lookAt.set(shelfProfile.portrait ? 0.72 : 2.28, shelfProfile.portrait ? -0.36 : -0.32, 0.84);
-      camPunch = Math.max(camPunch, 0.30);
-      requestStageLyricCameraSnap(10);
-    } else {
-      orbit.focus.theta = shelfProfile.portrait ? 0.16 : 0.34;
-      orbit.focus.phi = shelfProfile.portrait ? -0.03 : -0.06;
-      orbit.focus.radius = shelfProfile.portrait ? 5.90 : 4.86;
-      orbit.focus.lookAt.set(shelfProfile.portrait ? 0.62 : 1.74, shelfProfile.portrait ? -0.08 : 0.02, 0.82);
-      camPunch = Math.max(camPunch, 0.38);
-    }
+  var shelfPose = shelfFocusPose(type, shelfProfile);
+  if (shelfPose) {
+    orbit.focus.theta = shelfPose.theta;
+    orbit.focus.phi = shelfPose.phi;
+    orbit.focus.radius = shelfPose.radius;
+    orbit.focus.lookAt.set(shelfPose.x, shelfPose.y, shelfPose.z);
+    camPunch = Math.max(camPunch, shelfPose.punch);
+    if (shelfPose.snapLyrics) requestStageLyricCameraSnap(10);
   } else if (type === 'shelf-stage') {
     // 舞台: 居中仰拍
     orbit.focus.theta = 0.0;

@@ -102,6 +102,16 @@ function shelfLayoutProfile() {
     }
   };
 }
+// Rest pose of the centred side-shelf card once every animation has settled. placeCard's side branch is
+// the live version of these two numbers; the lyrics line up against the rest pose instead of the moving
+// meshes, so opening, scrolling or a camera glide never drag them around.
+// Wallpaper presets keep their own base yaw (0.12 at the stock angle) but still follow the 侧向角度 slider.
+function shelfSideRestYaw(layout, wallpaperPose) {
+  return wallpaperPose ? 0.12 + shelfSettings().angle - fxDefaults.shelfAngleY * Math.PI / 180 : layout.sideRotY;
+}
+function shelfSideRestScale(layout, wallpaperPose, skullPose) {
+  return 1.12 * layout.sideScale * (wallpaperPose ? 1.22 : (skullPose ? 1.04 : 1));
+}
 function shelfHotZoneWidth() {
   var ratio = isPortraitShelfViewport() ? 0.26 : 0.18;
   return Math.min(isPortraitShelfViewport() ? 280 : 360, Math.max(148, innerWidth * ratio));
@@ -282,6 +292,8 @@ function tickShelfHoverCue(dt) {
 function setShelfPinnedOpen(open, immediate, persist) {
   var nextOpen = !!open;
   if (nextOpen && typeof suppressBottomControlsForShelf === 'function') suppressBottomControlsForShelf(980);
+  // Open the scroll-tick audio context inside the opening gesture so the first scrolls are not silent.
+  if (nextOpen && typeof ensureUiSfxContext === 'function') ensureUiSfxContext();
   if (nextOpen && !shelfPinnedOpen) {
     // 左侧歌单和右侧歌单架不同时展开：先把左侧面板收起来。
     if (typeof yieldLeftPanelToShelf === 'function') yieldLeftPanelToShelf();
@@ -289,6 +301,7 @@ function setShelfPinnedOpen(open, immediate, persist) {
     if (typeof startPanelViewRecenter === 'function') startPanelViewRecenter('shelf-pin');
     var nowT = uniforms && uniforms.uTime ? uniforms.uTime.value : performance.now() / 1000;
     var previewVisible = shelfHoverCue.guide || shelfHoverCue.value > 0.28 || shelfVisibility > 0.20;
+    if (!previewVisible && shelfManager && shelfManager.resetToStart) shelfManager.resetToStart();
     var summon = shelfSummonSettings();
     shelfOpenAnimAt = previewVisible ? nowT - summon.openDuration : nowT;
     shelfHoverCue.target = 0;

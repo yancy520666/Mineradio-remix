@@ -284,6 +284,8 @@ function updateFxInputs() {
   setRange('fx-shelfy', fx.shelfOffsetY);
   setRange('fx-shelfz', fx.shelfOffsetZ);
   setRange('fx-shelfangle', fx.shelfAngleY);
+  setRange('fx-lyricshelfx', fx.lyricShelfOffsetX);
+  setRange('fx-lyricshelfy', fx.lyricShelfOffsetY);
   setRange('fx-shelfopacity', fx.shelfOpacity);
   setRange('fx-shelfbgalpha', fx.shelfBgOpacity);
   setRange('fx-shelfdetailx', fx.shelfDetailOffsetX);
@@ -854,6 +856,8 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-shelfy', '上下位置');
   setFxSliderLabel('fx-shelfz', '前后景深');
   setFxSliderLabel('fx-shelfangle', '侧向角度');
+  setFxSliderLabel('fx-lyricshelfx', '歌词左右');
+  setFxSliderLabel('fx-lyricshelfy', '歌词上下');
   setFxSliderLabel('fx-shelfopacity', '整体透明度');
   setFxSliderLabel('fx-shelfbgalpha', '背景透明度');
   setFxSliderLabel('fx-shelfdetailx', '详情左右');
