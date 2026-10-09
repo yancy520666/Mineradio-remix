@@ -4,6 +4,7 @@
 // Import only the auth modules: the package root starts a Koa server.
 const path = require('path');
 const { createCookieStore } = require('../cookie-storage');
+const { normalizeNativeComm, createNativeProtocol } = require('./qq-native-protocol');
 let deviceRepository;
 function qqDeviceFile() {
   return process.env.QQ_NATIVE_DEVICE_FILE || path.join(__dirname, '..', '.qq-native-device.json');
@@ -38,17 +39,24 @@ function nativeCommForCookie(cookie) {
     const id = String(cookie.qqmusic_uin || cookie.uin || '').replace(/^o0*/, '');
     const key = cookie.qm_keyst || cookie.qqmusic_key;
     if (!id || !key) return null;
-    return buildAndroidComm(device, { str_musicid: id, musickey: key, loginType });
+    return normalizeNativeComm(buildAndroidComm(device, { str_musicid: id, musickey: key, loginType }, { OpenUDID2: device.openUdid2 || device.openUdid }));
   } catch (_) { return null; }
 }
-function nativeService() {
+function nativeService(options = {}) {
   let sessions = [];
   const base = path.join(path.dirname(require.resolve('@yakult-green-tea/qq-music-api/package.json')), 'dist/src/services/auth');
   const { createQrLoginService, createMqttListen } = require(path.join(base, 'qrLogin.js'));
   const { createAuthHttpClient } = require(path.join(base, 'httpClient.js'));
   const WebSocket = require(require.resolve('ws', { paths: [base] }));
-  const service = createQrLoginService({ http: createAuthHttpClient(), createSessionHttp: createAuthHttpClient,
-    deviceRepository: deviceRepository || (deviceRepository = storedDeviceRepository()), listen: createMqttListen(WebSocket) });
+  const protocol = createNativeProtocol(options.http || createAuthHttpClient(),
+    options.deviceRepository || deviceRepository || (deviceRepository = storedDeviceRepository()));
+  const service = createQrLoginService({ http: protocol.http, createSessionHttp: createAuthHttpClient,
+    deviceRepository: protocol.deviceRepository, listen: options.listen || createMqttListen(WebSocket) });
+  const sdkCheck = service.checkQr.bind(service);
+  service.checkQr = async (...args) => {
+    const result = await sdkCheck(...args);
+    return result.code === 800 ? { ...result, ...protocol.diagnostics() } : result;
+  };
   service.configureAuthSessionRepository({ kind: 'memory', load: () => [], save: list => { sessions = list; } });
   return { service, sessions: () => sessions };
 }
@@ -69,6 +77,16 @@ function credentialCookie(credential) {
   return 'uin=' + id + '; qqmusic_uin=' + id + '; qm_keyst=' + key + '; qqmusic_key=' + key
     + '; tmeLoginType=' + loginType + '; ' + NATIVE_MARKER + '=1';
 }
+function authorizationFailureMessage(result) {
+  const credentialStage = ['credential-exchange', 'credential-validation', 'session-issue'].includes(result.failureStage);
+  if (credentialStage) {
+    const code = Number.isSafeInteger(result.exchangeUpstreamCode) ? result.exchangeUpstreamCode : result.upstreamCode;
+    const suffix = Number.isSafeInteger(code) ? '（错误码 ' + code + '）' : '';
+    return '手机确认已收到，但 QQ 音乐未签发有效登录凭据' + suffix + '。请稍后刷新重试，或选择 QQ 网页登录。';
+  }
+  if (result.failureReason === 'user-canceled') return '手机端已取消授权，请刷新二维码后重试。';
+  return '扫码授权未完成。此二维码仅支持 QQ 音乐 App；若用了 QQ 或微信，请刷新后换 QQ 音乐 App 扫码。';
+}
 function createQQNativeQrSession(options) {
   let service = options.service, sessions = options.sessions;
   let key = '', stopped = false, busy = false, refreshing = false, confirming = false, retryable = false, image = '';
@@ -80,7 +98,7 @@ function createQQNativeQrSession(options) {
     retryable = true; refreshing = false; confirming = false; clearTimeout(deadline);
     options.notify({ stage: 'failed', image, expired: false, retryable: true, scanApp, message,
       failureStage: detail && detail.failureStage, failureReason: detail && detail.failureReason,
-      upstreamCode: detail && detail.upstreamCode });
+      upstreamCode: detail && detail.upstreamCode, exchangeUpstreamCode: detail && detail.exchangeUpstreamCode });
   }
   function delay(ms) {
     return new Promise(resolve => { wakeRetry = resolve; retryTimer = setTimeout(() => { wakeRetry = null; resolve(); }, ms); });
@@ -159,7 +177,7 @@ function createQQNativeQrSession(options) {
           retryable = true; confirming = false;
           options.notify({ stage: 'qr', image, expired: true, retryable: true, scanApp });
         } else {
-          fail('扫码授权未完成。此二维码仅支持 QQ 音乐 App；若用了 QQ 或微信，请刷新后换 QQ 音乐 App 扫码。', result);
+          fail(authorizationFailureMessage(result), result);
         }
       }
     } catch (_) {
@@ -178,4 +196,4 @@ function createQQNativeQrSession(options) {
     click: () => { if (stopped || refreshing || busy || confirming) return false; refresh(); return true; } };
 }
 
-module.exports = { createQQNativeQrSession, credentialCookie, nativeCommForCookie };
+module.exports = { createQQNativeQrSession, credentialCookie, nativeCommForCookie, createQQNativeRuntime: nativeService };

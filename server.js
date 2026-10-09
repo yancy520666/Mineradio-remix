@@ -2652,6 +2652,7 @@ function parseJSONText(text) {
 }
 
 const { nativeCommForCookie } = require('./desktop/qq-native-qr');
+const { qqNativeUserAgent } = require('./desktop/qq-native-protocol');
 
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
@@ -2660,7 +2661,7 @@ async function qqMusicRequest(payload, opts) {
   const body = JSON.stringify(payload);
   const headers = {
     ...QQ_HEADERS,
-    ...(nativeComm ? { 'User-Agent': 'QQMusic 14090008(android 10)' } : {}),
+    ...(nativeComm ? { 'User-Agent': qqNativeUserAgent(nativeComm.os_ver) } : {}),
     'Content-Type': 'application/json;charset=UTF-8',
     'Content-Length': Buffer.byteLength(body),
   };
