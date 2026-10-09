@@ -46,7 +46,7 @@ const PROVIDERS = {
 };
 
 const MESSAGES = {
-  NO_BROWSER: '这台电脑上没找到 Chrome、Edge 或 Firefox。可以改用扫码登录。',
+  NO_BROWSER: '这台电脑上没找到 Chrome、Edge、Brave 或 Firefox。可以改用扫码登录。',
   LOCKED: '{browser} 正在运行，暂时读不到它的登录文件。请完全关闭 {browser}（包括后台）后再试，或改用扫码。',
   APP_BOUND: '{browser} 新版给登录信息加了只有它自己能解开的加密，其他软件读不到。可以换另一个浏览器（如 Firefox）登录后再导入，或直接扫码。',
   DECRYPT_FAILED: '找到了浏览器的登录信息，但解密失败。请改用扫码登录。',
@@ -68,6 +68,7 @@ function chromiumBrowsers(env) {
   return [
     { id: 'edge', label: 'Edge', root: path.join(local, 'Microsoft', 'Edge', 'User Data') },
     { id: 'chrome', label: 'Chrome', root: path.join(local, 'Google', 'Chrome', 'User Data') },
+    { id: 'brave', label: 'Brave', root: path.join(local, 'BraveSoftware', 'Brave-Browser', 'User Data') },
   ];
 }
 
