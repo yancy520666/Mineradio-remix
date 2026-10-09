@@ -71,3 +71,13 @@ assert(/row\.readability\.scale\.setScalar\(row\.readability\.scale\.x \+ \(scal
 assert(/row\.glow\.scale\.setScalar\(row\.glow\.scale\.x \+ \(glowTargetScale - row\.glow\.scale\.x\) \* glowEase\)/.test(source), 'glow continues to follow the fitted lyric scale');
 
 console.log('[OK] Original and translated lyrics share live left/right fitting while short lines retain their original size.');
+
+// A long original and short translation must keep their hierarchy beside the shelf.
+sandbox.lyricMaskInkBounds = mask => mask.ink;
+vm.runInContext(extractFunction('lyricShelfTranslationScale'), sandbox);
+const original = { lineMask: {ink:{top:-.2,bottom:.2}}, mesh:{scale:{x:.5}}, viewportFitScale:.5 };
+const translated = {isTranslation:true,tightParent:original,lineMask:{ink:{top:-.3,bottom:.3}}};
+const shared = sandbox.lyricShelfTranslationScale(translated, 1.2, 1);
+assert(shared * .6 <= .4 * .5 * .78 + 1e-9, 'translation ink remains subordinate after the original shrinks');
+assert.strictEqual(sandbox.lyricShelfTranslationScale(translated,1.2,0),1.2,'closing restores the authored translation size');
+assert(sandbox.lyricShelfTranslationScale(translated,1.2,.5)>shared,'hierarchy blends in rather than snapping');

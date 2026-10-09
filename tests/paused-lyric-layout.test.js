@@ -26,6 +26,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
     stageLyricTargetQuaternion: quat => c.lyricTargetQuat.copy(quat),
     resetLyricRenderUploadFrameBudget: () => { throw new Error('UI motion must not reset upload budget'); },
   });
+  vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'stageLyricShelfCaptionMetrics'), c);
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'updateStageLyricLayout'), c);
   c.updateStageLyricLayout(); shelf = true;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
