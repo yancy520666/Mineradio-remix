@@ -2445,39 +2445,80 @@ var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
 var STAGE_LYRIC_SHELF_MIN_FIT = 0.6;
 var lyricShelfClampProbe = null;
 var lyricShelfClampRight = null;
-function stageLyricShelfHalfWidthNdc(target, worldW) {
+function stageLyricShelfHalfWidthNdc(target, worldW, centerZ) {
   if (!camera || !target || typeof THREE === 'undefined') return 0;
   if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
   camera.updateMatrixWorld();
   lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
-  var depth = -lyricShelfClampProbe.z;
+  var depth = -lyricShelfClampProbe.z - (Number(centerZ) || 0);
   if (!(depth > 0.2)) return 0;
   var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
   return (worldW / 2) / halfWorld;
 }
 // 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 60%）
-function stageLyricShelfFit(target, worldW) {
-  var half = stageLyricShelfHalfWidthNdc(target, worldW);
+function stageLyricShelfFit(target, worldW, centerZ) {
+  var half = stageLyricShelfHalfWidthNdc(target, worldW, centerZ);
   if (!(half > 0)) return 1;
   var avail = (STAGE_LYRIC_SHELF_EDGE_NDC_X - STAGE_LYRIC_SCREEN_LEFT_NDC_X) / 2;
   return clampRange(avail / half, STAGE_LYRIC_SHELF_MIN_FIT, 1);
 }
-function clampStageLyricTargetForShelf(target, worldW) {
-  var half = stageLyricShelfHalfWidthNdc(target, worldW);
+function stageLyricShelfCaptionMetrics() {
+  var mesh = stageLyrics.current;
+  var data = mesh && mesh.userData && mesh.userData.lyric;
+  var rows = data && data.rowLayers;
+  var fallback = getStageLyricLockBounds();
+  if (!rows || !rows.length) return { w: fallback.w, centerY: 0, centerZ: 0 };
+  var focus = data.trackTargetLineIndex;
+  var primary = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].isPrimary && (focus != null ? rows[i].lineIndex === focus : rows[i].isActive)) { primary = rows[i]; break; }
+  }
+  if (!primary) return { w: fallback.w, centerY: 0, centerZ: 0 };
+  var width = 0, top = -Infinity, bottom = Infinity;
+  var rootScale = Number(mesh.scale.x) || 1;
+  for (var j = 0; j < rows.length; j++) {
+    var row = rows[j];
+    if (row !== primary && !(row.isTranslation && row.tightParent === primary)) continue;
+    if (!row.mesh || !row.lineMask) continue;
+    var mask = row.lineMask;
+    var scale = Number(row.mesh.scale.x) || 1;
+    width = Math.max(width, row.lineWorldW * (mask.activeTextWidth || mask.textWidth || mask.width) / mask.width * scale * rootScale);
+    var ink = lyricMaskInkBounds(mask);
+    if (ink) {
+      var y = row.mesh.position.y + (row.mesh.parent ? row.mesh.parent.position.y : 0);
+      top = Math.max(top, y - ink.top * scale);
+      bottom = Math.min(bottom, y - ink.bottom * scale);
+    }
+  }
+  return { w: width || fallback.w, centerY: isFinite(top + bottom) ? mesh.position.y + (top + bottom) * 0.5 * rootScale : 0,
+    centerZ: mesh.position.z + primary.mesh.position.z * rootScale };
+}
+
+function clampStageLyricTargetForShelf(target, worldW, caption) {
+  var centerZ = caption ? caption.centerZ : 0;
+  var half = stageLyricShelfHalfWidthNdc(target, worldW, centerZ);
   if (!(half > 0)) return false;
   var depthProbe = lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
-  var depth = -depthProbe.z;
-  lyricShelfClampProbe.copy(target).project(camera);
+  var depth = -depthProbe.z - (Number(centerZ) || 0);
+  lyricShelfClampProbe.copy(target);
+  if (caption) lyricShelfClampProbe.addScaledVector(lyricCameraDir, -(Number(centerZ) || 0));
+  lyricShelfClampProbe.project(camera);
   if (!isFinite(lyricShelfClampProbe.x)) return false;
   var want = Math.max(STAGE_LYRIC_SHELF_EDGE_NDC_X - half, STAGE_LYRIC_SCREEN_LEFT_NDC_X + half);
   var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
   lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
   target.addScaledVector(lyricShelfClampRight, (want - lyricShelfClampProbe.x) * halfWorld);
+  if (caption) {
+    var center = lyricShelfClampProbe.copy(target);
+    var up = lyricCameraUp;
+    center.addScaledVector(up, caption.centerY || 0).addScaledVector(lyricCameraDir, -(caption.centerZ || 0)).project(camera);
+    if (isFinite(center.y)) target.addScaledVector(up, (0.08 - center.y) * halfWorld / (camera.aspect || 1));
+  }
   return true;
 }
 // Only move the existing lyric scene on interactive UI frames. Texture uploads,
 // row transitions, glow and particles stay on their original render budget.
-function updateStageLyricLayout() {
+function updateStageLyricLayout(dt) {
   if (!stageLyrics.group) return null;
   if (!fx.particleLyrics && !stageLyrics.current && (!stageLyrics.outgoing || !stageLyrics.outgoing.length)) return null;
   var sonicLyricPreset = !!(typeof SONIC_PRESET_INDEX !== 'undefined' && fx && fx.preset === SONIC_PRESET_INDEX);
@@ -2509,7 +2550,12 @@ function updateStageLyricLayout() {
     outgoing: 1,
     easeDown: 0.16
   };
+  var layoutDt = clampRange(Number(dt) || 1 / 60, 1 / 240, 0.05);
+  var layoutEase = 1 - Math.exp(-11 * layoutDt);
   var shelfLyricAvoid = shouldAvoidStageLyricsForShelf();
+  if (!isFinite(stageLyrics.shelfLayoutMix)) stageLyrics.shelfLayoutMix = 0;
+  stageLyrics.shelfLayoutMix += ((shelfLyricAvoid ? 1 : 0) - stageLyrics.shelfLayoutMix) * layoutEase;
+  var shelfLayoutMix = stageLyrics.shelfLayoutMix;
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
   var shelfLyricShifted = false;
@@ -2554,16 +2600,21 @@ function updateStageLyricLayout() {
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
   var stageLyricFinalScale = layoutScale * stageLyrics.lockFitScale;
   var shelfLyricWorldW = 0;
+  var shelfCaption = shelfLyricShifted && !skullMouthLyrics ? stageLyricShelfCaptionMetrics() : null;
   if (shelfLyricShifted && !skullMouthLyrics) {
-    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, getStageLyricLockBounds().w * stageLyricFinalScale);
+    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, shelfCaption.w * stageLyricFinalScale, shelfCaption.centerZ * stageLyricFinalScale);
     if (!isFinite(stageLyrics.shelfFitScale)) stageLyrics.shelfFitScale = 1;
     stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * 0.18;
     stageLyricFinalScale *= stageLyrics.shelfFitScale;
-    shelfLyricWorldW = getStageLyricLockBounds().w * stageLyricFinalScale;
+    shelfLyricWorldW = shelfCaption.w * stageLyricFinalScale;
+    shelfCaption.centerY *= stageLyricFinalScale;
+    shelfCaption.centerZ *= stageLyricFinalScale;
   } else {
     stageLyrics.shelfFitScale = 1;
   }
-  stageLyrics.group.scale.setScalar(stageLyricFinalScale);
+  var displayedScale = Number(stageLyrics.group.scale.x) || 1;
+  stageLyrics.group.scale.setScalar(shelfLyricShifted || shelfLayoutMix > 0.001
+    ? displayedScale + (stageLyricFinalScale - displayedScale) * layoutEase : stageLyricFinalScale);
   if (skullMouthLyrics) {
     stageLyrics.snapCameraLockFrames = 0;
     skullParticleGroup.updateMatrixWorld(true);
@@ -2591,7 +2642,7 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW);
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption);
     stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
@@ -2618,10 +2669,19 @@ function updateStageLyricLayout() {
     lyricLayoutBase.copy(lyricCoverWorldPos);
     lyricLayoutTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW);
-    stageLyrics.group.position.copy(lyricLayoutTarget);
+    if (shelfLyricShifted) {
+      setStageLyricViewBasisFromCameraOrQuaternion(null);
+      clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW, shelfCaption);
+    }
     stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
-    stageLyrics.group.quaternion.copy(lyricTargetQuat);
+    if (camera && shelfLayoutMix > 0.001) lyricTargetQuat.slerp(camera.quaternion, shelfLayoutMix);
+    if (shelfLyricShifted || shelfLayoutMix > 0.001) {
+      stageLyrics.group.position.lerp(lyricLayoutTarget, layoutEase);
+      stageLyrics.group.quaternion.slerp(lyricTargetQuat, layoutEase);
+    } else {
+      stageLyrics.group.position.copy(lyricLayoutTarget);
+      stageLyrics.group.quaternion.copy(lyricTargetQuat);
+    }
   }
   return { skullMouthLyrics: skullMouthLyrics, shelfDetailOpen: shelfDetailOpen, stageLyricRenderBase: stageLyricRenderBase, shelfDetailLyricProfile: shelfDetailLyricProfile };
 }
@@ -2671,11 +2731,11 @@ function updateStageLyrics3D(dt) {
   stageLyrics.glowFollowX *= 0.92;
   stageLyrics.glowFollowY *= 0.92;
   stageLyrics.glowFollowRoll *= 0.90;
-  var layout = updateStageLyricLayout();
+  var layout = updateStageLyricLayout(dt);
   var skullMouthLyrics = layout.skullMouthLyrics;
   var shelfDetailOpen = layout.shelfDetailOpen;
   // 歌单架占着画面时歌词上下漂浮、呼吸缩放只保留三成，免得歌词在歌单架旁边晃来晃去
-  var shelfFloatDamp = shelfDetailOpen ? 0.3 : 1;
+  var shelfFloatDamp = 1 - (Number(stageLyrics.shelfLayoutMix) || 0) * 0.7;
   var stageLyricRenderBase = layout.stageLyricRenderBase;
   var shelfDetailLyricProfile = layout.shelfDetailLyricProfile;
   function tickMesh(mesh, isCurrent) {
