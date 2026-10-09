@@ -19942,14 +19942,14 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #audio-output-workflow-modal .route-node-text b { display: block; overflow-wrap: anywhere; }
 #audio-output-workflow-modal .route-node-text small { color: rgba(255,255,255,.76); }
 #audio-output-workflow-modal .audio-route-toggle { flex: 0 0 auto; font-size: 12px; color: rgba(255,255,255,.84); }
-#audio-output-workflow-modal .audio-route-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 8px 12px 12px; font-size: 12px; color: rgba(255,255,255,.9); }
-#audio-output-workflow-modal .audio-route-controls label { display: flex; align-items: center; gap: 8px; }
-#audio-output-workflow-modal input[type=range] { width: 100px; accent-color: var(--fc-accent,#f4d28a); cursor: pointer; }
+#audio-output-workflow-modal .audio-route-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 12px; font-size: 12px; color: rgba(255,255,255,.9); }
+#audio-output-workflow-modal .audio-route-controls label { display: flex; align-items: center; min-height: 36px; gap: 8px; }
+#audio-output-workflow-modal input[type=range] { width: 100px; height: 18px; margin: 0; accent-color: var(--fc-accent,#f4d28a); cursor: pointer; }
 #audio-output-workflow-modal output { min-width: 35px; font-variant-numeric: tabular-nums; }
-#audio-output-workflow-modal input[type=number] { width: 64px; padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); color: inherit; background: rgba(0,0,0,.2); font-variant-numeric: tabular-nums; }
-#audio-output-workflow-modal [data-route-mute] { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 auto; padding: 0; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); color: inherit; background: rgba(255,255,255,.05); cursor: pointer; }
-#audio-output-workflow-modal [data-route-mute][aria-pressed=true] { background: rgba(var(--fc-accent-rgb),.18); }
-#audio-output-workflow-modal [data-route-mute]:hover { background: rgba(255,255,255,.12); }
+#audio-output-workflow-modal input[type=number] { box-sizing: border-box; width: 64px; height: 36px; margin: 0; padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); color: inherit; background: rgba(0,0,0,.2); font-variant-numeric: tabular-nums; }
+#audio-output-workflow-modal [data-route-mute] { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 auto; padding: 0; border: 0; box-shadow: none; color: inherit; background: transparent; cursor: pointer; }
+#audio-output-workflow-modal [data-route-mute][aria-pressed=true] { color: rgba(var(--fc-accent-rgb),1); }
+#audio-output-workflow-modal [data-route-mute]:hover { color: #fff; background: transparent; }
 #audio-output-workflow-modal button:focus-visible,
 #audio-output-workflow-modal input:focus-visible { outline: 2px solid var(--fc-accent,#f4d28a); outline-offset: 3px; }
 #audio-output-workflow-modal .audio-route-status { display: grid; gap: 8px; }
