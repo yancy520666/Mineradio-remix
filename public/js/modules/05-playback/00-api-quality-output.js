@@ -629,7 +629,10 @@ function bindAudioRouteSelectionEvents(container) {
         var id = mute.closest('[data-route-id]').getAttribute('data-route-id');
         var muted = !audioRouteSetting(id).muted;
         setAudioRouteSetting(id, 'muted', muted);
-        mute.setAttribute('aria-pressed', String(muted)); mute.textContent = muted ? '取消静音' : '静音';
+        mute.setAttribute('aria-pressed', String(muted));
+        mute.setAttribute('aria-label', muted ? '取消静音' : '静音');
+        mute.title = muted ? '取消静音' : '静音';
+        mute.innerHTML = audioRouteMuteIcon(muted);
         return;
       }
       var btn = e.target && e.target.closest ? e.target.closest('[data-output-primary],[data-output-mirror]') : null;
@@ -769,6 +772,11 @@ function audioOutputDeviceLabel(device, index) {
   if (!device || !device.deviceId) return '系统默认';
   return device.label || ('输出设备 ' + (index + 1));
 }
+function audioRouteMuteIcon(muted) {
+  // Match the speaker glyph used by the player's volume control.
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>' +
+    (muted ? '<line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/>' : '<path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M18 7a7 7 0 0 1 0 10"/>') + '</svg>';
+}
 function renderAudioOutputDeviceUi() {
   var list = document.getElementById('audio-output-list');
   if (!list) return;
@@ -791,7 +799,7 @@ function renderAudioOutputDeviceUi() {
       '<span class="flow-port in" data-output-mirror-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + escHtml(audioOutputMirrorStatusText(id, active, disabled)) + '</small></span><span class="audio-route-toggle">' + (active ? '断开' : disabled ? '主监听' : '连接') + '</span></button>' +
       (active ? '<div class="audio-route-controls" data-route-id="' + escHtml(id) + '"><label>音量 <input type="range" min="0" max="100" value="' + value.volume + '" data-route-setting="volume" aria-label="' + escHtml(device.label + ' 音量') + '"><output>' + value.volume + '%</output></label>' +
       '<label>延迟 <input type="number" min="0" max="1000" step="10" value="' + value.delay + '" data-route-setting="delay" aria-label="' + escHtml(device.label + ' 延迟毫秒') + '"> ms</label>' +
-      '<button type="button" data-route-mute aria-pressed="' + value.muted + '">' + (value.muted ? '取消静音' : '静音') + '</button></div>' : '') + '</div>';
+      '<button type="button" data-route-mute aria-pressed="' + value.muted + '" aria-label="' + (value.muted ? '取消静音' : '静音') + '" title="' + (value.muted ? '取消静音' : '静音') + '">' + audioRouteMuteIcon(value.muted) + '</button></div>' : '') + '</div>';
   }
   var virtual = outputs.filter(isVirtualMicOutputDevice);
   var speakers = outputs.filter(function (d) { return !isVirtualMicOutputDevice(d); });
