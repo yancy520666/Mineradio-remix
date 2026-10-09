@@ -67,16 +67,18 @@ test('real pinned SDK uses one protocol for bootstrap, QR and credential exchang
   assert.equal(result.code, 803); assert.equal(f.runtime.sessions()[0].credential.loginType, 2);
   const rpc = f.requests.filter(req => req.data.req_0);
   for (const config of rpc) {
-    assert.equal(config.data.comm.v, PROFILE.version);
+    assert.equal(config.data.comm.v, String(PROFILE.version));
+    assert(Object.values(config.data.comm).every(value => typeof value === 'string'));
+    for (const field of ['QIMEI', 'devicelevel', 'newdevicelevel', 'rom']) assert.equal(config.data.comm[field], undefined);
     assert.match(config.data.comm.traceid, /^10002_/);
     assert.equal(config.headers['User-Agent'], qqNativeUserAgent(config.data.comm.os_ver));
   }
   const session = rpc.find(req => req.data.req_0.method === 'GetSession');
   assert.equal(session.data.req_0.param.caller, 2); assert.equal(session.data.comm.sid, undefined);
   const qr = rpc.find(req => req.data.req_0.method === 'CreateQRCode');
-  assert.equal(qr.data.comm.ct, 23); assert.equal(qr.data.comm.cv, 0); assert.equal(qr.data.req_0.param.cv, PROFILE.version);
+  assert.equal(qr.data.comm.ct, '23'); assert.equal(qr.data.comm.cv, '0'); assert.equal(qr.data.req_0.param.cv, PROFILE.version);
   const login = rpc.find(req => req.data.req_0.method === 'Login');
-  assert.equal(login.data.comm.cv, PROFILE.version); assert.equal(login.data.comm.tmeLoginType, 6);
+  assert.equal(login.data.comm.cv, String(PROFILE.version)); assert.equal(login.data.comm.tmeLoginType, '6');
   assert.equal(login.data.comm.uid, 'fixture-session-uid'); assert.equal(login.data.comm.sid, 'fixture-session-sid');
   assert.equal(login.data.req_0.param.token, 'interim-fixture-token');
   const otherKey = await service.createSession('qq');

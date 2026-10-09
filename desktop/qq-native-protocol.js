@@ -25,7 +25,12 @@ function normalizeNativeComm(comm, now = Date.now()) {
   const next = { ...comm, cv: PROFILE.version, v: PROFILE.version };
   const id = next.qq || next.OpenUDID || next.udid;
   next.traceid = `10002_${id}_${Math.floor(now / 1000)}`;
-  return next;
+  // Match VersionPolicy.build_comm: only primitive strings travel in comm.
+  // These SDK fields belong to the older Android profile, not 20.9.0.8.
+  for (const field of ['QIMEI', 'devicelevel', 'newdevicelevel', 'rom']) delete next[field];
+  return Object.fromEntries(Object.entries(next)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([field, value]) => [field, String(value)]));
 }
 function migrateDevice(device) {
   const openUdid2 = typeof device.openUdid2 === 'string' && /^[a-f0-9]{32}$/i.test(device.openUdid2) ? device.openUdid2 : hex(32);
@@ -95,7 +100,7 @@ function createNativeProtocol(http, repository) {
       const comm = normalizeNativeComm({ ...data.comm, OpenUDID2: device && device.openUdid2 || data.comm.OpenUDID2 });
       let param = req && req.param;
       if (req && req.module === 'music.login.LoginServer' && req.method === 'CreateQRCode') {
-        param = { ...param, ct: 11, cv: PROFILE.version }; comm.ct = 23; comm.cv = 0;
+        param = { ...param, ct: 11, cv: PROFILE.version }; comm.ct = '23'; comm.cv = '0';
       } else if (req && req.module === 'music.getSession.session' && req.method === 'GetSession') {
         param = { ...param, caller: param.uid ? 1 : 2 }; delete comm.uid; delete comm.sid;
       }

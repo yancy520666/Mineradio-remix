@@ -624,6 +624,7 @@ function closeControlSourceSwitcher() {
   controlSourceSwitcherState.loading = false;
   controlSourceSwitcherState.anchor = null;
   if (el) el.classList.remove('show', 'loading');
+  if (typeof scheduleControlsHide === 'function') scheduleControlsHide(520);
 }
 function controlSourceMatchSong(entry) {
   if (!entry) return null;
@@ -735,6 +736,7 @@ function toggleControlSourceSwitcher(e) {
   renderControlSourceSwitcher({ [songProviderKey(song)]: { song: song, issue: '' } });
   controlSourcePositionSwitcher(anchor);
   el.classList.add('show');
+  if (typeof revealBottomControls === 'function') revealBottomControls(520);
   loadControlSourceMatches(song, controlSourceSwitcherState.requestId);
 }
 async function switchCurrentSongSource(provider) {

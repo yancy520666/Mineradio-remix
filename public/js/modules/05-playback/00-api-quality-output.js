@@ -351,16 +351,22 @@ function toggleQualityPanel(e) {
   var wrap = document.getElementById('quality-control');
   if (wrap) {
     wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) revealBottomControls(520);
+    else scheduleControlsHide(520);
   }
 }
 function bindQualityControl() {
   var wrap = document.getElementById('quality-control');
   if (wrap) {
-    wrap.addEventListener('mouseenter', function () { wrap.classList.add('open'); });
-    wrap.addEventListener('mouseleave', function () { setTimeout(function () { if (!wrap.matches(':hover')) wrap.classList.remove('open'); }, 260); });
+    wrap.addEventListener('mouseenter', function () { wrap.classList.add('open'); revealBottomControls(520); });
+    wrap.addEventListener('mouseleave', function () { setTimeout(function () {
+      if (!wrap.matches(':hover')) { wrap.classList.remove('open'); scheduleControlsHide(520); }
+    }, 260); });
   }
   document.addEventListener('click', function (e) {
-    if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+    if (wrap && !wrap.contains(e.target) && wrap.classList.contains('open')) {
+      wrap.classList.remove('open'); scheduleControlsHide(520);
+    }
   });
   updatePlaybackQualityUi();
 }
