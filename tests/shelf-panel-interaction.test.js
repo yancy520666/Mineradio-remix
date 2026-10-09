@@ -47,11 +47,11 @@ test('lyrics pushed aside by the shelf never end up in the far-left strip of the
   const ctx = threeContext();
   camera(ctx, 1400 / 653);
   loadFunctions(ctx, 'public/js/modules/02-visual/14-stage-lyrics-rendering.js', ['clampStageLyricTargetForShelf']);
-  vm.runInContext(`var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.52; var lyricShelfClampProbe = null; var lyricShelfClampRight = null;`, ctx);
+  vm.runInContext(`var STAGE_LYRIC_SHELF_MIN_NDC_X = -0.40; var lyricShelfClampProbe = null; var lyricShelfClampRight = null;`, ctx);
   const ndcX = (x) => vm.runInContext(`new THREE.Vector3(${x}, 0, 0).project(camera).x`, ctx);
   const clampedX = (x) => vm.runInContext(`(function () { var t = new THREE.Vector3(${x}, 0, 0); clampStageLyricTargetForShelf(t); return t.x; })()`, ctx);
   assert(ndcX(-6) < -0.9, 'fixture: this target is hugging the left edge');
-  assert(Math.abs(ndcX(clampedX(-6)) + 0.52) < 1e-6, 'pulled back to 26% of the screen width');
+  assert(Math.abs(ndcX(clampedX(-6)) + 0.40) < 1e-6, 'pulled back to 30% of the screen width');
   assert.equal(clampedX(-0.3), -0.3, 'lyrics already inside the safe area stay where they are');
 });
 

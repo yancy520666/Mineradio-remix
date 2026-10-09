@@ -16,7 +16,7 @@ const PROVIDERS = {
   netease: {
     label: '网易云音乐',
     site: 'music.163.com',
-    domains: ['163.com', 'netease.com'],
+    domains: ['163.com', 'music.163.com'],
     names: ['MUSIC_U', '__csrf', 'NMTID', 'MUSIC_A', '__remember_me', '_ntes_nuid', '_ntes_nnid', 'WEVNSM', 'WNMCID', 'JSESSIONID-WYYY'],
     loggedIn: obj => !!obj.MUSIC_U,
     keyCookie: 'MUSIC_U',
@@ -24,7 +24,7 @@ const PROVIDERS = {
   qq: {
     label: 'QQ 音乐',
     site: 'y.qq.com',
-    domains: ['qq.com'],
+    domains: ['qq.com', 'y.qq.com'],
     names: ['uin', 'qqmusic_uin', 'wxuin', 'login_type', 'qm_keyst', 'qqmusic_key', 'p_skey', 'skey', 'psrf_qqopenid',
       'psrf_qqunionid', 'psrf_qqaccess_token', 'psrf_qqrefresh_token', 'wxopenid', 'wxunionid', 'wxrefresh_token', 'wxskey', 'p_uin', 'ptcz', 'RK'],
     loggedIn: obj => {
@@ -37,7 +37,7 @@ const PROVIDERS = {
   kugou: {
     label: '酷狗音乐',
     site: 'www.kugou.com',
-    domains: ['kugou.com'],
+    domains: ['kugou.com', 'www.kugou.com'],
     names: ['KuGoo', 'Kugou', 'kugou', 'token', 'Token', 't', 'T', 'userid', 'UserId', 'KugooID', 'kugouID', 'kg_mid', 'KG_MID',
       'kg_dfid', 'KG_DFID', 'dfid', 'DFID', 'mid', 'NickName', 'UserName'],
     loggedIn: obj => !!(obj.KuGoo || ((obj.token || obj.Token || obj.t || obj.T) && (obj.userid || obj.UserId || obj.KugooID || obj.kugouID))),
@@ -125,8 +125,8 @@ function sqlDomainFilter(column, domains) {
   const clauses = [];
   const params = [];
   domains.forEach(d => {
-    clauses.push(column + ' = ?', column + ' = ?', column + ' LIKE ?');
-    params.push(d, '.' + d, '%.' + d);
+    clauses.push(column + ' = ?', column + ' = ?');
+    params.push(d, '.' + d);
   });
   return { where: '(' + clauses.join(' OR ') + ')', params };
 }
@@ -187,6 +187,7 @@ function powershellDpapiUnprotect(buffer) {
         if (!out.length) return reject(Object.assign(new Error('DECRYPT_FAILED'), { code: 'DECRYPT_FAILED' }));
         resolve(out);
       });
+    child.stdin.on('error', () => reject(Object.assign(new Error('DECRYPT_FAILED'), { code: 'DECRYPT_FAILED' })));
     child.stdin.end(buffer.toString('base64'));
   });
 }
@@ -231,9 +232,17 @@ function pickCookies(cookies, config) {
   const picked = new Map();
   cookies.forEach(cookie => {
     if (!cookie.value || !config.names.includes(cookie.name) || !domainMatches(cookie.domain, config.domains)) return;
+    const host = String(cookie.domain || '').replace(/^\./, '').toLowerCase();
+    // Only cookies that the browser would send to this music site's root page.
+    if (config.site && !(config.site === host || config.site.endsWith('.' + host))) return;
+    if (cookie.path && cookie.path !== '/') return;
+    if (/[;\x00-\x1f\x7f]/.test(String(cookie.value))) return;
     if (cookie.expires && cookie.expires * 1000 <= Date.now()) return;
     const previous = picked.get(cookie.name);
-    if (!previous || (cookie.expires || 0) > (previous.expires || 0)) picked.set(cookie.name, cookie);
+    const specificity = host.length;
+    const previousSpecificity = previous ? String(previous.domain || '').replace(/^\./, '').length : -1;
+    if (!previous || specificity > previousSpecificity
+        || (specificity === previousSpecificity && (cookie.expires || 0) > (previous.expires || 0))) picked.set(cookie.name, cookie);
   });
   const obj = {};
   picked.forEach((cookie, name) => { obj[name] = cookie.value; });
@@ -271,7 +280,7 @@ async function collectCandidates(config, deps) {
         else if (decoded.failed) note('DECRYPT_FAILED', browser.label);
         else {
           const micro = Number(row.expires_utc) || 0;
-          cookies.push({ name: row.name, value: decoded.value, domain: row.host_key,
+          cookies.push({ name: row.name, value: decoded.value, domain: row.host_key, path: row.path,
             expires: micro ? micro / 1e6 - CHROMIUM_EPOCH_OFFSET_SECONDS : 0 });
         }
       });
@@ -289,7 +298,7 @@ async function collectCandidates(config, deps) {
     }
     const cookies = rows.map(row => {
       const expiry = Number(row.expiry) || 0;
-      return { name: row.name, value: String(row.value || ''), domain: row.host, expires: expiry > 1e11 ? expiry / 1000 : expiry };
+      return { name: row.name, value: String(row.value || ''), domain: row.host, path: row.path, expires: expiry > 1e11 ? expiry / 1000 : expiry };
     });
     const built = pickCookies(cookies, config);
     if (config.loggedIn(built.obj)) candidates.push({ browser: 'Firefox', profile: item.profile, ...built });

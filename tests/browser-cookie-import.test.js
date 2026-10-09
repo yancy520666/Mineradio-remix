@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const path=require('node:path');
-const {importBrowserLogin,_test}=require('../desktop/browser-cookie-import');
+const {importBrowserLogin,providerConfig,_test}=require('../desktop/browser-cookie-import');
 const key=crypto.randomBytes(32);
 function v10(text,host,metaVersion){
  const nonce=crypto.randomBytes(12),c=crypto.createCipheriv('aes-256-gcm',key,nonce);
@@ -50,4 +50,20 @@ test('import returns the browser login and explains locked or App-Bound browsers
  const none=await importBrowserLogin('netease',fakeEnv([]));
  assert.equal(none.error,'NOT_LOGGED_IN');
  assert.equal((await importBrowserLogin('qishui',fakeEnv([]))).error,'UNSUPPORTED_PROVIDER');
+});
+
+test('music-site cookie scope rejects sibling accounts and chooses site cookies over shared parent cookies',()=>{
+ const picked=_test.pickCookies([
+  {name:'uin',value:'111',domain:'.qq.com',expires:4000000000},
+  {name:'uin',value:'222',domain:'y.qq.com',expires:3000000000},
+  {name:'uin',value:'333',domain:'mail.qq.com',expires:4100000000},
+  {name:'qqmusic_key',value:'site-key',domain:'.y.qq.com'},
+  {name:'qqmusic_key',value:'other-key',domain:'other.qq.com',expires:4100000000},
+  {name:'skey',value:'bad; uin=999',domain:'.qq.com'},
+  {name:'p_skey',value:'path-key',domain:'y.qq.com',path:'/other'},
+ ],providerConfig('qq'));
+ assert.equal(picked.header,'uin=222; qqmusic_key=site-key');
+ const filter=_test.sqlDomainFilter('host_key',providerConfig('qq').domains);
+ assert.doesNotMatch(filter.where,/LIKE/);
+ assert.deepEqual(filter.params,['qq.com','.qq.com','y.qq.com','.y.qq.com']);
 });
