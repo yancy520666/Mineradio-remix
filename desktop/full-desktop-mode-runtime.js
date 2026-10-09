@@ -1655,12 +1655,27 @@ class FullDesktopModeRuntime {
     this.pointerIgnoreMouseEvents = null;
     safeCall(win && win.webContents, 'setBackgroundThrottling', null, snapshot.backgroundThrottling);
     safeCall(win, 'setFocusable', null, snapshot.focusable);
-    safeCall(win, 'setFullScreen', null, false);
-    safeCall(win, 'unmaximize', null);
+    if (safeCall(win, 'isFullScreen', false)) safeCall(win, 'setFullScreen', null, false);
+    if (safeCall(win, 'isMaximized', false)) safeCall(win, 'unmaximize', null);
     if (safeCall(win, 'isMinimized', false)) safeCall(win, 'restore', null);
-    if (Array.isArray(snapshot.minimumSize)) safeCall(win, 'setMinimumSize', null, snapshot.minimumSize[0], snapshot.minimumSize[1]);
-    if (Array.isArray(snapshot.maximumSize)) safeCall(win, 'setMaximumSize', null, snapshot.maximumSize[0], snapshot.maximumSize[1]);
-    safeCall(win, 'setBounds', null, snapshot.bounds, false);
+    // Avoid unnecessary native resize operations while restoring a detached HWND.
+    for (const [key, getter, setter] of [
+      ['minimumSize', 'getMinimumSize', 'setMinimumSize'],
+      ['maximumSize', 'getMaximumSize', 'setMaximumSize'],
+    ]) {
+      const saved = snapshot[key];
+      const current = safeCall(win, getter, null);
+      if (Array.isArray(saved) && (!Array.isArray(current)
+          || current[0] !== saved[0] || current[1] !== saved[1])) {
+        safeCall(win, setter, null, saved[0], saved[1]);
+      }
+    }
+    // Native detach already restores physical bounds. A redundant Electron
+    // setBounds can use the former Explorer parent's DPI on mixed-DPI screens.
+    const currentBounds = safeCall(win, 'getBounds', null);
+    if (!currentBounds || ['x', 'y', 'width', 'height'].some(
+      key => Math.abs(Number(currentBounds[key]) - Number(snapshot.bounds[key])) > 1
+    )) safeCall(win, 'setBounds', null, snapshot.bounds, false);
     safeCall(win, 'setResizable', null, snapshot.resizable);
     safeCall(win, 'setMovable', null, snapshot.movable);
     safeCall(win, 'setHasShadow', null, snapshot.hasShadow);

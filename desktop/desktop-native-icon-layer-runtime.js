@@ -105,6 +105,20 @@ public static class MineradioDesktopNativeIconLayerGuard {
   [DllImport("user32.dll", SetLastError=true)]
   private static extern IntPtr GetParent(IntPtr hWnd);
 
+  [DllImport("user32.dll")]
+  private static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+
+  [StructLayout(LayoutKind.Sequential)]
+  private struct RECT { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)]
+  private struct POINT { public int X, Y; }
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern bool ScreenToClient(IntPtr hWnd, ref POINT point);
+  [DllImport("user32.dll")]
+  private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+
   [DllImport("user32.dll", SetLastError=true)]
   private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
 
@@ -176,6 +190,9 @@ public static class MineradioDesktopNativeIconLayerGuard {
   private static IntPtr _mainWindow = IntPtr.Zero;
   private static IntPtr _rangeHook = IntPtr.Zero;
   private static IntPtr _locationHook = IntPtr.Zero;
+  private static IntPtr _mainWindowHook = IntPtr.Zero;
+  private static IntPtr _mainLocationHook = IntPtr.Zero;
+  private static int _targetX, _targetY, _targetWidth, _targetHeight;
   private static long _originalListViewExStyle;
   private static bool _originalListViewWasLayered;
   private static bool _originalLayeredAttributesReadable;
@@ -232,6 +249,14 @@ public static class MineradioDesktopNativeIconLayerGuard {
     if (_rangeHook != IntPtr.Zero) {
       UnhookWinEvent(_rangeHook);
       _rangeHook = IntPtr.Zero;
+    }
+    if (_mainLocationHook != IntPtr.Zero) {
+      UnhookWinEvent(_mainLocationHook);
+      _mainLocationHook = IntPtr.Zero;
+    }
+    if (_mainWindowHook != IntPtr.Zero) {
+      UnhookWinEvent(_mainWindowHook);
+      _mainWindowHook = IntPtr.Zero;
     }
     if (_locationHook != IntPtr.Zero) {
       UnhookWinEvent(_locationHook);
@@ -439,7 +464,12 @@ public static class MineradioDesktopNativeIconLayerGuard {
       EventCallback, processId, threadId, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
     _locationHook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero,
       EventCallback, processId, threadId, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
-    if (_rangeHook == IntPtr.Zero || _locationHook == IntPtr.Zero)
+    _mainWindowHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_REORDER, IntPtr.Zero,
+      EventCallback, _mainProcessId, _mainThreadId, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    _mainLocationHook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero,
+      EventCallback, _mainProcessId, _mainThreadId, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    if (_rangeHook == IntPtr.Zero || _locationHook == IntPtr.Zero
+        || _mainWindowHook == IntPtr.Zero || _mainLocationHook == IntPtr.Zero)
       throw new InvalidOperationException("DESKTOP_ICON_EVENT_HOOK_FAILED");
   }
 
@@ -499,6 +529,14 @@ public static class MineradioDesktopNativeIconLayerGuard {
       }
       return;
     }
+    // Electron can raise its own child on activation/show. Explorer-only hooks
+    // miss that event; avoid re-queuing the reorder produced by our own repair.
+    if (hWnd == _mainWindow) {
+      if (!MainWindowIdentityMatches()) return;
+      if (eventType != EVENT_OBJECT_LOCATIONCHANGE && GetWindow(_mainWindow, 2) == IntPtr.Zero) return;
+      QueueRefresh();
+      return;
+    }
     if (hWnd != _listView && hWnd != _iconHost && (_listView == IntPtr.Zero || !IsChild(_listView, hWnd))) return;
     lock (StateLock) {
       _pending = true;
@@ -531,9 +569,32 @@ public static class MineradioDesktopNativeIconLayerGuard {
   private static void KeepMainAtBottom() {
     if (!BoundTargetIdentityMatches() || !MainWindowIdentityMatches())
       throw new InvalidOperationException("DESKTOP_ICON_LAYER_MAIN_WINDOW_CHANGED");
-    if (!SetWindowPos(_mainWindow, HWND_BOTTOM, 0, 0, 0, 0,
-        SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE))
-      throw new InvalidOperationException("DESKTOP_ICON_LAYER_ZORDER_FAILED");
+    IntPtr previousDpiContext = SetThreadDpiAwarenessContext(new IntPtr(-4));
+    try {
+      RECT rect;
+      if (!GetWindowRect(_mainWindow, out rect))
+        throw new InvalidOperationException("DESKTOP_ICON_LAYER_BOUNDS_QUERY_FAILED");
+      bool geometryChanged = rect.Left != _targetX || rect.Top != _targetY
+        || rect.Right - rect.Left != _targetWidth || rect.Bottom - rect.Top != _targetHeight;
+      // BrowserWindow.showInactive() can reuse cached top-level coordinates
+      // after SetParent. Repair in the DefView client coordinate space, with
+      // physical pixels, before acknowledging a visible desktop surface.
+      POINT local = new POINT { X = _targetX, Y = _targetY };
+      if (geometryChanged && !ScreenToClient(_iconHost, ref local))
+        throw new InvalidOperationException("DESKTOP_ICON_LAYER_COORDINATES_FAILED");
+      if (geometryChanged || GetWindow(_mainWindow, 2) != IntPtr.Zero) {
+        uint flags = SWP_NOACTIVATE | (geometryChanged ? 0 : SWP_NOSIZE | SWP_NOMOVE);
+        if (!SetWindowPos(_mainWindow, HWND_BOTTOM, local.X, local.Y,
+            _targetWidth, _targetHeight, flags))
+          throw new InvalidOperationException("DESKTOP_ICON_LAYER_ZORDER_FAILED");
+      }
+      if (!GetWindowRect(_mainWindow, out rect) || rect.Left != _targetX || rect.Top != _targetY
+          || rect.Right - rect.Left != _targetWidth || rect.Bottom - rect.Top != _targetHeight
+          || GetWindow(_mainWindow, 2) != IntPtr.Zero)
+        throw new InvalidOperationException("DESKTOP_ICON_LAYER_BOUNDS_ACK_FAILED");
+    } finally {
+      if (previousDpiContext != IntPtr.Zero) SetThreadDpiAwarenessContext(previousDpiContext);
+    }
   }
 
   private static void ApplyPendingControls() {
@@ -721,6 +782,8 @@ public static class MineradioDesktopNativeIconLayerGuard {
     _expectedIconHost = new IntPtr(expectedIconHost);
     _expectedListView = new IntPtr(expectedListView);
     _mainWindow = new IntPtr(mainWindow);
+    _targetX = targetX; _targetY = targetY;
+    _targetWidth = targetWidth; _targetHeight = targetHeight;
     _input = input ?? Console.In;
     _output = output ?? Console.Out;
     _ownerThreadId = GetCurrentThreadId();

@@ -1199,3 +1199,24 @@ test('stale setInteractive after disable does not poison the disabled phase', as
   assert.equal(status.phase, 'disabled');
   assert.equal(status.lastError, '');
 });
+
+
+test('restore leaves an ordinary detached window at its native restored bounds', () => {
+  const win = new FakeBrowserWindow();
+  const { runtime } = makeRuntime();
+  const snapshot = { bounds: win.getBounds(), minimumSize: win.getMinimumSize(), resizable: true, movable: true, focusable: true, visible: false };
+  runtime.restoreWindow(win, snapshot);
+  assert.equal(win.calls.some(call => ['setFullScreen', 'unmaximize', 'setMinimumSize', 'setBounds'].includes(call[0])), false);
+  assert.deepEqual(win.getBounds(), snapshot.bounds);
+});
+
+test('restore still applies changed bounds and constraints', () => {
+  const win = new FakeBrowserWindow({ fullScreen: true, maximized: true });
+  const { runtime } = makeRuntime();
+  const bounds = { x: -800, y: 20, width: 800, height: 600 };
+  runtime.restoreWindow(win, { bounds, minimumSize: [600, 400], visible: false });
+  assert.equal(win.fullScreen, false);
+  assert.equal(win.maximized, false);
+  assert.deepEqual(win.getBounds(), bounds);
+  assert.deepEqual(win.getMinimumSize(), [600, 400]);
+});
