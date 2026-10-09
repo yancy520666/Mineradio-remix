@@ -3149,11 +3149,8 @@ function checkAlbumDetailGaplessGuard() {
   if (!/setAlbumGaplessPlaybackContext\(detailAlbumGaplessEnabled, detailAlbumContext/.test(detailText) || !/__albumGaplessKey/.test(detailText) || !/detailAlbumGaplessEnabled\s*=\s*true/.test(detailText)) {
     fail('album detail playback must tag album queues and pass the gapless context into playback');
   }
-  if (!/handleNeteaseAlbumDetail/.test(serverText) || !/pn === '\/api\/album\/detail'/.test(serverText) || !/handleQQAlbumDetail/.test(serverText) || !/pn === '\/api\/qq\/album\/detail'/.test(serverText) || !/pn === '\/api\/spotify\/album\/detail'/.test(serverText)) {
-    fail('server.js must expose Netease, QQ, and Spotify album detail endpoints');
-  }
-  if (!/async function handleSpotifyAlbumDetail/.test(spotifyText) || !/\/albums\/' \+ encodeURIComponent\(id\)/.test(spotifyText)) {
-    fail('Spotify bridge must expose album detail tracks as metadata source');
+  if (!/handleNeteaseAlbumDetail/.test(serverText) || !/pn === '\/api\/album\/detail'/.test(serverText) || !/handleQQAlbumDetail/.test(serverText) || !/pn === '\/api\/qq\/album\/detail'/.test(serverText)) {
+    fail('server.js must expose Netease and QQ album detail endpoints');
   }
   if (!/albumGaplessState/.test(coreStoreText) || !/defaultEnabled:\s*true/.test(coreStoreText) || !/function albumGaplessDefaultEnabledForContext/.test(playbackText) || !/function setAlbumGaplessPlaybackContext/.test(playbackText) || !/function scheduleAlbumGaplessPreloadForCurrent/.test(playbackText) || !/function resolveAlbumGaplessPlaybackData/.test(playbackText) || !/albumGaplessHandoff/.test(playbackText) || !/playAlbumGaplessNextOnEnded/.test(playbackText)) {
     fail('album gapless playback must keep explicit state, preheat next audio, and use a sequential on-ended fallback');

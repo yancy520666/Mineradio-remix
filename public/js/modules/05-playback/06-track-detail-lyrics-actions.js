@@ -677,30 +677,69 @@ function artistAlbumCardHtml(item, index) {
     '<span class="artist-album-name">' + escHtml(item.name) + '</span>' +
     '<span class="artist-album-meta">' + escHtml(meta || '专辑') + '</span></button>';
 }
+var ARTIST_ALBUM_PAGE = 60;
+var detailArtistAlbumState = null;
 // Fills the (initially hidden) album section; any failure just leaves it hidden.
+// Collapsed it shows the newest few; expanded it lists every album, loaded a page at a time.
 function renderArtistAlbumSection(albums, total) {
   var section = document.getElementById('artist-albums-section');
   if (!section) return;
-  detailArtistAlbums = (albums || []).slice(0, ARTIST_ALBUM_COUNT);
+  var state = detailArtistAlbumState || { all: [], total: 0, expanded: false, loading: false };
+  if (albums) { state.preview = albums.slice(0, ARTIST_ALBUM_COUNT); state.total = Math.max(Number(total) || 0, albums.length); }
+  detailArtistAlbumState = state;
+  detailArtistAlbums = state.expanded ? state.all : (state.preview || []);
   if (!detailArtistAlbums.length) { section.hidden = true; return; }
   var count = document.getElementById('artist-albums-count');
-  if (count) count.textContent = total > detailArtistAlbums.length ? '最新 ' + detailArtistAlbums.length + ' 张 · 共 ' + total + ' 张' : '共 ' + detailArtistAlbums.length + ' 张';
+  if (count) count.textContent = !state.expanded && state.total > detailArtistAlbums.length
+    ? '最新 ' + detailArtistAlbums.length + ' 张 · 共 ' + state.total + ' 张'
+    : (state.expanded && state.total > detailArtistAlbums.length ? '已显示 ' + detailArtistAlbums.length + ' / ' + state.total + ' 张' : '共 ' + detailArtistAlbums.length + ' 张');
+  var more = document.getElementById('artist-albums-more');
+  if (more) {
+    var canGrow = state.total > (state.expanded ? state.all.length : detailArtistAlbums.length);
+    more.hidden = !state.expanded && !canGrow;
+    more.disabled = !!state.loading;
+    more.textContent = state.loading ? '加载中…' : (!state.expanded ? '查看全部 ›' : (canGrow ? '加载更多 ›' : '收起'));
+  }
   var grid = document.getElementById('artist-albums-grid');
   if (grid) grid.innerHTML = detailArtistAlbums.map(artistAlbumCardHtml).join('');
   section.hidden = false;
 }
 function loadArtistAlbumSection(provider, id, seq) {
+  detailArtistAlbumState = { provider: provider, id: id, seq: seq, all: [], total: 0, expanded: false, loading: false };
   apiJson('/api/artist/albums?provider=' + encodeURIComponent(provider) + '&id=' + encodeURIComponent(id) + '&limit=' + ARTIST_ALBUM_COUNT).then(function (r) {
     if (seq !== trackDetailSeq) return;
     if (r && !r.error) renderArtistAlbumSection(r.albums || [], Number(r.total) || 0);
   }).catch(function () { });
 }
-// "查看更多": leave the detail page and search more albums by this artist in the search panel.
-function openArtistAlbumSearch() {
-  var name = String(detailArtistAlbumQuery || '').trim();
-  if (!name || typeof searchArtistAlbums !== 'function') return;
-  closeTrackDetailModal();
-  searchArtistAlbums(name);
+function toggleArtistAlbumsExpanded() {
+  var state = detailArtistAlbumState;
+  if (!state || state.loading) return;
+  if (state.expanded && state.all.length >= state.total) {
+    state.expanded = false;
+    renderArtistAlbumSection();
+    return;
+  }
+  state.loading = true;
+  renderArtistAlbumSection();
+  var seq = state.seq;
+  apiJson('/api/artist/albums?provider=' + encodeURIComponent(state.provider) + '&id=' + encodeURIComponent(state.id) +
+    '&limit=' + ARTIST_ALBUM_PAGE + '&offset=' + state.all.length, { timeoutMs: 15000 }).then(function (r) {
+    if (seq !== trackDetailSeq || detailArtistAlbumState !== state) return;
+    var seen = {};
+    state.all.forEach(function (item) { seen[item.id] = true; });
+    var added = ((r && r.albums) || []).filter(function (item) { return item && item.id && !seen[item.id] && (seen[item.id] = true); });
+    state.all = state.all.concat(added);
+    if (r && Number(r.total)) state.total = Math.max(Number(r.total), state.all.length);
+    // An empty page means the platform has nothing more to give, whatever its total said.
+    if (!added.length) state.total = state.all.length;
+    state.expanded = true;
+  }).catch(function () {
+    showToast('专辑加载失败，请稍后重试');
+  }).finally(function () {
+    if (detailArtistAlbumState !== state) return;
+    state.loading = false;
+    if (seq === trackDetailSeq) renderArtistAlbumSection();
+  });
 }
 function openArtistAlbumDetail(i) {
   var item = detailArtistAlbums[i];
@@ -835,7 +874,7 @@ function openTrackDetailModal(type, songOverride) {
       detailRow('来源', songSourceLabel(song)) +
       '</div>' +
       '<div class="detail-chip-row">' + (artists.length ? artists.map(function (name) { return '<span class="detail-chip">' + escHtml(name) + '</span>'; }).join('') : '<span class="detail-chip">未知歌手</span>') + '</div>' +
-      '<div class="detail-section artist-albums-section" id="artist-albums-section" hidden><div class="detail-section-head"><div class="detail-section-title">专辑</div><div class="detail-section-actions"><span class="artist-albums-count" id="artist-albums-count"></span><button class="artist-albums-more" type="button" title="搜索该歌手的更多专辑" onclick="openArtistAlbumSearch()">查看更多 ›</button></div></div><div class="artist-album-grid" id="artist-albums-grid"></div></div>' +
+      '<div class="detail-section artist-albums-section" id="artist-albums-section" hidden><div class="detail-section-head"><div class="detail-section-title">专辑</div><div class="detail-section-actions"><span class="artist-albums-count" id="artist-albums-count"></span><button class="artist-albums-more" id="artist-albums-more" type="button" title="显示该歌手的全部专辑" onclick="toggleArtistAlbumsExpanded()" hidden>查看全部 ›</button></div></div><div class="artist-album-grid" id="artist-albums-grid"></div></div>' +
       '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">热门歌曲</div></div><div id="artist-hot-songs">' + (artistDetailUrl ? '<div class="detail-loading">' + escHtml(artistLoadingText) + '</div>' : '<div class="detail-empty">' + escHtml(artistEmptyText) + '</div>') + '</div></div>';
     detailArtistAlbums = [];
     detailArtistAlbumQuery = artistNamesForMatch[0] || '';

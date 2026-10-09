@@ -109,7 +109,7 @@ var AUDIO_OUTPUT_MIRROR_STORE_KEY = 'mineradio-audio-output-mirror-v1';
 var AUDIO_INPUT_BRIDGE_STORE_KEY = 'mineradio-audio-input-bridge-v1';
 var PROVIDER_VIP_AUDIT_STORE_KEY = 'mineradio-provider-vip-audit-v1';
 var QQ_PLAYBACK_VIP_EVIDENCE_STORE_KEY = 'mineradio-qq-playback-vip-evidence-v1';
-var PLAYBACK_QUALITY_DEFAULTS = { netease: 'hires', qq: 'lossless', kugou: 'lossless', qishui: 'standard', spotify: 'standard' };
+var PLAYBACK_QUALITY_DEFAULTS = { netease: 'hires', qq: 'lossless', kugou: 'lossless', qishui: 'hires', spotify: 'standard' };
 var PLAYBACK_QUALITY_OPTIONS = {
   netease: [
     { key: 'jymaster', title: '超清母带', sub: 'SVIP / 最高规格', svip: true },
@@ -131,7 +131,10 @@ var PLAYBACK_QUALITY_OPTIONS = {
     { key: 'standard', title: '128k MP3', sub: '兼容优先' }
   ],
   qishui: [
-    { key: 'standard', title: '汽水匹配源', sub: 'QS 推荐 / 播放自动换源' }
+    { key: 'hires', title: '最高可用', sub: '汽水最高档 / 加载最慢' },
+    { key: 'lossless', title: '无损 FLAC', sub: '汽水无损' },
+    { key: 'exhigh', title: '320k', sub: '高品质 / 起播更快' },
+    { key: 'standard', title: '128k', sub: '省流 / 起播最快' }
   ],
   spotify: [
     { key: 'standard', title: 'Spotify 匹配源', sub: 'SP 搜索 / 播放自动换源' }

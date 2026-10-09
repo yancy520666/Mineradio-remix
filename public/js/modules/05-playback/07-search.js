@@ -573,8 +573,7 @@ function controlSourceProviders() {
     { key: 'netease', label: 'NE', title: '网易云' },
     { key: 'qq', label: 'QQ', title: 'QQ音乐' },
     { key: 'kugou', label: 'KG', title: '酷狗' },
-    { key: 'qishui', label: 'QS', title: '汽水' },
-    { key: 'spotify', label: 'SP', title: 'Spotify' }
+    { key: 'qishui', label: 'QS', title: '汽水' }
   ];
 }
 function controlSourceProviderTitle(provider) {
@@ -680,12 +679,6 @@ function controlSourceOptionState(provider, entry, active) {
     var issueLabel = controlSourceIssueLabel(controlSourceMatchIssue(entry));
     return { ready: false, status: entry || !loading ? issueLabel : '检测中', title: provider.title + ': ' + (entry || !loading ? issueLabel : '正在匹配') };
   }
-  // Spotify is a matched source that re-resolves through other platforms when played; it is not probed.
-  if (provider.key === 'spotify') {
-    return match.playable === false
-      ? { ready: true, status: '匹配源', title: provider.title + ': 播放将自动换源' }
-      : { ready: true, status: '可切换', title: '切换到 ' + provider.title };
-  }
   var probe = entry && entry.playback;
   if (!probe) return { ready: false, status: '检测可播', title: provider.title + ': 正在确认当前账号能否播放' };
   if (probe.state === 'blocked') {
@@ -765,7 +758,7 @@ async function loadControlSourceMatches(song, requestId) {
     }
     matches[provider.key] = entry;
     rerender();
-    if (!entry.song || provider.key === 'spotify' || !stillCurrent()) return;
+    if (!entry.song || !stillCurrent()) return;
     entry.playback = await probeControlSourcePlayback(entry.song, provider.key);
     rerender();
   }));

@@ -12,7 +12,7 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
   let shelf = false;
   const group = new THREE.Group(), texture = { quality: 'ultra' };
   const c = vm.createContext({
-    fx: { particleLyrics: true, lyricCameraLock: true }, stageLyrics: { group, current: { texture }, lockFitScale: 1 },
+    THREE, fx: { particleLyrics: true, lyricCameraLock: true }, stageLyrics: { group, current: { texture }, lockFitScale: 1 },
     camera: new THREE.PerspectiveCamera(), SKULL_PRESET_INDEX: 8, skullParticleGroup: null,
     shelfManager: { hasOpenContent: () => false }, orbit: {},
     normalizeLyricDisplayMode: () => 'single', normalizeLyricTranslationMode: () => 'off',
@@ -27,13 +27,20 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
     resetLyricRenderUploadFrameBudget: () => { throw new Error('UI motion must not reset upload budget'); },
   });
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'stageLyricShelfCaptionMetrics'), c);
+  const stage = read('02-visual/14-stage-lyrics-rendering.js');
+  vm.runInContext('var innerWidth = 1280, innerHeight = 720, lyricShelfCoverQuat = new THREE.Quaternion(), lyricShelfTurnQuat = new THREE.Quaternion();' +
+    stage.slice(stage.indexOf('var STAGE_LYRIC_SHELF_FLIP_SECONDS'), stage.indexOf('var lyricShelfFlipDepthDir = null;') + 'var lyricShelfFlipDepthDir = null;'.length), c);
+  for (const name of ['stageLyricShelfFlipEase', 'stageLyricStableShelfAnchor', 'stageLyricShelfFlipTarget', 'blendStageLyricShelfFlip']) vm.runInContext(extract(stage, name), c);
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'updateStageLyricLayout'), c);
   c.updateStageLyricLayout(); shelf = true;
-  for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
+  // One timed flip (0.62 s): the block keeps moving left every frame until it settles.
+  for (let i = 0; i < 30; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
+  for (let i = 0; i < 30; i++) c.updateStageLyricLayout();
   assert(group.position.x < -0.3);
   assert(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y < -10 * Math.PI / 180, 'opening retains a visible 3D side turn');
   shelf = false;
-  for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
+  for (let i = 0; i < 30; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
+  for (let i = 0; i < 30; i++) c.updateStageLyricLayout();
   assert(Math.abs(group.position.x) < .01);
   for (let i = 0; i < 20; i++) c.updateStageLyricLayout();
   assert(Math.abs(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y) < Math.PI / 180, 'closing restores the original angle');

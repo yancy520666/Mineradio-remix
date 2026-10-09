@@ -1327,6 +1327,14 @@ function updateLoginProviderUi() {
       refreshBtn.onclick = loginProvider === 'qq' ? refreshInlineLoginQr : openInlineLoginInWindow;
     }
   }
+  // Cookie import gets the drawer to itself: the QR card is hidden while it is open.
+  var cookieMode = isManualCookieProvider && manualCookieOpen;
+  if (loginDrawer) loginDrawer.classList.toggle('cookie-mode', cookieMode);
+  if (cookieMode) {
+    var cookieSite = isKugou ? 'kugou.com' : (isNetease ? 'music.163.com' : 'y.qq.com');
+    if (title) title.textContent = '导入' + meta.label + '登录';
+    if (desc) desc.innerHTML = '一键读取本机浏览器里 <b>' + cookieSite + '</b> 的登录，或粘贴 Cookie；只保存在本机。';
+  }
   updateLoginNodeGraphUi();
 }
 // An empty src resolves to the page URL and renders a broken-image icon.

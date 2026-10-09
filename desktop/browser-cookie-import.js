@@ -49,7 +49,9 @@ const MESSAGES = {
   NO_BROWSER: '这台电脑上没找到 Chrome、Edge、Brave 或 Firefox。可以改用扫码登录。',
   LOCKED: '{browser} 正在运行，暂时读不到它的登录文件。请完全关闭 {browser}（包括后台）后再试，或改用扫码。',
   APP_BOUND: '{browser} 新版给登录信息加了只有它自己能解开的加密，其他软件读不到。可以换另一个浏览器（如 Firefox）登录后再导入，或直接扫码。',
-  DECRYPT_FAILED: '找到了浏览器的登录信息，但解密失败。请改用扫码登录。',
+  KEY_UNAVAILABLE: '找到了 {browser} 的登录信息，但 Windows 没有交出它的解密密钥（数据保护接口调用失败）。可换另一个浏览器导入，或直接扫码。',
+  READ_FAILED: '{browser} 的登录文件无法读取（可能被安全软件拦截或文件损坏）。可换另一个浏览器导入，或直接扫码。',
+  DECRYPT_FAILED: '找到了 {browser} 的登录信息，但解密失败。可换另一个浏览器导入，或直接扫码。',
 };
 
 function providerConfig(provider) {
@@ -181,7 +183,9 @@ function powershellDpapiUnprotect(buffer) {
     + "$o=[Security.Cryptography.ProtectedData]::Unprotect($b,$null,'CurrentUser');"
     + '[Console]::Out.Write([Convert]::ToBase64String($o))';
   return new Promise((resolve, reject) => {
-    const child = execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    // Absolute path: a packaged app's PATH may not contain the system PowerShell directory.
+    const shell = path.join(process.env.SystemRoot || 'C:\\Windows','System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const child = execFile(fs.existsSync(shell) ? shell : 'powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { windowsHide: true, timeout: 15000, maxBuffer: 1024 * 1024 }, (error, stdout) => {
         if (error) return reject(Object.assign(new Error('DECRYPT_FAILED'), { code: 'DECRYPT_FAILED' }));
         const out = Buffer.from(String(stdout || '').trim(), 'base64');
@@ -266,7 +270,7 @@ async function collectCandidates(config, deps) {
     for (const item of profiles) {
       let result;
       try { result = readChromiumRows(item.file, config, deps); } catch (error) {
-        note(error.code === 'LOCKED' ? 'LOCKED' : 'DECRYPT_FAILED', browser.label);
+        note(error.code === 'LOCKED' ? 'LOCKED' : 'READ_FAILED', browser.label);
         continue;
       }
       if (!result.rows.length) continue;
@@ -278,7 +282,7 @@ async function collectCandidates(config, deps) {
       result.rows.forEach(row => {
         const decoded = decryptChromiumValue(row, key, result.metaVersion);
         if (decoded.appBound) note('APP_BOUND', browser.label);
-        else if (decoded.failed) note('DECRYPT_FAILED', browser.label);
+        else if (decoded.failed) note(key ? 'DECRYPT_FAILED' : 'KEY_UNAVAILABLE', browser.label);
         else {
           const micro = Number(row.expires_utc) || 0;
           cookies.push({ name: row.name, value: decoded.value, domain: row.host_key, path: row.path,
@@ -294,7 +298,7 @@ async function collectCandidates(config, deps) {
   for (const item of firefox) {
     let rows;
     try { rows = readFirefoxRows(item.file, config, deps); } catch (error) {
-      note(error.code === 'LOCKED' ? 'LOCKED' : 'DECRYPT_FAILED', 'Firefox');
+      note(error.code === 'LOCKED' ? 'LOCKED' : 'READ_FAILED', 'Firefox');
       continue;
     }
     const cookies = rows.map(row => {
@@ -327,7 +331,7 @@ async function importBrowserLogin(provider, options) {
     return { ok: true, provider, cookie: best.header, browser: best.browser, profile: best.profile };
   }
   if (!browsersFound) return { ok: false, error: 'NO_BROWSER', message: MESSAGES.NO_BROWSER };
-  for (const code of ['APP_BOUND', 'LOCKED', 'DECRYPT_FAILED']) {
+  for (const code of ['APP_BOUND', 'LOCKED', 'KEY_UNAVAILABLE', 'DECRYPT_FAILED', 'READ_FAILED']) {
     if (problems.has(code)) {
       return { ok: false, error: code, browser: problems.get(code), message: MESSAGES[code].replace(/\{browser\}/g, problems.get(code)) };
     }
