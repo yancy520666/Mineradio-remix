@@ -51,7 +51,7 @@ function nativeService(options = {}) {
   const protocol = createNativeProtocol(options.http || createAuthHttpClient(),
     options.deviceRepository || deviceRepository || (deviceRepository = storedDeviceRepository()));
   const service = createQrLoginService({ http: protocol.http, createSessionHttp: createAuthHttpClient,
-    deviceRepository: protocol.deviceRepository, listen: options.listen || createMqttListen(WebSocket) });
+    deviceRepository: protocol.deviceRepository, listen: protocol.wrapListen(options.listen || createMqttListen(WebSocket)) });
   const sdkCheck = service.checkQr.bind(service);
   service.checkQr = async (...args) => {
     const result = await sdkCheck(...args);

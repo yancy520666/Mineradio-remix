@@ -1017,6 +1017,18 @@
             <button data-startup-resume-mode="resume">按上次进度</button>
             <button data-startup-resume-mode="restart">重播整首</button>
           </div>
+          <div class="fx-section-label">音质预设</div>
+          <div class="quality-preset-section" id="playback-quality-preset-panel">
+            <div class="quality-output-head"><span>默认播放音质</span><span id="quality-preset-summary" class="quality-preset-summary"></span></div>
+            <div class="fx-seg quality-preset-seg" id="quality-preset-seg" role="group" aria-label="一键音质预设">
+              <button type="button" data-quality-preset="saver" title="各平台 128k，省流量、弱网更稳">省流</button>
+              <button type="button" data-quality-preset="balanced" title="各平台 320k MP3 / 极高">均衡</button>
+              <button type="button" data-quality-preset="lossless" title="各平台无损 FLAC">无损</button>
+              <button type="button" data-quality-preset="best" title="各平台最高可用档：网易云 SVIP 为超清母带，其余为 Hi-Res">最高</button>
+            </div>
+            <div class="quality-preset-providers" id="quality-preset-providers"></div>
+            <p class="fx-sub quality-preset-note">新歌按这里的档位请求；歌曲或账号没有该档位时自动降到可用的最高档。汽水、Spotify 为匹配源，不分档。</p>
+          </div>
           <div class="fx-section-label">输出接口</div>
           <div class="audio-output-section" id="audio-output-panel">
             <div class="quality-output-head"><span>播放输出设备</span><span class="quality-output-actions"><button class="quality-output-refresh" type="button"

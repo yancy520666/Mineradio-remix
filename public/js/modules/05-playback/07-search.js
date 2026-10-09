@@ -634,6 +634,67 @@ function controlSourceMatchSong(entry) {
 function controlSourceMatchIssue(entry) {
   return entry && entry.issue ? entry.issue : 'no_source';
 }
+// Search only proves a same-title recording exists. Whether this account can actually play it
+// (VIP, purchase, region, copyright) is only known from the platform's playback URL answer.
+var CONTROL_SOURCE_PROBE_TTL_MS = 90000;
+var controlSourceProbeCache = {};
+function controlSourceProbeKey(song, provider) {
+  return typeof playbackQualityTrackKey === 'function' ? playbackQualityTrackKey(song, provider) : provider + ':' + (song && (song.id || song.mid || song.hash) || '');
+}
+function controlSourceBlockedLabel(category) {
+  if (category === 'vip_required') return '需会员';
+  if (category === 'paid_required') return '需购买';
+  if (category === 'trial_only') return '仅试听';
+  if (category === 'login_required') return '需登录';
+  if (category === 'verification_required') return '需验证';
+  if (category === 'copyright_unavailable') return '无版权';
+  return '无法播放';
+}
+async function probeControlSourcePlayback(song, provider) {
+  var key = controlSourceProbeKey(song, provider);
+  var cached = controlSourceProbeCache[key];
+  if (cached && Date.now() - cached.at < CONTROL_SOURCE_PROBE_TTL_MS) return cached.result;
+  var result;
+  try {
+    var data = await resolveAlbumGaplessPlaybackData(song);
+    if (data && data.url) {
+      result = data.trial ? { state: 'trial', label: '仅试听' } : { state: 'playable', label: '可播放' };
+    } else {
+      var category = typeof playbackRestrictionCategory === 'function' ? playbackRestrictionCategory(song, data || {}) : 'url_unavailable';
+      result = { state: 'blocked', category: category, label: controlSourceBlockedLabel(category),
+        message: data && (data.message || (data.restriction && data.restriction.message)) || '' };
+    }
+  } catch (err) {
+    // A timeout is not proof the source is unusable; leave it selectable but say so.
+    console.warn('[SourceSwitchProbe]', provider, err);
+    return { state: 'unknown', label: '未确认' };
+  }
+  controlSourceProbeCache[key] = { at: Date.now(), result: result };
+  return result;
+}
+function controlSourceOptionState(provider, entry, active) {
+  var match = controlSourceMatchSong(entry);
+  var loading = !!controlSourceSwitcherState.loading;
+  if (active) return { ready: true, status: '当前', title: '当前音源' };
+  if (!match) {
+    var issueLabel = controlSourceIssueLabel(controlSourceMatchIssue(entry));
+    return { ready: false, status: entry || !loading ? issueLabel : '检测中', title: provider.title + ': ' + (entry || !loading ? issueLabel : '正在匹配') };
+  }
+  // Spotify is a matched source that re-resolves through other platforms when played; it is not probed.
+  if (provider.key === 'spotify') {
+    return match.playable === false
+      ? { ready: true, status: '匹配源', title: provider.title + ': 播放将自动换源' }
+      : { ready: true, status: '可切换', title: '切换到 ' + provider.title };
+  }
+  var probe = entry && entry.playback;
+  if (!probe) return { ready: false, status: '检测可播', title: provider.title + ': 正在确认当前账号能否播放' };
+  if (probe.state === 'blocked') {
+    return { ready: false, blocked: true, status: probe.label, title: provider.title + ': ' + (probe.message || ('找到同名歌曲，但当前账号' + probe.label)) };
+  }
+  if (probe.state === 'trial') return { ready: true, limited: true, status: '仅试听', title: provider.title + ': 当前账号只能试听片段' };
+  if (probe.state === 'unknown') return { ready: true, limited: true, status: '未确认', title: provider.title + ': 未能确认可播放，可尝试切换' };
+  return { ready: true, status: '可播放', title: '切换到 ' + provider.title };
+}
 function renderControlSourceSwitcher(matches) {
   var el = ensureControlSourceSwitcher();
   var song = currentControlSong();
@@ -644,19 +705,12 @@ function renderControlSourceSwitcher(matches) {
     '<div class="control-source-switcher-head"><span>切换音源</span><small>' + (controlSourceSwitcherState.loading ? '正在匹配' : '保留当前进度') + '</small></div>' +
     '<div class="control-source-options">' +
     controlSourceProviders().map(function (provider) {
-      var entry = matches[provider.key];
-      var match = controlSourceMatchSong(entry);
-      var issue = controlSourceMatchIssue(entry);
       var active = provider.key === current;
-      var ready = active || !!match;
-      var providerLimited = !!(match && provider.key === 'spotify' && match.playable === false);
-      var cleanStatus = active ? '当前' : (providerLimited ? '匹配源' : (match ? '可切换' : (controlSourceSwitcherState.loading ? '检测中' : controlSourceIssueLabel(issue))));
-      var title = active ? '当前音源' : (providerLimited ? (provider.title + ': 播放将自动换源') : (match ? ('切换到 ' + provider.title) : (provider.title + ': ' + controlSourceIssueLabel(issue))));
-      var status = active ? '当前' : (providerLimited ? '匹配源' : (match ? '可切换' : (controlSourceSwitcherState.loading ? '检测中' : '无匹配')));
-      return '<button type="button" class="control-source-option' + (active ? ' active' : '') + (!ready ? ' disabled' : '') + '" data-source-provider="' + provider.key + '" title="' + escHtml(title) + '" ' + (!ready ? 'disabled ' : '') + 'onclick="switchCurrentSongSource(\'' + provider.key + '\')">' +
+      var state = controlSourceOptionState(provider, matches[provider.key], active);
+      return '<button type="button" class="control-source-option' + (active ? ' active' : '') + (!state.ready ? ' disabled' : '') + (state.blocked ? ' blocked' : '') + (state.limited ? ' limited' : '') + '" data-source-provider="' + provider.key + '" title="' + escHtml(state.title) + '" ' + (!state.ready ? 'disabled aria-disabled="true" ' : '') + 'onclick="switchCurrentSongSource(\'' + provider.key + '\')">' +
         '<span class="tag-source ' + provider.key + '">' + provider.label + '</span>' +
         '<span class="control-source-option-title">' + provider.title + '</span>' +
-        '<small>' + cleanStatus + '</small>' +
+        '<small>' + escHtml(state.status) + '</small>' +
         '</button>';
     }).join('') +
     '</div>';
@@ -693,24 +747,31 @@ async function findControlSourceMatch(song, provider) {
   return strictResult && strictResult.song ? strictResult.song : null;
 }
 async function loadControlSourceMatches(song, requestId) {
-  var matches = {};
+  var matches = controlSourceSwitcherState.matches = {};
   var providers = controlSourceProviders();
+  var stillCurrent = function () { return requestId === controlSourceSwitcherState.requestId && controlSourceSwitcherState.open; };
+  var rerender = function () { if (stillCurrent()) renderControlSourceSwitcher(matches); };
   await Promise.all(providers.map(async function (provider) {
     if (songProviderKey(song) === provider.key) {
       matches[provider.key] = { song: song, issue: '' };
       return;
     }
+    var entry;
     try {
-      matches[provider.key] = await findControlSourceMatchResult(song, provider.key);
+      entry = await findControlSourceMatchResult(song, provider.key);
     } catch (err) {
       console.warn('[SourceSwitchSearch]', provider.key, err);
-      matches[provider.key] = { song: null, issue: 'no_source' };
+      entry = { song: null, issue: 'no_source' };
     }
+    matches[provider.key] = entry;
+    rerender();
+    if (!entry.song || provider.key === 'spotify' || !stillCurrent()) return;
+    entry.playback = await probeControlSourcePlayback(entry.song, provider.key);
+    rerender();
   }));
-  if (requestId !== controlSourceSwitcherState.requestId || !controlSourceSwitcherState.open) return;
+  if (!stillCurrent()) return;
   controlSourceSwitcherState.loading = false;
   renderControlSourceSwitcher(matches);
-  controlSourceSwitcherState.matches = matches;
 }
 function toggleControlSourceSwitcher(e) {
   if (e) {
@@ -756,6 +817,12 @@ async function switchCurrentSongSource(provider) {
     var entry = controlSourceSwitcherState.matches && controlSourceSwitcherState.matches[provider];
     var match = controlSourceMatchSong(entry);
     var issue = controlSourceMatchIssue(entry);
+    if (match && entry.playback && entry.playback.state === 'blocked') {
+      showSourceFallbackNotice(controlSourceProviderTitle(provider) + ' 无法播放', entry.playback.message || ('找到同名歌曲，但当前账号' + entry.playback.label + '，已保留当前音源。'));
+      controlSourceSwitcherState.loading = false;
+      renderControlSourceSwitcher(controlSourceSwitcherState.matches || {});
+      return;
+    }
     if (!match) {
       var lookup = await findControlSourceMatchResult(song, provider);
       match = lookup && lookup.song ? lookup.song : null;

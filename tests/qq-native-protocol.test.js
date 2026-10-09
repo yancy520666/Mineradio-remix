@@ -19,6 +19,7 @@ function runtimeFixture(rejectExchange = false) {
   let emit;
   const runtime = createQQNativeRuntime({ deviceRepository: store,
     http: { getCookieHeader: () => '', request: async config => {
+      if (typeof config.data === 'string') config = { ...config, data: JSON.parse(config.data) };
       requests.push(config);
       if (config.url.includes('tme/trpc')) return { status: 200, data: { code: 0, data: JSON.stringify({ code: 0, data: { q16: 'fixture-q16', q36: 'fixture-q36' } }) } };
       const req = config.data.req_0;
@@ -121,4 +122,41 @@ test('server sends the same native profile for playback while web requests retai
     assert.equal(request.headers['User-Agent'], native ? qqNativeUserAgent('15') : 'web-original');
     assert.equal(JSON.parse(request.body).comm.cv, native ? PROFILE.version : 14090008);
   }
+});
+test('19-digit WeChat/phone account ids reach the exchange and the saved cookie without rounding', async () => {
+  const uin = '1152921504838201234', requests = [], store = repository(createAndroidDevice());
+  let emit;
+  const runtime = createQQNativeRuntime({ deviceRepository: store,
+    http: { getCookieHeader: () => '', request: async config => {
+      requests.push(config);
+      if (config.url.includes('tme/trpc')) return { status: 200, data: { code: 0, data: JSON.stringify({ code: 0, data: { q16: 'q16', q36: 'q36' } }) } };
+      if (typeof config.data === 'string') {
+        assert.equal(config.responseType, 'text');
+        assert.match(config.data, new RegExp('"musicid":' + uin + '[,}]'));
+        return { status: 200, data: '{"code":0,"req_0":{"code":0,"data":{"musicid":' + uin + ',"musickey":"Q_H_L_fixture:1152921504838201999,","loginType":1}}}' };
+      }
+      const req = config.data.req_0;
+      let data = {};
+      if (req.method === 'GetSession') data = { session: { uid: 'uid', sid: 'sid' } };
+      if (req.method === 'CreateQRCode') data = { qrcodeID: 'fixture-qr', qrcode: Buffer.from('89504e470d0a1a0a', 'hex').toString('base64') };
+      if (req.method === 'Login') throw new Error('exchange must not be sent as a rounded object');
+      return { status: 200, data: { code: 0, req_0: { code: 0, data } } };
+    } },
+    listen: (_id, onEvent) => { emit = onEvent; return { ready: Promise.resolve(), done: new Promise(() => {}), close() {} }; } });
+  const results = [];
+  const session = createQQNativeQrSession({ ...runtime, timeoutMs: 1000, notify: () => {}, finish: value => results.push(value) });
+  try {
+    await settle(); await settle();
+    emit({ type: 'cookies', payload: { cookies: { qqmusic_uin: { value: uin }, qqmusic_key: { value: 'interim' } } } });
+    await settle(); await session.poll();
+    assert.equal(results.length, 1);
+    assert.match(results[0].cookie, new RegExp('qqmusic_uin=' + uin + ';'));
+    assert.match(results[0].cookie, /qm_keyst=Q_H_L_fixture:1152921504838201999,;/);
+    assert.match(results[0].cookie, /tmeLoginType=1;/);
+  } finally { session.stop(); }
+});
+test('large-integer JSON parsing leaves strings and safe numbers alone', () => {
+  const { parseJsonKeepingLargeIntegers } = require('../desktop/qq-native-protocol');
+  assert.deepEqual(parseJsonKeepingLargeIntegers('{"a":1152921504838201234,"b":"x\\"12345678901234567890","c":-3.5e2,"d":[42,9007199254740993]}'),
+    { a: '1152921504838201234', b: 'x"12345678901234567890', c: -350, d: [42, '9007199254740993'] });
 });

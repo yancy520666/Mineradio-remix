@@ -71,9 +71,33 @@ function buildQimeiRequest(device, now = new Date(), publicKey = PUBLIC_KEY) {
     body: { app: 0, os: 1, qimeiParams: { key, params, time: String(timestamp), nonce,
       sign: md5(key, params, String(timestamp * 1000), nonce, 'ZdJqM15EeO2zWc08', extra), extra } } };
 }
+// WeChat / phone QQ Music accounts have ids beyond Number.MAX_SAFE_INTEGER (1152921504xxxxxxxxx).
+// The SDK sends Number(musicid) and axios JSON.parses replies; both round such an id, so the
+// exchange names a different account and the upstream refuses it (seen as 50006).
+const EXACT_ID = '__mineradio_exact_musicid__';
+const stringifyWithExactId = (data, id) => JSON.stringify(data).replace(JSON.stringify(EXACT_ID), id);
+// JSON.parse that keeps integers beyond the safe range as strings; text inside strings is untouched.
+function parseJsonKeepingLargeIntegers(text) {
+  let out = '', inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      out += ch;
+      if (ch === '\\') out += text[++i] || '';
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') { inString = true; out += ch; }
+    else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+      const literal = /^-?\d+(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i, i + 64))[0];
+      out += /^-?\d+$/.test(literal) && !Number.isSafeInteger(Number(literal)) ? '"' + literal + '"' : literal;
+      i += literal.length - 1;
+    } else out += ch;
+  }
+  return JSON.parse(out);
+}
 // One adapter per QR runtime: no shared axios defaults, changes to SDK exports or global diagnostics.
 function createNativeProtocol(http, repository) {
   let device, exchangeFailure;
+  const confirmedIds = new Map();
   const deviceRepository = { kind: repository.kind,
     load() {
       const stored = repository.load();
@@ -104,20 +128,42 @@ function createNativeProtocol(http, repository) {
       } else if (req && req.module === 'music.getSession.session' && req.method === 'GetSession') {
         param = { ...param, caller: param.uid ? 1 : 2 }; delete comm.uid; delete comm.sid;
       }
+      const exactId = req && req.module === 'music.login.LoginServer' && req.method === 'Login' && param
+        && confirmedIds.get(String(param.qrCodeID || ''));
+      if (exactId) param = { ...param, musicid: EXACT_ID };
       const headers = { ...config.headers };
       for (const key of Object.keys(headers)) if (key.toLowerCase() === 'user-agent') delete headers[key];
       headers['User-Agent'] = qqNativeUserAgent(comm.os_ver);
-      next = { ...config, data: { ...data, comm, ...(req ? { req_0: { ...req, param } } : {}) }, headers };
+      const body = { ...data, comm, ...(req ? { req_0: { ...req, param } } : {}) };
+      next = { ...config, data: body, headers };
+      if (exactId) {
+        // Send the confirmed id as an exact integer literal and read the reply as text so the
+        // musicid it returns is not rounded either.
+        const response = await http.request({ ...next, data: stringifyWithExactId(body, exactId), responseType: 'text' });
+        if (typeof response.data === 'string') response.data = parseJsonKeepingLargeIntegers(response.data);
+        return inspectLogin(response);
+      }
     }
     const response = await http.request(next);
     const req = next.data && next.data.req_0;
-    if (next.url === MUSICU_URL && req && req.module === 'music.login.LoginServer' && req.method === 'Login') {
-      const body = response.data || {}, item = body.req_0 || {};
-      exchangeFailure = Number.isSafeInteger(item.code) && item.code !== 0 ? { exchangeUpstreamCode: item.code } : undefined;
-    }
+    if (next.url === MUSICU_URL && req && req.module === 'music.login.LoginServer' && req.method === 'Login') return inspectLogin(response);
     return response;
   }
-  return { deviceRepository, diagnostics: () => exchangeFailure || {},
+  function inspectLogin(response) {
+    const body = response.data || {}, item = body.req_0 || {};
+    exchangeFailure = Number.isSafeInteger(item.code) && item.code !== 0 ? { exchangeUpstreamCode: item.code } : undefined;
+    return response;
+  }
+  // The MQTT confirmation carries the account id as a string; keep it before the SDK rounds it.
+  function wrapListen(listen) {
+    return (qrcodeId, onEvent, timeoutMs) => listen(qrcodeId, event => {
+      const cookies = event && event.type === 'cookies' && event.payload && event.payload.cookies;
+      const id = cookies && cookies.qqmusic_uin && cookies.qqmusic_uin.value;
+      if (typeof id === 'string' && /^[1-9]\d{0,19}$/.test(id)) confirmedIds.set(String(qrcodeId), id);
+      return onEvent(event);
+    }, timeoutMs);
+  }
+  return { deviceRepository, diagnostics: () => exchangeFailure || {}, wrapListen,
     http: { request, post: (url, data, config = {}) => request({ ...config, url, data, method: 'POST' }), getCookieHeader: () => http.getCookieHeader() } };
 }
-module.exports = { PROFILE, qqNativeUserAgent, normalizeNativeComm, migrateDevice, qimeiPayload, buildQimeiRequest, createNativeProtocol };
+module.exports = { PROFILE, parseJsonKeepingLargeIntegers, qqNativeUserAgent, normalizeNativeComm, migrateDevice, qimeiPayload, buildQimeiRequest, createNativeProtocol };
