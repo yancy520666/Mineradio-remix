@@ -307,6 +307,27 @@ async function ensurePlaybackAudioGraph(reason) {
   return audioGraphHealthy();
 }
 
+function syncUiSfxVolumeUi() {
+  var slider = document.getElementById('ui-sfx-volume');
+  var output = document.getElementById('ui-sfx-volume-value');
+  if (slider) slider.value = uiSfxVolume;
+  if (output) output.textContent = Math.round(uiSfxVolume * 100) + '%';
+}
+function setUiSfxVolume(value) {
+  uiSfxVolume = normalizeUiSfxVolume(value);
+  try { localStorage.setItem(UI_SFX_VOLUME_STORE_KEY, String(uiSfxVolume)); } catch (e) { }
+  syncUiSfxVolumeUi();
+}
+function bindUiSfxVolumeControls() {
+  var slider = document.getElementById('ui-sfx-volume');
+  if (!slider) return;
+  syncUiSfxVolumeUi();
+  if (slider._uiSfxBound) return;
+  slider._uiSfxBound = true;
+  slider.addEventListener('input', function () { setUiSfxVolume(slider.value); });
+  slider.addEventListener('change', function () { playShelfSelectTick(1, 'card'); });
+}
+
 function ensureUiSfxContext() {
   var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) return null;
@@ -322,6 +343,7 @@ function ensureUiSfxContext() {
 }
 
 function playShelfSelectTick(direction, variant) {
+  if (uiSfxVolume <= 0) return;
   var nowMs = performance.now();
   var minGap = variant === 'row' ? 36 : 42;
   if (nowMs - lastShelfSelectSfxAt < minGap) return;
@@ -337,6 +359,7 @@ function playShelfSelectTick(direction, variant) {
   }).catch(function () { });
 }
 function renderShelfSelectTick(ctx, direction, variant) {
+  if (uiSfxVolume <= 0) return;
   var dir = direction < 0 ? -1 : 1;
   var pitch = dir > 0 ? 1.035 : 0.965;
   var rowScale = variant === 'row' ? 0.74 : 1.0;
@@ -344,7 +367,7 @@ function renderShelfSelectTick(ctx, direction, variant) {
   var t = ctx.currentTime + 0.002;
   var out = ctx.createGain();
   out.gain.setValueAtTime(0.0001, t);
-  out.gain.linearRampToValueAtTime(0.058 * rowScale * volumeScale, t + 0.002);
+  out.gain.linearRampToValueAtTime(0.26 * uiSfxVolume * rowScale * volumeScale, t + 0.002);
   out.gain.exponentialRampToValueAtTime(0.0001, t + 0.082);
   out.connect(ctx.destination);
 

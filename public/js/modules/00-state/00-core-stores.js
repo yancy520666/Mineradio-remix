@@ -5,6 +5,8 @@
 // ============================================================
 var audio = null, audioCtx = null, source = null, audioSourceMedia = null, analyser = null, beatAnalyser = null, gainNode = null, analysisSinkNode = null, audioReady = false;
 var uiSfxCtx = null, lastShelfSelectSfxAt = 0;
+var UI_SFX_VOLUME_STORE_KEY = 'mineradio-ui-sfx-volume-v1';
+var UI_SFX_DEFAULT_VOLUME = 0.70;
 var FFT_SIZE = 2048;
 var frequencyData = new Uint8Array(FFT_SIZE / 2);
 var timeDomainData = new Uint8Array(FFT_SIZE);

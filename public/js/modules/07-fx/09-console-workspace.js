@@ -269,9 +269,10 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-startupFastSkip', '秒启动跳过启动页', '快速启动'),
         fxConsoleItem('startup-resume-mode-seg', '恢复播放位置', '按上次进度 重播整首')
       ] },
-      { key: 'output', title: '音质与输出', hint: '默认播放音质、音频输出设备和路由面板', items: [
+      { key: 'output', title: '音质与输出', hint: '默认播放音质、输出设备和提示音音量', items: [
         fxConsoleItem('playback-quality-preset-panel', '音质预设', '音质 默认音质 省流 均衡 无损 最高 Hi-Res 母带 臻音 320k 128k 网易云 QQ 酷狗', false),
-        fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false)
+        fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false),
+        fxConsoleItem('ui-sfx-volume-control', '提示音音量', '歌单架 滚动 音效 提示音 音量 试听 静音', false)
       ] },
       { key: 'performance', title: '性能与后台', hint: '画质档位、后台渲染和直播保持', items: [
         fxConsoleItem('performance-quality-seg', '画质档位', '低配 中 高 超高 渲染质量'),

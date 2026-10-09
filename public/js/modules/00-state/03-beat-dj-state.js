@@ -40,6 +40,7 @@ function createBeatMapMemoryCache(maxBytes, maxEntries) {
 }
 
 var targetVolume = readSavedVolume();
+var uiSfxVolume = readSavedUiSfxVolume();
 var lastNonZeroVolume = targetVolume > 0.01 ? targetVolume : 0.8;
 var volumeCloseTimer = null;
 

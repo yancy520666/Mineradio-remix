@@ -6,6 +6,14 @@ function readSavedVolume() {
     return 1.0;
   }
 }
+function normalizeUiSfxVolume(value) {
+  var volume = value == null || value === '' ? NaN : Number(value);
+  return isFinite(volume) ? Math.max(0, Math.min(1, volume)) : UI_SFX_DEFAULT_VOLUME;
+}
+function readSavedUiSfxVolume() {
+  try { return normalizeUiSfxVolume(localStorage.getItem(UI_SFX_VOLUME_STORE_KEY)); }
+  catch (e) { return UI_SFX_DEFAULT_VOLUME; }
+}
 function normalizeAudioFadeMs(value, fallback) {
   var ms = Math.round(Number(value));
   if (!isFinite(ms)) ms = fallback;

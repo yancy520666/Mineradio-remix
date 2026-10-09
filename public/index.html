@@ -1041,6 +1041,9 @@
                 onclick="openAudioOutputWorkflowPanel()">面板</button></span></div>
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
+          <div class="fx-slider" id="ui-sfx-volume-control" title="调整歌单架滚动提示音，0% 关闭；松开滑杆可试听">
+            <label for="ui-sfx-volume">提示音音量</label><input id="ui-sfx-volume" type="range" min="0" max="1" step="0.01" value="0.70"><output id="ui-sfx-volume-value" for="ui-sfx-volume">70%</output>
+          </div>
           <div class="fx-section-label">画质档位</div>
           <div class="fx-seg" id="performance-quality-seg" title="统一调整画面与歌单架细节。高、超高更细腻，低、中更省资源；手动选择后重启仍保留">
             <button data-performance-quality="eco">低</button>
