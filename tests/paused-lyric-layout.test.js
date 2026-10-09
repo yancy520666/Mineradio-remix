@@ -17,22 +17,26 @@ test('shelf avoidance and return move existing high-quality lyrics without rebui
     shelfManager: { hasOpenContent: () => false }, orbit: {},
     normalizeLyricDisplayMode: () => 'single', normalizeLyricTranslationMode: () => 'off',
     shouldAvoidStageLyricsForShelf: () => shelf, shouldUseWallpaperLyricCameraLock: () => false,
-    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1, clampStageLyricTargetForShelf: () => false, stageLyricShelfFit: () => 1, getStageLyricLockBounds: () => ({ w: 5, h: 1 }),
+    shouldOffsetLyricsForShelfDetail: () => false, lyricCameraLockFit: () => 1, clampStageLyricTargetForShelf: () => false, stageLyricShelfAnchor: () => null, stageLyricShelfFit: () => 1, getStageLyricLockBounds: () => ({ w: 5, h: 1 }),
     clampRange: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
     lyricCameraDir: new THREE.Vector3(0, 0, -1), lyricLayoutBase: new THREE.Vector3(),
     lyricCameraTarget: new THREE.Vector3(), lyricTargetQuat: new THREE.Quaternion(),
     setStageLyricViewBasisFromCameraOrQuaternion() {},
     applyStageLyricLayoutOffset: (target, x, y, z) => target.add(new THREE.Vector3(x, y, z)),
-    stageLyricTargetQuaternion: quat => c.lyricTargetQuat.copy(quat),
+    stageLyricTargetQuaternion: (quat, x, y) => c.lyricTargetQuat.copy(quat).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x * Math.PI / 180, y * Math.PI / 180, 0, 'YXZ'))),
     resetLyricRenderUploadFrameBudget: () => { throw new Error('UI motion must not reset upload budget'); },
   });
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'stageLyricShelfCaptionMetrics'), c);
   vm.runInContext(extract(read('02-visual/14-stage-lyrics-rendering.js'), 'updateStageLyricLayout'), c);
   c.updateStageLyricLayout(); shelf = true;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x < x); }
-  assert(group.position.x < -0.3); shelf = false;
+  assert(group.position.x < -0.3);
+  assert(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y > 10 * Math.PI / 180, 'opening retains a visible 3D side turn');
+  shelf = false;
   for (let i = 0; i < 20; i++) { const x = group.position.x; c.updateStageLyricLayout(); assert(group.position.x > x); }
   assert(Math.abs(group.position.x) < .01);
+  for (let i = 0; i < 20; i++) c.updateStageLyricLayout();
+  assert(Math.abs(new THREE.Euler().setFromQuaternion(group.quaternion, 'YXZ').y) < Math.PI / 180, 'closing restores the original angle');
   assert.equal(c.stageLyrics.current.texture, texture);
 });
 test('closing shelf keeps the lyric return on UI frames briefly, then releases ownership', () => {

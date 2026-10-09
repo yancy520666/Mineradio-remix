@@ -327,8 +327,8 @@ function lyricShelfTranslationScale(row, intendedScale, mix) {
   var originalHeight = Math.max(0, original.bottom - original.top) * primary.mesh.scale.x;
   var translatedHeight = Math.max(0, translated.bottom - translated.top);
   if (!(originalHeight > 0 && translatedHeight > 0)) return intendedScale;
-  var sharedFit = Math.min(1, Number(primary.viewportFitScale) || 1);
-  var target = Math.min(intendedScale * sharedFit, originalHeight * 0.78 / translatedHeight);
+  // primary.mesh.scale already includes viewport fitting; do not apply that reduction twice.
+  var target = Math.min(intendedScale, originalHeight * 0.78 / translatedHeight);
   return intendedScale + (target - intendedScale) * clampRange(mix, 0, 1);
 }
 

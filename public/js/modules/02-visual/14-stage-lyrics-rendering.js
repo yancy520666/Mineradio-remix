@@ -2437,14 +2437,14 @@ function stageLyricUsesSingleLineSwap(mesh) {
   return mode === 'single' && !data.usesTrack;
 }
 
-// 歌单架打开时歌词不再用固定位移，而是按歌词实际宽度贴着歌单架左缘摆放：
-// 歌词右边缘固定在歌单架左缘稍靠左一点（留一小段空隙），越长的歌词中心越往左，
-// 所以“一转头就能看到歌单架”的距离对长短歌词都一样；太长放不下时才略微缩小。
+// Align active lyrics with the focused shelf card or song row, retaining a slight 3D turn.
 var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08;
 var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
 var STAGE_LYRIC_SHELF_MIN_FIT = 0.6;
 var lyricShelfClampProbe = null;
 var lyricShelfClampRight = null;
+var lyricShelfCoverQuat = new THREE.Quaternion();
+var lyricShelfTurnQuat = new THREE.Quaternion();
 function stageLyricShelfHalfWidthNdc(target, worldW, centerZ) {
   if (!camera || !target || typeof THREE === 'undefined') return 0;
   if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
@@ -2456,10 +2456,11 @@ function stageLyricShelfHalfWidthNdc(target, worldW, centerZ) {
   return (worldW / 2) / halfWorld;
 }
 // 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 60%）
-function stageLyricShelfFit(target, worldW, centerZ) {
+function stageLyricShelfFit(target, worldW, centerZ, anchor) {
   var half = stageLyricShelfHalfWidthNdc(target, worldW, centerZ);
   if (!(half > 0)) return 1;
-  var avail = (STAGE_LYRIC_SHELF_EDGE_NDC_X - STAGE_LYRIC_SCREEN_LEFT_NDC_X) / 2;
+  var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
+  var avail = Math.max(0.12, edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X) / 2;
   return clampRange(avail / half, STAGE_LYRIC_SHELF_MIN_FIT, 1);
 }
 function stageLyricShelfCaptionMetrics() {
@@ -2467,13 +2468,13 @@ function stageLyricShelfCaptionMetrics() {
   var data = mesh && mesh.userData && mesh.userData.lyric;
   var rows = data && data.rowLayers;
   var fallback = getStageLyricLockBounds();
-  if (!rows || !rows.length) return { w: fallback.w, centerY: 0, centerZ: 0 };
+  if (!rows || !rows.length) return { w: fallback.w, h: fallback.h, centerY: 0, centerZ: 0 };
   var focus = data.trackTargetLineIndex;
   var primary = null;
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].isPrimary && (focus != null ? rows[i].lineIndex === focus : rows[i].isActive)) { primary = rows[i]; break; }
   }
-  if (!primary) return { w: fallback.w, centerY: 0, centerZ: 0 };
+  if (!primary) return { w: fallback.w, h: fallback.h, centerY: 0, centerZ: 0 };
   var width = 0, top = -Infinity, bottom = Infinity;
   var rootScale = Number(mesh.scale.x) || 1;
   for (var j = 0; j < rows.length; j++) {
@@ -2490,29 +2491,64 @@ function stageLyricShelfCaptionMetrics() {
       bottom = Math.min(bottom, y - ink.bottom * scale);
     }
   }
-  return { w: width || fallback.w, centerY: isFinite(top + bottom) ? mesh.position.y + (top + bottom) * 0.5 * rootScale : 0,
+  return { w: width || fallback.w, h: isFinite(top - bottom) ? (top - bottom) * rootScale : fallback.h, centerY: isFinite(top + bottom) ? mesh.position.y + (top + bottom) * 0.5 * rootScale : 0,
     centerZ: mesh.position.z + primary.mesh.position.z * rootScale };
 }
 
-function clampStageLyricTargetForShelf(target, worldW, caption) {
-  var centerZ = caption ? caption.centerZ : 0;
-  var half = stageLyricShelfHalfWidthNdc(target, worldW, centerZ);
-  if (!(half > 0)) return false;
-  var depthProbe = lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
-  var depth = -depthProbe.z - (Number(centerZ) || 0);
-  lyricShelfClampProbe.copy(target);
-  if (caption) lyricShelfClampProbe.addScaledVector(lyricCameraDir, -(Number(centerZ) || 0));
-  lyricShelfClampProbe.project(camera);
-  if (!isFinite(lyricShelfClampProbe.x)) return false;
-  var want = Math.max(STAGE_LYRIC_SHELF_EDGE_NDC_X - half, STAGE_LYRIC_SCREEN_LEFT_NDC_X + half);
-  var halfWorld = depth * Math.tan((camera.fov || 50) * Math.PI / 360) * (camera.aspect || 1);
-  lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
-  target.addScaledVector(lyricShelfClampRight, (want - lyricShelfClampProbe.x) * halfWorld);
-  if (caption) {
-    var center = lyricShelfClampProbe.copy(target);
-    var up = lyricCameraUp;
-    center.addScaledVector(up, caption.centerY || 0).addScaledVector(lyricCameraDir, -(caption.centerZ || 0)).project(camera);
-    if (isFinite(center.y)) target.addScaledVector(up, (0.08 - center.y) * halfWorld / (camera.aspect || 1));
+function stageLyricShelfAnchor() {
+  if (!camera || !shelfManager) return null;
+  var owner = shelfManager.hasOpenContent && shelfManager.hasOpenContent()
+    && shelfManager.getContentList ? shelfManager.getContentList() : shelfManager;
+  if (!owner) return null;
+  var items = owner.getRows ? owner.getRows() : (owner.getCards ? owner.getCards() : []);
+  var index = owner.getCenterIdx ? owner.getCenterIdx() : 0;
+  var item = null;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].mesh && items[i].mesh.visible && (!item || Math.abs(items[i].index - index) < Math.abs(item.index - index))) item = items[i];
+  }
+  if (!item) return null;
+  var mesh = item.mesh, geometry = mesh.geometry && mesh.geometry.parameters;
+  if (!geometry || !(geometry.width > 0 && geometry.height > 0)) return null;
+  mesh.updateWorldMatrix(true, false);
+  var left = Infinity, top = -Infinity, bottom = Infinity;
+  if (!lyricShelfClampProbe) { lyricShelfClampProbe = new THREE.Vector3(); lyricShelfClampRight = new THREE.Vector3(); }
+  for (var corner = 0; corner < 4; corner++) {
+    lyricShelfClampProbe.set((corner & 1 ? 1 : -1) * geometry.width / 2, (corner & 2 ? 1 : -1) * geometry.height / 2, 0)
+      .applyMatrix4(mesh.matrixWorld).project(camera);
+    if (!isFinite(lyricShelfClampProbe.x) || !isFinite(lyricShelfClampProbe.y) || Math.abs(lyricShelfClampProbe.z) > 1) return null;
+    left = Math.min(left, lyricShelfClampProbe.x); top = Math.max(top, lyricShelfClampProbe.y); bottom = Math.min(bottom, lyricShelfClampProbe.y);
+  }
+  return { left: clampRange(left - 24 / Math.max(320, innerWidth), -0.72, 0.6), centerY: (top + bottom) / 2 };
+}
+function stageLyricShelfProjectedCaption(target, worldW, caption, quat) {
+  var centerY = caption ? caption.centerY || 0 : 0, centerZ = caption ? caption.centerZ || 0 : 0;
+  var halfHeight = caption ? (caption.h || 0) / 2 : 0;
+  var left = Infinity, right = -Infinity, top = -Infinity, bottom = Infinity;
+  for (var corner = 0; corner < 4; corner++) {
+    lyricShelfClampProbe.set((corner & 1 ? 1 : -1) * worldW / 2, centerY + (corner & 2 ? halfHeight : -halfHeight), centerZ);
+    if (quat) lyricShelfClampProbe.applyQuaternion(quat);
+    lyricShelfClampProbe.add(target).project(camera);
+    left = Math.min(left, lyricShelfClampProbe.x); right = Math.max(right, lyricShelfClampProbe.x);
+    top = Math.max(top, lyricShelfClampProbe.y); bottom = Math.min(bottom, lyricShelfClampProbe.y);
+  }
+  return { left: left, right: right, centerY: (top + bottom) / 2 };
+}
+function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
+  if (!(stageLyricShelfHalfWidthNdc(target, worldW, caption && caption.centerZ) > 0)) return false;
+  var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
+  var wantedY = anchor ? anchor.centerY : -0.08;
+  // Reproject after moving: yaw gives each edge a different perspective depth.
+  for (var pass = 0; pass < 3; pass++) {
+    var rect = stageLyricShelfProjectedCaption(target, worldW, caption, quat);
+    if (!isFinite(rect.right + rect.centerY)) return false;
+    var available = edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X;
+    var overlap = Math.min(0.10, Math.max(0, rect.right - rect.left - available) * 0.5);
+    lyricShelfClampProbe.copy(target).applyMatrix4(camera.matrixWorldInverse);
+    var halfHeight = Math.max(0.2, -lyricShelfClampProbe.z - (caption ? caption.centerZ || 0 : 0)) * Math.tan((camera.fov || 50) * Math.PI / 360);
+    lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    target.addScaledVector(lyricShelfClampRight, (edge + overlap - rect.right) * halfHeight * (camera.aspect || 1));
+    lyricShelfClampRight.setFromMatrixColumn(camera.matrixWorld, 1);
+    target.addScaledVector(lyricShelfClampRight, (wantedY - rect.centerY) * halfHeight);
   }
   return true;
 }
@@ -2571,7 +2607,7 @@ function updateStageLyricLayout(dt) {
     layoutX = clampRange(layoutX - 0.4, -4.0, 4.0);
     layoutY = clampRange(layoutY + 0.06, -2.4, 2.7);
     layoutZ = clampRange(layoutZ + 0.32, -3.2, 3.2);
-  } else if (!skullMouthLyrics && shouldOffsetLyricsForShelfDetail()) {
+  } else if (!skullMouthLyrics && shelfLyricAvoid) {
     shelfLyricShifted = true;
     layoutScale *= normalShelfDetailOpen ? 0.86 : 0.88;
     layoutX = clampRange(layoutX - (normalShelfDetailOpen ? 1.06 : 1.00), -4.0, 4.0);
@@ -2600,15 +2636,17 @@ function updateStageLyricLayout(dt) {
   stageLyrics.lockFitScale += (lockFit - stageLyrics.lockFitScale) * (lockFit < stageLyrics.lockFitScale ? 0.18 : 0.10);
   var stageLyricFinalScale = layoutScale * stageLyrics.lockFitScale;
   var shelfLyricWorldW = 0;
+  var shelfAnchor = shelfLyricShifted ? stageLyricShelfAnchor() : null;
   var shelfCaption = shelfLyricShifted && !skullMouthLyrics ? stageLyricShelfCaptionMetrics() : null;
   if (shelfLyricShifted && !skullMouthLyrics) {
-    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, shelfCaption.w * stageLyricFinalScale, shelfCaption.centerZ * stageLyricFinalScale);
+    var shelfFitTarget = stageLyricShelfFit(stageLyrics.group.position, shelfCaption.w * stageLyricFinalScale, shelfCaption.centerZ * stageLyricFinalScale, shelfAnchor);
     if (!isFinite(stageLyrics.shelfFitScale)) stageLyrics.shelfFitScale = 1;
     stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * 0.18;
     stageLyricFinalScale *= stageLyrics.shelfFitScale;
     shelfLyricWorldW = shelfCaption.w * stageLyricFinalScale;
     shelfCaption.centerY *= stageLyricFinalScale;
     shelfCaption.centerZ *= stageLyricFinalScale;
+    shelfCaption.h *= stageLyricFinalScale;
   } else {
     stageLyrics.shelfFitScale = 1;
   }
@@ -2642,8 +2680,8 @@ function updateStageLyricLayout(dt) {
     lyricLayoutBase.copy(camera.position).addScaledVector(lyricCameraDir, lockBaseDistance);
     lyricCameraTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricCameraTarget, layoutX, layoutY, layoutZ);
-    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption);
-    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, layoutTiltY);
+    stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY + 17 * shelfLayoutMix, -84, 84));
+    if (shelfLyricShifted) clampStageLyricTargetForShelf(lyricCameraTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
     if (stageLyrics.snapCameraLockFrames > 0) {
       stageLyrics.group.position.copy(lyricCameraTarget);
       stageLyrics.group.quaternion.copy(lyricTargetQuat);
@@ -2669,12 +2707,17 @@ function updateStageLyricLayout(dt) {
     lyricLayoutBase.copy(lyricCoverWorldPos);
     lyricLayoutTarget.copy(lyricLayoutBase);
     applyStageLyricLayoutOffset(lyricLayoutTarget, layoutX, layoutY, layoutZ);
+    stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
+    if (camera && shelfLayoutMix > 0.001) {
+      lyricShelfCoverQuat.copy(lyricTargetQuat);
+      stageLyricTargetQuaternion(camera.quaternion, layoutTiltX, clampRange(layoutTiltY + 17, -84, 84));
+      lyricShelfTurnQuat.copy(lyricTargetQuat);
+      lyricTargetQuat.slerpQuaternions(lyricShelfCoverQuat, lyricShelfTurnQuat, shelfLayoutMix);
+    }
     if (shelfLyricShifted) {
       setStageLyricViewBasisFromCameraOrQuaternion(null);
-      clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW, shelfCaption);
+      clampStageLyricTargetForShelf(lyricLayoutTarget, shelfLyricWorldW, shelfCaption, lyricTargetQuat, shelfAnchor);
     }
-    stageLyricTargetQuaternion(lyricCoverWorldQuat, layoutTiltX, layoutTiltY);
-    if (camera && shelfLayoutMix > 0.001) lyricTargetQuat.slerp(camera.quaternion, shelfLayoutMix);
     if (shelfLyricShifted || shelfLayoutMix > 0.001) {
       stageLyrics.group.position.lerp(lyricLayoutTarget, layoutEase);
       stageLyrics.group.quaternion.slerp(lyricTargetQuat, layoutEase);
