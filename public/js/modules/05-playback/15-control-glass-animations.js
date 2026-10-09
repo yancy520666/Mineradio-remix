@@ -957,6 +957,10 @@ function bindAeroWaterSurface(el) {
   sheen.appendChild(tint);
   sheen.appendChild(light);
   el.insertBefore(sheen, el.firstChild);
+  // Surfaces that rebuild their innerHTML (source switcher) call this to put the sheen back.
+  el.__aeroWaterReattach = function () {
+    if (sheen.parentNode !== el) el.insertBefore(sheen, el.firstChild);
+  };
   var drift = null, lit = false, pending = null, frame = 0;
   function at(x, y) {
     return 'translate3d(' + Math.round(x - light.offsetWidth / 2) + 'px,' + Math.round(y - light.offsetHeight / 2) + 'px,0)';
@@ -1007,6 +1011,8 @@ function bindAeroWaterSurface(el) {
 function initAeroWaterEffects() {
   bindAeroWaterSurface(document.getElementById('bottom-bar'));
   bindAeroWaterSurface(document.getElementById('search-box'));
+  bindAeroWaterSurface(document.querySelector('#quality-control .quality-popover'));
+  if (typeof ensureControlSourceSwitcher === 'function') bindAeroWaterSurface(ensureControlSourceSwitcher());
   applyAeroWaterTheme();
   var searchBox = document.getElementById('search-box');
   if (searchBox) searchBox.addEventListener('pointerdown', function (e) {

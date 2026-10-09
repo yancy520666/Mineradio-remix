@@ -623,6 +623,7 @@ function closeControlSourceSwitcher() {
   controlSourceSwitcherState.open = false;
   controlSourceSwitcherState.loading = false;
   controlSourceSwitcherState.anchor = null;
+  controlSourceSwitcherState.requestId++;
   if (el) el.classList.remove('show', 'loading');
 }
 function controlSourceMatchSong(entry) {
@@ -659,6 +660,7 @@ function renderControlSourceSwitcher(matches) {
         '</button>';
     }).join('') +
     '</div>';
+  if (typeof el.__aeroWaterReattach === 'function') el.__aeroWaterReattach();
   controlSourcePositionSwitcher();
 }
 async function findControlSourceMatchResult(song, provider) {
