@@ -99,6 +99,7 @@ function ensureLyricStarRiver() {
   points.position.set(0, 0.20, 1.53);
   stageLyrics.group.add(points);
   stageLyrics.starRiver = points;
+  if (typeof applyAmbientParticleBudget === 'function') applyAmbientParticleBudget(points, count);
   return points;
 }
 

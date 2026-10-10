@@ -184,7 +184,7 @@ function syncFxUniforms() {
   uniforms.uTwist.value = fx.twist;
   uniforms.uColorBoost.value = fx.color;
   uniforms.uScatter.value = fx.scatter;
-  uniforms.uCoverRes.value = normalizeCoverResolution(fx.coverResolution);
+  uniforms.uCoverRes.value = typeof effectiveCoverResolutionUniform === "function" ? effectiveCoverResolutionUniform() : normalizeCoverResolution(fx.coverResolution);
   uniforms.uBgFade.value = fx.bgFade;
   uniforms.uBloomStrength.value = fx.bloom ? fx.bloomStrength : 0;
   if (uniforms.uBackdropAdapt) uniforms.uBackdropAdapt.value = fx.coverBackdropAdapt !== false

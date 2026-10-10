@@ -411,7 +411,13 @@ function lyricRunwayRowPixelBudget() {
 }
 
 function lyricTextureClarityScale() {
-  if (typeof normalizeLyricTextureClarity === 'function') return normalizeLyricTextureClarity(fx && fx.lyricTextureClarity);
+  if (typeof normalizeLyricTextureClarity === 'function') {
+    var clarity = normalizeLyricTextureClarity(fx && fx.lyricTextureClarity);
+    // Low quality renders the untouched default at 1x; a user-chosen clarity is kept.
+    var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+    var untouched = clarity === normalizeLyricTextureClarity(fxDefaults.lyricTextureClarity);
+    return detail && detail.lyricClarityCap && untouched ? Math.min(clarity, detail.lyricClarityCap) : clarity;
+  }
   var value = Number(fx && fx.lyricTextureClarity);
   if (!isFinite(value)) return 1;
   if (Math.abs(value - 1.25) < 0.001) return 2;

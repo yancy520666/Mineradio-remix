@@ -127,8 +127,10 @@ function renderQualityProfile() {
   var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
   var profile = (typeof runtimeHardwareProfile !== 'undefined' && runtimeHardwareProfile) ? runtimeHardwareProfile : null;
   var lowSpec = profile && profile.lowSpec;
-  if (quality === 'eco') return { cap: lowSpec ? 0.88 : 0.95, min: 0.52, budget: lowSpec ? 1900000 : 2400000 };
-  if (quality === 'balanced') return { cap: lowSpec ? 0.98 : 1.12, min: 0.62, budget: lowSpec ? 2800000 : 3800000 };
+  // Medium/low save on particles, glow, glass and textures first; the floor
+  // keeps large windows from turning visibly soft (0.52 was blurry at 1440p).
+  if (quality === 'eco') return { cap: lowSpec ? 0.88 : 0.95, min: lowSpec ? 0.72 : 0.78, budget: lowSpec ? 1900000 : 2400000 };
+  if (quality === 'balanced') return { cap: lowSpec ? 0.98 : 1.12, min: 0.85, budget: lowSpec ? 2800000 : 3800000 };
   // Original detail uses native resolution up to the same 2x DPR as Sonic WE,
   // without a resolution-dependent pixel budget. Lower tiers remain bounded.
   if (quality === 'ultra') return { cap: 2, min: 0.5, budget: Infinity };
@@ -140,7 +142,9 @@ function getRenderPixelRatio() {
   var quality = renderQualityProfile();
   var budgetCap = Math.sqrt(quality.budget / cssPixels);
   var cap = Math.min(quality.cap, budgetCap);
-  return Math.max(quality.min, Math.min(device, cap));
+  // The anti-blur floor may exceed the pixel budget by at most half again.
+  var floor = Math.min(quality.min, Math.sqrt(quality.budget * 1.5 / cssPixels));
+  return Math.max(floor, Math.min(device, cap));
 }
 function getRenderPixelLoad() {
   var ratio = getRenderPixelRatio();

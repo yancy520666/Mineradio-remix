@@ -26,7 +26,8 @@ test('ultra preserves native 4K resolution on all hardware up to the original 2x
 test('manual lower tiers retain useful pixel budgets without changing the chosen setting', () => {
   for (const tier of ['eco', 'balanced', 'high']) {
     const c = quality(tier, 3840, 2160, 2);
-    assert(c.getRenderPixelLoad() <= c.renderQualityProfile().budget + 1);
+    // The anti-blur floor may spend up to 1.5x the budget on very large windows.
+    assert(c.getRenderPixelLoad() <= c.renderQualityProfile().budget * 1.5 + 1);
     assert.equal(c.fx.performanceQuality, tier);
   }
 });

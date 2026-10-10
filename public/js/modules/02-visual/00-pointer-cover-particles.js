@@ -227,6 +227,18 @@ var coverPickerCanvas = null;
 
 function buildCoverParticleGeometry(grid, publish) {
   grid = coverParticleGridForResolution(grid / 118);
+  var nextGeo = buildRegularCoverGrid(grid);
+  if (publish !== false) {
+    positions = nextGeo.getAttribute('position').array;
+    uvs = nextGeo.getAttribute('aUv').array;
+    aRand = nextGeo.getAttribute('aRand').array;
+  }
+  return nextGeo;
+}
+
+// A complete, evenly spaced grid over the cover. Lower densities are always
+// whole grids, never rows/columns skipped from a larger one (that tiles).
+function buildRegularCoverGrid(grid) {
   var count = grid * grid;
   var nextGeo = new THREE.BufferGeometry();
   var nextPositions = new Float32Array(count * 3);
@@ -249,35 +261,67 @@ function buildCoverParticleGeometry(grid, publish) {
   nextGeo.setAttribute('aRand', new THREE.BufferAttribute(nextRand, 1));
   nextGeo.userData.grid = grid;
   nextGeo.userData.count = count;
-  if (publish !== false) {
-    positions = nextPositions;
-    uvs = nextUvs;
-    aRand = nextRand;
-  }
   return nextGeo;
 }
 
-// Lower tiers use complete smaller grids, exactly as a lower cover-detail
-// setting would. Never skip rows/columns of the full grid. Cache the grids
-// so switching tiers restores the same particle seeds and positions.
-function buildCoverBudgetGeometry(source, targetGrid) {
-  var grid = Math.min(source.userData.grid, targetGrid);
-  return grid === source.userData.grid ? null : buildCoverParticleGeometry(grid, false);
+var geo = buildCoverParticleGeometry(GRID_X);
+// Smaller complete grids used by quality tiers and the glow pass, keyed by
+// grid size. `geo` (the user's cover detail) never enters this cache and a
+// tier change never rebuilds it.
+var coverTierGrids = {};
+
+function coverTierGrid(grid) {
+  if (geo && geo.userData.grid === grid) return geo;
+  if (!coverTierGrids[grid]) coverTierGrids[grid] = buildRegularCoverGrid(grid);
+  return coverTierGrids[grid];
 }
 
-var geo = buildCoverParticleGeometry(GRID_X);
-var lowDetailCoverGeo = buildCoverBudgetGeometry(geo, 97);
-var mediumDetailCoverGeo = buildCoverBudgetGeometry(geo, 127);
+function releaseCoverTierGrids(keep) {
+  Object.keys(coverTierGrids).forEach(function (key) {
+    var item = coverTierGrids[key];
+    if (keep && keep.indexOf(item) >= 0) return;
+    item.dispose();
+    delete coverTierGrids[key];
+  });
+}
+
+// The glow pass draws every particle again at ~2.65x size with additive
+// blending. Glow is soft, so below ultra it uses a sparser complete grid with
+// slightly larger points and alpha compensated for the lost coverage. The
+// cover itself keeps its grid.
+function coverBloomGrid(mainGrid, density) {
+  if (!(density < 1)) return mainGrid;
+  var grid = Math.max(31, Math.round(mainGrid * Math.sqrt(density)));
+  return grid % 2 ? grid : grid + 1;
+}
+
+function effectiveCoverResolutionUniform() {
+  var grid = effectiveCoverParticleGrid(fx.coverResolution);
+  if (grid === coverParticleGridForResolution(fx.coverResolution)) return normalizeCoverResolution(fx.coverResolution);
+  return normalizeCoverResolution(grid / 118);
+}
 
 function applyCoverParticleQualityBudget() {
-  var quality = normalizePerformanceQuality(fx.performanceQuality);
-  // High and ultra keep the complete regular grid; indexed thinning creates
-  // periodic gaps that break the cover into visible tiles. Spend less on
-  // render pixels in high mode instead of removing authored particles.
-  var selected = quality === 'eco' ? lowDetailCoverGeo : (quality === 'balanced' ? mediumDetailCoverGeo : null);
-  selected = selected || geo;
+  var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+  var mainGrid = effectiveCoverParticleGrid(fx.coverResolution);
+  var selected = coverTierGrid(mainGrid);
+  var bloomGrid = coverBloomGrid(mainGrid, detail ? detail.bloomDensity : 1);
+  var bloomGeo = coverTierGrid(bloomGrid);
   if (particles) particles.geometry = selected;
-  if (bloomParticles) bloomParticles.geometry = selected;
+  if (bloomParticles) bloomParticles.geometry = bloomGeo;
+  releaseCoverTierGrids([selected, bloomGeo]);
+  if (typeof uniforms !== 'undefined' && uniforms && uniforms.uBloomDensitySize) {
+    // Glow points grow with the wider spacing so they still overlap into one
+    // soft glow: total glow area, and so brightness, stays the same while the
+    // glow pass runs its (expensive) vertex shader far fewer times.
+    uniforms.uBloomDensitySize.value = mainGrid / bloomGrid;
+    // A tier-capped cover grid enlarges its dots part way so the cover does
+    // not read as sparse dots; a user-chosen detail keeps its own look.
+    var authoredGrid = coverParticleGridForResolution(fx.coverResolution);
+    uniforms.uGridPointScale.value = Math.pow(authoredGrid / mainGrid, 0.75);
+    // Shader guards that depend on particle density follow the grid drawn.
+    uniforms.uCoverRes.value = effectiveCoverResolutionUniform();
+  }
   if (typeof setRange === 'function') setRange('fx-coverres', fx.coverResolution);
 }
 
@@ -290,18 +334,11 @@ function applyCoverParticleResolution(value, opts) {
     return;
   }
   var oldGeo = geo;
-  var oldLowGeo = lowDetailCoverGeo;
-  var oldMediumGeo = mediumDetailCoverGeo;
-  var nextGeo = buildCoverParticleGeometry(grid);
-  geo = nextGeo;
-  lowDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 97);
-  mediumDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 127);
+  geo = buildCoverParticleGeometry(grid);
   GRID_X = GRID_Y = grid;
   PCOUNT = grid * grid;
   applyCoverParticleQualityBudget();
-  if (oldLowGeo) oldLowGeo.dispose();
-  if (oldMediumGeo) oldMediumGeo.dispose();
-  if (oldGeo && oldGeo !== nextGeo) oldGeo.dispose();
+  if (oldGeo && oldGeo !== geo && particles.geometry !== oldGeo && bloomParticles.geometry !== oldGeo) oldGeo.dispose();
   uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, 0.18);
   if (opts.reload !== false) scheduleCoverResolutionReload();
 }
@@ -375,6 +412,8 @@ var uniforms = {
   uBgFade: { value: 0.20 },
   uBloomStrength: { value: 0.62 },
   uBloomSize: { value: 2.65 },
+  uBloomDensitySize: { value: 1 },
+  uGridPointScale: { value: 1 },
   uTintColor: { value: new THREE.Color('#9db8cf') },
   uTintStrength: { value: 0 },
   uCoverTex: { value: coverTex },
@@ -414,6 +453,7 @@ uniform float uVinylSpin;
 uniform float uColorBoost, uScatter, uCoverRes, uBgFade;
 uniform float uHasCover, uHasDepth, uEdgeEnabled, uAiBoost;
 uniform float uMouseActive, uPixel, uColorMixT, uLoading;
+uniform float uGridPointScale;
 uniform sampler2D uCoverTex, uPrevCoverTex, uEdgeTex, uRippleTex;
 uniform int uRippleCount;
 uniform vec2 uMouseXY, uHandXY;
@@ -1010,7 +1050,7 @@ sz = clamp(depthSize * (0.90 + ringDrive * 0.62), 1.05, 3.90);
   }
   // 加载态下粒子稍大
   sz = mix(sz, sz * loadingMistSize, uLoading);
-  gl_PointSize = sz * uPixel * uPointScale;
+  gl_PointSize = sz * uPixel * uPointScale * uGridPointScale;
   gl_Position = projectionMatrix * mvPos;
 }
 `;
@@ -1052,8 +1092,8 @@ var material = new THREE.ShaderMaterial({
 });
 
 var bloomVs = vs
-  .replace('uniform float uMouseActive, uPixel, uColorMixT, uLoading;', 'uniform float uMouseActive, uPixel, uColorMixT, uLoading, uBloomSize;')
-  .replace('gl_PointSize = sz * uPixel * uPointScale;', 'gl_PointSize = sz * uPixel * uPointScale * uBloomSize;');
+  .replace('uniform float uMouseActive, uPixel, uColorMixT, uLoading;', 'uniform float uMouseActive, uPixel, uColorMixT, uLoading, uBloomSize, uBloomDensitySize;')
+  .replace('gl_PointSize = sz * uPixel * uPointScale * uGridPointScale;', 'gl_PointSize = sz * uPixel * uPointScale * uGridPointScale * uBloomSize * uBloomDensitySize;');
 var bloomFs = `
 precision highp float;
 uniform sampler2D uDotTex;
@@ -1095,6 +1135,18 @@ scene.add(particles);
 applyCoverParticleQualityBudget();
 
 var BACKGROUND_STAR_RIVER_COUNT = 1400;
+
+// Ambient particle layers are random, unordered point clouds, so drawing the
+// first N is an even random subset. Geometry and seeds are never rebuilt.
+function ambientParticleBudgetCount(total, kind) {
+  var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+  var scale = detail ? (kind === 'sparks' ? detail.sparks : detail.ambient) : 1;
+  return Math.max(1, Math.min(total, Math.round(total * scale)));
+}
+function applyAmbientParticleBudget(points, total, kind) {
+  if (!points || !points.geometry) return;
+  points.geometry.setDrawRange(0, ambientParticleBudgetCount(total, kind));
+}
 
 function buildBackgroundStarRiverGeometry(count) {
   var bgGeo = new THREE.BufferGeometry();
@@ -1193,6 +1245,7 @@ var backgroundStarRiverMaterial = new THREE.ShaderMaterial({
   blending: THREE.AdditiveBlending
 });
 var backgroundStarRiverParticles = new THREE.Points(buildBackgroundStarRiverGeometry(BACKGROUND_STAR_RIVER_COUNT), backgroundStarRiverMaterial);
+applyAmbientParticleBudget(backgroundStarRiverParticles, BACKGROUND_STAR_RIVER_COUNT);
 backgroundStarRiverParticles.frustumCulled = false;
 backgroundStarRiverParticles.renderOrder = -2;
 scene.add(backgroundStarRiverParticles);

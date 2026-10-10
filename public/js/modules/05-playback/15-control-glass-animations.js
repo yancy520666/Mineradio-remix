@@ -45,7 +45,13 @@ function applyControlGlassChromaticOffset() {
     0.08
   );
 }
+var controlGlassSvgSupport = null;
 function supportsControlGlassSvgFilter() {
+  if (controlGlassSvgSupport !== null) return controlGlassSvgSupport;
+  controlGlassSvgSupport = detectControlGlassSvgFilter();
+  return controlGlassSvgSupport;
+}
+function detectControlGlassSvgFilter() {
   try {
     var ua = navigator.userAgent || '';
     if ((/Safari/.test(ua) && !/Chrome/.test(ua)) || /Firefox/.test(ua)) return false;
@@ -374,8 +380,25 @@ function prepareSearchGlassBeforePeek() {
   if (document.documentElement.classList.contains('search-glass-ready')) return true;
   return syncSearchGlassReadyState(true, false);
 }
+// The refracting SVG glass re-filters the animated scene behind every control
+// each frame. Medium/low use the designed plain-blur fallback (the same one
+// browsers without SVG backdrop filters get); low also drops backdrop blur.
+function syncPerformanceGlassClasses() {
+  var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+  var root = document.documentElement;
+  var svg = (!detail || detail.svgGlass) && supportsControlGlassSvgFilter();
+  var hadSvg = root.classList.contains('control-glass-svg-ok');
+  root.classList.toggle('control-glass-svg-ok', svg);
+  root.classList.toggle('perf-glass-lite', !!detail && !detail.backdropGlass);
+  if (svg && !hadSvg) {
+    applyControlGlassChromaticOffset();
+    updateControlGlassDisplacementMap();
+    prepareSearchGlassBeforePeek();
+    updateAccountPillGlassDisplacementMap();
+  }
+}
 function initControlGlassSurface() {
-  if (supportsControlGlassSvgFilter()) document.documentElement.classList.add('control-glass-svg-ok');
+  syncPerformanceGlassClasses();
   applyControlGlassChromaticOffset();
   updateControlGlassDisplacementMap();
   prepareSearchGlassBeforePeek();
