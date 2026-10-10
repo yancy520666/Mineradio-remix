@@ -180,7 +180,43 @@ public static class MineradioDesktopNativeIconLayerGuard {
   [return: MarshalAs(UnmanagedType.Bool)]
   private static extern bool RedrawWindow(IntPtr hWnd, IntPtr updateRect, IntPtr updateRegion, uint flags);
 
+  private delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
+  [StructLayout(LayoutKind.Sequential)]
+  private struct MSLLHOOKSTRUCT { public POINT pt; public uint mouseData; public uint flags; public uint time; public UIntPtr extraInfo; }
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern IntPtr SetWindowsHookEx(int hookId, LowLevelMouseProc callback, IntPtr module, uint threadId);
+  [DllImport("user32.dll", SetLastError=true)]
+  [return: MarshalAs(UnmanagedType.Bool)]
+  private static extern bool UnhookWindowsHookEx(IntPtr hook);
+  [DllImport("user32.dll")]
+  private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
+  private static extern IntPtr GetModuleHandle(string moduleName);
+  [DllImport("user32.dll")]
+  private static extern IntPtr WindowFromPoint(POINT point);
+  [DllImport("user32.dll")]
+  private static extern short GetAsyncKeyState(int key);
+  [DllImport("user32.dll")]
+  [return: MarshalAs(UnmanagedType.Bool)]
+  private static extern bool SystemParametersInfo(uint action, uint param, out uint value, uint winIni);
+
+  private const int WH_MOUSE_LL = 14;
+  private const int WM_MOUSEWHEEL = 0x020A;
+  private const int WM_MOUSEHWHEEL = 0x020E;
+  private const uint WS_EX_TRANSPARENT = 0x00000020;
+  private const uint SPI_GETWHEELSCROLLLINES = 0x0068;
+  private const uint SPI_GETWHEELSCROLLCHARS = 0x006C;
+
   private static readonly object StateLock = new object();
+  private static readonly object OutputLock = new object();
+  private static readonly LowLevelMouseProc WheelCallback = HandleLowLevelMouse;
+  private static readonly System.Collections.Concurrent.BlockingCollection<string> _wheelLines =
+    new System.Collections.Concurrent.BlockingCollection<string>(256);
+  private static IntPtr _wheelHook = IntPtr.Zero;
+  private static uint _wheelThreadId;
+  private static volatile bool _wheelForwarding;
+  private static MineradioDesktopIconShapeNative.IconRect[] _wheelIconRects =
+    new MineradioDesktopIconShapeNative.IconRect[0];
   private static readonly WinEventDelegate EventCallback = HandleWinEvent;
   private static IntPtr _topLevelHost = IntPtr.Zero;
   private static IntPtr _iconHost = IntPtr.Zero;
@@ -663,23 +699,29 @@ public static class MineradioDesktopNativeIconLayerGuard {
       }
     }
     json.Append("]}");
-    _output.WriteLine(json.ToString());
-    _output.Flush();
+    lock (OutputLock) {
+      _output.WriteLine(json.ToString());
+      _output.Flush();
+    }
   }
 
   private static void EmitError(string code) {
     if (code == _lastError) return;
     _lastError = code;
-    _output.WriteLine("{\"ok\":false,\"watcher\":true,\"error\":\"" + code + "\"}");
-    _output.Flush();
+    lock (OutputLock) {
+      _output.WriteLine("{\"ok\":false,\"watcher\":true,\"error\":\"" + code + "\"}");
+      _output.Flush();
+    }
   }
 
   private static void EmitTerminal(bool restored, string code) {
     string safeCode = String.IsNullOrEmpty(code) ? "" : code.Replace("\\", "_").Replace("\"", "_");
-    _output.WriteLine("{\"ok\":" + (restored ? "true" : "false")
-      + ",\"watcher\":true,\"terminal\":true,\"restored\":" + (restored ? "true" : "false")
-      + (String.IsNullOrEmpty(safeCode) ? "" : ",\"error\":\"" + safeCode + "\"") + "}");
-    _output.Flush();
+    lock (OutputLock) {
+      _output.WriteLine("{\"ok\":" + (restored ? "true" : "false")
+        + ",\"watcher\":true,\"terminal\":true,\"restored\":" + (restored ? "true" : "false")
+        + (String.IsNullOrEmpty(safeCode) ? "" : ",\"error\":\"" + safeCode + "\"") + "}");
+      _output.Flush();
+    }
   }
 
   private static void ApplyAndEmit(bool force) {
@@ -694,6 +736,7 @@ public static class MineradioDesktopNativeIconLayerGuard {
     ApplyListViewTransparency();
     ApplyListViewBackgroundKey();
     KeepMainAtBottom();
+    _wheelIconRects = result.icons ?? new MineradioDesktopIconShapeNative.IconRect[0];
     Emit(result, force);
   }
 
@@ -772,6 +815,120 @@ public static class MineradioDesktopNativeIconLayerGuard {
     _visibilitySnapshotCaptured = false;
   }
 
+  // The player HWND is a DefView child, so Windows delivers wheel messages to
+  // Explorer's focused ListView instead of Chromium. Over the player's own
+  // pixels (not an icon, not another application's window, not click-through)
+  // the wheel is taken here and replayed by Electron through sendInputEvent.
+  private static bool WheelTargetsMainWindow(POINT point) {
+    IntPtr main = _mainWindow;
+    if (!_wheelForwarding || main == IntPtr.Zero || !IsWindowVisible(main)) return false;
+    if ((GetWindowLongPtr(main, GWL_EXSTYLE).ToInt64() & WS_EX_TRANSPARENT) != 0) return false;
+    RECT rect;
+    if (!GetWindowRect(main, out rect) || point.X < rect.Left || point.X >= rect.Right
+        || point.Y < rect.Top || point.Y >= rect.Bottom) return false;
+    IntPtr hit = WindowFromPoint(point);
+    IntPtr listView = _listView;
+    if (hit != main && !IsChild(main, hit) && hit != listView && hit != _iconHost) return false;
+    if (listView != IntPtr.Zero && IsWindowVisible(listView)) {
+      foreach (MineradioDesktopIconShapeNative.IconRect icon in _wheelIconRects) {
+        if (point.X >= icon.x && point.X < icon.x + icon.width
+            && point.Y >= icon.y && point.Y < icon.y + icon.height) return false;
+      }
+    }
+    return true;
+  }
+
+  private static IntPtr HandleLowLevelMouse(int code, IntPtr wParam, IntPtr lParam) {
+    int message = wParam.ToInt32();
+    if (code >= 0 && (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)) {
+      // Hook callbacks do not keep the thread's DPI context; the hook point is
+      // always physical, so window geometry must be read the same way.
+      IntPtr previousDpiContext = SetThreadDpiAwarenessContext(new IntPtr(-4));
+      try {
+        MSLLHOOKSTRUCT data = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+        RECT rect;
+        if (WheelTargetsMainWindow(data.pt) && GetWindowRect(_mainWindow, out rect)) {
+          bool horizontal = message == WM_MOUSEHWHEEL;
+          uint lines;
+          if (!SystemParametersInfo(horizontal ? SPI_GETWHEELSCROLLCHARS : SPI_GETWHEELSCROLLLINES, 0, out lines, 0)) lines = 3;
+          string line = "{\"ok\":true,\"watcher\":true,\"wheel\":true"
+            + ",\"horizontal\":" + (horizontal ? "true" : "false")
+            + ",\"delta\":" + unchecked((short)(data.mouseData >> 16))
+            + ",\"lines\":" + (lines > 100 ? -1 : (int)lines)
+            + ",\"x\":" + (data.pt.X - rect.Left) + ",\"y\":" + (data.pt.Y - rect.Top)
+            + ",\"width\":" + (rect.Right - rect.Left) + ",\"height\":" + (rect.Bottom - rect.Top)
+            + ",\"shift\":" + ((GetAsyncKeyState(0x10) & 0x8000) != 0 ? "true" : "false")
+            + ",\"control\":" + ((GetAsyncKeyState(0x11) & 0x8000) != 0 ? "true" : "false")
+            + ",\"alt\":" + ((GetAsyncKeyState(0x12) & 0x8000) != 0 ? "true" : "false") + "}";
+          // Never block the system-wide hook on the pipe; a full queue lets
+          // Explorer keep the wheel instead of stalling every mouse move.
+          if (_wheelLines.TryAdd(line)) return new IntPtr(1);
+        }
+      } catch { }
+      finally {
+        if (previousDpiContext != IntPtr.Zero) SetThreadDpiAwarenessContext(previousDpiContext);
+      }
+    }
+    return CallNextHookEx(_wheelHook, code, wParam, lParam);
+  }
+
+  private static void RunWheelHook(object ready) {
+    System.Threading.ManualResetEvent started = (System.Threading.ManualResetEvent)ready;
+    _wheelThreadId = GetCurrentThreadId();
+    MSG message;
+    PeekMessage(out message, IntPtr.Zero, 0, 0, PM_NOREMOVE);
+    _wheelHook = SetWindowsHookEx(WH_MOUSE_LL, WheelCallback, GetModuleHandle(null), 0);
+    started.Set();
+    if (_wheelHook == IntPtr.Zero) return;
+    try {
+      while (GetMessage(out message, IntPtr.Zero, 0, 0) > 0) {
+        TranslateMessage(ref message);
+        DispatchMessage(ref message);
+      }
+    } finally {
+      UnhookWindowsHookEx(_wheelHook);
+      _wheelHook = IntPtr.Zero;
+    }
+  }
+
+  private static void WriteWheelLines() {
+    foreach (string line in _wheelLines.GetConsumingEnumerable()) {
+      try { lock (OutputLock) { _output.WriteLine(line); _output.Flush(); } }
+      catch { return; }
+    }
+  }
+
+  private static System.Threading.Thread StartWheelForwarding() {
+    System.Threading.Thread writer = new System.Threading.Thread(WriteWheelLines);
+    writer.IsBackground = true;
+    writer.Name = "Mineradio desktop wheel output";
+    writer.Start();
+    System.Threading.ManualResetEvent started = new System.Threading.ManualResetEvent(false);
+    System.Threading.Thread hook = new System.Threading.Thread(RunWheelHook);
+    hook.IsBackground = true;
+    hook.Name = "Mineradio desktop wheel hook";
+    hook.Start(started);
+    started.WaitOne(2000);
+    if (_wheelHook == IntPtr.Zero) {
+      lock (OutputLock) {
+        _output.WriteLine("{\"ok\":true,\"watcher\":true,\"diagnostic\":\"DESKTOP_WHEEL_HOOK_FAILED\"}");
+        _output.Flush();
+      }
+      return null;
+    }
+    _wheelForwarding = true;
+    return hook;
+  }
+
+  private static void StopWheelForwarding(System.Threading.Thread hook) {
+    _wheelForwarding = false;
+    if (hook != null) {
+      if (_wheelThreadId != 0) PostThreadMessage(_wheelThreadId, WM_QUIT, UIntPtr.Zero, IntPtr.Zero);
+      hook.Join(1000);
+    }
+    _wheelLines.CompleteAdding();
+  }
+
   public static void Run(int debounceMs, int rebindMs, int ownerProcessId,
       long expectedIconHost, long expectedListView, long mainWindow,
       int targetX, int targetY, int targetWidth, int targetHeight,
@@ -796,6 +953,7 @@ public static class MineradioDesktopNativeIconLayerGuard {
     inputThread.Start();
 
     UIntPtr timerId = UIntPtr.Zero;
+    System.Threading.Thread wheelHook = null;
     Exception runFailure = null;
     Exception backgroundRestoreFailure = null;
     Exception transparencyRestoreFailure = null;
@@ -803,6 +961,7 @@ public static class MineradioDesktopNativeIconLayerGuard {
     try {
       BindExpectedTarget();
       ApplyAndEmit(true);
+      wheelHook = StartWheelForwarding();
       timerId = SetTimer(IntPtr.Zero, new UIntPtr(1), 50, IntPtr.Zero);
       if (timerId == UIntPtr.Zero) throw new InvalidOperationException("DESKTOP_ICON_WATCHER_TIMER_FAILED");
       long nextRebindAt = NowMs() + safeRebindMs;
@@ -831,6 +990,7 @@ public static class MineradioDesktopNativeIconLayerGuard {
       runFailure = error;
     } finally {
       if (timerId != UIntPtr.Zero) KillTimer(IntPtr.Zero, timerId);
+      StopWheelForwarding(wheelHook);
       try { RestoreCurrentListViewBackground(); }
       catch (Exception error) { backgroundRestoreFailure = error; }
       // If Explorer did not accept its original background, retaining the
@@ -1104,6 +1264,28 @@ function parseNativeIconLayerLayout(line) {
   };
 }
 
+// A wheel the guard took from Explorer, in physical pixels relative to the
+// player HWND's top-left corner.
+function parseNativeDesktopWheel(raw) {
+  if (!raw || raw.wheel !== true) return null;
+  const values = [raw.delta, raw.lines, raw.x, raw.y, raw.width, raw.height];
+  if (!values.every(Number.isInteger) || raw.delta === 0 || Math.abs(raw.delta) > 32768
+    || raw.width <= 0 || raw.height <= 0 || raw.x < 0 || raw.y < 0
+    || raw.x >= raw.width || raw.y >= raw.height) return null;
+  return {
+    horizontal: raw.horizontal === true,
+    delta: raw.delta,
+    lines: raw.lines,
+    x: raw.x,
+    y: raw.y,
+    width: raw.width,
+    height: raw.height,
+    shift: raw.shift === true,
+    control: raw.control === true,
+    alt: raw.alt === true,
+  };
+}
+
 function startNativeDesktopIconLayer(options = {}) {
   const spawnImpl = options.spawnImpl;
   if (spawnImpl != null && typeof spawnImpl !== 'function') throw new Error('DESKTOP_ICON_LAYER_SPAWN_UNAVAILABLE');
@@ -1213,6 +1395,13 @@ function startNativeDesktopIconLayer(options = {}) {
     if (!trimmed) return;
     try {
       const raw = JSON.parse(trimmed);
+      if (raw && raw.wheel === true) {
+        const wheel = parseNativeDesktopWheel(raw);
+        if (wheel && typeof options.onWheel === 'function') {
+          try { options.onWheel(wheel); } catch (_) { }
+        }
+        return;
+      }
       if (raw && raw.terminal === true) {
         restoredConfirmed = raw.ok === true && raw.restored === true;
         terminalError = String(raw.error || '');
@@ -1364,5 +1553,6 @@ module.exports = {
   nativeIconLayerGuardScript,
   nativeIconLayerNamedPipeScript,
   parseNativeIconLayerLayout,
+  parseNativeDesktopWheel,
   startNativeDesktopIconLayer,
 };

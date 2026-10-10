@@ -1347,3 +1347,23 @@ test('restore still applies changed bounds and constraints', () => {
   assert.deepEqual(win.getBounds(), bounds);
   assert.deepEqual(win.getMinimumSize(), [600, 400]);
 });
+
+test('wheel taken from Explorer is replayed into the unlocked desktop page with native distance', async () => {
+  const win = new FakeBrowserWindow();
+  const sent = [];
+  win.webContents.sendInputEvent = (event) => sent.push(event);
+  const { runtime, calls } = makeRuntime();
+  assert.equal((await runtime.enable(win)).ok, true);
+  const { onWheel } = calls.watcherStart[0];
+  // 125% scaling: the guard reports physical pixels relative to the HWND.
+  onWheel({ horizontal: false, delta: -120, lines: 3, x: 1200, y: 500, width: 2400, height: 1350, shift: false, control: true, alt: false });
+  onWheel({ horizontal: true, delta: 120, lines: 3, x: 0, y: 0, width: 2400, height: 1350, shift: false, control: false, alt: false });
+  assert.deepEqual(sent.map(({ x, y, deltaX, deltaY, modifiers }) => ({ x, y, deltaX, deltaY, modifiers })), [
+    { x: 960, y: 400, deltaX: 0, deltaY: -100, modifiers: ['control'] },
+    { x: 0, y: 0, deltaX: -100, deltaY: 0, modifiers: [] },
+  ]);
+  await runtime.setSoftwareInteractionLocked(true);
+  onWheel({ horizontal: false, delta: -120, lines: 3, x: 10, y: 10, width: 2400, height: 1350 });
+  assert.equal(sent.length, 2, 'a locked desktop leaves the wheel to Explorer');
+  await runtime.disable();
+});
