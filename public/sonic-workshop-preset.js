@@ -54,6 +54,11 @@
     iframe: null,
     active: false,
     ready: false,
+    propertiesReady: false,
+    rendered: false,
+    generation: 0,
+    preparation: null,
+    outgoingPreset: 0,
     opacity: 0,
     lastAudioAt: 0,
     lastMediaAt: 0,
@@ -542,12 +547,14 @@
       if (canvasAnchor && canvasAnchor.parentNode) canvasAnchor.parentNode.insertBefore(layer, canvasAnchor);
       else document.body.insertBefore(layer, document.body.firstChild);
     }
+    state.layer = layer;
     layer.style.opacity = '0';
     layer.style.pointerEvents = 'none';
     layer.setAttribute('inert', '');
     var iframe = layer.querySelector('iframe');
     if (!iframe) {
       iframe = document.createElement('iframe');
+      state.iframe = iframe;
       iframe.setAttribute('title', 'Sonic Workshop Visual');
       iframe.setAttribute('aria-hidden', 'true');
       iframe.setAttribute('tabindex', '-1');
@@ -560,13 +567,18 @@
       iframe.style.userSelect = 'none';
       iframe.style.webkitUserSelect = 'none';
       if (global.MineradioSonicPerformance) global.MineradioSonicPerformance.beginWorkshop();
-      iframe.src = BRIDGE_SRC;
+      state.generation++;
+      state.propertiesReady = false;
+      state.rendered = false;
+      state.ready = false;
+      iframe.src = BRIDGE_SRC + '?generation=' + state.generation;
       layer.appendChild(iframe);
     }
     iframe.style.pointerEvents = 'none';
     iframe.setAttribute('inert', '');
+    var generation = state.generation;
     iframe.onload = function () {
-      state.ready = true;
+      if (state.iframe !== iframe || state.generation !== generation) return;
       pushProperties(true);
       pushMedia(true);
       pushAudio(true);
@@ -582,10 +594,13 @@
         else clearTimeout(state.themeTransitionRaf);
       } catch (e) {}
     }
+    if (state.iframe) state.iframe.onload = null;
     if (state.layer && state.layer.parentNode) state.layer.parentNode.removeChild(state.layer);
     state.layer = null;
     state.iframe = null;
     state.ready = false;
+    state.propertiesReady = false;
+    state.rendered = false;
     state.lastMediaKey = '';
     state.lastPropertiesKey = '';
     state.displayedTheme = null;
@@ -798,6 +813,27 @@
     }).catch(function (error) { console.warn('sonic workshop audio recovery failed:', error); });
   }
 
+  function prepare() {
+    if (state.preparation) return state.preparation;
+    var resolvePreparation, rejectPreparation;
+    var job = { promise: new Promise(function (resolve, reject) {
+      resolvePreparation = resolve; rejectPreparation = reject;
+    }), resolve: function () { resolvePreparation(true); }, reject: rejectPreparation,
+      cancel: function () {
+        if (state.preparation !== job) return;
+        job.cancelled = true;
+        state.preparation = null;
+        if (!isActive(global.fx) && state.opacity <= 0.01) removeLayer();
+        resolvePreparation(false);
+      } };
+    state.preparation = job;
+    try {
+      ensureLayer();
+      if (state.ready) resolvePreparation(true);
+    } catch (error) { rejectPreparation(error); }
+    return job;
+  }
+
   function update(dt, ctx) {
     ctx = ctx || {};
     var targetActive = isActive(ctx.fx || global.fx);
@@ -805,7 +841,7 @@
     state.active = targetActive;
     bodyClass(targetActive || state.opacity > 0.02);
     if (targetActive) ensureLayer();
-    var targetOpacity = targetActive ? 1 : 0;
+    var targetOpacity = targetActive && state.ready ? 1 : 0;
     var rate = targetOpacity > state.opacity ? 7.5 : 5.0;
     state.opacity += (targetOpacity - state.opacity) * clamp(1 - Math.exp(-rate * Math.max(0.001, dt || 1 / 60)), 0, 1);
     if (state.layer) state.layer.style.opacity = state.opacity.toFixed(3);
@@ -813,13 +849,14 @@
       pushProperties(false);
       pushMedia(false);
       pushAudio(false, ctx.audio);
-    } else if (state.layer && state.opacity <= 0.01) {
+    } else if (state.layer && state.opacity <= 0.01 && !state.preparation) {
       removeLayer();
       bodyClass(false);
     }
   }
 
   function clear() {
+    if (state.preparation) state.preparation.cancel();
     state.active = false;
     state.opacity = 0;
     bodyClass(false);
@@ -828,6 +865,8 @@
 
   function onPresetChange(prev, next, opts) {
     if (Number(next) === INDEX) {
+      state.preparation = null;
+      state.outgoingPreset = Number(prev);
       state.analysisMedia = null;
       ensureLayer();
       recoverAudioAnalysis();
@@ -844,16 +883,31 @@
 
   global.addEventListener && global.addEventListener('message', function (event) {
     var data = event && event.data || {};
+    if (!state.iframe || event.source !== state.iframe.contentWindow
+      || !global.location || event.origin !== global.location.origin
+      || Number(data.generation) !== state.generation) return;
     if (data.type === 'mineradio-sonic-workshop-ready') {
-      state.ready = true;
+      state.propertiesReady = true;
       pushProperties(true);
       pushMedia(true);
       pushAudio(true);
-    }
+    } else if (data.type === 'mineradio-sonic-workshop-first-frame') {
+      state.rendered = true;
+    } else if (data.type === 'mineradio-sonic-workshop-frame-failed') {
+      if (state.preparation) state.preparation.reject(new Error('workshop render failed'));
+      return;
+    } else return;
+    state.ready = state.propertiesReady && state.rendered;
+    if (state.ready && state.preparation) state.preparation.resolve();
   });
 
   global.MineradioSonicWorkshop = {
     INDEX: INDEX,
+    prepare: prepare,
+    backgroundHandoff: function () {
+      return { opacity: clamp(state.opacity, 0, 1),
+        preset: state.outgoingPreset, active: isActive(global.fx), ready: state.ready };
+    },
     isActive: isActive,
     update: update,
     clear: clear,

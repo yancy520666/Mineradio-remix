@@ -1032,7 +1032,6 @@
               <button type="button" data-quality-preset="best" title="各平台最高可用档：网易云 SVIP 为超清母带，其余为 Hi-Res">最高</button>
             </div>
             <div class="quality-preset-providers" id="quality-preset-providers"></div>
-            <p class="fx-sub quality-preset-note">新歌按这里的档位请求；歌曲或账号没有该档位时自动换到可用档位。汽水音频需整首下载解密后才开始播放，选 320k 起播明显更快。</p>
           </div>
           <div class="fx-section-label">输出接口</div>
           <div class="audio-output-section" id="audio-output-panel">
@@ -1041,6 +1040,7 @@
                 onclick="openAudioOutputWorkflowPanel()">面板</button></span></div>
             <div id="audio-output-list" class="audio-output-list"></div>
           </div>
+          <div class="fx-section-label">歌单架滚动音效</div>
           <div class="fx-slider" id="ui-sfx-volume-control" title="调整歌单架滚动提示音，0% 关闭；松开滑杆可试听">
             <label for="ui-sfx-volume">提示音音量</label><input id="ui-sfx-volume" type="range" min="0" max="1" step="0.01" value="0.70"><output id="ui-sfx-volume-value" for="ui-sfx-volume">70%</output>
           </div>
@@ -1080,10 +1080,6 @@
             <div class="fx-toggle" id="t-coverBackdropAdapt" onclick="toggleFx('coverBackdropAdapt')"
               title="在封面粒子着色器中启用亮底避光；关闭后跳过对应片元增强"><span>封面粒子避光</span><span class="dot"></span></div>
           </div>
-          <div class="fx-toggle-grid">
-            <div class="fx-toggle" id="t-liveBackgroundKeep" onclick="toggleFx('liveBackgroundKeep')"
-              title="开启后后台或最小化时保持视觉渲染，不进入低占用暂停"><span>直播后台保持</span><span class="dot"></span></div>
-          </div>
           <div class="fx-section-label">内存压缩 / Mem Reduct</div>
           <div class="memory-status-chip" id="memory-status-chip">系统内存读取中...</div>
           <div class="fx-sub memory-status-sub" id="memory-status-sub">后台先压缩播放器进程；系统级释放可清工作集、修改页、待机页</div>
@@ -1117,15 +1113,21 @@
             <div class="cache-storage-head"><span>统一缓存目录</span><span id="cache-storage-total">读取中...</span></div>
             <code class="cache-storage-path" id="cache-storage-root">桌面版启动后读取</code>
             <div class="cache-storage-actions">
-              <button class="fx-mini-btn ghost" type="button" onclick="chooseMineradioCacheRoot()">更改目录</button>
-              <button class="fx-mini-btn ghost" type="button" onclick="refreshMineradioCacheSettings()">刷新占用</button>
+              <button class="fx-mini-btn ghost" type="button" id="cache-storage-choose" onclick="chooseMineradioCacheRoot()">更改目录</button>
+              <button class="fx-mini-btn ghost" type="button" id="cache-storage-refresh" onclick="refreshMineradioCacheSettings()">刷新占用</button>
               <button class="fx-mini-btn ghost" type="button" id="cache-storage-restart" onclick="restartMineradioForCachePath()" hidden>重启生效</button>
             </div>
+            <div class="cache-storage-release">
+              <div class="cache-storage-release-copy"><span>释放可再生缓存</span><small>清理旧缓存，重新获取封面与评论</small></div>
+              <button class="fx-mini-btn cache-storage-release-btn" type="button" id="cache-storage-release" onclick="releaseMineradioCaches()" aria-describedby="cache-storage-safe-note">释放缓存</button>
+            </div>
+            <div class="cache-storage-safe-note" id="cache-storage-safe-note">保留登录、收藏、歌单、设置、个人媒体与下载歌曲；跳过使用中的文件。</div>
+            <div class="cache-storage-status" id="cache-storage-status" role="status" aria-live="polite" hidden></div>
             <div class="cache-storage-row"><span>歌词 / 译文缓存</span><b id="cache-storage-lyrics-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-lyrics-path">—</code>
             <div class="cache-storage-row"><span>封面、网络与音频分片缓存</span><b id="cache-storage-chromium-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-chromium-path">—</code>
-            <div class="cache-storage-row"><span>节奏分析缓存</span><b id="cache-storage-beatmaps-size">—</b></div>
+            <div class="cache-storage-row"><span>节奏分析缓存（保留）</span><b id="cache-storage-beatmaps-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-beatmaps-path">—</code>
             <div class="cache-storage-row"><span>WE 场景与循环视频缓存</span><b id="cache-storage-wallpaper-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-wallpaper-path">—</code>
@@ -1579,7 +1581,7 @@
           <div class="login-auth-copy">
             <h2 id="login-modal-title">扫码登录网易云音乐</h2>
             <div id="login-modal-desc" class="desc">使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。</div>
-            <div id="qr-status">拖动接口到 MR 接入口后开始登录。</div>
+            <div id="qr-status" role="status" aria-live="polite" aria-atomic="true">拖动接口到 MR 接入口后开始登录。</div>
           </div>
           <div class="login-auth-body">
             <div id="qr-shell" class="qr-shell">
@@ -1902,7 +1904,7 @@
       </div>
     </div>
 
-    <div id="toast"></div>
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="cuefield-feedback" aria-live="polite" aria-label="Cuefield AutoMix 反馈">
       <div class="cuefield-feedback-kicker">CUEFIELD · LOCAL FEEDBACK</div>
       <div class="cuefield-feedback-title">这次自动过渡顺滑吗？</div>

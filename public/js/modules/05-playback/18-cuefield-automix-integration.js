@@ -11,7 +11,7 @@ var cuefieldPairFadeResolve = null;
 var cuefieldTransitionGeneration = 0;
 var cuefieldDelayWaiters = [];
 var cuefieldActiveTransitionContext = null;
-var cuefieldAudioDescriptorCache = {};
+var cuefieldAudioDescriptorCache = createPlaybackMetadataCache(4 * 60 * 1000);
 var cuefieldRecentRecipes = [];
 var cuefieldBridgeEngine = null;
 var cuefieldSourceLoopRuntime = null;
@@ -68,8 +68,7 @@ function updateCuefieldAutoMixUi(status) {
 
 function cuefieldAutoMixAudioDescriptor(song) {
   var key = cuefieldSongKey(song);
-  var cached = key && cuefieldAudioDescriptorCache[key];
-  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached);
+  return cuefieldAudioDescriptorCache.load(key, function () {
   return Promise.resolve(typeof fetchBeatPrefetchAudioUrl === 'function' ? fetchBeatPrefetchAudioUrl(song) : null).then(function (proxyUrl) {
     if (!proxyUrl) return null;
     var descriptor = {
@@ -77,8 +76,8 @@ function cuefieldAutoMixAudioDescriptor(song) {
       playbackData: { url: proxyUrl, source: songProviderKey(song), level: '' },
       expiresAt: Date.now() + 4 * 60 * 1000
     };
-    if (key) cuefieldAudioDescriptorCache[key] = descriptor;
     return descriptor;
+  });
   });
 }
 
@@ -105,10 +104,11 @@ async function cuefieldLyricTextForSong(song, current) {
   }
   if (typeof readPersistentLyricCache !== 'function') return '';
   try {
-    var payload = await readPersistentLyricCache(song);
+    var cacheRead = {};
+    var payload = await readPersistentLyricCache(song, cacheRead);
     if (!payload && typeof lyricEndpointForSong === 'function') {
       payload = await apiJson(lyricEndpointForSong(song), { timeoutMs: 4200 });
-      if (payload && typeof writePersistentLyricCache === 'function') writePersistentLyricCache(song, payload);
+      if (payload && typeof writePersistentLyricCache === 'function') writePersistentLyricCache(song, payload, cacheRead);
     }
     if (!payload) return '';
     if (String(payload.lyric || '').trim()) return String(payload.lyric).trim();
@@ -152,9 +152,52 @@ async function ensureCuefieldAutoMixBeatMap(song, key, context) {
   return true;
 }
 
+function cuefieldListeningContext(context) {
+  var media = audio;
+  var duration = media && Number(media.duration);
+  if (media && media.__cuefieldListenToken !== trackSwitchToken) {
+    media.__cuefieldListenToken = trackSwitchToken;
+    media.__cuefieldListenStartedAt = Math.max(0, Number(media.currentTime) || 0);
+  }
+  var nextSong = context && context.nextSong || playQueue[context && context.nextIndex];
+  var map = nextSong && beatMapCache[cuefieldSongKey(nextSong)];
+  return {
+    currentDuration: isFinite(duration) && duration > 0 ? duration : 0,
+    currentTime: media && Number(media.currentTime) || 0,
+    listenStartedAt: media && media.__cuefieldListenStartedAt || 0,
+    nextDuration: Number(map && map.duration) || 0
+  };
+}
+
+function revalidateCuefieldListeningPlan(pending) {
+  if (!window.CuefieldAutoMix || !window.CuefieldAutoMix.listeningSafePlan) return true;
+  var context = cuefieldListeningContext(pending);
+  if (pending.preparedAudio && isFinite(pending.preparedAudio.duration) && pending.preparedAudio.duration > 0) {
+    context.nextDuration = pending.preparedAudio.duration;
+  }
+  var plan = window.CuefieldAutoMix.listeningSafePlan(pending.plan, context);
+  if (!plan) return false;
+  if (plan !== pending.plan) {
+    var chosen = plan.chosen;
+    pending.plan = plan;
+    pending.timeline = chosen.timeline;
+    pending.entryTime = 0;
+    pending.mixStart = chosen.mixStart;
+    pending.handoffAt = chosen.handoffAt;
+    pending.preRollDuration = 0;
+    pending.audibleOverlap = chosen.audibleOverlap;
+    pending.executionMode = chosen.transitionRecipe;
+    pending.bridgePlan = null;
+    pending.timelineExecution = cuefieldTimelineExecution(pending);
+  }
+  return true;
+}
+
 function initCuefieldAutoMix() {
   if (cuefieldAutoMix || !window.CuefieldAutoMix || typeof window.CuefieldAutoMix.createCuefieldAutoMix !== 'function') return cuefieldAutoMix;
   cuefieldAutoMix = window.CuefieldAutoMix.createCuefieldAutoMix({
+    listeningSafety: true,
+    getPlaybackContext: cuefieldListeningContext,
     allowWeak: false,
     allowSafetyFallback: true,
     allowLiveEndCrossfadeFallback: true,
@@ -232,6 +275,7 @@ function claimCuefieldPreparedAudioForPlayback(media) {
 function disposeCuefieldPreparedAudioGraph(media) {
   var graph = media && media.__mineradioPreparedAudioGraph;
   if (!graph || graph.adopted) return;
+  if (typeof detachMicrophoneMixerMusic === 'function') detachMicrophoneMixerMusic(graph.gainNode);
   [graph.source, graph.filterNode, graph.bassNode, graph.midNode, graph.highNode,
     graph.analyser, graph.beatAnalyser, graph.gainNode, graph.echoSendNode,
     graph.echoDelayNode, graph.echoFeedbackNode, graph.echoWetNode].forEach(function (node) {
@@ -343,6 +387,7 @@ async function runCuefieldAutoMixPrepare(token, currentIndex, nextIndex, attempt
     nextIndex: nextIndex,
     currentSong: currentSong,
     nextSong: nextSong,
+    minimumListenUntil: window.CuefieldAutoMix.listeningFloor(audio.duration, cuefieldListeningContext({ nextSong: nextSong }).listenStartedAt),
     leadSec: 4,
       introBedLeadSec: 12
   });
@@ -464,6 +509,7 @@ function cuefieldCreatePreparedAudioGraph(media) {
       graph.echoWetNode.connect(audioCtx.destination);
     }
     media.__mineradioPreparedAudioGraph = graph;
+    if (typeof attachMicrophoneMixerPreparedGraph === 'function') attachMicrophoneMixerPreparedGraph(graph);
     return graph;
   } catch (error) {
     if (graph) {
@@ -561,16 +607,15 @@ function cuefieldRunEqualPowerCrossfade(pending, nextMedia, durationMs, context)
   var fadeStartA = isFinite(Number(pending && pending.fadeStartA))
     ? Number(pending.fadeStartA)
     : Number(context.outgoingMedia && context.outgoingMedia.currentTime) || 0;
-  var headroomDepth = pending && pending.mixType === 'beatmix' ? 0.16 : 0.10;
   var fadeWatchdogAt = Date.now() + durationMs + 1800;
   durationMs = Math.max(1, Number(durationMs) || 1);
   return new Promise(function (resolve) {
     var settled = false;
-    cuefieldPairFadeResolve = resolve;
+    cuefieldPairFadeResolve = finish;
     function finish(ok) {
       if (settled) return;
       settled = true;
-      if (cuefieldPairFadeResolve === resolve) cuefieldPairFadeResolve = null;
+      if (cuefieldPairFadeResolve === finish) cuefieldPairFadeResolve = null;
       if (cuefieldMediaFadeRaf) cancelAnimationFrame(cuefieldMediaFadeRaf);
       if (cuefieldMediaFadeTimer) clearInterval(cuefieldMediaFadeTimer);
       cuefieldMediaFadeRaf = 0;
@@ -590,12 +635,10 @@ function cuefieldRunEqualPowerCrossfade(pending, nextMedia, durationMs, context)
       var mediaNow = Number(context.outgoingMedia && context.outgoingMedia.currentTime);
       var t = Math.max(0, Math.min(1, ((isFinite(mediaNow) ? mediaNow : fadeStartA) - fadeStartA) / (durationMs / 1000)));
       if (context.outgoingMedia && (context.outgoingMedia.ended || (isFinite(context.outgoingMedia.duration) && context.outgoingMedia.duration - mediaNow <= 0.025))) t = 1;
-      var eased = t * t * (3 - 2 * t);
-      var theta = eased * Math.PI * 0.5;
       var liveTarget = Math.max(0, Math.min(1, Number(targetVolume) || 0));
-      var overlapHeadroom = 1 - Math.sin(Math.PI * eased) * headroomDepth;
-      var outgoing = liveTarget * outgoingRatio * Math.cos(theta) * overlapHeadroom;
-      var incoming = liveTarget * Math.sin(theta) * overlapHeadroom;
+      var gains = window.CuefieldTimelineExecutor.buildCuefieldCrossfadeGains(t, liveTarget, outgoingRatio);
+      var outgoing = gains.outgoing;
+      var incoming = gains.incoming;
       if (typeof writeAudioOutputGain === 'function') writeAudioOutputGain(outgoing);
       cuefieldWriteIncomingGain(nextMedia, incoming);
       if (t >= 1) {
@@ -756,8 +799,8 @@ function cuefieldApplyTimelineAction(action, pending, nextMedia, context) {
   var deckMedia = action.deck === 'A' ? context.outgoingMedia : nextMedia;
   if (action.op === 'handoff') return Promise.resolve(true);
   if (action.op === 'play' && action.deck !== 'A') {
-    if (!action.sourceZeroPreRoll && Math.abs((Number(nextMedia.currentTime) || 0) - Number(action.at || 0)) > 0.045) cuefieldSetMediaTime(nextMedia, action.at);
-    return Promise.resolve(nextMedia.paused ? nextMedia.play() : true).then(function () { return true; }).catch(function () { return false; });
+    if (!pending.incomingStarted && !action.sourceZeroPreRoll && Math.abs((Number(nextMedia.currentTime) || 0) - Number(action.at || 0)) > 0.045) cuefieldSetMediaTime(nextMedia, action.at);
+    return Promise.resolve(nextMedia.paused ? nextMedia.play() : true).then(function () { pending.incomingStarted = true; return true; }).catch(function () { return false; });
   }
   if (action.op === 'volume') {
     cuefieldAnimateDeckVolume(action.deck, nextMedia, action.target, action.durationMs, action.curve, pending, context);
@@ -807,6 +850,20 @@ async function runCuefieldTimeline(pending, nextMedia, context) {
   pending.actualMixStart = Number(context.outgoingMedia && context.outgoingMedia.currentTime) || 0;
   var actions = Array.isArray(execution.actions) ? execution.actions.slice() : [];
   var elapsedMs = 0;
+  // Keep effect recipes intact. Only the plain, source-zero tail fade uses
+  // one shared media clock, so a stalled visual frame cannot hand off early.
+  var pairedTail = pending.executionMode === 'end-of-track-crossfade'
+    && pending.plan && pending.plan.chosen && pending.plan.chosen.listeningSafetyFallback === true
+    && Number(pending.preRollDuration) === 0
+    && actions.length === 4
+    && actions.every(function(action) { return ['play', 'volume', 'handoff'].indexOf(action.op) >= 0; });
+  if (pairedTail) {
+    var remainingMs = Math.max(1, (Number(context.outgoingMedia.duration) - pending.actualMixStart) * 1000);
+    var pairDurationMs = Math.min(execution.handoffDelayMs, remainingMs);
+    if (!await cuefieldRunEqualPowerCrossfade(pending, nextMedia, pairDurationMs, context)) return false;
+    elapsedMs = execution.handoffDelayMs;
+    actions = [];
+  }
   for (var i = 0; i < actions.length; i++) {
     var action = actions[i];
     var delayMs = Math.max(0, Number(action.delayMs) || 0);
@@ -948,6 +1005,13 @@ function recoverCuefieldAutoMixEndedOutgoing(pending, context, reason) {
   return true;
 }
 
+function releaseCuefieldExecutionIfOwned(context) {
+  if (cuefieldActiveTransitionContext !== context) return false;
+  cuefieldAutoMixExecuting = false;
+  cuefieldActiveTransitionContext = null;
+  return true;
+}
+
 async function executeCuefieldAutoMix(pending) {
   if (!pending || cuefieldAutoMixExecuting || pending.token !== trackSwitchToken || pending.currentIndex !== currentIdx) return;
   if (cuefieldAutoMixBlockedByAlbumGapless(pending.currentIndex)) {
@@ -958,6 +1022,17 @@ async function executeCuefieldAutoMix(pending) {
   }
   if (pending.fromKey && cuefieldSongKey(playQueue[pending.currentIndex]) !== pending.fromKey) return;
   if (pending.toKey && cuefieldSongKey(playQueue[pending.nextIndex]) !== pending.toKey) return;
+  if (typeof revalidateCuefieldListeningPlan === 'function' && !revalidateCuefieldListeningPlan(pending)) {
+    stopCuefieldPreparedAudio(pending.preparedAudio);
+    updateCuefieldAutoMixUi('fallback');
+    return;
+  }
+  // A changed/late plan may now target the natural tail. Keep it pending until then.
+  if (Number(pending.mixStart) > Number(audio.currentTime) + 0.35 && pending.plan && pending.plan.chosen && pending.plan.chosen.listeningSafetyFallback) {
+    pending.triggerAt = pending.mixStart;
+    if (cuefieldAutoMix && cuefieldAutoMix.restorePending) cuefieldAutoMix.restorePending(pending);
+    return;
+  }
   var transitionContext = {
     generation: ++cuefieldTransitionGeneration,
     startedAt: performance.now(),
@@ -976,36 +1051,44 @@ async function executeCuefieldAutoMix(pending) {
   }
   cuefieldActiveTransitionContext = transitionContext;
   try {
-    cuefieldSetMediaTime(nextMedia, pending.timelineExecution && pending.timelineExecution.bStart);
     cuefieldWriteIncomingGain(nextMedia, 0);
     if (typeof applyAudioOutputDevice === 'function') await applyAudioOutputDevice(nextMedia);
     if (!cuefieldTransitionStillCurrent(pending, transitionContext)) {
-      cuefieldAutoMixExecuting = false;
-      stopCuefieldPreparedAudio(nextMedia);
-      if (cuefieldActiveTransitionContext === transitionContext) cuefieldActiveTransitionContext = null;
-      recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'fallback');
+      if (audio !== nextMedia) stopCuefieldPreparedAudio(nextMedia);
+      if (releaseCuefieldExecutionIfOwned(transitionContext)) recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'fallback');
+      return;
+    }
+    // Device routing can take long enough to miss the original window.
+    if (typeof revalidateCuefieldListeningPlan === 'function' && !revalidateCuefieldListeningPlan(pending)) throw new Error('CUEFIELD_WINDOW_EXPIRED');
+    if (pending.plan && pending.plan.chosen && pending.plan.chosen.listeningSafetyFallback && pending.mixStart > Number(audio.currentTime) + 0.35) {
+      pending.triggerAt = pending.mixStart;
+      if (cuefieldAutoMix && cuefieldAutoMix.restorePending) cuefieldAutoMix.restorePending(pending);
+      releaseCuefieldExecutionIfOwned(transitionContext);
       return;
     }
     var execution = pending.timelineExecution || cuefieldTimelineExecution(pending);
     pending.timelineExecution = execution;
+    cuefieldSetMediaTime(nextMedia, execution && execution.bStart);
     var playAction = execution && Array.isArray(execution.actions)
       ? execution.actions.find(function (action) { return action && action.deck === 'B' && action.op === 'play'; })
       : null;
-    if (!playAction || Number(playAction.delayMs) <= 40) await nextMedia.play();
+    if (!playAction || Number(playAction.delayMs) <= 40) {
+      await nextMedia.play();
+      pending.incomingStarted = true;
+    }
   } catch (_) {
-    cuefieldAutoMixExecuting = false;
-    stopCuefieldPreparedAudio(nextMedia);
-    if (cuefieldActiveTransitionContext === transitionContext) cuefieldActiveTransitionContext = null;
-    updateCuefieldAutoMixUi('error');
-    recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'error');
-    showToast('Cuefield AutoMix：下一首预载失败');
+    if (audio !== nextMedia) stopCuefieldPreparedAudio(nextMedia);
+    if (releaseCuefieldExecutionIfOwned(transitionContext)) {
+      updateCuefieldAutoMixUi('error');
+      recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'error');
+      showToast('Cuefield AutoMix：下一首预载失败');
+    }
     return;
   }
   var feedback = cuefieldFeedbackContext(pending);
   var handoffReady = await runCuefieldTimeline(pending, nextMedia, transitionContext);
   if (!handoffReady || !cuefieldTransitionStillCurrent(pending, transitionContext)) {
-    cuefieldAutoMixExecuting = false;
-    stopCuefieldPreparedAudio(nextMedia);
+    if (audio !== nextMedia) stopCuefieldPreparedAudio(nextMedia);
     if (
       transitionContext.generation === cuefieldTransitionGeneration
       && transitionContext.outgoingToken === trackSwitchToken
@@ -1016,8 +1099,7 @@ async function executeCuefieldAutoMix(pending) {
       && !audio.ended
       && typeof rampAudioOutputGain === 'function'
     ) rampAudioOutputGain(targetVolume, 120);
-    if (cuefieldActiveTransitionContext === transitionContext) cuefieldActiveTransitionContext = null;
-    recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'fallback');
+    if (releaseCuefieldExecutionIfOwned(transitionContext)) recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'fallback');
     return;
   }
   var descriptor = cuefieldPendingDescriptor(pending);
@@ -1025,7 +1107,8 @@ async function executeCuefieldAutoMix(pending) {
   async function runCuefieldNormalFallback() {
     var expectedFailedToken = transitionContext.outgoingToken + 1;
     if (
-      trackSwitchToken !== expectedFailedToken
+      cuefieldActiveTransitionContext !== transitionContext
+      || trackSwitchToken !== expectedFailedToken
       || currentIdx !== pending.nextIndex
       || (audio !== nextMedia && audio !== transitionContext.outgoingMedia)
     ) return false;
@@ -1073,7 +1156,7 @@ async function executeCuefieldAutoMix(pending) {
     });
     handoffSucceeded = !!(handoffResult === true && audio === nextMedia && currentIdx === pending.nextIndex && nextMedia.src && !nextMedia.paused && !nextMedia.ended);
     if (!handoffSucceeded) handoffSucceeded = await runCuefieldNormalFallback();
-    if (handoffSucceeded) {
+    if (handoffSucceeded && cuefieldActiveTransitionContext === transitionContext) {
       var chosen = pending.plan && pending.plan.chosen || {};
       var recipe = chosen.transitionRecipe || chosen.recipeCandidate && chosen.recipeCandidate.recipe || chosen.recipe || pending.executionMode;
       if (recipe) {
@@ -1087,10 +1170,10 @@ async function executeCuefieldAutoMix(pending) {
     try { handoffSucceeded = await runCuefieldNormalFallback(); } catch (_) { }
   } finally {
     if (!handoffSucceeded && audio !== nextMedia) stopCuefieldPreparedAudio(nextMedia);
-    cuefieldAutoMixExecuting = false;
-    if (cuefieldActiveTransitionContext === transitionContext) cuefieldActiveTransitionContext = null;
-    updateCuefieldAutoMixUi(handoffSucceeded ? 'ready' : 'error');
-    if (!handoffSucceeded) recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'error');
+    if (releaseCuefieldExecutionIfOwned(transitionContext)) {
+      updateCuefieldAutoMixUi(handoffSucceeded ? 'ready' : 'error');
+      if (!handoffSucceeded) recoverCuefieldAutoMixEndedOutgoing(pending, transitionContext, 'error');
+    }
   }
 }
 

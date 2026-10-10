@@ -12,6 +12,7 @@ var HOME_DASHBOARD_VIDEO_MAX_BYTES = 300 * 1024 * 1024;
 var homeDashboardVideoDbPromise = null;
 var homeDashboardVideoObjectUrl = '';
 var homeDashboardVideoLoadToken = 0;
+var homeDashboardVideoEditToken = 0;
 var homeDashboardVideoAttachBusy = false;
 var homeDashboardVideoDecodeFailed = false;
 var homeDashboardVideoPowerObserver = null;
@@ -211,6 +212,7 @@ function homeDashboardIsMp4File(file) {
 
 function homeDashboardVideoShouldPlay() {
   return !document.hidden
+    && !(typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode())
     && typeof emptyHomeActive !== 'undefined'
     && !!emptyHomeActive
     && !!document.body
@@ -334,6 +336,7 @@ async function handleHomeDashboardVideoFile(file) {
     homeDashboardNotify('MP4 不能超过 300 MB');
     return;
   }
+  var editToken = ++homeDashboardVideoEditToken;
   var meta = {
     version: 1,
     name: String(file.name || 'home.mp4'),
@@ -343,6 +346,7 @@ async function handleHomeDashboardVideoFile(file) {
   };
   try {
     await homeDashboardPutVideoBlob(file, meta);
+    if (editToken !== homeDashboardVideoEditToken) return;
     localStorage.setItem(HOME_DASHBOARD_VIDEO_META_KEY, JSON.stringify(meta));
     homeDashboardVideoDecodeFailed = false;
     homeDashboardReleaseVideoSource(true);
@@ -350,12 +354,14 @@ async function handleHomeDashboardVideoFile(file) {
     homeDashboardUpdateVideoPower();
     homeDashboardNotify('主页 MP4 已保存');
   } catch (error) {
+    if (editToken !== homeDashboardVideoEditToken) return;
     console.warn('[HomeDashboardVideoSave]', error);
     homeDashboardNotify('主页 MP4 保存失败');
   }
 }
 
 async function clearHomeDashboardVideo() {
+  var editToken = ++homeDashboardVideoEditToken;
   localStorage.removeItem(HOME_DASHBOARD_VIDEO_META_KEY);
   homeDashboardVideoDecodeFailed = false;
   homeDashboardReleaseVideoSource(true);
@@ -365,6 +371,7 @@ async function clearHomeDashboardVideo() {
   } catch (error) {
     console.warn('[HomeDashboardVideoDelete]', error);
   }
+  if (editToken !== homeDashboardVideoEditToken) return;
   homeDashboardNotify('已恢复主页默认动画');
 }
 
@@ -473,29 +480,105 @@ function homeDashboardLocalSongs() {
   });
 }
 
+var homeDashboardBackgroundOwners = new Set();
+var homeDashboardBackgroundHooksBound = false;
+function homeDashboardBackgroundCanLoad(element) {
+  return !!element.isConnected && !document.hidden
+    && (typeof emptyHomeActive === 'undefined' || emptyHomeActive)
+    && !(typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode());
+}
+function resumeHomeDashboardBackgroundImages(resetFailures) {
+  if (!document.querySelectorAll) return;
+  document.querySelectorAll('#empty-home .home-card-art, #home-next-cover').forEach(function (element) {
+    var owner = element.__homeDashboardBackgroundOwner;
+    if (resetFailures && owner && owner.status === 'failed') { owner.failedAt = 0; owner.attempts = 0; }
+    if (element.__homeDashboardRequestedBackground) homeDashboardSetStableBackgroundImage(element, element.__homeDashboardRequestedBackground);
+  });
+}
+function bindHomeDashboardBackgroundHooks() {
+  if (homeDashboardBackgroundHooksBound) return;
+  homeDashboardBackgroundHooksBound = true;
+  function syncPower() {
+    homeDashboardBackgroundOwners.forEach(function (owner) {
+      if (!homeDashboardBackgroundCanLoad(owner.element)) owner.cancel('paused');
+    });
+    if (!document.hidden) resumeHomeDashboardBackgroundImages(false);
+  }
+  window.addEventListener('mineradio-background-image-slot', function () {
+    homeDashboardBackgroundOwners.forEach(function (owner) { if (owner.status === 'waiting') owner.start(); });
+  });
+  window.addEventListener('online', function () { resumeHomeDashboardBackgroundImages(true); });
+  document.addEventListener('visibilitychange', syncPower);
+  window.addEventListener('pagehide', function () { homeDashboardBackgroundOwners.forEach(function (owner) { owner.cancel('paused'); }); });
+  if (window.MutationObserver && document.body) new MutationObserver(syncPower).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+}
 function homeDashboardSetStableBackgroundImage(element, src) {
   if (!element) return;
+  bindHomeDashboardBackgroundHooks();
+  // Drop detached cards even if their last image request never settles.
+  homeDashboardBackgroundOwners.forEach(function (owner) { if (!owner.element.isConnected) owner.cancel('cancelled'); });
   src = String(src || '');
-  if (element.__homeDashboardRequestedBackground === src) return;
+  var previous = element.__homeDashboardBackgroundOwner;
+  if (element.__homeDashboardRequestedBackground === src && element.__homeDashboardBackground === src) return;
+  if (element.__homeDashboardRequestedBackground === src) {
+    if (element.__homeDashboardBackground === src || previous && /^(loading|waiting|retry)$/.test(previous.status)) return;
+    if (previous && previous.status === 'failed' && previous.failedAt && performance.now() - previous.failedAt < 30000) return;
+  }
+  if (previous) previous.cancel('cancelled');
   element.__homeDashboardRequestedBackground = src;
   if (!src) {
+    element.__homeDashboardBackgroundOwner = null;
     element.__homeDashboardBackground = '';
     element.style.backgroundImage = '';
     return;
   }
-  var image = new Image();
-  image.decoding = 'async';
-  function commit() {
-    if (!element.isConnected || element.__homeDashboardRequestedBackground !== src) return;
-    element.__homeDashboardBackground = src;
-    element.style.backgroundImage = 'url("' + cssImageUrl(src) + '")';
+  var owner = { element: element, source: src, attempts: 0, timer: 0, image: null, releaseSlot: null, status: 'waiting', failedAt: 0 };
+  element.__homeDashboardBackgroundOwner = owner;
+  function current() { return element.__homeDashboardBackgroundOwner === owner && element.__homeDashboardRequestedBackground === src; }
+  function release() {
+    clearTimeout(owner.timer); owner.timer = 0;
+    if (owner.image) { owner.image.onload = owner.image.onerror = null; owner.image.removeAttribute('src'); owner.image = null; }
+    if (owner.releaseSlot) { var releaseSlot = owner.releaseSlot; owner.releaseSlot = null; releaseSlot(); }
   }
-  image.onload = function () {
-    if (typeof image.decode === 'function') image.decode().catch(function () { }).then(commit);
-    else commit();
+  owner.cancel = function (status) { release(); owner.status = status; homeDashboardBackgroundOwners.delete(owner); };
+  owner.start = function () {
+    if (!current() || !homeDashboardBackgroundCanLoad(element)) { owner.cancel('paused'); return; }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { owner.cancel('paused'); return; }
+    if (typeof reserveBackgroundImageSlot === 'function' && !(typeof isInlineCoverSrc === 'function' && isInlineCoverSrc(src))) {
+      owner.releaseSlot = reserveBackgroundImageSlot();
+      if (!owner.releaseSlot) { owner.status = 'waiting'; homeDashboardBackgroundOwners.add(owner); return; }
+    }
+    owner.status = 'loading'; owner.attempts++;
+    homeDashboardBackgroundOwners.add(owner);
+    var image = owner.image = new Image();
+    image.decoding = 'async';
+    var settled = false;
+    function finish(ok) {
+      if (settled) return; settled = true;
+      if (!current() || owner.image !== image) return;
+      release();
+      if (!homeDashboardBackgroundCanLoad(element)) { owner.cancel('paused'); return; }
+      if (ok) {
+        element.__homeDashboardBackground = src;
+        element.style.backgroundImage = 'url("' + cssImageUrl(src) + '")';
+        owner.status = 'loaded'; homeDashboardBackgroundOwners.delete(owner);
+      } else if (owner.attempts < 2 && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
+        owner.status = 'retry';
+        owner.timer = setTimeout(function () { owner.timer = 0; owner.start(); }, 800);
+      } else {
+        owner.status = 'failed'; owner.failedAt = Math.max(1, performance.now());
+        homeDashboardBackgroundOwners.delete(owner);
+      }
+    }
+    image.onload = function () {
+      if (typeof image.decode === 'function') image.decode().then(function () { finish(true); }, function () { finish(false); });
+      else finish(true);
+    };
+    image.onerror = function () { finish(false); };
+    owner.timer = setTimeout(function () { finish(false); }, 10000);
+    image.src = src;
   };
-  image.onerror = function () { };
-  image.src = src;
+  owner.start();
 }
 
 function homeDashboardCardHtml(card) {
@@ -1061,14 +1144,6 @@ function renderHomePlatformRecommendations() {
         sectionTitle = '你的音乐';
         cardLabel = '汽水喜欢 / 最近播放';
         readyText = '汽水推荐 Feed 暂不可用，当前显示你的喜欢与最近播放';
-      } else if (source === 'spotify' && feedState.mode === 'liked-affinity') {
-        sectionTitle = '你的喜欢';
-        cardLabel = 'Spotify 喜欢的歌曲';
-        readyText = '来自 Spotify Web API 的喜欢歌曲';
-      } else if (source === 'spotify' && feedState.mode === 'personal-top') {
-        sectionTitle = '你的常听';
-        cardLabel = 'Spotify 常听歌曲';
-        readyText = '来自 Spotify Web API 的个人常听';
       }
       status.textContent = readyText;
       list.innerHTML = '<section><h3>' + escHtml(sectionTitle) + '</h3><div class="home-platform-recommend-grid">' + feedState.songs.map(function (item, index) {
@@ -1236,7 +1311,7 @@ function bindHomePlatformRecommendationControls() {
     closeHomePlatformRecommendations();
     if (kind === 'netease-playlist' && typeof openHomePlaylist === 'function') openHomePlaylist(index);
     else if (kind === 'netease-song' && typeof playHomeSong === 'function') playHomeSong(index);
-    else if (/^(qishui|kugou|qq|spotify)-song$/.test(kind)) playHomePlatformFeedSong(kind.replace(/-song$/, ''), index);
+    else if (/^(qishui|kugou|qq)-song$/.test(kind)) playHomePlatformFeedSong(kind.replace(/-song$/, ''), index);
   });
   if (list) list.addEventListener('scroll', scheduleHomePlatformDailyWindowRender, { passive: true });
   window.addEventListener('resize', scheduleHomePlatformDailyWindowRender, { passive: true });

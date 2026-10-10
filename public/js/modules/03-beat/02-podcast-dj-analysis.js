@@ -33,17 +33,25 @@ function schedulePodcastDjAnalysis(songKey, audioUrl, token, durationSec) {
 async function analyzePodcastDjIntroBeats(audioUrl, token, durationSec) {
   if (!/^https?:\/\//i.test(audioUrl || '')) return null;
   if (token !== djBeatMapToken || !djMode.active) return null;
-  var introResp = await fetch('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec || 0) + '&intro=180');
-  if (token !== djBeatMapToken || !djMode.active) return null;
-  var introData = await introResp.json().catch(function () { return null; });
-  if (introResp.ok && introData && introData.ok && introData.map && introData.map.cameraBeats && introData.map.cameraBeats.length >= 4) {
-    return introData.map;
-  }
-  return null;
+  var owner = beginBeatAnalysisRequest('dj', false);
+  try {
+    var introResp = await fetchBeatAnalysisResource('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec || 0) + '&intro=180', owner);
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) return null;
+    var introData = await introResp.json().catch(function () { return null; });
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) return null;
+    if (introResp.ok && introData && introData.ok && introData.map && introData.map.cameraBeats && introData.map.cameraBeats.length >= 4) {
+      return introData.map;
+    }
+    return null;
+  } catch (error) {
+    if (error && error.name === 'AbortError') return null;
+    throw error;
+  } finally { finishBeatAnalysisRequest(owner); }
 }
 
-async function buildPodcastDjLowOnlyBeatMap(buffer, token) {
-  if (!buffer) return null;
+async function buildPodcastDjLowOnlyBeatMap(buffer, token, owner) {
+  function clearOwnedBeatChip() { if (token === djBeatMapToken) hideBeatChip(); }
+  if (!buffer || (owner && beatAnalysisRequestCancelled(owner))) return null;
   var sr = buffer.sampleRate || 44100;
   var duration = buffer.duration || (buffer.length / sr) || 0;
   var hopSec = duration > 4200 ? 0.0125 : 0.010;
@@ -116,10 +124,10 @@ async function buildPodcastDjLowOnlyBeatMap(buffer, token) {
     if (f > 0 && f % 720 === 0) {
       if (f % 4320 === 0) showBeatChip('DJ kick scan ' + Math.min(99, Math.round(f / nFrames * 100)) + '%');
       await yieldToPaint();
-      if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+      if (token !== djBeatMapToken || !djMode.active || (owner && beatAnalysisRequestCancelled(owner))) { clearOwnedBeatChip(); return null; }
     }
   }
-  if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+  if (token !== djBeatMapToken || !djMode.active || (owner && beatAnalysisRequestCancelled(owner))) { clearOwnedBeatChip(); return null; }
 
   function percentile(arr, p, maxSamples) {
     var len = arr ? arr.length : 0;
@@ -209,7 +217,7 @@ async function buildPodcastDjLowOnlyBeatMap(buffer, token) {
     sqO += next * next - old * old;
     if (cf > winN && cf % 3600 === 0) {
       await yieldToPaint();
-      if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+      if (token !== djBeatMapToken || !djMode.active || (owner && beatAnalysisRequestCancelled(owner))) { clearOwnedBeatChip(); return null; }
     }
   }
   if (!candidates.length) {
@@ -388,7 +396,7 @@ async function buildPodcastDjLowOnlyBeatMap(buffer, token) {
     gridT += localStep2;
     if (gridIndex > 0 && gridIndex % 1800 === 0) {
       await yieldToPaint();
-      if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+      if (token !== djBeatMapToken || !djMode.active || (owner && beatAnalysisRequestCancelled(owner))) { clearOwnedBeatChip(); return null; }
     }
   }
 
@@ -412,41 +420,44 @@ async function buildPodcastDjLowOnlyBeatMap(buffer, token) {
 }
 
 async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
+  var owner = beginBeatAnalysisRequest('dj', true);
+  function clearOwnedBeatChip() { if (token === djBeatMapToken) hideBeatChip(); }
   try {
     djBeatMapBusy = true;
     showBeatChip('DJ 离线锁拍…');
     await yieldToIdle(520);
-    if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
     durationSec = Math.max(0, Number(durationSec) || 0);
     var preferServerAnalysis = /^https?:\/\//i.test(audioUrl || '') && (durationSec <= 0 || durationSec > 3300);
     if (preferServerAnalysis) {
       showBeatChip('DJ 长播客后端锁拍...');
-      var serverResp = await fetch('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec));
-      if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+      var serverResp = await fetchBeatAnalysisResource('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec), owner);
+      if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
       var serverData = await serverResp.json().catch(function () { return null; });
+      if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) return null;
       if (serverResp.ok && serverData && serverData.ok && serverData.map) return serverData.map;
       console.warn('podcast DJ server analysis failed:', serverData && serverData.error);
-      hideBeatChip();
+      clearOwnedBeatChip();
       if (durationSec <= 0 || durationSec > 3300) return null;
     }
     var fetchAudioUrl = /^https?:\/\//i.test(audioUrl || '') ? ('/api/audio?url=' + encodeURIComponent(audioUrl)) : audioUrl;
-    var resp = await fetch(fetchAudioUrl);
-    if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+    var resp = await fetchBeatAnalysisResource(fetchAudioUrl, owner);
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
     var ab = await resp.arrayBuffer();
-    if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
 
     showBeatChip('DJ 解码音频…');
     var TmpCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     var DecodeCtx = window.AudioContext || window.webkitAudioContext;
-    if (!DecodeCtx) { hideBeatChip(); return null; }
+    if (!DecodeCtx) { clearOwnedBeatChip(); return null; }
     var dc = new DecodeCtx();
     var buffer = await new Promise(function (resolve, reject) {
       dc.decodeAudioData(ab, resolve, reject);
     }).catch(function (e) { console.warn('podcast DJ decode failed:', e); return null; });
     ab = null;
-    dc.close && dc.close();
-    if (!buffer || token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
-    return await buildPodcastDjLowOnlyBeatMap(buffer, token);
+    try { var closing = dc.close && dc.close(); if (closing && closing.catch) closing.catch(function () {}); } catch (_) {}
+    if (!buffer || token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { if (token === djBeatMapToken) clearOwnedBeatChip(); return null; }
+    return await buildPodcastDjLowOnlyBeatMap(buffer, token, owner);
 
     var sr = buffer.sampleRate;
     async function renderDjBand(hpFreq, lpFreq, label) {
@@ -474,17 +485,17 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       node.connect(off.destination);
       src.start(0);
       var rendered = await off.startRendering();
-      if (token !== djBeatMapToken || !djMode.active) return null;
+      if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) return null;
       await yieldToIdle(280);
       return rendered.getChannelData(0);
     }
 
     var lowPcm = await renderDjBand(34, 170, '低频');
-    if (!lowPcm) { hideBeatChip(); return null; }
+    if (!lowPcm) { clearOwnedBeatChip(); return null; }
     var bodyPcm = await renderDjBand(150, 560, '鼓身');
-    if (!bodyPcm) { hideBeatChip(); return null; }
+    if (!bodyPcm) { clearOwnedBeatChip(); return null; }
     var snapPcm = await renderDjBand(1700, 9200, '高频');
-    if (!snapPcm) { hideBeatChip(); return null; }
+    if (!snapPcm) { clearOwnedBeatChip(); return null; }
 
     var hopSec = 0.012;
     var hopSize = Math.max(256, Math.floor(sr * hopSec));
@@ -502,7 +513,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
         out[f] = Math.sqrt(sum / hopSize);
         if (f > 0 && f % 1800 === 0) {
           await yieldToPaint();
-          if (token !== djBeatMapToken || !djMode.active) return null;
+          if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) return null;
         }
       }
       return out;
@@ -511,7 +522,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
     var lowEnergy = await makeEnergy(lowPcm, '低频');
     var bodyEnergy = await makeEnergy(bodyPcm, '鼓身');
     var snapEnergy = await makeEnergy(snapPcm, '高频');
-    if (!lowEnergy || !bodyEnergy || !snapEnergy || token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+    if (!lowEnergy || !bodyEnergy || !snapEnergy || token !== djBeatMapToken || !djMode.active) { clearOwnedBeatChip(); return null; }
 
     var nFrames = Math.min(lowEnergy.length, bodyEnergy.length, snapEnergy.length);
     function percentile(arr, p) {
@@ -580,12 +591,12 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       sq += next * next - old * old;
       if (f2 > winN && f2 % 2200 === 0) {
         await yieldToPaint();
-        if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+        if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
       }
     }
 
     if (!candidates.length) {
-      hideBeatChip();
+      clearOwnedBeatChip();
       return { kicks: [], beats: [], pulseBeats: [], cameraBeats: [], duration: buffer.duration, visualBeatCount: 0, tempoSource: 'podcast-dj-empty', analyzedAt: Date.now() };
     }
 
@@ -741,7 +752,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       gridT += localStep;
       if (gridIndex > 0 && gridIndex % 1800 === 0) {
         await yieldToPaint();
-        if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+        if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
       }
     }
 
@@ -749,7 +760,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       return { time: b.time, strength: b.strength, impact: b.impact, combo: b.combo, low: b.low, body: b.body, snap: b.snap, dj: true };
     });
     await yieldToPaint();
-    if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
+    if (token !== djBeatMapToken || !djMode.active || beatAnalysisRequestCancelled(owner)) { clearOwnedBeatChip(); return null; }
     return {
       kicks: beats.map(function (b) { return b.time; }),
       beats: beats,
@@ -763,11 +774,12 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       analyzedAt: Date.now()
     };
   } catch (err) {
-    console.warn('podcast DJ analysis failed:', err);
-    hideBeatChip();
+    if (!err || err.name !== 'AbortError') console.warn('podcast DJ analysis failed:', err);
+    if (token === djBeatMapToken) clearOwnedBeatChip();
     return null;
   } finally {
-    djBeatMapBusy = false;
+    finishBeatAnalysisRequest(owner);
+    djBeatMapBusy = Array.from(beatAnalysisRequestOwners.dj).some(function (entry) { return entry.busy; });
   }
 }
 

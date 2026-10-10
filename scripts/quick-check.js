@@ -12,6 +12,25 @@ function rel(file) {
   return path.relative(appRoot, file).replace(/\\/g, '/');
 }
 
+// Rules supplied here have the same selector/specificity. A later background-
+// only override does not erase position/top from an earlier declaration.
+function sameSelectorProperty(rules, property) {
+  let value = '', important = false;
+  for (const rule of rules) {
+    for (const declaration of rule[1].split(';')) {
+      const colon = declaration.indexOf(':');
+      if (colon < 0 || declaration.slice(0, colon).trim() !== property) continue;
+      const raw = declaration.slice(colon + 1).trim();
+      const nextImportant = /!important\s*$/i.test(raw);
+      if (!important || nextImportant) {
+        value = raw.replace(/\s*!important\s*$/i, '').trim();
+        important = nextImportant;
+      }
+    }
+  }
+  return value;
+}
+
 function logStep(name) {
   console.log(`\n== ${name} ==`);
 }
@@ -314,21 +333,6 @@ function runDirectLoginEntryRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
-function runSpotifyApiResilienceRegressionCheck() {
-  logStep('Spotify API resilience regression');
-  const testFile = path.join(appRoot, 'tests', 'spotify-api-resilience.test.js');
-  const result = spawnSync(process.execPath, [testFile], {
-    cwd: appRoot,
-    encoding: 'utf8'
-  });
-  if (result.status !== 0) {
-    process.stdout.write(result.stdout || '');
-    process.stderr.write(result.stderr || '');
-    fail(`Spotify API resilience regression failed: ${rel(testFile)}`);
-  }
-  process.stdout.write(result.stdout || '');
-}
-
 function runProviderRemovalDiyCinemaRegressionCheck() {
   logStep('Provider removal, fullscreen DIY, and cinematic preload regression');
   const testFile = path.join(appRoot, 'tests', 'provider-removal-diy-cinema-preload.test.js');
@@ -605,7 +609,8 @@ function checkWallpaperEngineImportGuard() {
     || !/'applyProperties'/.test(runtimeText)
     || !/RAW~\(\$\{JSON\.stringify\(properties\)\}\)~END/.test(runtimeText)
     || !/windowsVerbatimArguments:\s*!!verbatimArgs/.test(runtimeText)
-    || !/cwd:\s*path\.dirname\(executable\)/.test(runtimeText)
+    || !/const controlPath = this\.platform === 'win32' \? path\.win32 : path;/.test(runtimeText)
+    || !/cwd:\s*controlPath\.dirname\(executable\)/.test(runtimeText)
     || /['"]mute['"]/.test(runtimeText)
     || !/openWallpaperEngineProjectDetails/.test(rendererText)
     || !/wallpaper-engine-details-drawer/.test(htmlText)
@@ -1002,9 +1007,11 @@ function checkDesktopWallpaperModeGuard() {
   if (/\b(?:GetCursorPos|SetCursorPos|SendInput|ShowCursor|SetSystemCursor|SetWindowsHookEx|WM_MOUSEMOVE)\b/.test(isolatedDesktopText)) {
     fail('full desktop mode must preserve the real Windows cursor and must not synthesize pointer input');
   }
-  const shutdownBlock = mainText.slice(mainText.indexOf("app.on('before-quit'"));
-  if (!/fullDesktopModeRuntime\.dispose\('app-before-quit'\)/.test(shutdownBlock)
-    || !/await disposeFullDesktopModeWithGuard\(\);[\s\S]{0,900}await wallpaperEngineRuntime\.dispose\(\)/.test(shutdownBlock)
+  // Shared preparation now serves ordinary quit and pre-installer cleanup.
+  const shutdownStart = mainText.indexOf('  prepareUpdateShutdown = ({ forInstall = false } = {}) => {');
+  const shutdownBlock = shutdownStart < 0 ? '' : mainText.slice(shutdownStart);
+  if (!/forInstall\s*\? fullDesktopModeRuntime\.disable\('app-before-update'\)\s*:\s*fullDesktopModeRuntime\.dispose\('app-before-quit'\)/.test(shutdownBlock)
+    || !/await disposeFullDesktopModeWithGuard\(\);\s*assertCleanupActive\(\);\s*await wallpaperLoopCache\.abortAll\(forInstall \? \{ signal: installCleanup\.signal \} : undefined\)\.catch\(\(\) => \{\}\);\s*assertCleanupActive\(\);\s*if \(forInstall\) \{[\s\S]{0,500}const result = await wallpaperEngineRuntime\.stop\(\);[\s\S]{0,300}\} else \{\s*await wallpaperEngineRuntime\.dispose\(\)/.test(shutdownBlock)
     || !/WALLPAPER_ENGINE_WINDOW_CLOSE_FAILED/.test(shutdownBlock)
     || /DesktopWallpaper|desktopWallpaper|wallpaper-mode-runtime|wallpaper\.html/.test(shutdownBlock)) {
     fail('shutdown must detach the complete Mineradio HUD before disposing the single WE DWM chain, with no legacy backdrop cleanup path');
@@ -1014,6 +1021,7 @@ function checkDesktopWallpaperModeGuard() {
     '--test',
     path.join(appRoot, 'tests', 'desktop-icon-shape-runtime.test.js'),
     path.join(appRoot, 'tests', 'full-desktop-mode-runtime.test.js'),
+    path.join(appRoot, 'tests', 'remix-updater-install.test.js'),
   ], { cwd: appRoot, encoding: 'utf8' });
   if (coexistFixtureResult.status !== 0) {
     process.stdout.write(coexistFixtureResult.stdout || '');
@@ -1160,7 +1168,7 @@ function checkProgressSeekDragGuard() {
   const commitStart = text.indexOf('function commitProgressSeek');
   const commitIdentityGuard = text.indexOf('if (!progressSeekMediaStillCurrent(media, mediaSrc))', commitStart);
   const commitMute = text.indexOf('setAudioOutputGainImmediate(0)', commitStart);
-  if (!/function progressSeekMediaStillCurrent\(media, mediaSrc\)/.test(text) || commitStart < 0 || commitIdentityGuard < commitStart || commitMute < 0 || commitIdentityGuard > commitMute || /if \(!progressSeekMediaStillCurrent\(media, mediaSrc\)\) \{[\s\S]{0,120}restorePlaybackGain\(\)/.test(text) || !/progressSeekMediaStillCurrent\(dragMedia, dragMediaSrc\)[^\n]*restorePlaybackGain/.test(text)) {
+  if (!/function progressSeekMediaStillCurrent\(media, mediaSrc\)/.test(text) || commitStart < 0 || commitIdentityGuard < commitStart || commitMute < 0 || commitIdentityGuard > commitMute || /if \(!progressSeekMediaStillCurrent\(media, mediaSrc\)\) \{[\s\S]{0,120}restorePlaybackGain\(\)/.test(text) || !/if \(dragToken === trackSwitchToken && progressSeekMediaStillCurrent\(dragMedia, dragMediaSrc\)\) \{[\s\S]{0,100}restorePlaybackGain/.test(text)) {
     fail('stale progress drags must never mute or restore gain on a newly switched audio element');
   }
   console.log('[OK] Progress drag previews visually and commits audio seek on release.');
@@ -1556,7 +1564,7 @@ function checkPersistentCacheStorageGuard() {
   if (!/const CACHE_SETTINGS_FILE/.test(mainText) || !/const LYRIC_CACHE_MAX_BYTES = 96 \* 1024 \* 1024/.test(mainText) || !/function defaultCacheRootPath\(\)/.test(mainText) || !/path\.join\(dDrive, 'MineradioCache'\)/.test(mainText) || setNameAt < 0 || firstUserDataLookupAt < 0 || setNameAt > firstUserDataLookupAt || !/const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH \|\| path\.join\(app\.getPath\('appData'\), APP_NAME\)/.test(mainText) || !/app\.setPath\('userData', STABLE_USER_DATA_PATH\)/.test(mainText) || !/app\.setPath\('sessionData', chromiumSessionDataPath\(cacheSettings\)\)/.test(mainText) || !/const currentChromiumPath = app\.getPath\('sessionData'\)/.test(mainText) || !/MINERADIO_BEAT_CACHE_DIR = cacheSettings\.beatmapsPath/.test(mainText) || !/nativePath:\s*path\.join\(rootPath, 'native-helper-temp'\)/.test(mainText) || !/const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS\.nativePath/.test(mainText) || !/activeWallpaperEnginePath/.test(mainText) || !/wallpaperEngineBytes/.test(mainText)) {
     fail('desktop cache settings must keep app-owned userData stable and route Chromium sessionData plus beatmaps to the configurable cache root');
   }
-  if (!/function migrateMisplacedAppOwnedFiles\(\)/.test(mainText) || !/APP_OWNED_MIGRATION_FILES/.test(mainText) || !/process\.env\.QISHUI_COOKIE_FILE = path\.join\(STABLE_USER_DATA_PATH, '\.qishui-cookie'\)/.test(mainText) || !/process\.env\.SPOTIFY_TOKEN_FILE = path\.join\(STABLE_USER_DATA_PATH, '\.spotify-token\.json'\)/.test(mainText)) {
+  if (!/function migrateMisplacedAppOwnedFiles\(\)/.test(mainText) || !/APP_OWNED_MIGRATION_FILES/.test(mainText) || !/process\.env\.QISHUI_COOKIE_FILE = path\.join\(STABLE_USER_DATA_PATH, '\.qishui-cookie'\)/.test(mainText)) {
     fail('provider credentials must migrate out of the old Chromium cache path and remain under stable userData');
   }
   if (!/mineradio-cache-get-settings/.test(mainText) || !/mineradio-cache-set-settings/.test(mainText) || !/mineradio-cache-read-lyric/.test(mainText) || !/mineradio-cache-write-lyric/.test(mainText) || !/crypto\.createHash\('sha256'\)/.test(mainText) || !/pruneLyricCache/.test(mainText)) {
@@ -1566,7 +1574,7 @@ function checkPersistentCacheStorageGuard() {
     fail('renderer cache controls must be exposed through the desktop preload bridge');
   }
   const playbackStartText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '13-playback-start-audio.js'), 'utf8');
-  if (!/function persistentLyricCacheKey/.test(lyricText) || !/await readPersistentLyricCache\(song\)/.test(lyricText) || !/refreshPersistentLyricCache\(song\)/.test(lyricText) || !/writePersistentLyricCache\(song, mergedResponse\)/.test(lyricText) || !/function scheduleQueueLyricPrefetch/.test(lyricText) || !/function runQueueLyricPrefetch/.test(lyricText) || !/scheduleQueueLyricPrefetch\(idx, 2400\)/.test(playbackStartText)) {
+  if (!/function persistentLyricCacheKey/.test(lyricText) || !/await readPersistentLyricCache\(song, cacheRead\)/.test(lyricText) || !/refreshPersistentLyricCache\(song\)/.test(lyricText) || !/writePersistentLyricCache\(song, mergedResponse, cacheRead\)/.test(lyricText) || !/function scheduleQueueLyricPrefetch/.test(lyricText) || !/function runQueueLyricPrefetch/.test(lyricText) || !/scheduleQueueLyricPrefetch\(idx, 2400\)/.test(playbackStartText)) {
     fail('lyrics must read persistent cache before network fetch, refresh it without blocking playback, and prefetch the next queue lyric');
   }
   if (!/07-fx\/08-cache-storage-settings\.js/.test(loaderText) || !/cache-storage-panel/.test(htmlText) || !/cache-storage-lyrics-size/.test(htmlText) || !/cache-storage-chromium-size/.test(htmlText) || !/cache-storage-beatmaps-size/.test(htmlText) || !/cache-storage-wallpaper-size/.test(htmlText) || !/cache-storage-userdata-size/.test(htmlText) || !/cache-storage-beatmaps-path/.test(cacheUiText) || !/cache-storage-wallpaper-path/.test(cacheUiText) || !/function chooseMineradioCacheRoot/.test(cacheUiText) || !/function refreshMineradioCacheSettings/.test(cacheUiText) || !/\.cache-storage-panel/.test(cssText) || /cache-storage-updates-(?:path|size)/.test(htmlText + cacheUiText)) {
@@ -1796,178 +1804,8 @@ function checkQishuiProviderGuard() {
   console.log('[OK] Qishui search/lyric fallback stays usable without third-party playback proxy.');
 }
 
-async function checkSpotifyProviderGuard() {
-  logStep('Spotify provider guard');
-  const spotifyPath = path.join(appRoot, 'spotify-api.js');
-  if (!fs.existsSync(spotifyPath)) fail('spotify-api.js must exist as a backend-only Spotify Web API bridge');
-  const spotifyText = fs.readFileSync(spotifyPath, 'utf8');
-  const serverText = fs.readFileSync(path.join(appRoot, 'server.js'), 'utf8');
-  const indexText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
-  const cssText = fs.readFileSync(path.join(appRoot, 'public', 'css', 'index.css'), 'utf8');
-  const coreStoreText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '00-state', '00-core-stores.js'), 'utf8');
-  const qualityText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '00-api-quality-output.js'), 'utf8');
-  const searchText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '07-search.js'), 'utf8');
-  const playbackText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '13-playback-start-audio.js'), 'utf8');
-  const fallbackText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '11-provider-fallback.js'), 'utf8');
-  const lyricText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '06-lyrics', '00-lyrics-fetch-parse.js'), 'utf8');
-  const playlistShellText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '06-lyrics', '01-playlist-panel-shell.js'), 'utf8');
-  const playlistDetailText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '06-lyrics', '02-playlist-detail.js'), 'utf8');
-  const playlistLoadText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '06-lyrics', '03-podcast-playlist-loaders.js'), 'utf8');
-  const shelfCoreText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '04-shelf', '01-manager-core.js'), 'utf8');
-  const shelfContentText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '04-shelf', '03-content-list-manager.js'), 'utf8');
-  const loginStatusText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '08-account', '02-login-status.js'), 'utf8');
-  const loginFlowText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '08-account', '03-login-modal-flows.js'), 'utf8');
-  const userModalText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '08-account', '04-user-modal-logout.js'), 'utf8');
-  const desktopMainText = fs.readFileSync(path.join(appRoot, 'desktop', 'main.js'), 'utf8');
-  const desktopPreloadText = fs.readFileSync(path.join(appRoot, 'desktop', 'preload.js'), 'utf8');
-  const queueText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '09-queue-snapshot-autoplay.js'), 'utf8');
-  const packageText = fs.readFileSync(path.join(appRoot, 'package.json'), 'utf8');
-  const internalBuilderText = fs.readFileSync(path.join(appRoot, 'electron-builder.internal-beta.json'), 'utf8');
-  const gitignoreText = fs.readFileSync(path.join(appRoot, '.gitignore'), 'utf8');
-  if (!/SPOTIFY_SEARCH_LIMIT_MAX\s*=\s*10/.test(spotifyText) || !/client_credentials/.test(spotifyText) || !/SPOTIFY_CLIENT_ID/.test(spotifyText) || !/SPOTIFY_CLIENT_SECRET/.test(spotifyText) || !/cleanPath/.test(spotifyText)) {
-    fail('Spotify bridge must use backend client credentials and keep the official search limit guard');
-  }
-  if (!/playbackMode:\s*'recommend-match'/.test(spotifyText) || !/provider_limited/.test(spotifyText) || !/handleSpotifySongUrl/.test(spotifyText) || !/handleSpotifyLyric/.test(spotifyText)) {
-    fail('Spotify must stay a metadata/search match source, not a fake direct audio provider');
-  }
-  if (!/require\('\.\/spotify-api'\)/.test(serverText) || !/\/api\/spotify\/status/.test(serverText) || !/\/api\/spotify\/config/.test(serverText) || !/\/api\/spotify\/setup\/diagnostics/.test(serverText) || !/\/api\/spotify\/search/.test(serverText) || !/\/api\/spotify\/song\/url/.test(serverText) || !/\/api\/spotify\/lyric/.test(serverText)) {
-    fail('server.js must route Spotify status/config/setup diagnostics/search/song-url/lyric through the backend bridge');
-  }
-  if (!/search-mode-spotify/.test(indexText) || !/tag-source\.spotify/.test(cssText) || !/spotify-source/.test(cssText)) {
-    fail('Spotify search tab and source badges must be visible in the UI');
-  }
-  if (!/PLAYBACK_QUALITY_DEFAULTS[\s\S]*spotify:\s*'standard'/.test(coreStoreText) || !/spotify:\s*\[[\s\S]*Spotify/.test(coreStoreText)) {
-    fail('Spotify must be represented as a standard match-source quality option');
-  }
-  if (!/provider === 'spotify'/.test(qualityText) || !/Spotify/.test(qualityText) || !/return 'SP'/.test(qualityText)) {
-    fail('playback quality UI must label Spotify as a match source');
-  }
-  if (!/search-mode-spotify/.test(searchText) || !/songProviderKey\(song\)[\s\S]*spotify/.test(searchText) || !/\/api\/spotify\/search/.test(searchText) || !/mergeSongSearchResults\(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs/.test(searchText)) {
-    fail('frontend search must include Spotify in tabs, source tags, provider search, and All merge');
-  }
-  if (!/\/api\/spotify\/song\/url/.test(playbackText) || !/isSpotifyPlayback/.test(playbackText) || !/provider_limited/.test(fallbackText)) {
-    fail('Spotify playback must flow through provider_limited auto source fallback');
-  }
-  if (!/\/api\/spotify\/lyric/.test(lyricText)) {
-    fail('Spotify lyric endpoint must return a safe empty lyric response for the shared lyric pipeline');
-  }
-  if (!/spotifyId/.test(queueText) || !/spotifyUri/.test(queueText) || !/spotifyUrl/.test(queueText)) {
-    fail('Spotify queue snapshots must preserve provider ids and uri fields');
-  }
-  if (!/getSpotifyOAuthConfig/.test(spotifyText) || !/saveSpotifyConfig/.test(spotifyText) || !/buildSpotifyOAuthAuthorizeUrl/.test(spotifyText) || !/exchangeSpotifyOAuthCode/.test(spotifyText) || !/handleSpotifyStatus/.test(spotifyText) || !/handleSpotifyUserPlaylists/.test(spotifyText) || !/handleSpotifyPlaylistTracks/.test(spotifyText)) {
-    fail('Spotify bridge must expose OAuth status plus playlist and liked-track handlers');
-  }
-  if (!/user-read-private/.test(spotifyText) || !/user-library-read/.test(spotifyText) || !/playlist-read-private/.test(spotifyText) || !/SPOTIFY_LIKED_PLAYLIST_ID/.test(spotifyText) || !/\/me\/tracks/.test(spotifyText) || !/\/me\/playlists/.test(spotifyText) || !/\/me/.test(spotifyText)) {
-    fail('Spotify OAuth must request profile, private playlists, and Liked Songs scopes/endpoints');
-  }
-  if (!/Number\(item\.items && item\.items\.total\) \|\| Number\(item\.tracks && item\.tracks\.total\)/.test(spotifyText) || !/\/playlists\/['"]? \+ encodeURIComponent\(playlistId\) \+ ['"]?\/items/.test(spotifyText) || !/entry && \(entry\.item \|\| entry\.track\)/.test(spotifyText) || !/item\.type !== 'track'/.test(spotifyText) || !/Math\.min\(SPOTIFY_PLAYLIST_PAGE_LIMIT, Number\(opts\.limit\)/.test(spotifyText) || !/SPOTIFY_PLAYLIST_ITEMS_RESTRICTED/.test(spotifyText) || !/SPOTIFY_PLAYLIST_SCOPE_REQUIRED/.test(spotifyText)) {
-    fail('Spotify playlist sync must use the 2026 /items response, keep legacy item compatibility, cap pages at 50, and explain owner/collaborator restrictions');
-  }
-  if (/spotifyUserGet\('\/playlists\/' \+ encodeURIComponent\(playlistId\) \+ '\/tracks'/.test(spotifyText)) {
-    fail('Spotify playlist detail must not call the removed /playlists/{id}/tracks endpoint');
-  }
-  const mapPlaylistStart = spotifyText.indexOf('function mapSpotifyPlaylist');
-  const mapPlaylistEnd = spotifyText.indexOf('\nasync function buildSpotifyLikedPlaylistCard', mapPlaylistStart);
-  const mapPlaylistSandbox = {
-    normalizeText: value => String(value || '').trim(),
-    spotifyImage: images => Array.isArray(images) && images[0] && images[0].url || '',
-    Number,
-  };
-  vm.runInNewContext(spotifyText.slice(mapPlaylistStart, mapPlaylistEnd), mapPlaylistSandbox, { filename: 'spotify-playlist-map.js' });
-  const mappedPlaylist = mapPlaylistSandbox.mapSpotifyPlaylist({
-    id: 'owned-playlist',
-    name: 'Owned',
-    owner: { id: 'listener' },
-    items: { total: 321 },
-    tracks: { total: 0 },
-  }, { id: 'listener' });
-  if (!mappedPlaylist || mappedPlaylist.trackCount !== 321 || mappedPlaylist.subscribed) {
-    fail('Spotify playlist cards must read items.total and preserve owned-playlist classification');
-  }
-  const detailStart = spotifyText.indexOf('async function handleSpotifyPlaylistTracks');
-  const detailEnd = spotifyText.indexOf('\nasync function handleSpotifyAlbumDetail', detailStart);
-  let requestedPath = '';
-  let requestedParams = null;
-  let responseItem = { item: { id: 'new-track', name: 'New Track' } };
-  const detailSandbox = {
-    normalizeText: value => String(value || '').trim(),
-    handleSpotifyStatus: async () => ({ loggedIn: true, market: 'US' }),
-    spotifyUserGet: async (requestPath, params) => {
-      requestedPath = requestPath;
-      requestedParams = params;
-      return { items: [responseItem], total: 1, next: null };
-    },
-    mapSpotifyTrack: track => track ? { id: track.id, name: track.name } : null,
-    spotifyErrorDetails: error => ({ error: error && error.message || 'FAILED', message: '' }),
-    readStoredSpotifyToken: () => ({ scope: 'playlist-read-private playlist-read-collaborative' }),
-    normalizeScopes: value => String(value || '').split(/\s+/).filter(Boolean),
-    SPOTIFY_PLAYLIST_PAGE_LIMIT: 50,
-    SPOTIFY_LIKED_PLAYLIST_ID: 'spotify-liked',
-    DEFAULT_SPOTIFY_MARKET: 'US',
-    Math,
-    Number,
-    Object,
-    encodeURIComponent,
-  };
-  vm.runInNewContext(spotifyText.slice(detailStart, detailEnd), detailSandbox, { filename: 'spotify-playlist-items.js' });
-  let detail = await detailSandbox.handleSpotifyPlaylistTracks('owned-playlist', { limit: 96, offset: 0 });
-  if (requestedPath !== '/playlists/owned-playlist/items' || !requestedParams || requestedParams.limit !== 50 || !detail.tracks[0] || detail.tracks[0].id !== 'new-track') {
-    fail('Spotify playlist detail must request /items with a 50-row page and map entry.item');
-  }
-  responseItem = { track: { id: 'legacy-track', name: 'Legacy Track' } };
-  detail = await detailSandbox.handleSpotifyPlaylistTracks('legacy-playlist', { limit: 1, offset: 0 });
-  if (!detail.tracks[0] || detail.tracks[0].id !== 'legacy-track') {
-    fail('Spotify playlist detail must retain compatibility with legacy entry.track payloads');
-  }
-  if (!/\/api\/spotify\/logout/.test(serverText) || !/\/api\/spotify\/user\/playlists/.test(serverText) || !/\/api\/spotify\/playlist\/tracks/.test(serverText)) {
-    fail('server.js must route Spotify logout, user playlists, and playlist track detail endpoints');
-  }
-  if (!/SPOTIFY_LOGIN_PARTITION/.test(desktopMainText) || !/openSpotifyMusicLoginWindow/.test(desktopMainText) || !/verifySpotifyOAuthCallbackEndpoint/.test(desktopMainText) || !/spotify-music-open-login/.test(desktopMainText) || !/spotify-music-verify-setup/.test(desktopMainText) || !/shell\.openExternal\(authUrl\)/.test(desktopMainText) || !/SPOTIFY_OAUTH_TIMEOUT_MS/.test(desktopMainText) || !/SPOTIFY_TOKEN_FILE/.test(desktopMainText) || !/127\.0\.0\.1:43879\/callback/.test(spotifyText + desktopMainText)) {
-    fail('desktop main must provide system-browser PKCE, a verified loopback callback, bounded timeout, and userData token storage');
-  }
-  if (!/openSpotifyMusicLogin/.test(desktopPreloadText) || !/verifySpotifyMusicSetup/.test(desktopPreloadText) || !/clearSpotifyMusicLogin/.test(desktopPreloadText)) {
-    fail('desktop preload must expose Spotify login, callback verification, and clear-login IPC bridges');
-  }
-  if (!/login-provider-spotify/.test(indexText) || !/user-provider-spotify/.test(indexText) || !/account-add-spotify/.test(indexText) || !/account-source-dot\.spotify/.test(cssText) || !/account-provider-chip\.spotify/.test(cssText)) {
-    fail('Spotify login and account tabs must be visible in the UI');
-  }
-  if (!/spotifyLoginStatus/.test(coreStoreText) || !/spotifyPlaylists/.test(coreStoreText) || !/refreshSpotifyLoginStatus/.test(loginStatusText) || !/openSpotifyWebLogin/.test(loginFlowText) || !/clearSpotifyMusicLogin/.test(userModalText)) {
-    fail('frontend account state must include Spotify status, OAuth flow, playlists, and logout');
-  }
-  if (!/tokenFileExists/.test(spotifyText) || !/credentialsFileExists/.test(spotifyText) || !/localConfigMissing/.test(spotifyText) || !/fs\.existsSync/.test(spotifyText)) {
-    fail('Spotify status must distinguish configured paths from real local token/credential files');
-  }
-  if (!/localConfigMissing/.test(loginStatusText) || !/tokenFileExists/.test(loginStatusText) || !/credentialsFileExists/.test(loginStatusText) || !/submitSpotifyConfigLogin/.test(loginFlowText) || !/saveSpotifySetupClientId/.test(loginFlowText) || !/\/api\/spotify\/config/.test(loginFlowText)) {
-    fail('Spotify frontend status must surface missing local OAuth config/token and provide validated Client ID save + OAuth flow');
-  }
-  if (!/SPOTIFY_DEVELOPER_DASHBOARD_URL/.test(loginFlowText) || !/openSpotifyDeveloperDashboard/.test(loginFlowText) || !/copySpotifyRedirectUri/.test(loginFlowText) || !/verifySpotifySetupCallback/.test(loginFlowText) || !/runSpotifySetupDiagnostics/.test(loginFlowText) || !/spotify-setup-step-1/.test(indexText) || !/spotify-setup-step-4/.test(indexText) || !/spotify-setup-wizard/.test(cssText) || !/spotify-setup-steps/.test(cssText)) {
-    fail('Spotify onboarding must provide a spacious four-step wizard with per-step local and API verification');
-  }
-  if (!/loginRefreshRequestSeq/.test(loginFlowText) || !/isLoginRefreshCurrent/.test(loginFlowText)) {
-    fail('login modal provider switching must guard stale async status and QR writes');
-  }
-  if (!/\/api\/spotify\/user\/playlists/.test(playlistShellText) || !/spotifyPlaylists/.test(playlistShellText) || !/\/api\/spotify\/playlist\/tracks/.test(playlistDetailText) || !/spotify:' \+ id/.test(playlistDetailText) || !/Spotify 歌单/.test(playlistDetailText)) {
-    fail('playlist panel must merge and open Spotify playlists');
-  }
-  if (!/spotifyErrorDetails/.test(spotifyText) || !/playlistPanelNoticeHtml/.test(playlistDetailText) || !/playlistCardPriority/.test(playlistDetailText) || !/spotify-liked/.test(playlistDetailText) || !/prioritizePlaylistGroupItems/.test(playlistDetailText) || !/showToast\(r && \(r\.message \|\| r\.error\) \|\| '歌单为空'\)/.test(playlistLoadText)) {
-    fail('Spotify playlists must keep liked songs visible and surface API errors instead of pretending details are empty');
-  }
-  if (!/function playlistQueueSource/.test(playlistLoadText) || !/raw\.indexOf\('spotify:'\)/.test(playlistLoadText) || !/playlistTracksEndpoint\(source\.provider/.test(playlistLoadText)) {
-    fail('whole-playlist queue loading must support spotify: playlist ids');
-  }
-  if (!/provider === 'spotify'/.test(shelfCoreText) || !/spotify:/.test(shelfCoreText) || !/\/api\/spotify\/playlist\/tracks/.test(shelfContentText)) {
-    fail('3D shelf must display and drill into Spotify playlists through the Spotify endpoint');
-  }
-  if (!/"\*-api\.js"/.test(packageText) || !/"\*-api\.js"/.test(internalBuilderText)) {
-    fail('official and internal-beta package file lists must include root provider API modules');
-  }
-  if (!/\.spotify-credentials\.json/.test(gitignoreText) || !/spotify-credentials\.json/.test(gitignoreText) || !/\.spotify-token\.json/.test(gitignoreText) || !/spotify-token\.json/.test(gitignoreText)) {
-    fail('Spotify local credential files must stay ignored by git');
-  }
-  console.log('[OK] Spotify Web API match source is guarded across backend, UI, playback fallback, lyrics, and packaging.');
-}
-
 function checkSpotifyRemovalGuard() {
+  if (fs.existsSync(path.join(appRoot, 'spotify-api.js'))) fail('Removed provider API must not be packaged');
   logStep('Removed provider surface guard');
   const indexText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
   const searchText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '07-search.js'), 'utf8');
@@ -1988,7 +1826,7 @@ function checkSpotifyRemovalGuard() {
   if (!/PROVIDER_REMOVED/.test(serverText) || !/pn\.indexOf\('\/api\/spotify\/'\) === 0/.test(serverText)) {
     fail('removed provider HTTP routes must terminate with an explicit 404 guard');
   }
-  if (/spotify-music-(?:open-login|verify-setup|clear-login)/.test(mainText + '\n' + preloadText)) {
+  if (/spotify-music-(?:open-login|verify-setup|clear-login)|clearSpotify|SPOTIFY_|spotify-api/.test(mainText + '\n' + preloadText)) {
     fail('desktop bridge must not expose removed provider login IPC');
   }
   console.log('[OK] Removed provider has no searchable, login, account-capsule, startup, HTTP, or desktop IPC surface.');
@@ -2109,7 +1947,10 @@ async function checkProviderFallbackTerminalStateGuard() {
   if (!/function sourceFallbackProviderReady/.test(fallbackText) || !/status\.playbackKeyReady === true/.test(fallbackText) || !/function alternatePlaybackProviders/.test(fallbackText) || /if \(provider === 'netease'\) return 'qq'/.test(fallbackText)) {
     fail('automatic fallback must only select logged-in direct providers with complete playback authorization');
   }
-  if (!/SOURCE_FALLBACK_SEARCH_TIMEOUT_MS\s*=\s*6500/.test(fallbackText) || !/apiJson\(url, \{ timeoutMs: SOURCE_FALLBACK_SEARCH_TIMEOUT_MS \}\)/.test(fallbackText) || !/SOURCE_FALLBACK_RECOVERY_TIMEOUT_MS\s*=\s*20000/.test(fallbackText) || !/function awaitSourceFallbackBudget/.test(fallbackText) || (playbackText.match(/timeoutMs:\s*9000/g) || []).length < 2 || (playbackText.match(/timeoutMs:\s*14000/g) || []).length < 2 || (playbackText.match(/timeoutMs:\s*15000/g) || []).length < 4 || (playbackText.match(/timeoutMs:\s*20000/g) || []).length < 2) {
+  if (!/apiJson\(url, \{ timeoutMs: timeoutMs, signal: requestOptions\.signal \}\)/.test(playbackText)) {
+    fail('gapless request wrapper must forward its caller deadline and abort signal');
+  }
+  if (!/SOURCE_FALLBACK_SEARCH_TIMEOUT_MS\s*=\s*6500/.test(fallbackText) || !/apiJson\(url, \{ timeoutMs: SOURCE_FALLBACK_SEARCH_TIMEOUT_MS(?:, signal: requestOptions\.signal)? \}\)/.test(fallbackText) || !/SOURCE_FALLBACK_RECOVERY_TIMEOUT_MS\s*=\s*20000/.test(fallbackText) || !/function awaitSourceFallbackBudget/.test(fallbackText) || (playbackText.match(/(?:timeoutMs:\s*|qualityParam,\s*)14000/g) || []).length < 2 || (playbackText.match(/(?:timeoutMs:\s*|qualityParam,\s*)15000/g) || []).length < 4 || (playbackText.match(/(?:timeoutMs:\s*|qualityParam,\s*)20000/g) || []).length < 2) {
     fail('fallback search, normal source resolution, and gapless source resolution must all be time-bounded');
   }
   if (!/alternateData[\s\S]{0,220}!alternateData\.url[\s\S]{0,320}playQueue\[idx\] = committedCandidate/.test(fallbackText) || !/fallbackStarted === true[\s\S]{0,180}已自动切换音源/.test(fallbackText) || !/function restoreSourceFallbackQueueItem/.test(fallbackText)) {
@@ -2124,7 +1965,7 @@ async function checkProviderFallbackTerminalStateGuard() {
   if (!/AUDIO_PLAY_REQUEST_TIMEOUT_MS\s*=\s*9000/.test(controlsText) || !/function awaitMediaPlayWithTimeout/.test(controlsText) || (controlsText.match(/awaitMediaPlayWithTimeout\(/g) || []).length < 5 || !/function playbackMediaMatchesCurrentQueueItem/.test(controlsText)) {
     fail('media.play promises must be time-bounded and manual resume must reject stale audio ownership');
   }
-  if (!/function probePlaybackAudioUrl/.test(serverText) || !/AUDIO_URL_PROBE_BYTES\s*=\s*8192/.test(serverText) || !/function audioProbeMagic/.test(serverText) || !/audioProxyHeadersFor\(audioUrl, 'bytes=0-'/.test(serverText) || !/&& !!magic/.test(serverText) || !/function probeQQAudioUrl/.test(serverText) || !/probe\.ok/.test(serverText) || !/function readStreamChunkWithTimeout/.test(serverText) || !/fetchPublicResource\(audioUrl, \{ headers: hdr \}\)/.test(serverText) || !/request.setTimeout\(9000/.test(fs.readFileSync(path.join(appRoot, 'server-security.js'), 'utf8'))) {
+  if (!/function probePlaybackAudioUrl/.test(serverText) || !/AUDIO_URL_PROBE_BYTES\s*=\s*8192/.test(serverText) || !/function audioProbeMagic/.test(serverText) || !/audioProxyHeadersFor\(audioUrl, 'bytes=0-'/.test(serverText) || !/&& !!magic/.test(serverText) || !/function probeQQAudioUrl/.test(serverText) || !/probe\.ok/.test(serverText) || !/function readStreamChunkWithTimeout/.test(serverText) || !/fetchPublicResource\(audioUrl, \{ headers: hdr, signal: controller\.signal \}\)/.test(serverText) || !/request.setTimeout\(9000/.test(fs.readFileSync(path.join(appRoot, 'server-security.js'), 'utf8'))) {
     fail('provider URL resolution and the audio proxy must verify real upstream bytes with bounded connection and stream waits');
   }
   const magicStart = serverText.indexOf('function audioProbeMagic');
@@ -2326,10 +2167,10 @@ async function checkProviderFallbackTerminalStateGuard() {
     setTimeout,
     clearTimeout,
     requestAnimationFrame(fn) { fn(); },
-    normalizePlaybackProvider(provider) { return ['qq', 'kugou', 'qishui', 'spotify'].includes(provider) ? provider : 'netease'; },
+    normalizePlaybackProvider(provider) { return ['qq', 'kugou', 'qishui'].includes(provider) ? provider : 'netease'; },
     songProviderKey(song) { return song && song.provider || 'netease'; },
     platformStatus(provider) { return status[provider] || { loggedIn: false }; },
-    accountProviderOrder() { return ['netease', 'qq', 'kugou', 'qishui', 'spotify']; },
+    accountProviderOrder() { return ['netease', 'qq', 'kugou', 'qishui']; },
     providerVipLevel() { return 'none'; },
     queueItemKey(song) { return (song && song.provider || '') + ':' + (song && (song.id || song.mid) || ''); },
     hydrateCustomCover(song) { return song; },
@@ -2429,6 +2270,17 @@ async function checkProviderFallbackTerminalStateGuard() {
   console.log('[OK] Provider fallback respects active credentials, commits after playback, and reaches a clean terminal state.');
 }
 
+function runSearchReliabilityRegressionCheck() {
+  logStep('Search cancellation, retry and deadline regression');
+  const files = ['tests/search-interaction-reliability.test.js', 'tests/search-deadline-budget.test.js'];
+  const result = spawnSync(process.execPath, ['--test'].concat(files), {
+    cwd: appRoot, encoding: 'utf8', timeout: 30000, maxBuffer: 5 * 1024 * 1024,
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.error || result.status !== 0) fail('Search reliability regression failed: ' + (result.error ? result.error.message : result.status));
+}
+
 function checkSearchGlassEntranceGuard() {
   logStep('Search glass entrance guard');
   const cssText = fs.readFileSync(path.join(appRoot, 'public', 'css', 'index.css'), 'utf8');
@@ -2469,9 +2321,12 @@ function checkSearchGlassEntranceGuard() {
     /function activeSearchProvidersForMode\(mode\)\s*\{[\s\S]{0,260}MUSIC_SEARCH_PROVIDER_ORDER\.filter\(searchProviderCanSearch\)/.test(searchText) &&
     /function searchProviderLoginNotice\(mode\)/.test(searchText) &&
     /await Promise\.all\(fetchProviders\.map\(function\s*\(provider\)[\s\S]{0,900}applyProviderEntry\(provider,\s*entry\)[\s\S]{0,200}opts\.onProgress\(mergedSoFar\(\)\)/.test(searchText) &&
-    /function loadNextMusicSearchPage\(expectedKey\)/.test(searchText) &&
+    /function loadNextMusicSearchPage\(expectedKey,\s*retry\)/.test(searchText) &&
+    /if\s*\(failed\s*&&\s*!retry\)\s*return false/.test(searchText) &&
+    /fetchMusicSearchResults\(q,\s*mode,\s*searchMusicRenderState\.providerPages,\s*\{\s*signal:\s*controller\s*\?\s*controller\.signal\s*:\s*undefined,\s*retryFailed:\s*failed\s*\}\)/.test(searchText) &&
+    /if\s*\(opts\.retryFailed\)\s*return\s*!!\(previousPages\s*&&\s*previousPages\[provider\]\s*&&\s*previousPages\[provider\]\.failed\)/.test(searchText) &&
     /new IntersectionObserver/.test(searchText) &&
-    /mergeSongSearchResults\(neteaseSongs,\s*qqSongs,\s*kugouSongs,\s*qishuiSongs,\s*spotifySongs/.test(searchText);
+    /mergeSongSearchResults\(neteaseSongs,\s*qqSongs,\s*kugouSongs,\s*qishuiSongs,\s*limit/.test(searchText);
   const searchFusionRankingOk =
     /function searchPopularityScore\(song,\s*sourceIndex\)/.test(searchText) &&
     /function searchCanonicalSongKey\(song\)/.test(searchText) &&
@@ -2543,7 +2398,7 @@ function checkSearchGlassEntranceGuard() {
     /syncSearchGlassReadyState\(changed,\s*changed\)/.test(glassText);
   const setPeekPreparesBeforeShow =
     (() => {
-      const start = peekText.indexOf('function setPeek(el, on, key)');
+      const start = peekText.search(/function setPeek\(el,\s*on,\s*key(?:,\s*preserveKeyboardFocus)?\)/);
       const end = peekText.indexOf('function uploadTipWasSeen');
       const setPeekBody = start >= 0 && end > start ? peekText.slice(start, end) : '';
       return /prepareSearchGlassBeforePeek/.test(setPeekBody) &&
@@ -2808,7 +2663,13 @@ async function checkProviderAuthCookiePathGuard() {
   if (/resolve\(neteaseCookieHasLogin\(cookie\)[\s\S]{0,140}!qqCookieHasPlaybackLogin/.test(mainText)) {
     fail('Netease login must not reuse QQ playback authorization checks');
   }
-  if (!/if \(!qqPlaybackReady\)/.test(qqLoginText) || !/播放授权未完成/.test(qqLoginText)) {
+  const qqIncompleteBranch = qqLoginText.match(/if \(!qqPlaybackReady\)\s*\{([\s\S]*?)\n\s*return;\s*\}/);
+  const qqIncompleteBody = qqIncompleteBranch ? qqIncompleteBranch[1] : '';
+  if (!qqIncompleteBranch
+    || !/statusEl\.className\s*=\s*'preview'/.test(qqIncompleteBody)
+    || !/(?:播放授权(?:尚)?未完成|还需完成\s*QQ\s*音乐播放授权)/.test(qqIncompleteBody)
+    || /scheduleLoginAttemptClose\s*\(/.test(qqIncompleteBody)
+    || qqLoginText.indexOf('scheduleLoginAttemptClose', qqIncompleteBranch.index) < qqIncompleteBranch.index + qqIncompleteBranch[0].length) {
     fail('QQ frontend login flow must not close as a full success when playback authorization is incomplete');
   }
   if (!/Buffer\.from\(raw,\s*'hex'\)\.toString\('utf8'\)/.test(serverText) || !/QQ_LIKED_PLAYLIST_ID/.test(serverText) || !/fetchQQLikedPlaylistPage/.test(serverText) || !/music\.srfDissInfo\.DissInfo/.test(serverText) || !/method: 'CgiGetDiss'/.test(serverText) || !/song_begin: offset/.test(serverText) || !/song_num: limit/.test(serverText) || !/rawTracks\.map\(mapQQPlaylistTrack\)/.test(serverText) || !/songlist_size/.test(serverText) || !/const upstreamTotal/.test(serverText) || !/firstTrack && firstTrack\.cover/.test(serverText) || !/getCachedQQLikedPlaylistCover/.test(serverText) || !/handleQQLikedPlaylistTracks/.test(serverText) || !/QQ_LIKED_AUTH_MESSAGE/.test(serverText)) {
@@ -2914,7 +2775,7 @@ async function checkProviderAuthCookiePathGuard() {
     fail('QQ liked playlist card must keep the first album cover stable across pages and clear it when the playlist becomes empty');
   }
   if (!/var liked = isLikedPlaylistContext\(id, title, r && r\.playlist\)/.test(playlistLoadText) || !/if \(liked\) markSongsLiked\(playQueue, true\)/.test(playlistLoadText) || !/if \(state\.liked\) markSongsLiked\(pageTracks, true\)/.test(playlistLoadText)) {
-    fail('QQ/Spotify virtual liked playlists must mark loaded queue tracks as liked');
+    fail('QQ virtual liked playlists must mark loaded queue tracks as liked');
   }
   if (!/data-login-provider-sort/.test(qqLoginText) || !/login-provider-sort-handle/.test(qqLoginText) || !/closest\('\[data-login-provider-sort\]'\)/.test(qqLoginText) || !/closest\('\.flow-port\.out'\)/.test(qqLoginText)) {
     fail('login workflow must split provider sorting onto a left drag handle and keep wiring on the right flow port');
@@ -3137,7 +2998,6 @@ function checkAlbumDetailGaplessGuard() {
   const controlsText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '14-player-controls.js'), 'utf8');
   const snapshotText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '09-queue-snapshot-autoplay.js'), 'utf8');
   const serverText = fs.readFileSync(path.join(appRoot, 'server.js'), 'utf8');
-  const spotifyText = fs.readFileSync(path.join(appRoot, 'spotify-api.js'), 'utf8');
   if (!/thumb-cover[\s\S]{0,180}openTrackDetailModal\('album'\)/.test(htmlText) || !/control-cover[\s\S]{0,260}openTrackDetailModal\('album'\)/.test(htmlText)) {
     fail('album detail must be reachable from both current cover entry points');
   }
@@ -3165,7 +3025,10 @@ function checkAlbumDetailGaplessGuard() {
   if (!/Promise\.resolve\(playResult\)\.then\(function \(\)/.test(playbackText) || !/return runAlbumGaplessBalancedCrossfade\(preload, mixMs\)/.test(playbackText) || !/\.then\(function \(completed\)/.test(playbackText) || !/if \(!completed\)/.test(playbackText) || !/preload\.fadeCompleted[\s\S]{0,900}startAlbumGaplessHandoff/.test(playbackText) || !/preload\.fadeResolve[\s\S]{0,180}resolveFade\(false\)/.test(playbackText)) {
     fail('album gapless must await media play and the completed fade state before ownership handoff, and cancellation must resolve false');
   }
-  if (!/function disposeAlbumGaplessPreload\(preload\)/.test(playbackText) || !/await applyAudioOutputDevice\(media\);[\s\S]{0,420}serial !== albumGaplessState\.serial[\s\S]{0,320}disposeAlbumGaplessPreload\(\{ media: media \}\)/.test(playbackText) || !/if \(albumGaplessState\.preload === preload\) clearAlbumGaplessPreload\('album-gapless-mix-stale'\);[\s\S]{0,80}else disposeAlbumGaplessPreload\(preload\)/.test(playbackText)) {
+  if (!/albumGaplessState\.pendingRequest === owner && serial === albumGaplessState\.serial && token === trackSwitchToken/.test(playbackText)) {
+    fail('gapless current-owner guard must include request identity, serial and track token');
+  }
+  if (!/function disposeAlbumGaplessPreload\(preload\)/.test(playbackText) || !/await applyAudioOutputDevice\(media\);[\s\S]{0,100}if \(!stillCurrent\(\)\) \{ disposeAlbumGaplessPreload\(\{ media: media \}\)/.test(playbackText) || !/if \(albumGaplessState\.preload === preload\) clearAlbumGaplessPreload\('album-gapless-mix-stale'\);[\s\S]{0,80}else disposeAlbumGaplessPreload\(preload\)/.test(playbackText)) {
     fail('stale album preload promises must revalidate after await and may only dispose the media object they own');
   }
   if (!/fadeWatchdogTimer = setInterval\(function \(\) \{[\s\S]{0,100}applyStep\(performance\.now\(\)\)/.test(playbackText) || !/function scheduleAlbumGaplessNormalFallback\(\)/.test(playbackText) || !/audio !== preload\.media && audio !== handoffPreviousAudio/.test(playbackText) || !/albumGaplessState\.preload\.mixStarted[\s\S]{0,160}restoreAlbumGaplessOutgoingIfCurrent/.test(playbackText)) {
@@ -3177,7 +3040,7 @@ function checkAlbumDetailGaplessGuard() {
   if (!/var albumGaplessAdoptedGain = 0/.test(playbackText) || !/albumGaplessAdoptedGain = albumGaplessMixed[\s\S]{0,100}Number\(audio\.volume\)/.test(playbackText) || !/setAudioOutputGainImmediate\(albumGaplessMixed \? albumGaplessAdoptedGain : audioSilentFloor\(\)\)/.test(playbackText) || !/preserveGain:\s*albumGaplessMixed/.test(playbackText) || !/rampAudioOutputGain\(targetVolume, ALBUM_GAPLESS_ADOPT_SLEW_MS\)/.test(playbackText) || !/preserveGain:\s*!!opts\.preserveGain/.test(controlsText) || !/else if \(!opts\.preserveGain\) restorePlaybackGain\(\)/.test(controlsText)) {
     fail('mixed album handoff must adopt, preserve, and gently settle the incoming gain without a restorePlaybackGain jump');
   }
-  if (!/preloadedAudio/.test(playbackText) || !/preloadedProxyAudioUrl/.test(playbackText) || !/albumGaplessMixed/.test(playbackText) || !/skipShuffleOrder: true/.test(playbackText) || !/searchAlternatePlatformSong\(nextSong\)/.test(playbackText) || !/playQueue\[preload\.index\] = hydrateCustomCover\(preload\.song\)/.test(playbackText)) {
+  if (!/preloadedAudio/.test(playbackText) || !/preloadedProxyAudioUrl/.test(playbackText) || !/albumGaplessMixed/.test(playbackText) || !/skipShuffleOrder: true/.test(playbackText) || !/searchAlternatePlatformSong\(nextSong, null, null, requestOptions\)/.test(playbackText) || !/playQueue\[preload\.index\] = hydrateCustomCover\(preload\.song\)/.test(playbackText)) {
     fail('album gapless handoff must reuse preheated audio, pre-resolve metadata-source fallback, and force album order instead of shuffle order');
   }
   const coverText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '02-visual', '15-ripples-cover-depth.js'), 'utf8');
@@ -5387,13 +5250,15 @@ async function checkLargePlaylistVirtualizationGuard() {
     fail('continuous expanded playlist detail and its highlighted group styling are missing');
   }
   const detailStickyRules = Array.from(cssText.matchAll(/#playlist-panel\s+\.pl-detail-sticky\s*\{([^}]*)\}/g));
-  const detailStickyCss = detailStickyRules.length ? detailStickyRules[detailStickyRules.length - 1][1] : '';
-  if (!/\bposition:\s*sticky\b/.test(detailStickyCss) || !/\btop:\s*(?!auto\b)[^;}]+/.test(detailStickyCss) || /\bposition:\s*(?:relative|static)\b|\btop:\s*auto\b/.test(detailStickyCss)) {
+  const detailStickyPosition = sameSelectorProperty(detailStickyRules, 'position');
+  const detailStickyTop = sameSelectorProperty(detailStickyRules, 'top');
+  if (detailStickyPosition !== 'sticky' || !detailStickyTop || detailStickyTop === 'auto') {
     fail('expanded playlist summary must stay sticky on the outer playlist-panel scroll axis');
   }
   const detailListRules = Array.from(cssText.matchAll(/#playlist-panel\s+\.pl-detail-list\s*\{([^}]*)\}/g));
-  const detailListCss = detailListRules.length ? detailListRules[detailListRules.length - 1][1] : '';
-  if (!/\boverflow:\s*visible\b/.test(detailListCss) || /\boverflow-y:\s*(?:auto|scroll)\b/.test(detailListCss)) {
+  const detailListOverflow = sameSelectorProperty(detailListRules, 'overflow');
+  const detailListOverflowY = sameSelectorProperty(detailListRules, 'overflow-y');
+  if (detailListOverflow !== 'visible' || /^(?:auto|scroll)$/.test(detailListOverflowY)) {
     fail('expanded playlist tracks must keep the single outer scroll axis');
   }
   const shelfSync = shelfText.slice(shelfText.indexOf('function syncRenderedWindow'), shelfText.indexOf('function rebuild'));
@@ -5430,7 +5295,7 @@ async function checkLargePlaylistVirtualizationGuard() {
     PLAYLIST_DETAIL_INITIAL_RENDER: 96,
     window: { innerHeight: 900 },
     songCoverSrc: () => '',
-    normalizePlaylistProvider: provider => provider === 'mineradio' ? 'mineradio' : (['qq', 'kugou', 'qishui', 'spotify'].includes(provider) ? provider : 'netease'),
+    normalizePlaylistProvider: provider => provider === 'mineradio' ? 'mineradio' : (['qq', 'kugou', 'qishui'].includes(provider) ? provider : 'netease'),
     escHtml: value => String(value == null ? '' : value),
     Math,
     Number,
@@ -5451,7 +5316,7 @@ async function checkLargePlaylistVirtualizationGuard() {
     playlistCatalogRevision: 1,
     userPlaylists: Array.from({ length: 5000 }, (_, index) => ({ provider: 'netease', id: String(index + 1), name: 'Playlist ' + index })),
     playlistPanelDetailState: { key: '', loading: false, tracks: [], total: 0, error: '' },
-    normalizePlaylistProvider: provider => ['qq', 'kugou', 'qishui', 'spotify'].includes(provider) ? provider : 'netease',
+    normalizePlaylistProvider: provider => ['qq', 'kugou', 'qishui'].includes(provider) ? provider : 'netease',
     playlistCardPriority: () => 1,
     playlistPanelKey: (provider, id) => provider + ':' + id,
     window: { innerHeight: 900 },
@@ -5712,6 +5577,7 @@ async function main() {
   checkSpotifyRemovalGuard();
   checkPlaybackControlBadgesGuard();
   await checkProviderFallbackTerminalStateGuard();
+  runSearchReliabilityRegressionCheck();
   checkSearchGlassEntranceGuard();
   checkProviderEntitlementBoundaryGuard();
   checkQQVipStatusSyncGuard();

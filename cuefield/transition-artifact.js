@@ -94,6 +94,19 @@ function compactTimeline(value, limit, depth) {
   return value.slice(0, limit).map((action) => compactAction(action, depth));
 }
 
+function compactBridgePayload(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return {
+    template: compactString(value.template, 32),
+    bars: finiteOrNull(value.bars),
+    bpmFrom: finiteOrNull(value.bpmFrom),
+    bpmTo: finiteOrNull(value.bpmTo),
+    stageDurations: Array.isArray(value.stageDurations)
+      ? value.stageDurations.slice(0, 3).map(finiteOrNull)
+      : [],
+  };
+}
+
 function compactAction(value, depth = 0) {
   const action = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const result = {};
@@ -105,6 +118,10 @@ function compactAction(value, depth = 0) {
     const compacted = compactPrimitive(action[key]);
     if (compacted !== undefined) result[key] = compacted;
   });
+  if (action.op === 'bridge') {
+    const bridge = compactBridgePayload(action.bridge);
+    if (bridge) result.bridge = bridge;
+  }
   if (depth < MAX_FALLBACK_DEPTH && Array.isArray(action.fallbackTimeline)) {
     result.fallbackTimeline = compactTimeline(action.fallbackTimeline, FALLBACK_LIMIT, depth + 1);
   }

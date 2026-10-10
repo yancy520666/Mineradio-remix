@@ -205,6 +205,7 @@ async function handleLyricFontFiles(files) {
     customLyricFonts = [record].concat((customLyricFonts || []).filter(function (item) {
       return item && item.id !== record.id && item.name !== record.name;
     })).slice(0, CUSTOM_LYRIC_FONT_MAX_COUNT);
+    reconcileCustomLyricFontFaces();
     var saved = saveCustomLyricFonts();
     updateLyricFontControls();
     setLyricFont(customLyricFontKey(record.id));
@@ -223,6 +224,7 @@ function removeCustomLyricFont(event, id) {
   if (!id) return;
   var key = customLyricFontKey(id);
   customLyricFonts = (customLyricFonts || []).filter(function (font) { return font && font.id !== id; });
+  releaseCustomLyricFontFace(id);
   if (normalizeLyricFontKey(fx.lyricFont) === key || fx.lyricFont === key) fx.lyricFont = 'sans';
   saveCustomLyricFonts();
   updateLyricFontControls();

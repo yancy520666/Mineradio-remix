@@ -3,7 +3,9 @@
 // Relays an upstream audio stream to an HTTP response without changing how
 // fast the upstream is read. When the client stops reading (pause, read-ahead
 // satisfied), at most `memoryLimit` bytes wait in memory; the rest goes to a
-// temporary file and is replayed in order once the client drains.
+// temporary file and is replayed in order once the client drains. If disk writes
+// fail, push applies backpressure instead; the caller must await each push.
+// The queue budget excludes the caller-owned current chunk and HTTP buffers.
 const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
@@ -55,11 +57,17 @@ function createSpillRelay(res, options) {
   let fileOpening = null;
   let fileWrite = 0;
   let fileRead = 0;
+  let fileAppending = false;
   let spillDisabled = false;
   let ended = false;
   let closed = false;
   let finished = false;
   let pumping = false;
+  const spaceWaiters = new Set();
+  function notifySpace() {
+    for (const resolve of spaceWaiters) resolve();
+    spaceWaiters.clear();
+  }
   let resolveDone;
   const done = new Promise(resolve => { resolveDone = resolve; });
   const stats = { spilledBytes: 0, peakMemoryBytes: 0, spillFailed: false };
@@ -84,6 +92,7 @@ function createSpillRelay(res, options) {
     if (finished) return;
     finished = true;
     head.length = 0; tail.length = 0; headBytes = 0; tailBytes = 0;
+    notifySpace();
     const opening = fileOpening;
     Promise.resolve(opening).catch(() => {}).then(releaseFile).then(() => resolveDone(stats));
   }
@@ -118,24 +127,51 @@ function createSpillRelay(res, options) {
   }
 
   async function appendToFile(buf) {
+    let offset = 0;
     if (!spillDisabled) {
+      fileAppending = true;
       try {
         const handle = await openFile();
         if (!handle) return;
-        await handle.write(buf, 0, buf.length, fileWrite);
-        fileWrite += buf.length;
-        stats.spilledBytes += buf.length;
+        while (offset < buf.length && !closed && !finished) {
+          const { bytesWritten } = await handle.write(buf, offset, buf.length - offset, fileWrite);
+          if (!Number.isInteger(bytesWritten) || bytesWritten <= 0 || bytesWritten > buf.length - offset) throw new Error('AUDIO_SPILL_WRITE_SHORT');
+          offset += bytesWritten;
+          fileWrite += bytesWritten;
+          stats.spilledBytes += bytesWritten;
+        }
         return;
       } catch (_) {
-        // Disk full or blocked: keep the old in-memory behaviour rather than
-        // failing playback. Order is kept by queuing behind the file region.
+        // Disk full or blocked: preserve playback bytes, but let the upstream
+        // wait for the reader rather than retaining the rest of the song.
         spillDisabled = true;
         stats.spillFailed = true;
+      } finally {
+        fileAppending = false;
       }
     }
-    tail.push(buf);
-    tailBytes += buf.length;
-    noteMemory();
+    if (closed || finished) return;
+    // A failed write may have committed a prefix. Only queue its remainder.
+    await appendToMemory(buf, offset);
+  }
+
+  async function appendToMemory(buf, offset = 0) {
+    while (offset < buf.length && !closed && !finished) {
+      const available = memoryLimit - headBytes - tailBytes;
+      if (available <= 0) {
+        // Subscribe before pumping: draining may free space synchronously.
+        await new Promise(resolve => { spaceWaiters.add(resolve); pump(); });
+        continue;
+      }
+      const length = Math.min(available, buf.length - offset);
+      // Copy the bounded slice; a tiny pending suffix must not pin a large
+      // caller-provided backing buffer after push has returned.
+      tail.push(Buffer.from(buf.subarray(offset, offset + length)));
+      tailBytes += length;
+      offset += length;
+      noteMemory();
+      if (!res.writableNeedDrain) pump();
+    }
   }
 
   async function push(chunk) {
@@ -146,13 +182,12 @@ function createSpillRelay(res, options) {
       return;
     }
     if (!filePending() && !tailBytes && headBytes + buf.length <= memoryLimit) {
-      head.push(buf);
+      // Own only these bytes, not a potentially much larger upstream buffer.
+      head.push(Buffer.from(buf));
       headBytes += buf.length;
       noteMemory();
     } else if (spillDisabled) {
-      tail.push(buf);
-      tailBytes += buf.length;
-      noteMemory();
+      await appendToMemory(buf);
     } else {
       await appendToFile(buf);
     }
@@ -168,6 +203,7 @@ function createSpillRelay(res, options) {
           const buf = head.shift();
           headBytes -= buf.length;
           res.write(buf);
+          notifySpace();
           continue;
         }
         if (filePending()) {
@@ -187,14 +223,16 @@ function createSpillRelay(res, options) {
           continue;
         }
         if (tail.length) {
+          if (fileAppending) break;
           const buf = tail.shift();
           tailBytes -= buf.length;
           res.write(buf);
+          notifySpace();
           continue;
         }
         break;
       }
-      if (ended && !pendingBytes() && !closed && !finished) {
+      if (ended && !pendingBytes() && !fileAppending && !closed && !finished) {
         res.end();
         cleanup();
       }
@@ -204,7 +242,7 @@ function createSpillRelay(res, options) {
       pumping = false;
     }
     // A drain may have arrived while a file read was awaited.
-    if (!closed && !finished && !res.writableNeedDrain && (pendingBytes() || ended)) setImmediate(pump);
+    if (!closed && !finished && !fileAppending && !res.writableNeedDrain && (pendingBytes() || ended)) setImmediate(pump);
   }
 
   function end() {

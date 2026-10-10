@@ -138,6 +138,7 @@ function buildQishuiOAuthAuthorizeUrl(state) {
 function createTtlCache(maxEntries, defaultTtlMs) {
   const store = new Map();
   const inflight = new Map();
+  let generation = 0;
   return {
     get(key) {
       const hit = store.get(key);
@@ -152,6 +153,7 @@ function createTtlCache(maxEntries, defaultTtlMs) {
       }
     },
     clear() {
+      generation += 1;
       store.clear();
       inflight.clear();
     },
@@ -159,11 +161,15 @@ function createTtlCache(maxEntries, defaultTtlMs) {
       const cached = this.get(key);
       if (cached !== null) return cached;
       if (inflight.has(key)) return inflight.get(key);
-      const promise = Promise.resolve().then(fn).then((value) => {
+      const startedGeneration = generation;
+      let promise;
+      promise = Promise.resolve().then(fn).then((value) => {
         const resolvedTtlMs = typeof ttlMs === 'function' ? ttlMs(value) : ttlMs;
-        if (resolvedTtlMs !== 0) this.set(key, value, resolvedTtlMs);
+        if (startedGeneration === generation && resolvedTtlMs !== 0) this.set(key, value, resolvedTtlMs);
         return value;
-      }).finally(() => inflight.delete(key));
+      }).finally(() => {
+        if (inflight.get(key) === promise) inflight.delete(key);
+      });
       inflight.set(key, promise);
       return promise;
     },
@@ -223,33 +229,72 @@ function requestJsonWithMeta(targetUrl, opts, body) {
 function requestTextWithMeta(targetUrl, opts, body) {
   opts = opts || {};
   return new Promise((resolve, reject) => {
+    // OpenAPI/video-model/lyrics are metadata; audio has its own bounded proxy.
+    const maxBytes = Number.isSafeInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 8 * 1024 * 1024;
+    const signal = opts.signal;
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    let req;
+    let response;
+    let deadline;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      if (signal) signal.removeEventListener('abort', onAbort);
+      if (error) reject(error); else resolve(value);
+    };
+    const fail = error => {
+      if (settled) return;
+      finish(error);
+      if (response && typeof response.destroy === 'function') response.destroy();
+      if (req) req.destroy();
+    };
+    const onAbort = () => fail(Object.assign(new Error('Request aborted'), { name: 'AbortError', code: 'ABORT_ERR' }));
+    if (signal && signal.aborted) { onAbort(); return; }
     const u = new URL(targetUrl);
     const lib = u.protocol === 'https:' ? https : http;
-    let deadline;
-    const fail = error => {
-      clearTimeout(deadline);
-      reject(error);
-    };
-    const req = lib.request(u, {
+    req = lib.request(u, {
       method: opts.method || 'GET',
       headers: opts.headers || {},
-    }, response => {
-      const chunks = [];
-      response.on('data', chunk => chunks.push(chunk));
+    }, incoming => {
+      response = incoming;
       response.on('error', fail);
       response.on('aborted', () => fail(new Error('汽水接口响应中断，请重试。')));
+      response.on('close', () => { if (response.complete === false) fail(new Error('汽水接口响应中断，请重试。')); });
+      const tooLarge = () => {
+        const error = Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), {
+          code: 'UPSTREAM_RESPONSE_TOO_LARGE', statusCode: response.statusCode, headers: response.headers || {},
+        });
+        if (response.statusCode >= 400) error.body = Buffer.concat(chunks, size).toString('utf8');
+        fail(error);
+      };
+      const declared = Number((response.headers || {})['content-length']);
+      if (Number.isFinite(declared) && declared > maxBytes && response.statusCode < 400) { tooLarge(); return; }
+      response.on('data', chunk => {
+        if (settled) return;
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        if (size + bytes.length > maxBytes) {
+          const remaining = maxBytes - size;
+          if (remaining) { chunks.push(bytes.subarray(0, remaining)); size += remaining; }
+          tooLarge(); return;
+        }
+        chunks.push(bytes); size += bytes.length;
+      });
       response.on('end', () => {
-        clearTimeout(deadline);
-        const text = Buffer.concat(chunks).toString('utf8');
+        if (settled) return;
+        if (response.complete === false) { fail(new Error('汽水接口响应中断，请重试。')); return; }
+        const text = Buffer.concat(chunks, size).toString('utf8');
         if (response.statusCode >= 400) {
           const err = new Error('HTTP ' + response.statusCode);
           err.statusCode = response.statusCode;
           err.body = text;
           err.headers = response.headers || {};
-          reject(err);
+          finish(err);
           return;
         }
-        resolve({ text, headers: response.headers || {}, statusCode: response.statusCode });
+        finish(null, { text, headers: response.headers || {}, statusCode: response.statusCode });
       });
     });
     // A wall-clock deadline also covers DNS/TLS and a response that keeps
@@ -257,10 +302,10 @@ function requestTextWithMeta(targetUrl, opts, body) {
     deadline = setTimeout(() => {
       const error = new Error('汽水接口请求超时，请稍后重试。');
       error.code = 'QISHUI_REQUEST_TIMEOUT';
-      req.destroy(error);
       fail(error);
     }, Number(opts.timeoutMs) || 7000);
     req.on('error', fail);
+    if (signal) { signal.addEventListener('abort', onAbort, { once: true }); if (signal.aborted) { onAbort(); return; } }
     try {
       if (body) req.write(body);
       req.end();
@@ -627,7 +672,7 @@ function qishuiUrl(apiPath) {
   return QISHUI_API_BASE + apiPath;
 }
 
-async function qishuiPost(apiPath, payload) {
+async function qishuiPost(apiPath, payload, timeoutMs = 7000) {
   const token = qishuiAccessToken();
   if (!token) {
     const err = new Error('QISHUI_TOKEN_REQUIRED');
@@ -637,7 +682,7 @@ async function qishuiPost(apiPath, payload) {
   const body = JSON.stringify(payload || {});
   const json = await requestJson(qishuiUrl(apiPath), {
     method: 'POST',
-    timeoutMs: 7000,
+    timeoutMs,
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
@@ -2400,7 +2445,22 @@ function rankQishuiPublicSongs(songs, keywords, limit) {
     .map(item => item.song);
 }
 
-async function handleQishuiPublicSearch(keywords, limit, cookieText, offset) {
+// One search budget includes PC/token attempts and a useful public fallback.
+function qishuiSearchBudget(deadline, cap, reserve = 0) {
+  const remaining = deadline - Date.now() - reserve;
+  if (remaining <= 0) throw Object.assign(new Error('QISHUI_SEARCH_TIMEOUT'), { code: 'QISHUI_SEARCH_TIMEOUT' });
+  return Math.min(cap, remaining);
+}
+
+function qishuiSearchOptional(promise, timeoutMs) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise).catch(() => null),
+    new Promise(resolve => { timer = setTimeout(() => resolve(null), timeoutMs); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+async function handleQishuiPublicSearch(keywords, limit, cookieText, offset, timeoutMs = 7000) {
   offset = Math.max(0, Number(offset) || 0);
   const requestLimit = Math.min(100, Math.max(offset + (Number(limit) * 3 || 0), 36));
   const url = urlWithParams(QISHUI_PUBLIC_SEARCH_URL, {
@@ -2413,7 +2473,7 @@ async function handleQishuiPublicSearch(keywords, limit, cookieText, offset) {
     real_offset: 0,
     search_source: 'qishui',
   });
-  const json = await requestJson(url, { timeoutMs: 8000, headers: QISHUI_PUBLIC_HEADERS });
+  const json = await requestJson(url, { timeoutMs, headers: QISHUI_PUBLIC_HEADERS });
   const list = (json && json.data && Array.isArray(json.data.list)) ? json.data.list : [];
   const mappedSongs = list.map((item, index) => mapQishuiPublicItem(item, index, keywords)).filter(Boolean);
   const rankedSongs = rankQishuiPublicSongs(mappedSongs, keywords, requestLimit);
@@ -2481,7 +2541,7 @@ function extractQishuiPcSearchItems(payload) {
   return items.length ? items : extractQishuiMediaList(data);
 }
 
-async function handleQishuiPcSearch(keywords, limit, cookieText, offset) {
+async function handleQishuiPcSearch(keywords, limit, cookieText, offset, timeoutMs = 4000) {
   const cookie = normalizeQishuiCookieInput(cookieText);
   if (!qishuiCookieHasLogin(cookie)) throw new Error('QISHUI_COOKIE_REQUIRED');
   const requestCount = Math.max(1, Math.min(50, Number(limit) || 8));
@@ -2496,7 +2556,7 @@ async function handleQishuiPcSearch(keywords, limit, cookieText, offset) {
     noDefaultParams: true,
     sessionOnly: true,
     pcApp: true,
-    timeoutMs: 8500,
+    timeoutMs,
   });
   const rawItems = extractQishuiPcSearchItems(json);
   const songs = mapQishuiMediaList(rawItems, keywords, { directPlayable: true }).slice(0, limit);
@@ -2547,17 +2607,23 @@ async function handleQishuiSearch(keywords, limit, cookieText, offset) {
   }
   const cacheKey = keywords.toLowerCase() + '|' + limit + '|' + offset + '|' + (status.webSession ? qishuiCookieFingerprint(cookieText) : (status.tokenConfigured ? 'token' : 'public'));
   return qishuiSearchCache.wrap(cacheKey, value => value.pcSearchError ? 0 : 2 * 60 * 1000, async () => {
+    const deadline = Date.now() + 7000;
     let pcSearchError = '';
     let sessionFailure = null;
     if (status.webSession) {
       try {
-        return await handleQishuiPcSearch(keywords, limit, cookieText, offset);
+        return await handleQishuiPcSearch(keywords, limit, cookieText, offset, qishuiSearchBudget(deadline, status.tokenConfigured ? 2500 : 4000));
       } catch (err) {
         pcSearchError = err && err.message || String(err);
         if (qishuiSessionExpired(err)) sessionFailure = qishuiSessionFailure(err, cookieText);
         else if (err && err.code === 'QISHUI_EMPTY_RESPONSE') {
-          const membership = await fetchQishuiPlaybackMembership(cookieText);
-          if (membership.reauthRequired) sessionFailure = qishuiSessionFailure(membership, cookieText);
+          // This existing one-request membership probe has its own 2.5s HTTP
+          // timeout. Bound the search wait too; it never launches more search work.
+          const remaining = deadline - Date.now() - 2500;
+          const membership = remaining > 0
+            ? await qishuiSearchOptional(fetchQishuiPlaybackMembership(cookieText), Math.min(400, remaining))
+            : null;
+          if (membership && membership.reauthRequired) sessionFailure = qishuiSessionFailure(membership, cookieText);
         }
       }
     }
@@ -2567,7 +2633,7 @@ async function handleQishuiSearch(keywords, limit, cookieText, offset) {
         err.code = 'QISHUI_SEARCH_UNAVAILABLE';
         throw err;
       }
-      const fallback = await handleQishuiPublicSearch(keywords, limit, cookieText, offset);
+      const fallback = await handleQishuiPublicSearch(keywords, limit, cookieText, offset, qishuiSearchBudget(deadline, 7000));
       if (pcSearchError) fallback.pcSearchError = pcSearchError;
       if (sessionFailure) Object.assign(fallback, {
         loggedIn: false, webSession: false, reauthRequired: sessionFailure.reauthRequired,
@@ -2586,7 +2652,7 @@ async function handleQishuiSearch(keywords, limit, cookieText, offset) {
       },
     };
     try {
-      const json = await qishuiPost(QISHUI_RELATED_MEDIA_PATH, payload);
+      const json = await qishuiPost(QISHUI_RELATED_MEDIA_PATH, payload, qishuiSearchBudget(deadline, 4000, QISHUI_PUBLIC_ENABLED ? 2500 : 0));
       const rawItems = extractQishuiMediaList(json);
       const songs = rawItems.map((item, index) => mapQishuiMedia(item, index, keywords)).filter(Boolean).slice(0, limit);
       return {
@@ -2602,7 +2668,7 @@ async function handleQishuiSearch(keywords, limit, cookieText, offset) {
       };
     } catch (err) {
       if (!QISHUI_PUBLIC_ENABLED) throw err;
-      const fallback = await handleQishuiPublicSearch(keywords, limit, cookieText, offset);
+      const fallback = await handleQishuiPublicSearch(keywords, limit, cookieText, offset, qishuiSearchBudget(deadline, 7000));
       fallback.officialError = err && err.message || String(err);
       if (pcSearchError) fallback.pcSearchError = pcSearchError;
       return fallback;
@@ -3349,14 +3415,22 @@ async function fetchQishuiPcTrackV2(trackId, cookieText) {
 
 async function fetchQishuiPlayerInfo(playerInfoUrl, cookieText, membership, opts) {
   playerInfoUrl = normalizeText(playerInfoUrl);
-  if (!/^https?:\/\//i.test(playerInfoUrl)) return null;
+  let playerUrl;
+  try { playerUrl = new URL(playerInfoUrl); } catch (_) {}
+  if (!playerUrl || playerUrl.protocol !== 'https:' || playerUrl.hostname !== 'vod-luna.douyin.com'
+    || playerUrl.username || playerUrl.password || (playerUrl.port && playerUrl.port !== '443')) {
+    const error = new Error('QISHUI_PLAYER_INFO_URL_REJECTED');
+    error.code = 'QISHUI_PLAYER_INFO_URL_REJECTED';
+    throw error;
+  }
   const json = await requestJson(playerInfoUrl, {
     timeoutMs: opts && opts.timeoutMs || 3000,
-    headers: qishuiHeadersWithCookie({
+    // VOD authorization is carried by the signed URL; never forward PC cookies.
+    headers: {
       'Accept': 'application/json,text/plain,*/*',
       'User-Agent': QISHUI_WEB_UA,
       'Referer': 'https://api.qishui.com/',
-    }, cookieText),
+    },
   });
   const result = pickObject(json && json.Result, json && json.result);
   const data = pickObject(result.Data, result.data, json && json.Data, json && json.data);
@@ -3491,7 +3565,7 @@ async function resolveQishuiSeoPlayback(id, cookie, membership, requestedQuality
     const level = qishuiPlaybackLevel(stream.quality, stream.format, stream.bitrate);
     return {
       provider: 'qishui', playbackMode: 'direct-url', source: 'qishui-seo',
-      url: qishuiUrlWithAuth(stream.url, stream.auth), playable: true, trial,
+      url: qishuiUrlWithAuth(stream.url, stream.auth), playable: true, trial, trialKnown: true, sourceDuration: duration,
       loggedIn: !!membership.sessionValidated, playbackKeyReady: true,
       membershipKnown: !!membership.membershipKnown,
       vipType: membership.vipType || 0, vipLevel: membership.vipLevel || 'unknown',
@@ -3504,6 +3578,19 @@ async function resolveQishuiSeoPlayback(id, cookie, membership, requestedQuality
       message: trial ? '汽水公开音源仅提供约 ' + duration + ' 秒试听；当前账号会员权益不会改变该片段长度。' : '',
     };
   });
+}
+
+function qishuiPlaybackExtent(streamDuration, trackDuration) {
+  const sourceDuration = Number.isFinite(Number(streamDuration)) && Number(streamDuration) > 0 ? Number(streamDuration) : 0;
+  const fullDuration = Number.isFinite(Number(trackDuration)) && Number(trackDuration) > 0 ? Number(trackDuration) : 0;
+  const trialKnown = sourceDuration > 0 && fullDuration > 0;
+  return {
+    sourceDuration,
+    fullDuration,
+    duration: sourceDuration || fullDuration, // Display only; never proof of source length.
+    trialKnown,
+    trial: trialKnown ? sourceDuration + 5 < fullDuration : null,
+  };
 }
 
 async function handleQishuiSongUrl(opts, cookieText) {
@@ -3604,16 +3691,15 @@ async function handleQishuiSongUrl(opts, cookieText) {
       const resolved = await resolveQishuiDownloadInfo(id, payload, cookie, membership, requestedQuality);
       const track = resolved.track || {};
       const stream = resolved.best;
-      const duration = stream.duration || qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0);
+      const extent = qishuiPlaybackExtent(stream.duration, qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0));
       const level = qishuiPlaybackLevel(stream.quality, stream.format, stream.bitrate);
-      const fullDuration = qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0);
-      const trial = !!(duration > 0 && fullDuration > 0 && duration + 5 < fullDuration);
       return {
         provider: 'qishui',
         playbackMode: 'direct-url',
         url: qishuiUrlWithAuth(stream.url, stream.auth),
         playable: true,
-        trial,
+        ...extent,
+        message: extent.trialKnown ? '' : '汽水音源时长尚未确认，暂不能判断是否为完整版本。',
         loggedIn: true,
         playbackKeyReady: true,
         membershipKnown: !!membership.membershipKnown,
@@ -3627,7 +3713,6 @@ async function handleQishuiSongUrl(opts, cookieText) {
         requiredTier: qishuiStreamRequiredTier(stream),
         br: qishuiBitrateForUi(stream.bitrate),
         size: Number(stream.size) || 0,
-        duration,
         requestedQuality,
         source: 'qishui-pc-track-v2',
         encrypted: !!stream.auth,

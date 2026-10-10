@@ -34,11 +34,23 @@ function renderMyPodcastRadioItems(key, title, items) {
     }).join('');
   animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
+var queueLoadRequestSerial = 0;
+function beginQueueLoadRequest(reason, preserveHydration) {
+  if (!preserveHydration) cancelPlaylistQueueHydration(reason || 'queue-load');
+  else queueLoadRequestSerial++;
+  return { serial: queueLoadRequestSerial, queue: playQueue, index: currentIdx, trackToken: trackSwitchToken };
+}
+function queueLoadRequestStillCurrent(owner) {
+  return !!(owner && owner.serial === queueLoadRequestSerial && owner.queue === playQueue
+    && owner.index === currentIdx && owner.trackToken === trackSwitchToken);
+}
 async function openMyPodcastCollection(key, title) {
   if (!key) return;
+  var owner = beginQueueLoadRequest('podcast-collection', true);
   showLoading();
   try {
     var r = await apiJson('/api/podcast/my/items?key=' + encodeURIComponent(key) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE);
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     if (r && r.loggedIn === false) { showLoginModal(); return; }
     var items = r.items || [];
     myPodcastItems[key] = items;
@@ -48,29 +60,38 @@ async function openMyPodcastCollection(key, title) {
       return;
     }
     if (r.itemType === 'voice' || (items[0] && items[0].type === 'podcast')) {
+      cancelPlaylistQueueHydration('podcast-collection-voice');
+      owner.serial = queueLoadRequestSerial;
       playQueue = items.map(cloneSong);
       currentIdx = 0;
       safeRenderQueuePanel('podcast-collection-voice');
       safeSwitchPlaylistTab('queue', 'podcast-collection-voice');
       safeShelfRebuild('podcast-collection-voice', true);
       forcePlaybackControlsInteractive();
-      await playQueueAt(0);
+      var voiceQueue = playQueue;
+      var voicePlay = playQueueAt(0);
+      var voiceToken = trackSwitchToken;
+      await voicePlay;
+      if (owner.serial !== queueLoadRequestSerial || playQueue !== voiceQueue || trackSwitchToken !== voiceToken) return false;
       showToast('载入: ' + (title || '喜欢的声音'));
       return;
     }
     renderMyPodcastRadioItems(key, title, items);
   } catch (e) {
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     console.warn(e);
     showToast('播客加载失败');
   } finally {
-    hideLoading();
+    if (owner.serial === queueLoadRequestSerial) hideLoading();
   }
 }
 async function loadPodcastRadioIntoQueue(id, autoplay, title) {
   if (!id) return;
+  var owner = beginQueueLoadRequest('podcast-radio');
   showLoading();
   try {
     var r = await apiJson('/api/podcast/programs?id=' + encodeURIComponent(id) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE);
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     if (r.error) { showToast('播客加载失败: ' + r.error); return; }
     if (!r.programs || !r.programs.length) { showToast('播客暂无可播放节目'); return; }
     playQueue = r.programs.map(cloneSong);
@@ -79,13 +100,20 @@ async function loadPodcastRadioIntoQueue(id, autoplay, title) {
     safeSwitchPlaylistTab('queue', 'podcast-radio');
     safeShelfRebuild('podcast-radio', true);
     forcePlaybackControlsInteractive();
-    if (autoplay) await playQueueAt(0);
+    var radioQueue = playQueue;
+    if (autoplay) {
+      var radioPlay = playQueueAt(0);
+      var radioToken = trackSwitchToken;
+      await radioPlay;
+      if (owner.serial !== queueLoadRequestSerial || playQueue !== radioQueue || trackSwitchToken !== radioToken) return false;
+    }
     showToast('载入: ' + (title || '播客'));
   } catch (e) {
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     console.warn(e);
     showToast('播客加载失败');
   } finally {
-    hideLoading();
+    if (owner.serial === queueLoadRequestSerial) hideLoading();
   }
 }
 function playlistQueueSource(id) {
@@ -98,9 +126,8 @@ function playlistQueueSource(id) {
   return { provider: 'netease', id: raw, requestId: raw };
 }
 function playlistQueuePageSize(provider, initial) {
-  if (initial) return provider === 'kugou' || provider === 'qishui' ? 50 : (provider === 'spotify' ? 96 : PLAYLIST_QUEUE_INITIAL_BATCH_SIZE);
+  if (initial) return provider === 'kugou' || provider === 'qishui' ? 50 : PLAYLIST_QUEUE_INITIAL_BATCH_SIZE;
   if (provider === 'kugou' || provider === 'qishui') return 50;
-  if (provider === 'spotify') return 100;
   if (provider === 'qq') return 96;
   return PLAYLIST_QUEUE_BACKGROUND_BATCH_SIZE;
 }
@@ -108,6 +135,7 @@ function playlistQueuePageUrl(source, offset, limit) {
   return playlistTracksEndpoint(source.provider, source.id, { offset: Math.max(0, offset || 0), limit: Math.max(1, limit || PLAYLIST_QUEUE_INITIAL_BATCH_SIZE) });
 }
 function cancelPlaylistQueueHydration(reason) {
+  queueLoadRequestSerial++;
   var previous = queueHydrationState;
   if (previous && previous.timer) clearTimeout(previous.timer);
   if (previous) {
@@ -136,6 +164,7 @@ function schedulePlaylistQueueHydration(delay, reason) {
 async function hydratePlaylistQueueNextPage(reason) {
   var state = queueHydrationState;
   if (!state || !state.active || state.error || state.queueRef !== playQueue) return false;
+  if (state.provider === 'spotify') { state.active = false; state.error = 'SPOTIFY_UNSUPPORTED'; return false; }
   if (state.loading && state.promise) return state.promise;
   var token = state.token;
   var source = { provider: state.provider, id: state.sourceId, requestId: state.playlistId };
@@ -149,6 +178,11 @@ async function hydratePlaylistQueueNextPage(reason) {
     if (r && r.error && !rawTracks.length) throw new Error(r.message || r.error);
     var pageTracks = rawTracks.map(cloneSong);
     if (state.liked) markSongsLiked(pageTracks, true);
+    // Assign logical positions in provider order before randomizing this page.
+    if (typeof syncQueueLogicalOrder === 'function') {
+      syncQueueLogicalOrder();
+      pageTracks.forEach(function (song) { song._queueOrder = queueLogicalOrderState.next++; });
+    }
     if (playMode === 'shuffle' && pageTracks.length > 1) shuffleArrayInPlace(pageTracks);
     if (pageTracks.length) Array.prototype.push.apply(playQueue, pageTracks);
     state.loaded = playQueue.length;
@@ -209,6 +243,7 @@ function requestPlaylistQueueHydrationForBrowse() {
 }
 async function loadPlaylistIntoQueueById(id, autoplay, title, opts) {
   if (!id) return false;
+  if (/^spotify:/i.test(String(id)) || (opts && opts.playlist && (opts.playlist.provider === 'spotify' || opts.playlist.source === 'spotify'))) { showToast('Spotify 已停止支持，历史记录已保留'); return false; }
   opts = opts || {};
   if (!opts.preserveHomeState) {
     homeForcedOpen = false;
@@ -216,7 +251,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title, opts) {
     updateEmptyHomeVisibility();
   }
   showLoading();
-  cancelPlaylistQueueHydration('new-playlist');
+  var owner = beginQueueLoadRequest('new-playlist');
   var source = playlistQueueSource(id);
   var token = (queueHydrationState && queueHydrationState.token || 0) + 1;
   var r = null;
@@ -235,12 +270,14 @@ async function loadPlaylistIntoQueueById(id, autoplay, title, opts) {
       };
     }
   } catch (e) {
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     console.warn('[PlaylistLoadFirstPage]', id, e);
     showToast('歌单首批加载失败');
     hideLoading();
     return false;
   }
   try {
+    if (!queueLoadRequestStillCurrent(owner)) return false;
     if (!seedTracks.length) {
       showToast(r && (r.message || r.error) || '歌单为空');
       return false;
@@ -283,13 +320,18 @@ async function loadPlaylistIntoQueueById(id, autoplay, title, opts) {
     forcePlaybackControlsInteractive();
     hideLoading();
     if (autoplay) {
+      var autoplayToken;
       try {
-        await playQueueAt(currentIdx, { preserveHomeState: !!opts.preserveHomeState });
+        var playlistPlay = playQueueAt(currentIdx, { preserveHomeState: !!opts.preserveHomeState });
+        autoplayToken = trackSwitchToken;
+        await playlistPlay;
       } catch (playErr) {
+        if (owner.serial !== queueLoadRequestSerial || queueHydrationState.token !== token || queueHydrationState.queueRef !== playQueue || trackSwitchToken !== autoplayToken) return false;
         console.warn('[PlaylistAutoplay]', id, playErr);
         showToast('歌单已载入，播放启动失败');
       }
     }
+    if (owner.serial !== queueLoadRequestSerial || queueHydrationState.token !== token || queueHydrationState.queueRef !== playQueue || (autoplay && trackSwitchToken !== autoplayToken)) return false;
     forcePlaybackControlsInteractive();
     if (queueHydrationState.active) {
       showToast('已开始播放，后续歌曲会按需流式加入队列');
@@ -307,7 +349,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title, opts) {
     showToast('歌单已载入，界面刷新失败');
     return false;
   } finally {
-    hideLoading();
+    if (owner.serial === queueLoadRequestSerial) hideLoading();
   }
 }
 

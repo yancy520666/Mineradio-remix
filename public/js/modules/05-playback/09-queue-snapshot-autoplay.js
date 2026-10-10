@@ -17,7 +17,7 @@ function playbackRestoreSongSnapshot(song) {
     'spotifyId', 'spotifyUri', 'spotifyUrl', 'uri', 'albumUri',
     'hash', 'fileHash', 'audioHash', 'albumId', 'album_id', 'albumMid', 'albummid', 'albumAudioId', 'album_audio_id', 'mixSongId', 'hqHash', 'sqHash', 'resHash',
     'name', 'title', 'artist', 'album', 'cover', 'duration', 'durationMs', 'dt', 'fee',
-    'playable', 'playbackMode', 'recommendationSource', 'programId', 'radioId', 'radioName', 'localKey', 'localFileId'
+    'playable', 'playbackMode', 'recommendationSource', 'programId', 'radioId', 'radioName', 'localKey', 'localFileId', '_queueOrder'
   ].forEach(function (key) {
     if (song[key] != null && song[key] !== '') snap[key] = song[key];
   });
@@ -53,14 +53,24 @@ function saveLastPlaybackSnapshot(force, reason) {
     return;
   }
   if (audio && audio.src && typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(audio)) return;
-  if (!audio && restoredLastPlaybackSnapshot && restoredLastPlaybackSnapshot.current && queueItemKey(song) === queueItemKey(restoredLastPlaybackSnapshot.current)) return;
+  var idleRestored = !audio && restoredLastPlaybackSnapshot && restoredLastPlaybackSnapshot.current
+    && queueItemKey(song) === queueItemKey(restoredLastPlaybackSnapshot.current);
+  if (idleRestored && !force) return;
   var durationSec = getPlaybackDurationSeconds();
   var currentSec = audio && audio.__mineradioPendingResumeAt > 0 ? audio.__mineradioPendingResumeAt : getPlaybackCurrentSeconds();
+  // Queue/mode edits before playback starts must persist without erasing the
+  // restored track's progress merely because there is no media element yet.
+  if (idleRestored) {
+    durationSec = Number(restoredLastPlaybackSnapshot.duration) || durationSec;
+    currentSec = Number(restoredLastPlaybackSnapshot.currentTime) || 0;
+  }
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
   var queueStart = Math.max(0, currentIdx - 60);
+  if (typeof syncQueueLogicalOrder === 'function') syncQueueLogicalOrder();
   var queue = Array.isArray(playQueue) ? playQueue.slice(queueStart, queueStart + 120).map(playbackRestoreSongSnapshot).filter(function (item) { return item && (item.id || item.mid || item.localKey || item.name); }) : [];
   var payload = {
     version: 1,
+    playMode: typeof playMode === 'undefined' ? 'loop' : playMode,
     savedAt: Math.max(now, lastPlaybackSnapshotSavedAt + 1),
     reason: reason || '',
     currentIdx: currentIdx < 0 ? -1 : currentIdx - queueStart,
@@ -95,11 +105,7 @@ function restoreLastPlaybackSnapshot() {
   restoredLastPlaybackSnapshot = snapshot;
   startupRestoreHomePending = !startupAutoplayPreference;
   pendingPlaybackResumeAt = startupResumeSecondsFromSnapshot(snapshot);
-  if (isLocal) {
-    currentLocalSong = current;
-    currentIdx = -1;
-    playQueue = [];
-  } else {
+  {
     var queue = Array.isArray(snapshot.queue) ? snapshot.queue.map(function (song) { return hydrateCustomCover(Object.assign({}, song)); }).filter(function (song) { return song && (song.id || song.mid || song.name); }) : [];
     if (!queue.length) queue = [current];
     var idx = Math.max(0, Math.min(queue.length - 1, Number(snapshot.currentIdx) || 0));
@@ -113,7 +119,11 @@ function restoreLastPlaybackSnapshot() {
     }
     playQueue = queue;
     currentIdx = idx;
-    currentLocalSong = null;
+    currentLocalSong = isLocal ? playQueue[idx] : null;
+    if (typeof syncQueueLogicalOrder === 'function') syncQueueLogicalOrder(true);
+    playMode = ['loop', 'shuffle', 'single'].indexOf(snapshot.playMode) >= 0 ? snapshot.playMode : 'loop';
+    if (playMode !== 'shuffle' && typeof restoreQueueLogicalOrder === 'function') restoreQueueLogicalOrder();
+    if (typeof updatePlayModeButton === 'function') updatePlayModeButton(false);
   }
   var shownSong = currentCoverSong() || current;
   if (shownSong) {

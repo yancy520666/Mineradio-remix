@@ -52,10 +52,10 @@ function evaluateCadenceBoundary(evidence = {}, context = {}) {
   ));
   const hasBar = families.includes('beat-grid');
 
-  if (!hasAudio || audioDistance === null || audioDistance > 0.1) {
+  if (!hasAudio || audioDistance === null || audioDistance < 0 || audioDistance > 0.1) {
     reasons.push('audio-boundary-missing');
   }
-  if (!hasBar || barDistance === null || barDistance > 0.1) {
+  if (!hasBar || barDistance === null || barDistance < 0 || barDistance > 0.1) {
     reasons.push('bar-boundary-missing');
   }
   if (supportFamilies.length < 2) reasons.push('evidence-consensus-missing');

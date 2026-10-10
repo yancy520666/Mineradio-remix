@@ -16,6 +16,7 @@ function coverCpuContext(cv) {
 }
 
 var coverUrlLoad = null;
+var generatedCoverCacheEpoch = 0;
 var COVER_ATTEMPT_TIMEOUT_MS = 10000;
 var COVER_RETRY_DELAY_MS = 700;
 var COVER_LATE_RETRY_MS = 6000;
@@ -43,8 +44,11 @@ function clearCurrentCoverDisplay() {
 }
 
 function loadCoverFromUrl(directUrl, opts) {
+  var cacheEpoch = generatedCoverCacheEpoch;
   opts = opts || {};
   cancelCoverUrlLoad();
+  // Give the visible cover first use of the network/decode budget.
+  cancelUpcomingCoverPrefetch();
   var preserveOnSwitch = !!(opts.trackSwitch || opts.seamlessCover || opts.seamlessTrackSwitch);
   if (!directUrl || typeof directUrl !== 'string' || (!/^https?:\/\//i.test(directUrl) && !/^mineradio-local:\/\/cover\//i.test(directUrl))) {
     if (!coverApplyStillCurrent(opts)) return;
@@ -59,7 +63,7 @@ function loadCoverFromUrl(directUrl, opts) {
     clearCurrentCoverDisplay();
     return;
   }
-  var proxiedUrl = coverProxySrc(directUrl);
+  var proxiedUrl = coverProxySrc(directUrl, !!opts.cacheBust);
   if (!proxiedUrl) {
     if (preserveOnSwitch && uniforms.uHasCover.value > 0.5) return;
     uniforms.uHasCover.value = 0; setCoverDepthState(0, 0, 1);
@@ -82,7 +86,7 @@ function loadCoverFromUrl(directUrl, opts) {
   coverUrlLoad = load;
 
   function stillCurrent() {
-    return !load.cancelled && coverUrlLoad === load && coverApplyStillCurrent(opts);
+    return cacheEpoch === generatedCoverCacheEpoch && !load.cancelled && coverUrlLoad === load && coverApplyStillCurrent(opts);
   }
   function settle() {
     clearTimeout(load.timer);
@@ -106,7 +110,7 @@ function loadCoverFromUrl(directUrl, opts) {
     clearCurrentCoverDisplay();
     if (opts.trackToken != null && !opts.lateRetry) {
       setTimeout(function () {
-        if (!coverApplyStillCurrent(opts) || coverUrlLoad || uniforms.uHasCover.value > 0.5) return;
+        if (cacheEpoch !== generatedCoverCacheEpoch || !coverApplyStillCurrent(opts) || coverUrlLoad || uniforms.uHasCover.value > 0.5) return;
         loadCoverFromUrl(directUrl, Object.assign({}, opts, { lateRetry: true, seamlessTrackSwitch: false }));
       }, COVER_LATE_RETRY_MS);
     }
@@ -115,7 +119,7 @@ function loadCoverFromUrl(directUrl, opts) {
     if (!stillCurrent()) return;
     if (index >= attempts.length) { failAll(); return; }
     var src = attempts[index];
-    var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
+    var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async'; img.fetchPriority = 'high';
     load.image = img;
     function next() {
       clearTimeout(load.timer);
@@ -186,7 +190,7 @@ function runUpcomingCoverPrefetch(token) {
   upcomingCoverPrefetch.releaseSlot = releaseSlot;
   if (upcomingCoverPrefetch.doneCount >= 64) { upcomingCoverPrefetch.done = {}; upcomingCoverPrefetch.retryAfter = {}; upcomingCoverPrefetch.doneCount = 0; }
   // Same CORS mode as loadCoverFromUrl so the browser cache entry is reusable.
-  var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
+  var img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async'; img.fetchPriority = 'low';
   upcomingCoverPrefetch.image = img;
   function finish(ok) {
     if (upcomingCoverPrefetch.image !== img) return;
@@ -225,7 +229,7 @@ function runUpcomingCoverPrefetch(token) {
     img.removeAttribute('src');
     finish(false);
   }, COVER_ATTEMPT_TIMEOUT_MS);
-  img.src = src;
+  img.src = /^\/api\/cover\?/.test(src) ? src + '&priority=background' : src;
 }
 
 function cssBackgroundUrl(src) {
@@ -511,3 +515,31 @@ function commitCoverCrop() {
 //   - side:   现版本精修, 右侧 5 张卡微角度堆叠
 //   - stage:  弧形排列, 居中, 有倒影, 当前卡片"呼吸+光环"
 //             卡片间粒子穿梭, 切歌时飞出动画
+
+// Release only derived image/preparation caches. Keep the visible texture, user
+// cover mapping and playing audio intact while the current URL is revalidated.
+function resetGeneratedCoverCaches(reload) {
+  generatedCoverCacheEpoch++;
+  cancelCoverUrlLoad();
+  cancelUpcomingCoverPrefetch();
+  upcomingCoverPrefetch.done = {};
+  upcomingCoverPrefetch.doneCount = 0;
+  upcomingCoverPrefetch.retryAfter = {};
+  if (typeof coverProcessToken !== 'undefined') coverProcessToken++;
+  if (typeof coverDepthCache !== 'undefined') coverDepthCache = {};
+  if (typeof coverDepthCacheKeys !== 'undefined') coverDepthCacheKeys = [];
+  if (typeof adjacentPreparation !== 'undefined') {
+    clearTimeout(adjacentPreparation.timer);
+    adjacentPreparation.generation++;
+    if (typeof cancelAdjacentBuild === 'function') cancelAdjacentBuild();
+    adjacentPreparation.pendingBuilds = [];
+    Array.from(adjacentPreparation.entries.keys()).forEach(releaseAdjacentEntry);
+  }
+  if (typeof resetPlaylistCoverCache === 'function') resetPlaylistCoverCache();
+  if (reload && typeof currentCoverSong === 'function') {
+    var song = currentCoverSong();
+    if (song && !(typeof getCustomCoverForSong === 'function' && getCustomCoverForSong(song))) {
+      loadCoverFromUrl(song.cover ? coverUrlWithSize(song.cover, 400) : '', { trackToken: trackSwitchToken, seamlessCover: true, cacheBust: true });
+    }
+  }
+}

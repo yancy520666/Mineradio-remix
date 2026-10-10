@@ -102,8 +102,29 @@ var commentAvatarLoader = (function () {
   if (body) body.addEventListener('scroll', schedule, true);
   if (body) new MutationObserver(schedule).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
   if (modal) new MutationObserver(schedule).observe(modal, { attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('online', schedule);
+  window.addEventListener('online', function () {
+    // Reconnect only currently visible failures, leaving hidden/offscreen rows cold.
+    var body = document.getElementById('track-detail-body');
+    if (body) body.querySelectorAll('img[data-comment-avatar]').forEach(function (image) {
+      if (nearPriority(image) !== 0) return;
+      var rec = entries.get(image.dataset.commentAvatar);
+      if (rec && rec.failedAt && !rec.loading) entries.delete(rec.key);
+    });
+    schedule();
+  });
   window.addEventListener('mineradio-background-image-slot', pump);
   window.addEventListener('pagehide', function () { images.forEach(function (_, image) { cancel(image); }); clearTimeout(scanTimer); if (observer) observer.disconnect(); observed.clear(); });
-  return { snapshot: function () { return { active: active, queued: queue.length, entries: entries.size, bytes: bytes }; }, scan: scan };
+  function reset() {
+    scanning = true;
+    clearTimeout(scanTimer); queue = [];
+    entries.forEach(function (rec) {
+      clearTimeout(rec.retry);
+      if (rec.cancel) rec.cancel();
+      if (rec.image) rec.image.removeAttribute('src');
+    });
+    entries.clear(); images.clear(); bytes = 0;
+    observed.forEach(unobserve);
+    scanning = false;
+  }
+  return { reset: reset, snapshot: function () { return { active: active, queued: queue.length, entries: entries.size, bytes: bytes }; }, scan: scan };
 })();

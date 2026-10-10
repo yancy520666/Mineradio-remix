@@ -10,7 +10,7 @@ function songDurationLabel(song) {
 }
 function songSourceLabel(song) {
   if (!song) return '未知';
-  if (song.provider === 'spotify' || song.source === 'spotify' || song.type === 'spotify' || song.spotifyId || song.spotifyUri) return 'Spotify';
+  if (song.provider === 'spotify' || song.source === 'spotify' || song.type === 'spotify' || song.spotifyId || song.spotifyUri) return 'Spotify（已移除）';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
   if (song.provider === 'qishui' || song.source === 'qishui' || song.type === 'qishui') return '汽水音乐';
   if (song.provider === 'kugou' || song.source === 'kugou' || song.type === 'kugou' || song.hash || song.audioHash) return '酷狗音乐';
@@ -34,6 +34,29 @@ var detailAlbumContext = null;
 var detailAlbumGaplessEnabled = true;
 var detailAlbumGaplessUserTouched = false;
 var detailAlbumCollectionState = Object.create(null);
+var detailAlbumCollectionBusy = Object.create(null);
+function accountActionAuthSnapshot(provider) {
+  var status = songAccountLoginStatus(provider);
+  return { provider: provider, epoch: typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : null,
+    userId: String(status.userId || ''), loggedIn: !!status.loggedIn };
+}
+function accountActionAuthCurrent(snapshot) {
+  var current = accountActionAuthSnapshot(snapshot.provider);
+  return current.epoch === snapshot.epoch && current.userId === snapshot.userId && current.loggedIn === snapshot.loggedIn;
+}
+function clearProviderAccountActionState(provider) {
+  if (['netease', 'qq', 'kugou', 'qishui'].indexOf(provider) < 0) return;
+  var prefix = provider + ':';
+  [likedSongMap, likeBusyMap, detailAlbumCollectionState, detailAlbumCollectionBusy].forEach(function (store) {
+    Object.keys(store).forEach(function (key) { if (key.indexOf(prefix) === 0) delete store[key]; });
+  });
+  updateLikeButtons();
+  if (typeof safeRenderQueuePanel === 'function') safeRenderQueuePanel('account-action-auth-change', { scrollCurrent: false });
+  if (typeof $results !== 'undefined' && $results && $results.classList.contains('show')) refreshSearchResultActionStates();
+}
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('provider-auth-session-changed', function (event) {
+  clearProviderAccountActionState(event.detail && event.detail.provider);
+});
 var detailCommentSong = null;
 var detailCommentSubmitBusy = false;
 var detailCommentsState = null;
@@ -81,10 +104,7 @@ function currentAlbumKey(song) {
     var qqAlbumMid = song.albumMid || song.albummid || song.album_mid || '';
     return qqAlbumMid ? 'qq:' + qqAlbumMid : '';
   }
-  if (provider === 'spotify') {
-    var spotifyAlbumId = song.albumId || song.spotifyAlbumId || '';
-    return spotifyAlbumId ? 'spotify:' + spotifyAlbumId : '';
-  }
+  if (provider === 'spotify') return '';
   if (provider === 'netease') {
     var albumId = song.albumId || song.album_id || '';
     return albumId ? 'netease:' + albumId : '';
@@ -105,10 +125,7 @@ function albumDetailUrlForSong(song) {
     var qqAlbumMid = song && (song.albumMid || song.albummid || song.album_mid || '');
     return qqAlbumMid ? '/api/qq/album/detail?mid=' + encodeURIComponent(qqAlbumMid) + '&limit=120' : '';
   }
-  if (provider === 'spotify') {
-    var spotifyAlbumId = song && (song.albumId || song.spotifyAlbumId || '');
-    return spotifyAlbumId ? '/api/spotify/album/detail?id=' + encodeURIComponent(spotifyAlbumId) + '&limit=100' : '';
-  }
+  if (provider === 'spotify') return '';
   if (provider === 'netease') {
     var albumId = song && (song.albumId || song.album_id || '');
     return albumId ? '/api/album/detail?id=' + encodeURIComponent(albumId) + '&limit=120' : '';
@@ -117,6 +134,7 @@ function albumDetailUrlForSong(song) {
 }
 function albumDetailMissingText(song) {
   var provider = songProviderKey(song);
+  if (provider === 'spotify') return 'Spotify 支持已移除，历史记录已保留。';
   if (provider === 'kugou') return '当前酷狗歌曲缺少稳定专辑详情接口，暂不能按当前音源打开专辑。';
   if (provider === 'qishui') return '汽水当前作为匹配源接入，暂不能按当前音源打开专辑详情。';
   return '当前歌曲缺少可用专辑 ID，重新搜索或播放新版结果后再打开专辑。';
@@ -126,7 +144,6 @@ function albumCollectionConfig(song) {
   var albumId = song && (song.albumId || song.album_id || song.spotifyAlbumId || '');
   if (!albumId) return null;
   if (provider === 'netease') return { provider: provider, id: String(albumId), endpoint: '/api/album/subscribe', field: 'subscribed', label: '网易云' };
-  if (provider === 'spotify') return { provider: provider, id: String(albumId), endpoint: '/api/spotify/album/like', field: 'like', label: 'Spotify' };
   if (provider === 'qishui') return { provider: provider, id: String(albumId), endpoint: '/api/qishui/album/collect', field: 'collected', label: '汽水音乐' };
   return null;
 }
@@ -154,17 +171,17 @@ function syncAlbumCollectionButton(song) {
 function syncAlbumCollectionState(song) {
   var config = albumCollectionConfig(song);
   if (!config || !isSongAccountLoggedIn(config.provider)) return;
+  var authSnapshot = accountActionAuthSnapshot(config.provider);
   var url = '';
   var responseField = '';
   if (config.provider === 'netease') {
     url = '/api/album/subscribe/check?ids=' + encodeURIComponent(config.id);
     responseField = 'subscribed';
-  } else if (config.provider === 'spotify') {
-    url = '/api/spotify/album/like/check?ids=' + encodeURIComponent(config.id);
-    responseField = 'liked';
+
   }
   if (!url) return;
   apiJson(url).then(function (result) {
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     if (!result || result.error || !result[responseField]) return;
     detailAlbumCollectionState[albumCollectionKey(song)] = !!result[responseField][config.id];
     syncAlbumCollectionButton(song);
@@ -176,6 +193,10 @@ async function toggleAlbumCollection() {
   if (!config) { showToast('当前平台暂不支持收藏专辑'); return; }
   if (!ensureLoggedInForAction(config.provider)) return;
   var key = albumCollectionKey(song);
+  if (detailAlbumCollectionBusy[key]) return;
+  var authSnapshot = accountActionAuthSnapshot(config.provider);
+  var owner = {};
+  detailAlbumCollectionBusy[key] = owner;
   var next = !detailAlbumCollectionState[key];
   var payload = { id: config.id, albumId: config.id };
   payload[config.field] = next;
@@ -187,16 +208,21 @@ async function toggleAlbumCollection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     if (!result || result.error || result.success === false) throw new Error(result && (result.message || result.error) || 'ALBUM_COLLECTION_FAILED');
     detailAlbumCollectionState[key] = next;
     syncAlbumCollectionButton(song);
     showToast(next ? '专辑已收藏到' + config.label : '已取消收藏专辑');
   } catch (err) {
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     showToast(/SCOPE|PERMISSION/i.test(String(err && err.message || ''))
       ? '请重新授权后再收藏专辑'
       : '专辑收藏操作失败');
   } finally {
-    if (btn) btn.classList.remove('busy');
+    if (detailAlbumCollectionBusy[key] === owner) {
+      delete detailAlbumCollectionBusy[key];
+      if (btn) btn.classList.remove('busy');
+    }
   }
 }
 function renderAlbumGaplessButton() {
@@ -392,6 +418,7 @@ function toggleDetailCommentLike(button) {
     body: JSON.stringify({ id: state.config.id, commentId: button.dataset.commentLike, liked: !wasLiked }),
   }).then(function (result) {
     if (!result || result.success !== true) throw new Error(result && result.error || 'COMMENT_LIKE_FAILED');
+    invalidateDetailCommentReadCache(state.config.provider);
   }).catch(function (error) {
     setCommentLikeButton(button, wasLiked, count);
     if (state === detailCommentsState) showToast(error && error.message === 'LOGIN_REQUIRED' ? '登录网易云后可以点赞' : '点赞没有成功，请稍后重试');
@@ -473,8 +500,99 @@ function renderDetailCommentComposer(config) {
     '<button id="detail-comment-submit" type="button" onclick="submitDetailComment()">发送</button>' +
     '</div>';
 }
+function cancelDetailCommentReads(owner) {
+  if (!owner || !owner.readControllers) return;
+  owner.readControllers.forEach(function (controller) { controller.abort(); });
+  owner.readControllers.clear();
+}
+function detailCommentReadStore() {
+  if (!detailCommentReadStore.store) {
+    detailCommentReadStore.store = { cache: new Map(), pending: new Map(), generation: 0 };
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('provider-auth-session-changed', function (event) {
+      invalidateDetailCommentReadCache(event.detail && event.detail.provider);
+      if (detailCommentsState && detailCommentsState.config.provider === (event.detail && event.detail.provider)) {
+        cancelDetailCommentReads(detailCommentsState);
+        if (detailCommentSong) loadDetailComments(detailCommentSong, trackDetailSeq);
+      }
+    });
+  }
+  return detailCommentReadStore.store;
+}
+function invalidateDetailCommentReadCache(provider) {
+  var store = detailCommentReadStore();
+  store.cache.forEach(function (_, key) { if (!provider || key.indexOf(provider + '|') === 0) store.cache.delete(key); });
+  store.pending.forEach(function (task, key) { if ((!provider || key.indexOf(provider + '|') === 0) && task.controller) task.controller.abort(); });
+}
+// Only GETs use this owner lifecycle. Submitted comments/likes are never retried
+// or aborted when a panel closes. Cache scope is a non-secret authorization epoch.
+function resetGeneratedCommentCaches(reload) {
+  if (typeof commentAvatarLoader !== 'undefined' && commentAvatarLoader.reset) commentAvatarLoader.reset();
+  var store = detailCommentReadStore();
+  store.generation++;
+  invalidateDetailCommentReadCache();
+  store.pending.clear();
+  cancelDetailCommentReads(detailCommentsState);
+  detailCommentsState = null;
+  if (reload && detailCommentSong && document.getElementById('song-comments')) loadDetailComments(detailCommentSong, trackDetailSeq);
+}
+function readDetailComments(owner, url, firstPage) {
+  var controller = typeof AbortController === 'function' ? new AbortController() : null;
+  if (!owner.readControllers) owner.readControllers = new Set();
+  if (controller) owner.readControllers.add(controller);
+  var provider = owner.config.provider;
+  var epoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : null;
+  var store = detailCommentReadStore();
+  var cacheGeneration = store.generation;
+  // Without an authoritative auth epoch, do not reuse data across owners.
+  var key = epoch == null ? null : provider + '|' + epoch + '|' + url;
+  var cached = firstPage && key && store.cache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    if (controller) owner.readControllers.delete(controller);
+    return Promise.resolve().then(function () {
+      if (cacheGeneration !== store.generation || providerAuthEpoch(provider) !== epoch) throw Object.assign(new Error('COMMENT_AUTH_CHANGED'), { name: 'AbortError' });
+      return cached.result;
+    });
+  }
+  if (cached) store.cache.delete(key);
+  var task = key && store.pending.get(key);
+  if (!task || task.controller && task.controller.signal.aborted) {
+    task = { controller: typeof AbortController === 'function' ? new AbortController() : null, waiters: new Set() };
+    // AbortController is present in Electron; the fallback still has a deadline.
+    var signal = task.controller && task.controller.signal;
+    task.promise = apiJson(url, { timeoutMs: 15000, signal: signal }).then(function (result) {
+      if (cacheGeneration === store.generation && firstPage && key && !(signal && signal.aborted) && providerAuthEpoch(provider) === epoch && result && !result.error && Array.isArray(result.comments)) {
+        var size = JSON.stringify(result).length * 2;
+        if (size <= 256 * 1024) store.cache.set(key, { result: result, expires: Date.now() + 15000, bytes: size });
+        var bytes = 0; store.cache.forEach(function (entry) { bytes += entry.bytes; });
+        while (store.cache.size > 32 || bytes > 2 * 1024 * 1024) {
+          var oldest = store.cache.keys().next().value; bytes -= store.cache.get(oldest).bytes; store.cache.delete(oldest);
+        }
+      }
+      return result;
+    }).finally(function () { if (key && store.pending.get(key) === task) store.pending.delete(key); });
+    if (key) store.pending.set(key, task);
+  }
+  return new Promise(function (resolve, reject) {
+    var waiter = {}, settled = false;
+    function finish(error, result) {
+      if (settled) return; settled = true;
+      task.waiters.delete(waiter);
+      if (controller) { owner.readControllers.delete(controller); controller.signal.removeEventListener('abort', onAbort); }
+      if (!error && (cacheGeneration !== store.generation || key && providerAuthEpoch(provider) !== epoch)) error = Object.assign(new Error('COMMENT_AUTH_CHANGED'), { name: 'AbortError' });
+      if (error) reject(error); else resolve(result);
+    }
+    function onAbort() {
+      finish(Object.assign(new Error('COMMENT_READ_CANCELLED'), { name: 'AbortError' }));
+      if (!task.waiters.size && task.controller) task.controller.abort();
+    }
+    task.waiters.add(waiter);
+    if (controller) controller.signal.addEventListener('abort', onAbort, { once: true });
+    task.promise.then(function (result) { finish(null, result); }, function (error) { finish(error); });
+  });
+}
 function loadDetailComments(song, seq) {
   if (seq !== trackDetailSeq) return Promise.resolve();
+  cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   var config = detailCommentsConfig(song);
   var target = document.getElementById('song-comments');
@@ -520,7 +638,7 @@ function loadMoreDetailComments() {
   var cursorMode = state.config.provider !== 'kugou';
   var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset) +
     (state.sort === 'hot' ? '&sort=hot' : '');
-  return apiJson(url).then(function (result) {
+  return readDetailComments(state, url, state.count === 0 && state.cursor === '' && state.offset === 0).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
     var fresh = result.comments.filter(function (c) {
@@ -557,10 +675,13 @@ function loadMoreDetailComments() {
       state.hasMore = result.hasMore === true && Number.isFinite(nextOffset) && nextOffset > state.offset;
       state.offset = nextOffset;
     }
+    state.emptyPages = fresh.length ? 0 : (state.emptyPages || 0) + 1;
+    if (state.emptyPages >= 3) state.hasMore = false;
     list.querySelector('.detail-empty').hidden = !!state.count || state.hasMore;
     bindTrackDetailScrollers();
-  }).catch(function () {
+  }).catch(function (error) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
+    if (error && error.name === 'AbortError') return;
     state.error = true;
   }).finally(function () {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
@@ -596,6 +717,7 @@ async function submitDetailComment() {
     }
     if (input) input.value = '';
     showToast('评论已发布');
+    invalidateDetailCommentReadCache(config.provider);
     await loadDetailComments(song, seq);
   } catch (err) {
     if (seq === trackDetailSeq) showToast('评论发布失败' + (err && err.message ? ': ' + err.message : ''));
@@ -652,6 +774,7 @@ function bindTrackDetailScrollers() {
 }
 function closeTrackDetailModal() {
   var closingSeq = ++trackDetailSeq;
+  cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   closeGsapModal(document.getElementById('track-detail-modal'), function () {
     if (closingSeq !== trackDetailSeq) return;
@@ -758,6 +881,7 @@ function openTrackDetailModal(type, songOverride) {
   var title = song.name || '当前歌曲';
   var artists = currentArtistNames(song);
   var seq = ++trackDetailSeq;
+  cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   detailCommentSort = 'latest';
   detailCommentSubmitBusy = false;
@@ -948,6 +1072,7 @@ function openTrackDetailModal(type, songOverride) {
   openGsapModal(document.getElementById('track-detail-modal'));
 }
 function openArtistDetailForSong(song) {
+  if (song && (song.providerRemoved || songProviderKey(song) === 'spotify')) { showToast('Spotify 支持已移除，历史记录已保留'); return; }
   if (!song) { showToast('未找到歌手信息'); return; }
   if (currentArtistId(song) || currentQQArtistMid(song)) {
     openTrackDetailModal('artist', song);
@@ -966,6 +1091,7 @@ function openArtistDetailForSong(song) {
   }
 }
 function resolveArtistSongForDetail(song, artist) {
+  if (song && (song.providerRemoved || songProviderKey(song) === 'spotify')) return Promise.resolve(null);
   var provider = songProviderKey(song) === 'qq' ? 'qq' : 'netease';
   var url = provider === 'qq'
     ? '/api/qq/search?keywords=' + encodeURIComponent(artist) + '&limit=8'
@@ -1464,19 +1590,6 @@ var SONG_ACCOUNT_ACTION_ADAPTERS = {
     playlistCreateUrl: '',
     playlistTracksUrl: '/api/kugou/playlist/tracks'
   },
-  spotify: {
-    provider: 'spotify',
-    label: 'Spotify',
-    like: true,
-    collect: true,
-    createPlaylist: true,
-    likeCheckUrl: '/api/spotify/song/like/check',
-    likeCheckParam: 'ids',
-    likeUrl: '/api/spotify/song/like',
-    playlistAddUrl: '/api/spotify/playlist/add-song',
-    playlistCreateUrl: '/api/spotify/playlist/create',
-    playlistTracksUrl: '/api/spotify/playlist/tracks'
-  },
   qishui: {
     provider: 'qishui',
     label: '汽水音乐',
@@ -1550,7 +1663,7 @@ function playlistAccountProvider(playlist) {
   return /^(mineradio|netease|qq|kugou|qishui|spotify)$/.test(provider) ? provider : 'netease';
 }
 function songAccountLoginStatus(provider) {
-  if (provider === 'spotify') return spotifyLoginStatus || {};
+  if (provider === 'spotify') return { loggedIn: false, unsupported: true };
   if (provider === 'qishui') return qishuiLoginStatus || {};
   if (provider === 'kugou') return kugouLoginStatus || {};
   if (provider === 'qq') return qqLoginStatus || {};
@@ -1564,6 +1677,7 @@ function isSongAccountLoggedIn(provider) {
 }
 function songAccountUnsupportedMessage(provider, action) {
   var adapter = songAccountAdapter(provider);
+  if (provider === 'spotify') return 'Spotify 支持已移除，历史记录已保留';
   if (adapter && adapter.readOnly) return adapter.label + '当前仅支持读取账号收藏，暂不支持写回';
   if (provider === 'qishui') return '汽水音乐当前会话暂不支持此账号操作';
   if (provider === 'local') return '本地文件暂不支持同步' + (action === 'collect' ? '到歌单' : '红心');
@@ -1625,7 +1739,7 @@ function syncLikeStatusForSongs(songs) {
     var adapter = songAccountAdapter(provider);
     var id = songAccountId(song, provider);
     if (!adapter || !adapter.like || !adapter.likeCheckUrl || !id || !isSongAccountLoggedIn(provider)) return;
-    if (!groups[provider]) groups[provider] = { adapter: adapter, ids: [], seen: Object.create(null) };
+    if (!groups[provider]) groups[provider] = { adapter: adapter, ids: [], seen: Object.create(null), authSnapshot: accountActionAuthSnapshot(provider) };
     if (groups[provider].seen[id]) return;
     groups[provider].seen[id] = true;
     groups[provider].ids.push(id);
@@ -1636,11 +1750,12 @@ function syncLikeStatusForSongs(songs) {
   var requests = [];
   providers.forEach(function (provider) {
     var group = groups[provider];
-    var batchSize = provider === 'spotify' || provider === 'qishui' ? 40 : (provider === 'kugou' ? 50 : 200);
+    var batchSize = provider === 'qishui' ? 40 : (provider === 'kugou' ? 50 : 200);
     for (var offset = 0; offset < group.ids.length; offset += batchSize) {
       (function (batchIds) {
         var url = group.adapter.likeCheckUrl + '?' + group.adapter.likeCheckParam + '=' + encodeURIComponent(batchIds.join(','));
         requests.push(apiJson(url).then(function (r) {
+          if (!accountActionAuthCurrent(group.authSnapshot)) return;
           if (token < likeStatusToken - 3 || !r || !r.liked) return;
           var responseLiked = r.liked || {};
           batchIds.forEach(function (id) {
@@ -1715,8 +1830,10 @@ async function toggleLikeSong(song) {
     return;
   }
   if (likeBusyMap[stateKey]) return;
+  var authSnapshot = accountActionAuthSnapshot(provider);
+  var owner = {};
   var next = !likedSongMap[stateKey];
-  likeBusyMap[stateKey] = true;
+  likeBusyMap[stateKey] = owner;
   likedSongMap[stateKey] = next;
   updateLikeButtons(song);
   safeRenderQueuePanel('like-toggle-optimistic', { scrollCurrent: miniQueueOpen });
@@ -1727,10 +1844,12 @@ async function toggleLikeSong(song) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: id, like: next, song: song })
     });
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     if (r && (r.error || r.success === false)) throw new Error(r.error || r.message || 'LIKE_FAILED');
     likedSongMap[stateKey] = r && r.liked != null ? !!r.liked : next;
     showToast(next ? '已加入红心喜欢' : '已取消红心');
   } catch (err) {
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     likedSongMap[stateKey] = !next;
     var errorText = String(err && err.message || '');
     if (/SCOPE|PERMISSION/i.test(errorText)) {
@@ -1741,7 +1860,8 @@ async function toggleLikeSong(song) {
       showToast(errorText ? ('红心操作失败: ' + errorText) : '红心操作失败');
     }
   } finally {
-    delete likeBusyMap[stateKey];
+    if (likeBusyMap[stateKey] === owner) delete likeBusyMap[stateKey];
+    if (!accountActionAuthCurrent(authSnapshot)) return;
     updateLikeButtons(song);
     safeRenderQueuePanel('like-toggle-final', { scrollCurrent: miniQueueOpen });
     refreshSearchResultActionStates();
@@ -1785,7 +1905,7 @@ function renderCollectModal() {
   var adapter = songAccountAdapter(provider);
   var localRows = (builtInPlaylists || []).map(function (pl) {
     var thumb = pl.cover ? coverUrlWithSize(pl.cover, 80) : '';
-    return '<div class="collect-item" data-collect-key="builtin:' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToBuiltInPlaylist(this.getAttribute(\'data-built-in-pid\'))" data-built-in-pid="' + escHtml(String(pl.id || '')) + '">' +
+    return '<div class="collect-item" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();if(!event.repeat)this.click()}" data-collect-key="builtin:' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToBuiltInPlaylist(this.getAttribute(\'data-built-in-pid\'))" data-built-in-pid="' + escHtml(String(pl.id || '')) + '">' +
       (thumb ? '<img src="' + thumb + '" alt="">' : '<div class="cover-placeholder built-in">MR</div>') +
       '<div style="min-width:0"><div class="collect-title">' + escHtml(pl.name || '') + '</div><div class="collect-sub">' + (pl.trackCount || 0) + ' 首 · 可混合全部平台</div></div>' +
       '</div>';
@@ -1800,7 +1920,7 @@ function renderCollectModal() {
     if (mine.length) {
       html += '<div class="collect-section-title secondary"><span>同步到' + escHtml(adapter.label) + '</span><small>写入当前平台账号</small></div>' + mine.map(function (pl) {
         var thumb = pl.cover ? coverUrlWithSize(pl.cover, 80) : '';
-        return '<div class="collect-item" data-collect-key="platform:' + escHtml(String(pl.id || '')) + '" data-collect-pid="' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToPlaylist(this.getAttribute(\'data-collect-pid\'))">' +
+        return '<div class="collect-item" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();if(!event.repeat)this.click()}" data-collect-key="platform:' + escHtml(String(pl.id || '')) + '" data-collect-pid="' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToPlaylist(this.getAttribute(\'data-collect-pid\'))">' +
           (thumb ? '<img src="' + thumb + '" alt="">' : '<div class="cover-placeholder"></div>') +
           '<div style="min-width:0"><div class="collect-title">' + escHtml(pl.name || '') + '</div><div class="collect-sub">' + (pl.trackCount || 0) + ' 首</div></div>' +
           '</div>';
@@ -1874,7 +1994,7 @@ async function verifySongInPlaylist(pid, song) {
   var provider = songAccountProvider(song);
   var adapter = songAccountAdapter(provider);
   if (!pid || !adapter || !adapter.playlistTracksUrl || !songAccountId(song, provider)) return false;
-  var pageLimit = provider === 'spotify' || provider === 'qishui' ? 50 : 200;
+  var pageLimit = provider === 'qishui' ? 50 : 200;
   for (var attempt = 0; attempt < 3; attempt++) {
     if (attempt) {
       await new Promise(function (resolve) { setTimeout(resolve, attempt === 1 ? 360 : 820); });

@@ -115,4 +115,71 @@ async function fetchPublicResource(value, options = {}, dependencies = {}) {
     target = await resolveTarget(new URL(response.headers.get('location'), target.url).href);
   }
 }
-module.exports = { SAFE_COVER_CONTENT_TYPES, isTrustedLocalApiRequest, isBlockedIpAddress, resolvePublicTarget, requestPinned, fetchPublicResource };
+// A failed or incomplete transport must never look like a valid empty mutation.
+function readBoundedRequestBody(req, options = {}) {
+  const maxBytes = options.maxBytes == null ? 8 * 1024 * 1024 : options.maxBytes;
+  const timeoutMs = options.timeoutMs == null ? 30000 : options.timeoutMs;
+  return new Promise((resolve, reject) => {
+    let chunks = [];
+    let bytes = 0;
+    let settled = false;
+    let timer;
+    const fail = (code, statusCode, cause) => {
+      const error = Object.assign(new Error(code), { code, statusCode });
+      if (cause) error.cause = cause;
+      return error;
+    };
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      req.removeListener('data', onData);
+      req.removeListener('end', onEnd);
+      req.removeListener('error', onError);
+      req.removeListener('aborted', onAbort);
+      req.removeListener('close', onClose);
+      chunks = [];
+      if (error) reject(error); else resolve(value);
+    };
+    const stop = error => {
+      finish(error);
+      // Match the existing oversize connection-close behavior without retaining
+      // buffers/listeners or allowing route code to act on a synthetic {} body.
+      if (typeof req.destroy === 'function' && !req.destroyed) req.destroy();
+    };
+    const onData = chunk => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += buffer.length;
+      if (bytes > maxBytes) { stop(fail('REQUEST_BODY_TOO_LARGE', 413)); return; }
+      chunks.push(buffer);
+    };
+    const onEnd = () => {
+      const raw = Buffer.concat(chunks, bytes).toString('utf8');
+      if (!raw) { finish(null, {}); return; }
+      try { finish(null, JSON.parse(raw)); }
+      catch (_) {
+        // Retain the existing JSON/form URL-encoded request contract.
+        const params = new URLSearchParams(raw);
+        const out = {};
+        params.forEach((value, key) => { Object.defineProperty(out, key, { value, enumerable: true, configurable: true, writable: true }); });
+        finish(null, out);
+      }
+    };
+    const onError = error => finish(fail('REQUEST_BODY_READ_FAILED', 400, error));
+    const onAbort = () => finish(fail('REQUEST_BODY_ABORTED', 400));
+    const onClose = () => finish(fail('REQUEST_BODY_PREMATURE_CLOSE', 400));
+    if (req.destroyed || req.aborted || req.readableEnded) {
+      finish(fail('REQUEST_BODY_UNAVAILABLE', 400));
+      return;
+    }
+    req.on('data', onData);
+    req.once('end', onEnd);
+    req.once('error', onError);
+    req.once('aborted', onAbort);
+    req.once('close', onClose);
+    timer = setTimeout(() => stop(fail('REQUEST_BODY_TIMEOUT', 408)), timeoutMs);
+    if (timer.unref) timer.unref();
+  });
+}
+
+module.exports = { SAFE_COVER_CONTENT_TYPES, isTrustedLocalApiRequest, isBlockedIpAddress, resolvePublicTarget, requestPinned, fetchPublicResource, readBoundedRequestBody };

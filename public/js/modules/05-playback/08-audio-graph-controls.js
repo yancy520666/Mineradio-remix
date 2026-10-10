@@ -3,6 +3,7 @@ function audioGraphHealthy() {
   return !!(audio && audioReady && audioCtx && audioCtx.state !== 'closed' && source && audioSourceMedia === audio && analyser && beatAnalyser && (gainNode || analysisSinkNode));
 }
 function disconnectAudioGraphNodes(keepSource) {
+  if (typeof detachMicrophoneMixerMusic === 'function') detachMicrophoneMixerMusic(gainNode || analyser);
   if (typeof clearAudioOutputMirrors === 'function') clearAudioOutputMirrors();
   var adoptedGraph = audioSourceMedia && audioSourceMedia.__mineradioAdoptedAudioGraph;
   var nodes = [source, analyser, beatAnalyser, gainNode, analysisSinkNode];
@@ -209,6 +210,7 @@ function initAudio() {
   beatTimeDomainData.fill(128);
   resetRealtimeBeatEngine();
   audioReady = true;
+  if (typeof syncMicrophoneMixerMusic === 'function') syncMicrophoneMixerMusic();
   applyAudioOutputDevice(audio);
   return true;
 }

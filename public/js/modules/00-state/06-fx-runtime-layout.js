@@ -33,6 +33,10 @@ function clampPlaylistPanelFxSettings() {
 function playlistPanelAlphaVars(density) {
   density = clampRange(Number(density) || fxDefaults.playlistPanelGlassDensity, 0.55, 1);
   return {
+    row: clampRange(0.20 + (density - 0.55) * 1.15, 0.20, 0.72),
+    rowHover: clampRange(0.30 + (density - 0.55) * 1.11, 0.30, 0.80),
+    rowSelected: clampRange(0.38 + (density - 0.55) * 1.06, 0.38, 0.86),
+    detailHeader: clampRange(0.72 + (density - 0.55) * 0.45, 0.72, 0.94),
     sticky1: clampRange(0.52 + density * 0.46, 0.55, 0.98),
     sticky2: clampRange(0.46 + density * 0.48, 0.50, 0.94),
     sticky3: clampRange(0.28 + density * 0.56, 0.36, 0.84),
@@ -57,6 +61,17 @@ function applyPlaylistPanelFxSettings() {
   setPlaylistPanelCssVar('--mineradio-playlist-panel-close-ms', closeMs + 'ms');
   setPlaylistPanelCssVar('--playlist-panel-open-ms', openMs + 'ms');
   setPlaylistPanelCssVar('--playlist-panel-close-ms', closeMs + 'ms');
+  // The sliders belong to the whole left panel. Keep the old sticky/toolbar
+  // variables for saved-theme compatibility, but do not blur nested surfaces.
+  var panel = document.getElementById('playlist-panel');
+  if (panel) {
+    panel.style.setProperty('--playlist-panel-blur', blur + 'px');
+    panel.style.setProperty('--playlist-panel-density', density.toFixed(3));
+    panel.style.setProperty('--playlist-row-a', alphas.row.toFixed(3));
+    panel.style.setProperty('--playlist-row-hover-a', alphas.rowHover.toFixed(3));
+    panel.style.setProperty('--playlist-row-selected-a', alphas.rowSelected.toFixed(3));
+    panel.style.setProperty('--playlist-detail-header-a', alphas.detailHeader.toFixed(3));
+  }
   setPlaylistPanelCssVar('--playlist-sticky-blur', blur + 'px');
   setPlaylistPanelCssVar('--playlist-toolbar-blur', Math.round(clampRange(blur * 0.74, 12, 46)) + 'px');
   setPlaylistPanelCssVar('--playlist-sticky-a1', alphas.sticky1.toFixed(3));

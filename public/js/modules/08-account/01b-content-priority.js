@@ -2,14 +2,14 @@
 function contentProviderOrder() {
   var ready = typeof ACCOUNT_PROVIDER_KEYS !== 'undefined' && Array.isArray(ACCOUNT_PROVIDER_KEYS);
   var order = ready && typeof accountProviderOrder === 'function' ? accountProviderOrder() : ['netease', 'qq', 'kugou', 'qishui'];
-  return order.concat('spotify');
+  return order;
 }
 function homeRecommendationProviderConnected(provider) {
   var status = platformStatus(provider);
   return !!(status && (status.loggedIn || (provider === 'qishui' && status.configured)));
 }
 function preferredHomeRecommendationSource() {
-  var order = contentProviderOrder().filter(function (provider) { return provider !== 'spotify'; });
+  var order = contentProviderOrder();
   for (var i = 0; i < order.length; i++) {
     if (homeRecommendationProviderConnected(order[i])) return order[i];
   }
@@ -18,7 +18,7 @@ function preferredHomeRecommendationSource() {
 // Other connected platforms, in priority order, that can supply a daily list.
 function homeDailyFallbackSources(exclude) {
   return contentProviderOrder().filter(function (provider) {
-    return provider !== exclude && provider !== 'spotify' && homeRecommendationProviderConnected(provider)
+    return provider !== exclude && homeRecommendationProviderConnected(provider)
       && (provider === 'netease' || !!homePlatformRecommendationFeedConfig(provider));
   });
 }

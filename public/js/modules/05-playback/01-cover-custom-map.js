@@ -4,6 +4,14 @@ function isTypingTarget(target) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   return !!(target.isContentEditable || (target.closest && target.closest('[contenteditable="true"]')));
 }
+// Let native controls and accessible widgets own their activation/navigation keys.
+// Global player/camera shortcuts apply only while the page itself has focus.
+function isKeyboardUiTarget(target) {
+  if (isTypingTarget(target)) return true;
+  return !!(target && target.closest && target.closest(
+    'button,a[href],summary,.modal-mask.show,[role="dialog"],[role="button"],[role="tab"],[role="switch"],[role="checkbox"],[role="radio"],[role="menuitem"],[role="slider"]'
+  ));
+}
 function readCustomCoverMap() {
   try {
     var raw = localStorage.getItem(CUSTOM_COVER_STORE_KEY);

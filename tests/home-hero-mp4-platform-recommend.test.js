@@ -117,8 +117,8 @@ test('platform recommendation entry uses real feeds and does not synthesize radi
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /apiJson\s*\(\s*config\.endpoint/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.fallback/);
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.mode/);
-  assert.match(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /liked-affinity/);
-  assert.match(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /personal-top/);
+  assert.doesNotMatch(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /liked-affinity/);
+  assert.doesNotMatch(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /personal-top/);
   assert.match(dashboardScript, /当前版本没有可验证的平台推荐接口，未使用关键词搜索替代/);
   const discoverySongs = namedFunctionSource(dashboardScript, 'homeDashboardDiscoverySongs');
   assert.doesNotMatch(discoverySongs, /homeWeatherRadioState/);

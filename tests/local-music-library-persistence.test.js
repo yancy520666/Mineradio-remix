@@ -281,5 +281,5 @@ test('renderer and Electron wiring restore persistent tracks instead of blob-onl
   assert.match(upload, /return -1;/);
   assert.match(playback, /readLocalMusicLyric\(song\.localFileId\)/);
   assert.match(cover, /mineradio-local:\\\/\\\/cover/);
-  assert.equal(packageJson.dependencies['music-metadata'], '11.14.0');
+  assert.equal(packageJson.dependencies['music-metadata'], '11.16.0');
 });

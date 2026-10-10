@@ -228,7 +228,29 @@ function toggleBottomControlsFromHandle() {
   revealBottomControls(900);
 }
 
+// Mouse motion may arrive much faster than the display. Keep only its latest
+// coordinates; every flush measures fresh geometry (also after resize/scroll).
+var controlsPointerFrame = 0;
+var controlsPointerPending = null;
+function cancelControlsPointerFrame() {
+  if (controlsPointerFrame) cancelAnimationFrame(controlsPointerFrame);
+  controlsPointerFrame = 0;
+  controlsPointerPending = null;
+}
+function queueControlsAutoHideFromPointer(x, y) {
+  controlsPointerPending = { x: x, y: y };
+  if (controlsPointerFrame) return;
+  controlsPointerFrame = requestAnimationFrame(function () {
+    controlsPointerFrame = 0;
+    var pointer = controlsPointerPending;
+    controlsPointerPending = null;
+    if (pointer && !document.hidden) updateControlsAutoHideFromPointer(pointer.x, pointer.y);
+  });
+}
+
 function updateControlsAutoHideFromPointer(x, y) {
+  // Immediate click/drag callers supersede any older queued mouse position.
+  if (typeof cancelControlsPointerFrame === 'function') cancelControlsPointerFrame();
   if (document.body.classList.contains('home-controls-locked')) return;
   if (isBottomControlsSuppressedForShelf()) return;
   var bar = document.getElementById('bottom-bar');
@@ -308,12 +330,14 @@ function applyControlsAutoHidePreference() {
   var handle = document.getElementById('bottom-handle');
   if (!bar) return;
   function enterControls() {
+    if (typeof cancelControlsPointerFrame === 'function') cancelControlsPointerFrame();
     controlsHovering = true;
     wakeBottomHandle();
     setControlsHidden(false);
     if (controlsHideTimer) { clearTimeout(controlsHideTimer); controlsHideTimer = null; }
   }
   function leaveControls() {
+    if (typeof cancelControlsPointerFrame === 'function') cancelControlsPointerFrame();
     if (bar._controlsPointerHeld) return;
     controlsHovering = false;
     scheduleControlsHide(70);

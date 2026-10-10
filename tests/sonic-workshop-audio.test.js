@@ -18,16 +18,18 @@ function workshop() {
   const listeners = {};
   const output = [];
   const window = {
+    location: { origin: "http://localhost" },
     fx: { preset: 8 }, playing: true, audio: { paused: false, currentTime: 1 },
     frequencyData: new Uint8Array(1024), performance: { now: () => 1000 },
     addEventListener: (name, callback) => { listeners[name] = callback; },
   };
   vm.runInNewContext(source, { window, document: {}, performance: window.performance, console, setTimeout, clearTimeout });
-  window.testAudio.attach({ contentWindow: {
+  const frameWindow = {
     __mineradioApplyAudio: samples => output.push(Array.from(samples)),
     __mineradioApplyProperties() {}, __mineradioApplyMedia() {},
-  } });
-  return { window, api: window.testAudio, output, listeners };
+  };
+  window.testAudio.attach({ contentWindow: frameWindow });
+  return { window, api: window.testAudio, output, listeners, frame: frameWindow };
 }
 
 const bands = { subBass: 0.6, bass: 0.6, lowMid: 0.6, mid: 0.6, highMid: 0.6, presence: 0.6, brilliance: 0.6 };
@@ -58,9 +60,9 @@ test('byte noise is not full-scale audio and paused attenuation stays intact', (
 });
 
 test('iframe readiness replays the latest band frame instead of empty audio', () => {
-  const { api, listeners, output } = workshop();
+  const { api, listeners, output, frame } = workshop();
   api.push(true, bands);
-  listeners.message({ data: { type: 'mineradio-sonic-workshop-ready' } });
+  listeners.message({ source: frame, origin: 'http://localhost', data: { type: 'mineradio-sonic-workshop-ready', generation: 0 } });
   assert.equal(output.length, 2);
   assert(mean(output[1]) > 0.05);
   assert.deepEqual(output[1], output[0]);

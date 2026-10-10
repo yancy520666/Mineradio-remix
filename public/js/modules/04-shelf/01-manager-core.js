@@ -77,7 +77,7 @@ function makeShelfManager() {
       var source = activePlaylists();
       var items = source.map(function (pl) {
         var provider = pl.provider === 'mineradio' ? 'mineradio' : (pl.provider === 'qq' ? 'qq' : (pl.provider === 'kugou' ? 'kugou' : (pl.provider === 'qishui' ? 'qishui' : (pl.provider === 'spotify' ? 'spotify' : 'netease'))));
-        var sourceLabel = provider === 'mineradio' ? 'MR' : (provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : (provider === 'qishui' ? 'QS' : (provider === 'spotify' ? 'SP' : 'NE'))));
+        var sourceLabel = provider === 'mineradio' ? 'MR' : (provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : (provider === 'qishui' ? 'QS' : (provider === 'spotify' ? 'Spotify 已停止支持' : 'NE'))));
         if (provider === 'spotify' && String(pl.id || '').indexOf('spotify:') !== 0) pl = Object.assign({}, pl, { id: 'spotify:' + pl.id });
         return {
           type: 'playlist', title: pl.name, sub: sourceLabel + ' · ' + (pl.trackCount || 0) + ' 首 · 播放 ' + compactCount(pl.playCount || 0),

@@ -69,131 +69,11 @@ public static class MineradioDesktopNativeIconLayerGuard {
   private const uint SWP_NOSIZE = 0x0001;
   private const uint SWP_NOMOVE = 0x0002;
   private const uint SWP_NOACTIVATE = 0x0010;
-  private const uint SWP_SHOWWINDOW = 0x0040;
   private const uint RDW_INVALIDATE = 0x0001;
   private const uint RDW_ERASE = 0x0004;
   private const uint RDW_ALLCHILDREN = 0x0080;
   private const uint RDW_UPDATENOW = 0x0100;
   private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
-
-  // Reparenting Chromium into DefView can leave wheel focus with Explorer. Route
-  // only a wheel that actually hits this session's HWND (or its own child).
-  // Never activate the desktop or redirect an event from an icon/other app.
-  [StructLayout(LayoutKind.Sequential)] private struct WHEELINPUT {
-    public POINT point;
-    public uint mouseData, flags, time;
-    public UIntPtr extraInfo;
-  }
-  private delegate IntPtr MouseHookDelegate(int code, IntPtr message, IntPtr data);
-  private static readonly MouseHookDelegate WheelCallback = HandleWheel;
-  private static IntPtr _wheelHook = IntPtr.Zero;
-  private static System.Threading.Thread _wheelThread;
-  private static volatile uint _wheelThreadId;
-  private static volatile bool _wheelStopping;
-  private static System.Threading.ManualResetEvent _wheelReady;
-  private static Exception _wheelStartFailure;
-  [DllImport("user32.dll", SetLastError=true)]
-  private static extern IntPtr SetWindowsHookExW(int kind, MouseHookDelegate callback, IntPtr module, uint thread);
-  [DllImport("user32.dll")]
-  private static extern bool UnhookWindowsHookEx(IntPtr hook);
-  [DllImport("user32.dll")]
-  private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr message, IntPtr data);
-  [DllImport("user32.dll")]
-  private static extern IntPtr WindowFromPoint(POINT point);
-  [DllImport("user32.dll")]
-  private static extern short GetAsyncKeyState(int key);
-  [DllImport("user32.dll", SetLastError=true)]
-  private static extern bool PostMessageW(IntPtr window, uint message, IntPtr word, IntPtr point);
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
-  private static extern IntPtr GetModuleHandleW(string name);
-
-  private static IntPtr HandleWheel(int code, IntPtr message, IntPtr data) {
-    uint kind = unchecked((uint)message.ToInt64());
-    if (code >= 0 && (kind == 0x020A || kind == 0x020E)) {
-      try {
-        WHEELINPUT wheel = (WHEELINPUT)Marshal.PtrToStructure(data, typeof(WHEELINPUT));
-        // Injected input and an uncertain/destroyed session remain untouched.
-        if ((wheel.flags & 3) == 0 && !_wheelStopping && !_boundTargetDestroyed
-            && MainWindowIdentityMatches() && IsWindowVisible(_mainWindow)
-            && (GetWindowLongPtr(_mainWindow, GWL_EXSTYLE).ToInt64() & 0x20) == 0) {
-          IntPtr target = WindowFromPoint(wheel.point);
-          uint processId;
-          if ((target == _mainWindow || IsChild(_mainWindow, target))
-              && GetWindowThreadProcessId(target, out processId) != 0
-              && processId == _mainProcessId) {
-            int keys = 0;
-            if (GetAsyncKeyState(0x01) < 0) keys |= 1;
-            if (GetAsyncKeyState(0x02) < 0) keys |= 2;
-            if (GetAsyncKeyState(0x10) < 0) keys |= 4;
-            if (GetAsyncKeyState(0x11) < 0) keys |= 8;
-            if (GetAsyncKeyState(0x04) < 0) keys |= 16;
-            if (GetAsyncKeyState(0x05) < 0) keys |= 32;
-            if (GetAsyncKeyState(0x06) < 0) keys |= 64;
-            int word = unchecked((int)(wheel.mouseData & 0xffff0000)) | keys;
-            int point = unchecked((wheel.point.Y << 16) | (wheel.point.X & 65535));
-            // Consume only after successful posting, preventing double scroll.
-            if (PostMessageW(target, kind, new IntPtr(word), new IntPtr(point))) return new IntPtr(1);
-          }
-        }
-      } catch { /* Fail open: Windows keeps its original event. */ }
-    }
-    return CallNextHookEx(_wheelHook, code, message, data);
-  }
-
-  private static void WheelThreadMain() {
-    try {
-      _wheelThreadId = GetCurrentThreadId();
-      MSG unused;
-      PeekMessage(out unused, IntPtr.Zero, 0, 0, PM_NOREMOVE);
-      _wheelHook = SetWindowsHookExW(14, WheelCallback, GetModuleHandleW(null), 0);
-      if (_wheelHook == IntPtr.Zero) throw new InvalidOperationException("DESKTOP_WHEEL_HOOK_FAILED");
-      _wheelReady.Set();
-      MSG message;
-      while (!_wheelStopping && GetMessage(out message, IntPtr.Zero, 0, 0) > 0) {
-        TranslateMessage(ref message);
-        DispatchMessage(ref message);
-      }
-    } catch (Exception error) {
-      _wheelStartFailure = error;
-    } finally {
-      if (_wheelHook != IntPtr.Zero) {
-        UnhookWindowsHookEx(_wheelHook);
-        _wheelHook = IntPtr.Zero;
-      }
-      _wheelReady.Set();
-    }
-  }
-
-  private static void StartWheelRouter() {
-    // Icon probes can wait on Explorer. Keep that work off the hook thread so
-    // it cannot delay input in other applications or trigger a hook timeout.
-    _wheelStopping = false;
-    _wheelThreadId = 0;
-    _wheelStartFailure = null;
-    _wheelReady = new System.Threading.ManualResetEvent(false);
-    _wheelThread = new System.Threading.Thread(WheelThreadMain);
-    _wheelThread.IsBackground = true;
-    _wheelThread.Name = "Mineradio desktop wheel router";
-    _wheelThread.Start();
-    bool ready = _wheelReady.WaitOne(2000);
-    Exception failure = _wheelStartFailure;
-    if (!ready || failure != null) {
-      StopWheelRouter();
-      if (failure != null) throw failure;
-      throw new InvalidOperationException("DESKTOP_WHEEL_HOOK_START_TIMEOUT");
-    }
-  }
-
-  private static void StopWheelRouter() {
-    _wheelStopping = true;
-    if (_wheelThreadId != 0) PostThreadMessage(_wheelThreadId, WM_QUIT, UIntPtr.Zero, IntPtr.Zero);
-    if (_wheelThread != null && _wheelThread.Join(2000)) {
-      _wheelReady.Close();
-      _wheelReady = null;
-      _wheelThread = null;
-      _wheelThreadId = 0;
-    }
-  }
 
   [DllImport("user32.dll", SetLastError=true)]
   private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr module,
@@ -343,8 +223,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
   private static bool _appliedLocked;
   private static long _controlSequence;
   private static long _appliedControlSequence;
-  private static long _revealSequence;
-  private static long _appliedRevealSequence;
   private static bool _visibilitySnapshotCaptured;
   private static bool _originalListViewVisible;
   private static bool _desktopIconsVisible;
@@ -693,12 +571,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
       throw new InvalidOperationException("DESKTOP_ICON_LAYER_MAIN_WINDOW_CHANGED");
     IntPtr previousDpiContext = SetThreadDpiAwarenessContext(new IntPtr(-4));
     try {
-      long revealSequence;
-      bool reveal;
-      lock (StateLock) {
-        revealSequence = _revealSequence;
-        reveal = revealSequence > _appliedRevealSequence;
-      }
       RECT rect;
       if (!GetWindowRect(_mainWindow, out rect))
         throw new InvalidOperationException("DESKTOP_ICON_LAYER_BOUNDS_QUERY_FAILED");
@@ -710,9 +582,8 @@ public static class MineradioDesktopNativeIconLayerGuard {
       POINT local = new POINT { X = _targetX, Y = _targetY };
       if (geometryChanged && !ScreenToClient(_iconHost, ref local))
         throw new InvalidOperationException("DESKTOP_ICON_LAYER_COORDINATES_FAILED");
-      if (reveal || geometryChanged || GetWindow(_mainWindow, 2) != IntPtr.Zero) {
+      if (geometryChanged || GetWindow(_mainWindow, 2) != IntPtr.Zero) {
         uint flags = SWP_NOACTIVATE | (geometryChanged ? 0 : SWP_NOSIZE | SWP_NOMOVE);
-        if (reveal) flags |= SWP_SHOWWINDOW;
         if (!SetWindowPos(_mainWindow, HWND_BOTTOM, local.X, local.Y,
             _targetWidth, _targetHeight, flags))
           throw new InvalidOperationException("DESKTOP_ICON_LAYER_ZORDER_FAILED");
@@ -721,10 +592,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
           || rect.Right - rect.Left != _targetWidth || rect.Bottom - rect.Top != _targetHeight
           || GetWindow(_mainWindow, 2) != IntPtr.Zero)
         throw new InvalidOperationException("DESKTOP_ICON_LAYER_BOUNDS_ACK_FAILED");
-      if (reveal) {
-        if (!IsWindowVisible(_mainWindow)) throw new InvalidOperationException("DESKTOP_ICON_LAYER_REVEAL_FAILED");
-        lock (StateLock) { _appliedRevealSequence = Math.Max(_appliedRevealSequence, revealSequence); }
-      }
     } finally {
       if (previousDpiContext != IntPtr.Zero) SetThreadDpiAwarenessContext(previousDpiContext);
     }
@@ -856,12 +723,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
         } else if (String.Equals(fields[0], "Z", StringComparison.OrdinalIgnoreCase)) {
           lock (StateLock) { _controlSequence = Math.Max(_controlSequence, sequence); }
           QueueRefresh();
-        } else if (String.Equals(fields[0], "R", StringComparison.OrdinalIgnoreCase)) {
-          lock (StateLock) {
-            _revealSequence = Math.Max(_revealSequence, sequence);
-            _controlSequence = Math.Max(_controlSequence, sequence);
-          }
-          QueueRefresh();
         } else if (String.Equals(fields[0], "V", StringComparison.OrdinalIgnoreCase)) {
           bool visible = fields.Length > 2 && fields[2] == "1";
           lock (StateLock) {
@@ -941,7 +802,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
     Exception visibilityRestoreFailure = null;
     try {
       BindExpectedTarget();
-      StartWheelRouter();
       ApplyAndEmit(true);
       timerId = SetTimer(IntPtr.Zero, new UIntPtr(1), 50, IntPtr.Zero);
       if (timerId == UIntPtr.Zero) throw new InvalidOperationException("DESKTOP_ICON_WATCHER_TIMER_FAILED");
@@ -970,7 +830,6 @@ public static class MineradioDesktopNativeIconLayerGuard {
     } catch (Exception error) {
       runFailure = error;
     } finally {
-      StopWheelRouter();
       if (timerId != UIntPtr.Zero) KillTimer(IntPtr.Zero, timerId);
       try { RestoreCurrentListViewBackground(); }
       catch (Exception error) { backgroundRestoreFailure = error; }
@@ -1447,7 +1306,6 @@ function startNativeDesktopIconLayer(options = {}) {
   const setLocked = (value, timeoutMs) => sendControl('L', value === true ? '1' : '0', timeoutMs);
   const setIconsVisible = (value, timeoutMs) => sendControl('V', value === true ? '1' : '0', timeoutMs);
   const ensureOrder = (timeoutMs) => sendControl('Z', '', timeoutMs);
-  const reveal = (timeoutMs) => sendControl('R', '', timeoutMs);
   const stop = (timeoutMs = 2200) => {
     if (stopPromise) return stopPromise;
     stopPromise = new Promise((resolve) => {
@@ -1496,7 +1354,6 @@ function startNativeDesktopIconLayer(options = {}) {
     setLocked,
     setIconsVisible,
     ensureOrder,
-    reveal,
     getLastLayout: () => lastLayout,
     isRunning: () => !exited,
   };

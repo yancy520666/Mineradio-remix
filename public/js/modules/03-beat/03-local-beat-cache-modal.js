@@ -63,12 +63,17 @@ function unpackLocalBeatEvent(row) {
     step: row[11] || 0
   };
 }
+function generatedLocalBeatMaps() {
+  if (!generatedLocalBeatMaps.values) generatedLocalBeatMaps.values = new WeakSet();
+  return generatedLocalBeatMaps.values;
+}
 function packLocalBeatMap(map) {
   if (!map) return null;
   var camera = (map.cameraBeats || map.beats || map.kicks || []).map(packLocalBeatEvent);
   var pulse = (map.pulseBeats || map.kicks || []).map(packLocalBeatEvent);
   return {
     v: 1,
+    automaticLocalAnalysis: generatedLocalBeatMaps().has(map),
     duration: localBeatRound(map.duration || 0, 1000),
     gridStep: localBeatRound(map.gridStep || 0, 1000),
     sectionSteps: (map.sectionSteps || []).map(function (v) { return localBeatRound(v, 1000); }),
@@ -86,7 +91,7 @@ function unpackLocalBeatMap(stored) {
   if (stored.v && stored.v !== 1 && stored.v !== 2) return stored;
   var camera = (stored.cameraBeats || []).map(unpackLocalBeatEvent);
   var pulse = (stored.pulseBeats || []).map(unpackLocalBeatEvent);
-  return {
+  var map = {
     kicks: camera.map(function (b) { return typeof b === 'number' ? b : b.time; }),
     beats: camera,
     pulseBeats: pulse,
@@ -100,6 +105,8 @@ function unpackLocalBeatMap(stored) {
     partial: !!stored.partial,
     partialUntilSec: stored.partialUntilSec || 0
   };
+  if (stored.automaticLocalAnalysis === true) generatedLocalBeatMaps().add(map);
+  return map;
 }
 function readLocalBeatPrefs() {
   try { return JSON.parse(localStorage.getItem(LOCAL_BEAT_PREF_STORE_KEY) || '{}') || {}; }
@@ -108,6 +115,47 @@ function readLocalBeatPrefs() {
 function saveLocalBeatPrefs() {
   try { localStorage.setItem(LOCAL_BEAT_PREF_STORE_KEY, JSON.stringify(localBeatMapPrefs || {})); } catch (e) { }
 }
+// Provenance is deliberately opt-in. Historical maps and caller-supplied edits
+// have no automatic-map marker and are never discarded to meet a cache budget.
+function isAutomaticLocalBeatMap(entry, mode) {
+  return !!(entry && entry[mode] && entry.automaticMaps && entry.automaticMaps[mode] === entry[mode] && generatedLocalBeatMaps().has(entry[mode]));
+}
+function touchLocalBeatEntry(entry) {
+  touchLocalBeatEntry.serial = Math.max(Date.now(), (touchLocalBeatEntry.serial || 0) + 1);
+  entry.lastUsedAt = touchLocalBeatEntry.serial;
+}
+function localBeatEntryIsPinned(key, entry) {
+  if (typeof currentLocalSong !== 'undefined' && currentLocalSong && currentLocalSong.localKey === key) return true;
+  if (typeof localBeatAnalysis !== 'undefined' && localBeatAnalysis && localBeatAnalysis.song && localBeatAnalysis.song.localKey === key) return true;
+  return ['mr', 'dj'].some(function (mode) {
+    var map = entry[mode];
+    return !!(map && ((typeof currentBeatMap !== 'undefined' && currentBeatMap === map)
+      || (typeof currentDjBeatMap !== 'undefined' && currentDjBeatMap === map)));
+  });
+}
+function trimLocalBeatMapCache() {
+  var automatic = [], bytes = 0;
+  Object.keys(localBeatMapCache || {}).forEach(function (key) {
+    var entry = localBeatMapCache[key];
+    var modes = ['mr', 'dj'].filter(function (mode) { return isAutomaticLocalBeatMap(entry, mode); });
+    if (!modes.length) return;
+    var size = modes.reduce(function (total, mode) {
+      return total + (typeof estimateBeatMapBytes === 'function' ? estimateBeatMapBytes(entry[mode]) : 0);
+    }, 0);
+    bytes += size;
+    automatic.push({ key: key, entry: entry, modes: modes, size: size });
+  });
+  automatic.sort(function (a, b) { return (a.entry.lastUsedAt || a.entry.updatedAt || 0) - (b.entry.lastUsedAt || b.entry.updatedAt || 0); });
+  var remaining = automatic.length;
+  automatic.forEach(function (item) {
+    if (remaining <= 12 && bytes <= 8 * 1024 * 1024) return;
+    if (localBeatEntryIsPinned(item.key, item.entry)) return;
+    item.modes.forEach(function (mode) { delete item.entry[mode]; delete item.entry.automaticMaps[mode]; });
+    if (!item.entry.mr && !item.entry.dj) delete localBeatMapCache[item.key];
+    remaining--;
+    bytes -= item.size;
+  });
+}
 function readLocalBeatMapCache() {
   var out = {};
   try {
@@ -115,8 +163,15 @@ function readLocalBeatMapCache() {
     Object.keys(raw).forEach(function (key) {
       var entry = raw[key] || {};
       out[key] = { updatedAt: entry.updatedAt || 0 };
-      if (entry.mr) out[key].mr = unpackLocalBeatMap(entry.mr);
-      if (entry.dj) out[key].dj = unpackLocalBeatMap(entry.dj);
+      ['mr', 'dj'].forEach(function (mode) {
+        if (!entry[mode]) return;
+        out[key][mode] = entry.preservedModes && entry.preservedModes[mode] ? entry[mode] : unpackLocalBeatMap(entry[mode]);
+        if (entry.automaticModes && entry.automaticModes[mode] === true) {
+          if (!out[key].automaticMaps) out[key].automaticMaps = {};
+          out[key].automaticMaps[mode] = out[key][mode];
+          generatedLocalBeatMaps().add(out[key][mode]);
+        }
+      });
     });
   } catch (e) {
     out = {};
@@ -126,18 +181,33 @@ function readLocalBeatMapCache() {
 function packLocalBeatCache(maxEntries) {
   var entries = Object.keys(localBeatMapCache || {}).map(function (key) {
     var entry = localBeatMapCache[key] || {};
-    return { key: key, updatedAt: entry.updatedAt || 0, entry: entry };
+    return { key: key, updatedAt: entry.lastUsedAt || entry.updatedAt || 0, entry: entry };
   }).sort(function (a, b) { return b.updatedAt - a.updatedAt; });
-  if (maxEntries) entries = entries.slice(0, maxEntries);
-  var packed = {};
+  var packed = {}, automaticCount = 0;
   entries.forEach(function (item) {
-    packed[item.key] = { updatedAt: item.entry.updatedAt || Date.now() };
-    if (item.entry.mr) packed[item.key].mr = packLocalBeatMap(item.entry.mr);
-    if (item.entry.dj) packed[item.key].dj = packLocalBeatMap(item.entry.dj);
+    var record = { updatedAt: item.entry.updatedAt || Date.now(), automaticModes: {}, preservedModes: {} };
+    var hasAutomatic = false;
+    ['mr', 'dj'].forEach(function (mode) {
+      if (!item.entry[mode]) return;
+      if (isAutomaticLocalBeatMap(item.entry, mode)) {
+        if (maxEntries && automaticCount >= maxEntries) return;
+        record[mode] = packLocalBeatMap(item.entry[mode]);
+        record.automaticModes[mode] = true;
+        hasAutomatic = true;
+      } else {
+        // Keep unknown/user data intact, including fields the compact generated
+        // map format does not know. Quota fallback only reduces automatic maps.
+        record[mode] = item.entry[mode];
+        record.preservedModes[mode] = true;
+      }
+    });
+    if (hasAutomatic) automaticCount++;
+    if (record.mr || record.dj) packed[item.key] = record;
   });
   return packed;
 }
 function saveLocalBeatMapCache() {
+  trimLocalBeatMapCache();
   var attempts = [12, 8, 5, 3];
   for (var i = 0; i < attempts.length; i++) {
     try {
@@ -149,14 +219,20 @@ function saveLocalBeatMapCache() {
 }
 function getLocalBeatEntry(localKey, mode) {
   var entry = localKey && localBeatMapCache ? localBeatMapCache[localKey] : null;
-  return entry && entry[mode] ? entry[mode] : null;
+  if (!entry || !entry[mode]) return null;
+  touchLocalBeatEntry(entry);
+  return entry[mode];
 }
 function storeLocalBeatEntry(localKey, mode, map, song, opts) {
   if (!localKey || !map) return;
   opts = opts || {};
   var entry = localBeatMapCache[localKey] || {};
   entry[mode] = map;
+  if (!entry.automaticMaps) entry.automaticMaps = {};
+  if (opts.automatic === true) { entry.automaticMaps[mode] = map; generatedLocalBeatMaps().add(map); }
+  else { delete entry.automaticMaps[mode]; generatedLocalBeatMaps().delete(map); }
   entry.updatedAt = Date.now();
+  touchLocalBeatEntry(entry);
   localBeatMapCache[localKey] = entry;
   localBeatMapPrefs[localKey] = mode;
   saveLocalBeatPrefs();
@@ -222,8 +298,14 @@ function prepareLocalBeatAnalysis(song, audioUrl) {
     var mode = firstMap ? firstMode : secondMode;
     var map = firstMap || await readBeatDiskCache(localBeatDiskKey(song.localKey, secondMode));
     if (diskToken !== trackSwitchToken || !currentLocalSong || currentLocalSong.localKey !== song.localKey) return;
+    // An edit or another analysis completed while disk I/O was pending.
+    var newer = getLocalBeatEntry(song.localKey, preferred) || getLocalBeatEntry(song.localKey, secondMode);
+    if (newer) {
+      applyLocalBeatMap(song, newer === getLocalBeatEntry(song.localKey, 'dj') ? 'dj' : 'mr', newer, true);
+      return;
+    }
     if (map) {
-      storeLocalBeatEntry(song.localKey, mode, map, song, { skipDisk: true });
+      storeLocalBeatEntry(song.localKey, mode, map, song, { skipDisk: true, automatic: generatedLocalBeatMaps().has(map) });
       applyLocalBeatMap(song, mode, map, true);
       return;
     }
@@ -233,6 +315,8 @@ function prepareLocalBeatAnalysis(song, audioUrl) {
   });
 }
 function openLocalBeatModal(song, audioUrl) {
+  if (localBeatAnalysis.active) return;
+  localBeatAnalysis.token++;
   if (immersiveMode) setImmersiveMode(false);
   localBeatAnalysis.song = song || currentLocalSong;
   localBeatAnalysis.audioUrl = audioUrl || (audio && audio.src) || '';
@@ -245,6 +329,10 @@ function openLocalBeatModal(song, audioUrl) {
 function closeLocalBeatModal() {
   if (localBeatAnalysis.active) return;
   closeGsapModal(document.getElementById('local-beat-modal'));
+  localBeatAnalysis.song = null;
+  localBeatAnalysis.audioUrl = '';
+  if (typeof trimLocalBeatMapCache === 'function') trimLocalBeatMapCache();
+  if (typeof scheduleLocalAudioObjectUrlSweep === 'function') scheduleLocalAudioObjectUrlSweep();
 }
 function selectLocalBeatMode(mode) {
   if (localBeatAnalysis.active) return;
@@ -310,15 +398,17 @@ async function startLocalBeatAnalysis(mode) {
   var cached = getLocalBeatEntry(song.localKey, mode);
   if (cached) {
     applyLocalBeatMap(song, mode, cached, true);
-    closeGsapModal(document.getElementById('local-beat-modal'));
+    closeLocalBeatModal();
     return;
   }
   localBeatAnalysis.active = true;
   localBeatAnalysis.mode = mode;
   localBeatAnalysis.token++;
   var localToken = localBeatAnalysis.token;
+  var analysisTrackToken = typeof trackSwitchToken === 'undefined' ? null : trackSwitchToken;
   updateLocalBeatModal();
   setLocalBeatStatus((mode === 'dj' ? 'DJ' : 'MR') + ' 分析准备中...', 'warn');
+  var releaseAudioUrl = typeof retainLocalAudioObjectUrl === 'function' ? retainLocalAudioObjectUrl(audioUrl) : function () {};
   try {
     var map = null;
     if (mode === 'dj') {
@@ -329,7 +419,8 @@ async function startLocalBeatAnalysis(mode) {
       resetBeatCameraSync(audio ? audio.currentTime : 0);
       var djToken = djBeatMapToken;
       map = await analyzePodcastDjBeats(audioUrl, djToken, audio && isFinite(audio.duration) ? audio.duration : 0);
-      if (localToken !== localBeatAnalysis.token || djToken !== djBeatMapToken) return;
+      if (localToken !== localBeatAnalysis.token || djToken !== djBeatMapToken
+        || (analysisTrackToken !== null && analysisTrackToken !== trackSwitchToken)) return;
       if (!map) throw new Error('DJ analysis returned empty map');
     } else {
       setDjModeActive(false, song);
@@ -339,19 +430,25 @@ async function startLocalBeatAnalysis(mode) {
       resetBeatCameraSync(audio ? audio.currentTime : 0);
       var mrToken = beatMapToken;
       map = await analyzeAudioBeats(audioUrl, audio && isFinite(audio.duration) ? audio.duration : 0, mrToken, { background: false, song: song });
-      if (localToken !== localBeatAnalysis.token || mrToken !== beatMapToken) return;
+      if (localToken !== localBeatAnalysis.token || mrToken !== beatMapToken
+        || (analysisTrackToken !== null && analysisTrackToken !== trackSwitchToken)) return;
       if (!map) throw new Error('MR analysis returned empty map');
     }
-    storeLocalBeatEntry(song.localKey, mode, map, song);
+    var newer = getLocalBeatEntry(song.localKey, mode);
+    if (newer) map = newer; // Never overwrite a newer caller-supplied edit.
+    else storeLocalBeatEntry(song.localKey, mode, map, song, { automatic: true });
     applyLocalBeatMap(song, mode, map, false);
     localBeatAnalysis.active = false;
     setLocalBeatStatus((mode === 'dj' ? 'DJ' : 'MR') + ' 分析完成: ' + localBeatVisualCount(map) + ' 个主拍');
     updateLocalBeatModal();
     showToast((mode === 'dj' ? 'DJ' : 'MR') + ' 本地节奏分析完成');
     setTimeout(function () {
-      if (!localBeatAnalysis.active) closeGsapModal(document.getElementById('local-beat-modal'));
+      if (!localBeatAnalysis.active && localBeatAnalysis.token === localToken && localBeatAnalysis.song === song
+        && (analysisTrackToken === null || analysisTrackToken === trackSwitchToken)) closeLocalBeatModal();
     }, 900);
   } catch (err) {
+    if (localToken !== localBeatAnalysis.token || (mode === 'dj' ? djToken !== djBeatMapToken : mrToken !== beatMapToken)
+      || (analysisTrackToken !== null && analysisTrackToken !== trackSwitchToken)) return;
     console.warn('local beat analysis failed:', err);
     localBeatAnalysis.active = false;
     hideBeatChip();
@@ -359,6 +456,8 @@ async function startLocalBeatAnalysis(mode) {
     setLocalBeatStatus('分析失败，请换另一种模式重试', 'fail');
     updateLocalBeatModal();
     showToast('本地节奏分析失败');
+  } finally {
+    releaseAudioUrl();
   }
 }
 

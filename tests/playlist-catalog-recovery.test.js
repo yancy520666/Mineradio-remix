@@ -26,7 +26,7 @@ function fixture(response, provider = 'kugou') {
     requestNextPlaylistCatalogPage() {}, isPlaylistPanelVisibleForRender: () => false, playlistProviderName: () => provider === 'kugou' ? '酷狗音乐' : '汽水音乐',
     escHtml: text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;'), console,
   });
-  vm.runInContext(['mergePlaylistCatalogRows', 'loadPlaylistCatalogProviderPage', 'retryPlaylistCatalogProvider', 'playlistCatalogHasPendingPages'].map(n => extract(shell, n)).join('\n') + '\n' + extract(detail, 'playlistCatalogCountLabel') + '\n' + extract(detail, 'playlistCatalogFooterHtml'), c);
+  vm.runInContext(['playlistCatalogAccountKey', 'mergePlaylistCatalogRows', 'loadPlaylistCatalogProviderPage', 'retryPlaylistCatalogProvider', 'playlistCatalogHasPendingPages'].map(n => extract(shell, n)).join('\n') + '\n' + extract(detail, 'playlistCatalogCountLabel') + '\n' + extract(detail, 'playlistCatalogFooterHtml'), c);
   return { c, state, requests: () => requests, rows: () => rows };
 }
 test('partial library remains visible with a retry that fills missing rows and clears the warning', async () => {

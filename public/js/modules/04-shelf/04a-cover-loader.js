@@ -6,16 +6,48 @@ var shelfCoverFrame = 0;
 var playlistCoverOrder = 0;
 var playlistCoverViewportUpdating = false;
 var playlistCoverViewportVisible = new Set(), playlistCoverViewportNearby = new Set();
+// These are cache/decoded-image estimates, not a measurement of GPU memory.
+var playlistCoverEntryLimit = 256, playlistCoverPendingLimit = 64;
+function disposePlaylistCoverRecord(url, rec) {
+  if (playlistCoverCache[url] === rec) delete playlistCoverCache[url];
+  if (rec.retryTimer) clearTimeout(rec.retryTimer);
+  rec.retryTimer = 0;
+  if (rec.cancel) rec.cancel();
+  rec.cancel = null; rec.loading = false;
+  if (rec.img) rec.img.removeAttribute('src');
+  // Input blob URLs belong to their producer. Detach our Image, never revoke
+  // a borrowed URL that another cover/audio consumer may still be using.
+  rec.img = null; rec.bytes = 0; rec.task = null;
+  if (rec.waiters) rec.waiters.length = 0;
+}
 function trimPlaylistCoverCache() {
-  var loaded = Object.keys(playlistCoverCache).map(function (url) { return { url: url, rec: playlistCoverCache[url] }; }).filter(function (entry) { return entry.rec.loaded && entry.rec.img; });
-  var bytes = loaded.reduce(function (sum, entry) { return sum + (entry.rec.bytes || 0); }, 0), count = loaded.length;
-  loaded.sort(function (a, b) { return (a.rec.usedAt || 0) - (b.rec.usedAt || 0); });
-  loaded.forEach(function (entry) {
-    if (count <= 160 && bytes <= 24 * 1024 * 1024) return;
-    if (playlistCoverViewportVisible.has(entry.url) || playlistCoverViewportNearby.has(entry.url)) return;
-    delete playlistCoverCache[entry.url]; bytes -= entry.rec.bytes || 0; count--;
-    entry.rec.img.removeAttribute('src'); entry.rec.img = null;
+  var updating = playlistCoverViewportUpdating;
+  playlistCoverViewportUpdating = true;
+  var protectedUrls = typeof collectProtectedCoverUrls === 'function' ? collectProtectedCoverUrls() : {};
+  var entries = Object.keys(playlistCoverCache).map(function (url) { return { url: url, rec: playlistCoverCache[url] }; });
+  var bytes = 0, loaded = 0, pending = 0, count = entries.length, now = performance.now();
+  entries.forEach(function (entry) {
+    if (entry.rec.loaded && entry.rec.img) { loaded++; bytes += entry.rec.bytes || 0; }
+    if (entry.rec.loading) pending++;
   });
+  entries.sort(function (a, b) { return (a.rec.usedAt || a.rec.requestedAt || 0) - (b.rec.usedAt || b.rec.requestedAt || 0); });
+  entries.forEach(function (entry) {
+    var rec = entry.rec;
+    // Visible/nearby covers and the shelf's displayed cards may exceed the
+    // cache budget; pressure must never blank an image still being displayed.
+    if (protectedUrls[entry.url] || playlistCoverViewportVisible.has(entry.url) || playlistCoverViewportNearby.has(entry.url)) return;
+    var expired = rec.failed && now - rec.failedAt >= 30000;
+    var overImages = rec.loaded && rec.img && (loaded > 160 || bytes > 24 * 1024 * 1024);
+    if (!expired && !overImages && count <= playlistCoverEntryLimit && !(rec.loading && pending > playlistCoverPendingLimit)) return;
+    // Active requests are already bounded to four. Do not repeatedly cancel
+    // them as speculative callers add queued work under pressure.
+    if (rec.cancel) return;
+    if (rec.loaded && rec.img) { loaded--; bytes -= rec.bytes || 0; }
+    if (rec.loading) pending--;
+    disposePlaylistCoverRecord(entry.url, rec); count--;
+  });
+  playlistCoverQueue = playlistCoverQueue.filter(function (task) { return playlistCoverCache[task.url] === task.rec; });
+  playlistCoverViewportUpdating = updating;
 }
 function requestShelfCoverFrame() {
   if (shelfCoverFrame || typeof isDeepBackgroundMode === 'function' && isDeepBackgroundMode()) return;
@@ -78,8 +110,9 @@ function startPlaylistCoverRequest(task) {
     img.onload = img.onerror = null;
     playlistCoverActive--;
     if (task.releaseSlot) { task.releaseSlot(); task.releaseSlot = null; }
-    if (playlistCoverCache[task.url] !== rec) { pumpPlaylistCovers(); return; }
+    if (playlistCoverCache[task.url] !== rec) { img.removeAttribute('src'); pumpPlaylistCovers(); return; }
     rec.cancel = null;
+    if (!image) img.removeAttribute('src');
     if (!image && !cancelled && rec.attempts < 2) {
       rec.retryTimer = setTimeout(function () {
         rec.retryTimer = 0;
@@ -90,6 +123,7 @@ function startPlaylistCoverRequest(task) {
       rec.loading = false; rec.loaded = !!image; rec.failed = !image; rec.img = image;
       rec.bytes = image ? image.naturalWidth * image.naturalHeight * 4 : 0; rec.usedAt = performance.now();
       rec.failedAt = image ? 0 : performance.now();
+      rec.task = null;
       var entries = performance.getEntriesByName ? performance.getEntriesByName(img.src) : [];
       var timing = entries[entries.length - 1];
       rec.metrics = { attempts: rec.attempts, queueMs: started - rec.requestedAt,
@@ -107,8 +141,10 @@ function startPlaylistCoverRequest(task) {
     if (rec.retryTimer) clearTimeout(rec.retryTimer);
     if (playlistCoverCache[task.url] === rec) delete playlistCoverCache[task.url];
     finish(null, 0, true); img.removeAttribute('src');
+    rec.cancel = null; rec.loading = false; rec.task = null; rec.waiters.length = 0;
   };
   img.onload = function () {
+    if (settled) return;
     var decodeStart = performance.now();
     if (typeof img.decode === 'function') img.decode().then(function () { finish(img, performance.now() - decodeStart); }, function () { finish(img, performance.now() - decodeStart); });
     else finish(img, 0);
@@ -135,10 +171,10 @@ function requestPlaylistCover(url, callback, options) {
     return;
   }
   rec = playlistCoverCache[url] = { loaded: false, loading: true, failed: false, img: null,
-    attempts: 0, session: playlistCoverSession, requestedAt: performance.now(), waiters: callback ? [callback] : [] };
+    attempts: 0, session: playlistCoverSession, usedAt: performance.now(), requestedAt: performance.now(), waiters: callback ? [callback] : [] };
   var task = { url: url, rec: rec, priority: options && options.priority === 0 ? 0 : 1, order: ++playlistCoverOrder, scope: options && options.scope || '' };
   rec.task = task; playlistCoverQueue.push(task);
-  pumpPlaylistCovers();
+  trimPlaylistCoverCache(); pumpPlaylistCovers();
 }
 function beginPlaylistCoverSession() {
   playlistCoverSession++;
@@ -204,3 +240,17 @@ window.addEventListener('pagehide', function () {
     if (rec.cancel) rec.cancel();
   });
 });
+
+function resetPlaylistCoverCache() {
+  playlistCoverViewportUpdating = true;
+  playlistCoverQueue = [];
+  var old = playlistCoverCache;
+  playlistCoverCache = {};
+  Object.keys(old).forEach(function (url) {
+    var rec = old[url];
+    disposePlaylistCoverRecord(url, rec);
+  });
+  playlistCoverViewportVisible.clear(); playlistCoverViewportNearby.clear();
+  playlistCoverViewportUpdating = false;
+  requestShelfCoverFrame();
+}

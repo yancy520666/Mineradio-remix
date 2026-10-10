@@ -159,16 +159,37 @@ function renderHomeDiscover() {
   }
   renderHomeTiles();
 }
+function homeDiscoverAuthKey(includeEpoch) {
+  return JSON.stringify(['netease', 'qq', 'kugou', 'qishui'].map(function (provider) {
+    var status = typeof platformStatus === 'function' ? platformStatus(provider) : null;
+    if (!status && provider === 'netease' && typeof loginStatus !== 'undefined') status = loginStatus;
+    if (!status && provider === 'qq' && typeof qqLoginStatus !== 'undefined') status = qqLoginStatus;
+    if (!status && provider === 'kugou' && typeof kugouLoginStatus !== 'undefined') status = kugouLoginStatus;
+    if (!status && provider === 'qishui' && typeof qishuiLoginStatus !== 'undefined') status = qishuiLoginStatus;
+    status = status || {};
+    return [provider, includeEpoch !== false && typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : 0,
+      !!status.loggedIn, String(status.userId || status.uid || status.uin || status.openId || status.id || '')];
+  }));
+}
 async function loadHomeDiscover(force) {
-  if (homeDiscoverState.loading) return;
-  if (homeDiscoverState.loaded && !force) return;
+  var authKey = homeDiscoverAuthKey();
+  var accountKey = homeDiscoverAuthKey(false);
+  if (homeDiscoverState.loading && homeDiscoverState.authKey === authKey) return;
+  if (homeDiscoverState.loaded && !force && homeDiscoverState.authKey === authKey) return;
+  if (homeDiscoverState.accountKey && homeDiscoverState.accountKey !== accountKey) {
+    homeDiscoverState.songs = []; homeDiscoverState.playlists = []; homeDiscoverState.podcasts = [];
+    homeDiscoverState.loaded = false; homeDiscoverState.updatedAt = 0;
+    homeDiscoverState.loggedIn = hasAnyPlatformLogin();
+  }
+  homeDiscoverState.authKey = authKey;
+  homeDiscoverState.accountKey = accountKey;
   var token = ++homeDiscoverToken;
   homeDiscoverState.loading = true;
   homeDiscoverState.error = '';
   renderHomeDiscover();
   try {
     var data = await apiJson('/api/discover/home?t=' + Date.now());
-    if (token !== homeDiscoverToken) return;
+    if (token !== homeDiscoverToken || authKey !== homeDiscoverAuthKey()) return;
     homeDiscoverState.loggedIn = !!(data && data.loggedIn) || hasAnyPlatformLogin();
     homeDiscoverState.mode = data && data.mode || (homeDiscoverState.loggedIn ? 'member' : 'starter');
     homeDiscoverState.songs = homeDiscoverState.loggedIn ? (data && data.dailySongs || []).map(cloneSong) : [];
@@ -178,10 +199,15 @@ async function loadHomeDiscover(force) {
     homeDiscoverState.loaded = true;
   } catch (e) {
     console.warn('home discover failed:', e);
-    if (token === homeDiscoverToken) homeDiscoverState.error = 'DISCOVER_FAILED';
+    if (token === homeDiscoverToken && authKey === homeDiscoverAuthKey()) homeDiscoverState.error = 'DISCOVER_FAILED';
   } finally {
     if (token === homeDiscoverToken) {
       homeDiscoverState.loading = false;
+      if (accountKey !== homeDiscoverAuthKey(false)) {
+        homeDiscoverState.songs = []; homeDiscoverState.playlists = []; homeDiscoverState.podcasts = [];
+        homeDiscoverState.loaded = false; homeDiscoverState.updatedAt = 0; homeDiscoverState.error = '';
+        homeDiscoverState.loggedIn = hasAnyPlatformLogin();
+      }
       renderHomeDiscover();
     }
   }

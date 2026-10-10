@@ -2,7 +2,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
 const { loadFunctions } = require('./helpers/classic-functions');
+
+test('shelf scroll sound volume has the shared settings divider and its original slider', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.match(html, /<div class="fx-section-label">歌单架滚动音效<\/div>\s*<div class="fx-slider" id="ui-sfx-volume-control"/);
+  assert.match(html, /<label for="ui-sfx-volume">提示音音量<\/label><input id="ui-sfx-volume" type="range" min="0" max="1" step="0\.01" value="0\.70"><output id="ui-sfx-volume-value" for="ui-sfx-volume">70%<\/output>/);
+});
 
 function volumeContext(saved) {
   const storage = new Map(saved == null ? [] : [['mineradio-ui-sfx-volume-v1', saved]]);

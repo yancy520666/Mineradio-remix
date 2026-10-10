@@ -68,13 +68,84 @@ function tickPresetTransition() {
     syncFxUniforms();
   }
 }
+// Only the latest request may commit. Preparation never changes the playing visual.
+var pendingPresetSwitch = null;
+var presetSwitchSequence = 0;
+function markPresetPreparation(p, busy) {
+  if (typeof document.querySelector !== 'function') return;
+  var card = document.querySelector('.preset-card[data-preset="' + p + '"]');
+  if (!card) return;
+  card.setAttribute('aria-busy', busy ? 'true' : 'false');
+  card.classList.toggle('switching', busy);
+}
 function setPreset(p, opts) {
+  opts = opts || {};
+  p = Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0));
+  if (pendingPresetSwitch && pendingPresetSwitch.preset === p) {
+    pendingPresetSwitch.opts = opts;
+    return pendingPresetSwitch.promise;
+  }
+  if (pendingPresetSwitch) pendingPresetSwitch.cancel();
+  var engine = p === 7 ? window.MineradioSonicTopography : p === 8 ? window.MineradioSonicWorkshop : null;
+  if (p === fx.preset || !engine || typeof engine.prepare !== 'function') {
+    commitPreset(p, opts);
+    return Promise.resolve(true);
+  }
+  var request = { preset: p, opts: opts, sequence: ++presetSwitchSequence, cancelled: false };
+  var preparation;
+  pendingPresetSwitch = request;
+  request.cancel = function () {
+    if (request.cancelled) return;
+    request.cancelled = true;
+    markPresetPreparation(p, false);
+    clearTimeout(request.timer);
+    if (preparation && preparation.cancel) preparation.cancel();
+    if (pendingPresetSwitch === request) pendingPresetSwitch = null;
+    if (request.finish) request.finish(false);
+  };
+  request.promise = new Promise(function (resolve) { request.finish = resolve; });
+  request.timer = setTimeout(function () {
+    if (pendingPresetSwitch !== request) return;
+    request.cancel();
+    if (!opts.silent) showToast('视觉准备超时，保留当前背景，请重试');
+  }, 15000);
+  if (!opts.silent) markPresetPreparation(p, true);
+  try {
+    preparation = engine.prepare({ scene: scene, fx: fx,
+      renderer: typeof renderer !== 'undefined' ? renderer : null,
+      camera: typeof camera !== 'undefined' ? camera : null });
+    Promise.resolve(preparation.promise).then(function (prepared) {
+      if (pendingPresetSwitch !== request || request.cancelled) return;
+      if (prepared === false || preparation.cancelled) { request.cancel(); return; }
+      clearTimeout(request.timer);
+      markPresetPreparation(p, false);
+      pendingPresetSwitch = null;
+      try {
+        commitPreset(p, request.opts);
+        request.finish(true);
+      } catch (error) {
+        // A failed UI/persistence hook must not leave the caller waiting forever.
+        request.cancel();
+        if (!request.opts.silent) showToast('视觉设置未能全部应用，请重试');
+      }
+    }, function () {
+      if (pendingPresetSwitch !== request || request.cancelled) return;
+      request.cancel();
+      if (!opts.silent) showToast('视觉载入失败，保留当前背景，请重试');
+    });
+  } catch (error) {
+    request.cancel();
+    if (!opts.silent) showToast('视觉载入失败，保留当前背景，请重试');
+  }
+  return request.promise;
+}
+function commitPreset(p, opts) {
   opts = opts || {};
   p = Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0));
   var prev = fx.preset;
   var changed = prev !== p;
   fx.preset = p;
-  if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX) clearSkullPresetResidue();
+  if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX && p !== 8) clearSkullPresetResidue();
   if (p === SKULL_PRESET_INDEX) loadSkullParticleAsset();
   if (changed && window.MineradioSonicTopography) MineradioSonicTopography.onPresetChange(prev, p, { scene: scene, fx: fx });
   if (changed && window.MineradioSonicWorkshop) MineradioSonicWorkshop.onPresetChange(prev, p, { scene: scene, fx: fx });

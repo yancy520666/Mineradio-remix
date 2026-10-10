@@ -19,14 +19,18 @@ function normalizeText(text) {
 function parseLrc(text) {
   const lines = [];
   String(text || '').split(/\n/).forEach((raw) => {
-    const match = raw.match(/^\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]\s*(.*)$/);
-    if (!match) return;
-    const lyric = cleanText(match[4]);
-    if (!lyric) return;
-    lines.push({
-      time: toSeconds(match[1], match[2], match[3]),
-      text: lyric,
-      normalized: normalizeText(lyric),
+    const tags = Array.from(raw.matchAll(/\[(\d+):(\d{1,2})(?:[.:](\d{1,3}))?\]/g));
+    if (!tags.length) return;
+    const interleaved = tags.some((tag, index) => tags[index + 1]
+      && cleanText(raw.slice(tag.index + tag[0].length, tags[index + 1].index)));
+    const sharedText = cleanText(raw.slice(tags[tags.length - 1].index + tags[tags.length - 1][0].length));
+    tags.forEach((tag, index) => {
+      const lyric = interleaved
+        ? cleanText(raw.slice(tag.index + tag[0].length, tags[index + 1] ? tags[index + 1].index : raw.length))
+        : sharedText;
+      const time = toSeconds(tag[1], tag[2], tag[3]);
+      if (!lyric || !Number.isFinite(time)) return;
+      lines.push({ time, text: lyric, normalized: normalizeText(lyric) });
     });
   });
   return lines.sort((a, b) => a.time - b.time);

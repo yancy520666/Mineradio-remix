@@ -14,8 +14,9 @@ function fixture(answer) {
     playbackRestrictionCategory: (song, data) => data.reason || 'url_unavailable',
   };
   vm.createContext(ctx);
-  loadFunctions(ctx, 'public/js/modules/05-playback/07-search.js', ['controlSourceMatchSong', 'controlSourceMatchIssue',
+  loadFunctions(ctx, 'public/js/modules/05-playback/07-search.js', ['createPlaybackMetadataCache', 'controlSourceMatchSong', 'controlSourceMatchIssue',
     'controlSourceIssueLabel', 'controlSourceProbeKey', 'controlSourceBlockedLabel', 'probeControlSourcePlayback', 'controlSourceOptionState']);
+  ctx.controlSourceProbeCache = ctx.createPlaybackMetadataCache(90000);
   return ctx;
 }
 const qq = { key: 'qq', title: 'QQ音乐' };

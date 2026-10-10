@@ -687,7 +687,7 @@ function terminalRescue(fromAnalysis, toAnalysis, fromProfile, toProfile, protec
   const duration = Math.max(0, toNumber(fromProfile && fromProfile.duration));
   const sourceEnd = effectiveSourceEnd(fromProfile);
   const targetDuration = Math.max(0, toNumber(toProfile && toProfile.duration));
-  const protectedBoundary = toNumber(protectedUntil);
+  const protectedBoundary = ceilMillisecond(protectedUntil);
   if (!(duration > 0)) return technicalFailure('TERMINAL_RESCUE_INVALID_DURATION', rejected);
   if (!(targetDuration > 0)) return technicalFailure('TERMINAL_RESCUE_INVALID_TARGET_DURATION', rejected);
   if (targetDuration < MINIMUM_TERMINAL_OVERLAP - 0.000001) {
@@ -720,9 +720,12 @@ function terminalRescue(fromAnalysis, toAnalysis, fromProfile, toProfile, protec
   const safeMixStart = terminalStartAfterVocal(
     fromAnalysis && fromAnalysis.structureMap && fromAnalysis.structureMap.vocalWindows,
     requestedMixStart,
-    duration,
+    sourceEnd,
   );
   const safeOverlapDuration = floorMillisecond(Math.max(0, Math.min(3.4, sourceEnd - safeMixStart, targetDuration)));
+  if (safeOverlapDuration < MINIMUM_TERMINAL_OVERLAP - 0.000001) {
+    return technicalFailure('TERMINAL_RESCUE_INSUFFICIENT_POST_PROTECTION_RUNWAY', rejected);
+  }
   const mode = terminalRescueMode(
     fromAnalysis && fromAnalysis.structureMap && fromAnalysis.structureMap.vocalWindows,
     safeMixStart,
@@ -1018,21 +1021,35 @@ function endOfTrackCrossfade(fromProfile, toProfile, protectedUntil, cadenceReas
   const sourceDuration = Math.max(0, toNumber(fromProfile && fromProfile.duration));
   const targetDuration = Math.max(0, toNumber(toProfile && toProfile.duration));
   const measuredEnd = toNumber(tailEvidence && tailEvidence.audibleEnd, NaN);
-  const audibleEnd = Number.isFinite(measuredEnd)
+  const audibleEnd = floorMillisecond(Number.isFinite(measuredEnd)
     ? Math.max(0, Math.min(sourceDuration, measuredEnd))
-    : sourceDuration;
-  const fadeSec = chooseEndCrossfadeDuration({
-    fromAvailable: audibleEnd,
-    toDuration: targetDuration,
-    requestedDuration: tailEvidence && tailEvidence.requestedDuration,
-    fromVocalState: tailEvidence && tailEvidence.fromVocalState,
-    toVocalState: tailEvidence && tailEvidence.toVocalState,
-  });
-  const bPreRollDuration = round(Math.max(0, Math.min(
+    : sourceDuration);
+  const bPreRollDuration = floorMillisecond(Math.max(0, Math.min(
     5,
     targetDuration,
     toNumber(tailEvidence && tailEvidence.toAudibleStart, 0),
   )));
+  const protectedBoundary = ceilMillisecond(Math.max(0, toNumber(protectedUntil)));
+  const fromAvailable = Math.max(0, audibleEnd - protectedBoundary - bPreRollDuration);
+  const toAvailable = Math.max(0, targetDuration - bPreRollDuration);
+  const fadeSec = floorMillisecond(Math.min(fromAvailable, toAvailable, chooseEndCrossfadeDuration({
+    fromAvailable,
+    toDuration: toAvailable,
+    requestedDuration: tailEvidence && tailEvidence.requestedDuration,
+    fromVocalState: tailEvidence && tailEvidence.fromVocalState,
+    toVocalState: tailEvidence && tailEvidence.toVocalState,
+  })));
+  const invalidCode = !(sourceDuration > 0)
+    ? 'END_CROSSFADE_INVALID_DURATION'
+    : (!(targetDuration > 0) ? 'END_CROSSFADE_INVALID_TARGET_DURATION'
+      : (!(fromAvailable > 0) ? 'END_CROSSFADE_INSUFFICIENT_POST_PROTECTION_RUNWAY'
+        : 'END_CROSSFADE_INSUFFICIENT_TARGET_RUNWAY'));
+  if (!(fadeSec > 0)) {
+    return {
+      chosen: technicalFailure(invalidCode),
+      policy: strictFallbackPolicy([...cadenceReasons, invalidCode]),
+    };
+  }
   const mixStart = round(Math.max(0, audibleEnd - fadeSec));
   const fadeMs = Math.round(fadeSec * 1000);
   const bPlayAt = bPreRollDuration > 0 ? -bPreRollDuration : 0;
@@ -1154,7 +1171,9 @@ function chooseCadenceFallbackWindow(fromAnalysis, toAnalysis, opts, fromProfile
       consideredExitCount: sourceExitOptions.length,
       consideredLandingCount: entries.length,
       cadenceRejected,
-      cadenceFallbackMode: selected.chosen.cadenceFallback.mode,
+      cadenceFallbackMode: selected.chosen.cadenceFallback
+        ? selected.chosen.cadenceFallback.mode
+        : 'technical-failure',
     },
     policy: selected.policy,
   };
@@ -1216,7 +1235,10 @@ function chooseTransitionWindow(fromAnalysis = {}, toAnalysis = {}, opts = {}) {
   const recentRecipes = normalizeRecentRecipes(opts.recentRecipes);
   const protectedUntil = toNumber(fromAnalysis.structureMap && fromAnalysis.structureMap.protectedUntil);
   const sourceExitOptions = sourceExits(fromAnalysis, protectedUntil);
-  const entries = landingOptions(toAnalysis);
+  const maxEntryTime = opts.maxEntryTime == null ? Infinity : Math.max(0, toNumber(opts.maxEntryTime));
+  const entries = landingOptions(toAnalysis).filter((entry) => (
+    entry.playFrom >= 0 && entry.playFrom <= maxEntryTime && entry.landingAt <= maxEntryTime
+  ));
   if (opts.enableCadenceFallback === true) {
     return chooseCadenceFallbackWindow(
       fromAnalysis,

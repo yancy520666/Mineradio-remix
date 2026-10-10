@@ -2,7 +2,7 @@ function isFreeCameraControlCode(code) {
   return /^(KeyW|KeyA|KeyS|KeyD|KeyQ|KeyE|Space|ShiftLeft|ShiftRight|ControlLeft|ControlRight)$/.test(code);
 }
 function consumeFreeCameraKeyEvent(e, isDown) {
-  if (isTypingTarget(e.target)) return false;
+  if (e.defaultPrevented || isKeyboardUiTarget(e.target)) return false;
   if (isDown && e.code === 'KeyR') {
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -34,7 +34,7 @@ function isPlaybackSpaceKey(e) {
     !e.shiftKey &&
     !e.metaKey &&
     !(freeCamera && freeCamera.active) &&
-    !isTypingTarget(e.target)
+    !isKeyboardUiTarget(e.target)
   );
 }
 document.addEventListener('keydown', function (e) {
@@ -44,7 +44,7 @@ document.addEventListener('keyup', function (e) {
   consumeFreeCameraKeyEvent(e, false);
 }, true);
 document.addEventListener('keydown', function (e) {
-  if (isTypingTarget(e.target)) return;
+  if (e.defaultPrevented || isKeyboardUiTarget(e.target)) return;
   if (isPlaybackSpaceKey(e)) return;
   markRenderInteraction('keyboard', 700);
   if (e.code === 'KeyK') {

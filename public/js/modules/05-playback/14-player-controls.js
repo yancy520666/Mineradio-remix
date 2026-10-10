@@ -702,6 +702,7 @@ function shuffleArrayInPlace(items) {
 function reorderQueueForShufflePlaybackOrder(startIdx, opts) {
   opts = opts || {};
   if (!playQueue.length) return -1;
+  if (typeof syncQueueLogicalOrder === 'function') syncQueueLogicalOrder();
   startIdx = Math.round(Number(startIdx));
   if (!isFinite(startIdx) || startIdx < 0 || startIdx >= playQueue.length) {
     startIdx = currentIdx >= 0 && currentIdx < playQueue.length ? currentIdx : 0;
@@ -730,7 +731,13 @@ function nextTrack(userInitiated) {
   forcePlaybackControlsInteractive();
   if (currentIdx >= playQueue.length - 1 && queueHydrationState && queueHydrationState.queueRef === playQueue && (queueHydrationState.active || queueHydrationState.loading) && !queueHydrationState.error) {
     var previousTail = currentIdx;
+    var tailQueue = playQueue;
+    var tailState = queueHydrationState;
+    var tailSong = tailQueue[previousTail];
+    var tailToken = trackSwitchToken;
     Promise.resolve(hydratePlaylistQueueNextPage('queue-tail')).then(function () {
+      if (playQueue !== tailQueue || queueHydrationState !== tailState || trackSwitchToken !== tailToken
+        || currentIdx !== previousTail || playQueue[previousTail] !== tailSong) return false;
       if (playQueue.length <= previousTail + 1 && queueHydrationState && queueHydrationState.error) {
         showToast('后续歌曲载入失败，当前歌曲保持不变');
         return false;
@@ -759,7 +766,14 @@ function prevTrack(userInitiated) {
   Promise.resolve(playQueueAt(currentIdx, opts)).finally(forcePlaybackControlsInteractive);
 }
 function shuffleQueue() {
-  reorderQueueForShufflePlaybackOrder(currentIdx, { reason: 'shuffle-queue' });
+  reorderQueueForShufflePlaybackOrder(currentIdx, { reason: 'shuffle-queue', persistSnapshot: false });
+  // The explicit shuffle button in list/single mode is a manual queue edit.
+  // In shuffle playback mode it keeps the original logical positions.
+  if (playMode !== 'shuffle' && typeof syncQueueLogicalOrder === 'function') {
+    syncQueueLogicalOrder();
+    playQueue.forEach(function (song, i) { song._queueOrder = i; });
+  }
+  if (typeof saveLastPlaybackSnapshot === 'function') saveLastPlaybackSnapshot(true, 'shuffle-queue');
   showToast('队列已随机');
 }
 // The queue clear button asks for a second click instead of clearing at once.
@@ -791,6 +805,34 @@ function requestClearQueue() {
 }
 function clearQueue() {
   if (typeof cancelPlaylistQueueHydration === 'function') cancelPlaylistQueueHydration('clear-queue');
+  trackSwitchToken++;
+  if (typeof cancelPlaybackSourceRequest === 'function') cancelPlaybackSourceRequest();
+  cancelSourceFallbackRecovery('queue-empty');
+  clearAlbumGaplessPreload('queue-empty');
+  resetCuefieldAutoMix('queue-empty');
+  clearPlaybackResumeWatchdogs();
+  playbackResumeRecovery.serial++;
+  playbackResumeRecovery.pending = false;
+  cancelBeatAnalysisTimer();
+  cancelBeatPrefetchTimer();
+  cancelDjBeatAnalysisTimer();
+  beatMapToken++;
+  djBeatMapToken++;
+  if (localBeatAnalysis.active) cancelLocalBeatAnalysis();
+  if (typeof closeLocalBeatModal === 'function') closeLocalBeatModal();
+  finalizeListenSession(false);
+  pauseCurrentAudioForTrackSwitch();
+  if (audio) {
+    audio.__mineradioPlaybackExpected = false;
+    audio.__mineradioQueueItemKey = '';
+    audio.__mineradioTrackSwitchToken = 0;
+    audio.__mineradioPendingResumeAt = 0;
+    audio.removeAttribute('src');
+    audio.load();
+  }
+  playing = false;
+  setPlayIcon(false);
+  hideLoading();
   playQueue = []; currentIdx = -1;
   currentLocalSong = null;
   startupRestoreHomePending = false;
@@ -802,6 +844,9 @@ function clearQueue() {
   updateCustomCoverButton();
   updateCustomLyricControls();
   updateEmptyHomeVisibility({ forceLoad: false });
+  saveLastPlaybackSnapshot(true, 'clear-queue');
+  forcePlaybackControlsInteractive();
+  if (typeof scheduleLocalAudioObjectUrlSweep === 'function') scheduleLocalAudioObjectUrlSweep();
 }
 function removeFromQueue(idx) {
   if (!Number.isInteger(idx) || idx < 0 || idx >= playQueue.length) return;
@@ -809,39 +854,11 @@ function removeFromQueue(idx) {
   var removedBeforeCurrent = idx < currentIdx;
   var keepPaused = !!(audio && audio.paused && !audio.ended && audio.__mineradioPlaybackStartedToken === trackSwitchToken);
   playQueue.splice(idx, 1);
+  if (typeof scheduleLocalAudioObjectUrlSweep === 'function') scheduleLocalAudioObjectUrlSweep();
   if (idx < currentIdx) currentIdx--;
   else if (removedCurrent) currentIdx = playQueue.length ? idx % playQueue.length : -1;
   if (!playQueue.length) {
-    // Invalidate lookups and delayed recovery before releasing the last track.
-    trackSwitchToken++;
-    cancelSourceFallbackRecovery('queue-empty');
-    clearAlbumGaplessPreload('queue-empty');
-    resetCuefieldAutoMix('queue-empty');
-    clearPlaybackResumeWatchdogs();
-    playbackResumeRecovery.serial++;
-    playbackResumeRecovery.pending = false;
-    cancelBeatAnalysisTimer();
-    cancelBeatPrefetchTimer();
-    cancelDjBeatAnalysisTimer();
-    beatMapToken++;
-    djBeatMapToken++;
-    if (localBeatAnalysis.active) cancelLocalBeatAnalysis();
-    finalizeListenSession(false);
-    pauseCurrentAudioForTrackSwitch();
-    if (audio) {
-      audio.__mineradioPlaybackExpected = false;
-      audio.__mineradioQueueItemKey = '';
-      audio.__mineradioTrackSwitchToken = 0;
-      audio.__mineradioPendingResumeAt = 0;
-      audio.removeAttribute('src');
-      audio.load();
-    }
-    playing = false;
-    setPlayIcon(false);
-    hideLoading();
     clearQueue();
-    saveLastPlaybackSnapshot(true, 'remove-queue-item');
-    forcePlaybackControlsInteractive();
     return;
   }
   safeRenderQueuePanel('remove-queue-item');
@@ -921,6 +938,8 @@ function cyclePlayMode() {
   if (playMode === 'shuffle' && prevMode !== 'shuffle') {
     reorderQueueForShufflePlaybackOrder(currentIdx, { reason: 'play-mode-shuffle' });
   }
+  if (prevMode === 'shuffle' && playMode !== 'shuffle' && typeof restoreQueueLogicalOrder === 'function') restoreQueueLogicalOrder();
+  if (typeof saveLastPlaybackSnapshot === 'function') saveLastPlaybackSnapshot(true, 'play-mode-change');
   if (typeof syncActiveAudioRepeatMode === 'function') syncActiveAudioRepeatMode(audio);
   if (playMode === 'single' && prevMode !== 'single') {
     if (typeof clearAlbumGaplessPreload === 'function') clearAlbumGaplessPreload('play-mode-single');

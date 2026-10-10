@@ -23,6 +23,7 @@ function testAvatarOpensAccountBinding(order, expected) {
   const context = vm.createContext({
     document: { getElementById: (id) => id === 'login-modal' ? modal : null },
     loginProvider: 'netease',
+    invalidateLoginAttempt() {},
     topAccountPillClickSuppressed: false,
     // The last-used account must not decide which platform opens first.
     hasAnyPlatformLogin: () => true,

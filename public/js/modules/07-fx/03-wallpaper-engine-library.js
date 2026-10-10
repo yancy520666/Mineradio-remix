@@ -1585,6 +1585,7 @@ function clearWallpaperEngineLayerMedia(delay) {
       video.removeAttribute('crossorigin');
       video.removeAttribute('src');
       try { video.load(); } catch (e3) { }
+      if (typeof releaseWallpaperLoopLease === 'function') releaseWallpaperLoopLease(video);
     }
     stopWallpaperEngineCaptureStream();
   }
@@ -1604,6 +1605,7 @@ function restoreOriginalBackgroundAfterWallpaperEngine() {
 }
 
 function suspendOriginalBackgroundForWallpaperEngine() {
+  if (typeof suspendCustomBackgroundSurface === 'function') suspendCustomBackgroundSurface();
   var video = document.getElementById('custom-bg-video');
   if (video) {
     try { video.pause(); } catch (e) { }

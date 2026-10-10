@@ -12,9 +12,14 @@
     if (!managed) return null;
     var tier = Math.max(0, ceiling(quality) - Math.max(0, reduction || 0));
     var low = Math.floor(tier), high = Math.ceil(tier), blend = tier - low;
+    // Ultra retains every original adaptive endpoint. Lower tiers use tighter
+    // decorative budgets without changing frame cadence or governor behavior.
+    var detailGrids = quality === 'ultra' ? grids : [80, 96, 128, 192, 320];
+    var detailRatios = quality === 'ultra' ? ratios : [0.7, 0.8, 1, 1.2, 2];
+    var detailBudgets = quality === 'ultra' ? budgets : [1300000, 1400000, 2100000, 3200000, Infinity];
     function mix(values) { return values[low] + (values[high] - values[low]) * blend; }
-    return { tier: tier, gridSize: Math.round(mix(grids)), dpr: mix(ratios),
-      pixels: high === 4 ? Infinity : mix(budgets),
+    return { tier: tier, gridSize: Math.round(mix(detailGrids)), dpr: mix(detailRatios),
+      pixels: high === 4 ? Infinity : mix(detailBudgets),
       fps: 0, floatingCount: Math.round(mix([8, 20, 40, 60, 100])) };
   }
   function pixelRatio(value, width, height, device) {
@@ -25,7 +30,10 @@
     if (value.tier % 1) {
       var low = Math.floor(value.tier), high = Math.ceil(value.tier);
       function ratio(tier) { return Math.min(base, ratios[tier], Math.sqrt(budgets[tier] / Math.max(1, width * height))); }
-      return ratio(low) + (ratio(high) - ratio(low)) * (value.tier - low);
+      var originalRatio = ratio(low) + (ratio(high) - ratio(low)) * (value.tier - low);
+      // Keep legacy interpolation as a ceiling, including for explicit profiles.
+      // Original/ultra profiles already fit these bounds and remain unchanged.
+      return Math.min(originalRatio, value.dpr, Math.sqrt(value.pixels / Math.max(1, width * height)));
     }
     return Math.min(base, value.dpr, Math.sqrt(value.pixels / Math.max(1, width * height)));
   }

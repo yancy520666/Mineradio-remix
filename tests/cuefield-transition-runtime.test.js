@@ -127,3 +127,17 @@ test('plans a cache-only transition with an executable handoff timeline', () => 
   assert.equal(result.chosen.timeline.some((action) => action.op === 'handoff'), true);
 });
 
+
+test('a rejected obsolete preparation cannot reset a newer ready transition', async () => {
+  let rejectOld; const oldGate = new Promise((_, reject) => { rejectOld = reject; }); let calls = 0;
+  const { createCuefieldAutoMix } = require('../public/js/modules/05-playback/16-cuefield-automix-core');
+  const mix = createCuefieldAutoMix({ getKey: song => song.id,
+    planTransition: () => ++calls === 1 ? oldGate : Promise.resolve({ ok: true, chosen: { evaluation: { tier: 'usable' }, exit: { time: 20 }, entry: { time: 0 }, timeline: [{ op: 'handoff', t: 1 }] } }),
+    prepareAudioUrl: async () => '/fixture' });
+  mix.setEnabled(true);
+  const old = mix.prepare({ token: 1, currentIndex: 0, nextIndex: 1, currentSong: { id: 'A' }, nextSong: { id: 'B' } });
+  await new Promise(setImmediate); mix.reset('track-switch');
+  await mix.prepare({ token: 2, currentIndex: 1, nextIndex: 2, currentSong: { id: 'B' }, nextSong: { id: 'C' } });
+  rejectOld(new Error('obsolete network failure'));
+  assert.equal((await old).status, 'stale'); assert.equal(mix.snapshot().pending.toKey, 'C'); assert.equal(mix.snapshot().lastStatus, 'ready');
+});

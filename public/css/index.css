@@ -393,7 +393,6 @@ html.desktop-shell-root body {
   --source-netease: #d95b67;
   --source-qq: #00F5D4;
   --source-qishui: #45d68f;
-  --source-spotify: #1ed760;
   --source-local: #9db8cf
 }
 
@@ -858,6 +857,28 @@ body.desktop-shell.desktop-fullscreen #top-right {
   transition: opacity .35s ease;
   pointer-events: none;
   background: transparent
+}
+
+/* Two bounded decoded surfaces share crop/opacity without changing glass/base. */
+#custom-bg > .custom-bg-media,
+body.custom-background-album-cover #custom-bg > .custom-bg-media {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  object-fit: cover;
+  object-position: var(--custom-bg-position-x, 50%) var(--custom-bg-position-y, 50%);
+  transform: scale(calc(1.002 * var(--custom-bg-zoom, 1)));
+  transform-origin: var(--custom-bg-position-x, 50%) var(--custom-bg-position-y, 50%);
+  opacity: var(--custom-bg-surface-opacity, 0) !important;
+  transition: opacity .35s ease, object-position .22s ease, transform .22s ease;
+  pointer-events: none;
+  background: transparent
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #custom-bg > .custom-bg-media,
+  body.custom-background-album-cover #custom-bg > .custom-bg-media { transition: none }
 }
 
 #custom-bg::before {
@@ -2128,12 +2149,6 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
   background: rgba(69, 214, 143, .075)
 }
 
-.tag-source.spotify {
-  color: #d8ffe2;
-  border-color: rgba(30, 215, 96, .34);
-  background: rgba(30, 215, 96, .085)
-}
-
 .search-result.qq-source:hover {
   background: rgba(191, 214, 107, .052)
 }
@@ -2144,10 +2159,6 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 
 .search-result.qishui-source:hover {
   background: rgba(69, 214, 143, .052)
-}
-
-.search-result.spotify-source:hover {
-  background: rgba(30, 215, 96, .052)
 }
 
 .search-result.netease-source:hover {
@@ -4339,11 +4350,6 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
 .account-source-dot.qishui {
   background: var(--source-qishui);
   color: var(--source-qishui)
-}
-
-.account-source-dot.spotify {
-  background: var(--source-spotify);
-  color: var(--source-spotify)
 }
 
 .top-account-pill {
@@ -8585,17 +8591,10 @@ body.login-guide-active #login-guide-canvas {
   color: #d7ffe5
 }
 
-.login-platform-tabs button.spotify.active,
-.user-platform-tabs button.spotify.active {
-  background: rgba(30, 215, 96, .14);
-  color: #d8ffe2
-}
-
 .login-node-providers.login-platform-tabs button.netease.active,
 .login-node-providers.login-platform-tabs button.qq.active,
 .login-node-providers.login-platform-tabs button.kugou.active,
-.login-node-providers.login-platform-tabs button.qishui.active,
-.login-node-providers.login-platform-tabs button.spotify.active {
+.login-node-providers.login-platform-tabs button.qishui.active {
   background: linear-gradient(135deg, rgba(255, 255, 255, .064), rgba(var(--fc-accent-rgb), .026));
   color: rgba(255, 255, 255, .95)
 }
@@ -8797,10 +8796,6 @@ body.login-guide-active #login-guide-canvas {
   box-shadow: 0 0 0 1px rgba(191, 214, 107, .10)
 }
 
-.qq-cookie-panel.spotify-guide-panel .qq-cookie-input {
-  height: 46px
-}
-
 .qq-cookie-actions {
   display: flex;
   align-items: center;
@@ -8809,444 +8804,11 @@ body.login-guide-active #login-guide-canvas {
   margin-top: 9px
 }
 
-.qq-cookie-panel.spotify-guide-panel .qq-cookie-actions {
-  align-items: flex-end;
-  flex-wrap: wrap
-}
-
 .qq-cookie-note {
   font-size: 10.5px;
   color: rgba(255, 255, 255, .36);
   line-height: 1.45;
   text-align: left
-}
-
-.qq-cookie-panel.spotify-guide-panel .qq-cookie-note {
-  flex: 1 1 250px
-}
-
-.spotify-guide-title {
-  margin-bottom: 5px;
-  color: rgba(30, 215, 96, .82);
-  font-size: 11px;
-  font-weight: 700
-}
-
-.spotify-guide-steps {
-  display: grid;
-  gap: 3px
-}
-
-.spotify-guide-steps code {
-  color: rgba(255, 255, 255, .78);
-  font-family: inherit
-}
-
-.spotify-guide-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 7px
-}
-
-.spotify-guide-link {
-  border: 1px solid rgba(30, 215, 96, .26);
-  border-radius: 8px;
-  background: rgba(30, 215, 96, .08);
-  color: rgba(232, 255, 238, .82);
-  padding: 5px 8px;
-  font-size: 10.5px;
-  line-height: 1;
-  cursor: pointer
-}
-
-.spotify-guide-link:hover {
-  border-color: rgba(30, 215, 96, .48);
-  color: #fff
-}
-
-.dual-login-modal.spotify-setup-open {
-  width: min(920px, calc(100vw - 44px));
-  min-width: min(920px, calc(100vw - 44px));
-  max-width: min(920px, calc(100vw - 44px))
-}
-
-.login-auth-drawer.spotify-mode {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch
-}
-
-.login-auth-drawer.spotify-mode.show {
-  max-height: min(650px, calc(100vh - 190px));
-  padding: 18px;
-  overflow: auto;
-  overscroll-behavior: contain
-}
-
-.login-auth-drawer.spotify-mode > .login-auth-copy,
-.login-auth-drawer.spotify-mode > .login-auth-body,
-.login-auth-drawer.spotify-mode > .login-auth-actions {
-  display: none
-}
-
-.spotify-setup-wizard {
-  display: none;
-  min-width: 0
-}
-
-.login-auth-drawer.spotify-mode .spotify-setup-wizard {
-  display: block
-}
-
-.spotify-setup-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px
-}
-
-.spotify-setup-head > div {
-  display: grid;
-  gap: 4px
-}
-
-.spotify-setup-head span {
-  color: rgba(30, 215, 96, .78);
-  font-size: 9.5px;
-  font-weight: 850;
-  letter-spacing: .17em
-}
-
-.spotify-setup-head b {
-  color: rgba(255, 255, 255, .94);
-  font-size: 18px;
-  letter-spacing: .02em
-}
-
-.spotify-setup-head small {
-  color: rgba(255, 255, 255, .43);
-  font-size: 10.5px;
-  text-align: right
-}
-
-.spotify-setup-progress {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
-  margin-bottom: 12px
-}
-
-.spotify-setup-progress span {
-  position: relative;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  border: 1px solid rgba(255, 255, 255, .07);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .025);
-  color: rgba(255, 255, 255, .42);
-  font-size: 10.5px;
-  white-space: nowrap;
-  transition: border-color .22s ease, background .22s ease, color .22s ease, transform .22s ease
-}
-
-.spotify-setup-progress i {
-  width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .07);
-  color: rgba(255, 255, 255, .58);
-  font: 800 9px/1 inherit
-}
-
-.spotify-setup-progress span.current {
-  border-color: rgba(30, 215, 96, .34);
-  background: rgba(30, 215, 96, .075);
-  color: rgba(231, 255, 238, .92);
-  transform: translateY(-1px)
-}
-
-.spotify-setup-progress span.complete {
-  border-color: rgba(30, 215, 96, .20);
-  color: rgba(211, 255, 224, .72)
-}
-
-.spotify-setup-progress span.complete i {
-  background: rgba(30, 215, 96, .88);
-  color: #06160c
-}
-
-.spotify-setup-steps {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px
-}
-
-.spotify-setup-card {
-  position: relative;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px 12px 11px;
-  border: 1px solid rgba(255, 255, 255, .07);
-  border-radius: 13px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .014));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
-  transition: opacity .22s ease, border-color .22s ease, box-shadow .22s ease, transform .22s ease
-}
-
-.spotify-setup-card.is-active {
-  border-color: rgba(30, 215, 96, .28);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .07);
-  transform: translateY(-1px)
-}
-
-.spotify-setup-card.is-complete {
-  border-color: rgba(30, 215, 96, .17)
-}
-
-.spotify-setup-card.is-locked {
-  opacity: .52
-}
-
-.spotify-setup-card.is-error {
-  border-color: rgba(255, 112, 125, .32)
-}
-
-.spotify-setup-card-number {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  border: 1px solid rgba(30, 215, 96, .17);
-  background: rgba(30, 215, 96, .055);
-  color: rgba(30, 215, 96, .75);
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .06em
-}
-
-.spotify-setup-card-copy {
-  min-width: 0
-}
-
-.spotify-setup-card-copy > b {
-  display: block;
-  padding-right: 68px;
-  color: rgba(255, 255, 255, .89);
-  font-size: 12px;
-  line-height: 1.35
-}
-
-.spotify-setup-card-copy p {
-  margin: 5px 0 9px;
-  color: rgba(255, 255, 255, .47);
-  font-size: 10.5px;
-  line-height: 1.55
-}
-
-.spotify-setup-card-copy strong {
-  color: rgba(232, 255, 239, .78)
-}
-
-.spotify-setup-card-copy label {
-  display: block;
-  margin-bottom: 5px;
-  color: rgba(255, 255, 255, .52);
-  font-size: 9.5px;
-  font-weight: 700
-}
-
-#spotify-setup-client-id {
-  width: 100%;
-  height: 35px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  border-radius: 9px;
-  outline: none;
-  background: rgba(0, 0, 0, .20);
-  color: rgba(255, 255, 255, .86);
-  font: 11px/1.2 Consolas, monospace
-}
-
-#spotify-setup-client-id:focus {
-  border-color: rgba(30, 215, 96, .42);
-  box-shadow: 0 0 0 2px rgba(30, 215, 96, .07)
-}
-
-#spotify-setup-redirect-uri {
-  display: block;
-  overflow: hidden;
-  padding: 9px 10px;
-  border: 1px solid rgba(30, 215, 96, .13);
-  border-radius: 9px;
-  background: rgba(0, 0, 0, .20);
-  color: rgba(226, 255, 235, .78);
-  font: 10.5px/1.3 Consolas, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap
-}
-
-.spotify-setup-card-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 9px
-}
-
-.spotify-setup-card-actions button {
-  min-height: 29px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .04);
-  color: rgba(255, 255, 255, .68);
-  font: 700 10px/1 inherit;
-  cursor: pointer;
-  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease
-}
-
-.spotify-setup-card-actions button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, .20);
-  color: #fff;
-  transform: translateY(-1px)
-}
-
-.spotify-setup-card-actions button.primary {
-  border-color: rgba(30, 215, 96, .30);
-  background: rgba(30, 215, 96, .10);
-  color: rgba(232, 255, 239, .88)
-}
-
-.spotify-setup-card-actions button.wide {
-  min-width: 150px
-}
-
-.spotify-setup-card-actions button:disabled {
-  opacity: .40;
-  cursor: not-allowed
-}
-
-.spotify-setup-card-state {
-  position: absolute;
-  top: 11px;
-  right: 11px;
-  max-width: 78px;
-  overflow: hidden;
-  color: rgba(255, 255, 255, .38);
-  font-size: 9px;
-  font-weight: 750;
-  text-overflow: ellipsis;
-  white-space: nowrap
-}
-
-.spotify-setup-card.is-complete .spotify-setup-card-state {
-  color: rgba(77, 236, 133, .84)
-}
-
-.spotify-setup-card.is-error .spotify-setup-card-state {
-  color: rgba(255, 140, 150, .88)
-}
-
-.spotify-setup-check-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  margin-top: 8px
-}
-
-.spotify-setup-check {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 7px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .027);
-  color: rgba(255, 255, 255, .46);
-  font-size: 9.5px
-}
-
-.spotify-setup-check::before {
-  content: '·';
-  width: 14px;
-  height: 14px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .07)
-}
-
-.spotify-setup-check.ok {
-  color: rgba(213, 255, 226, .76)
-}
-
-.spotify-setup-check.ok::before {
-  content: '✓';
-  background: rgba(30, 215, 96, .18);
-  color: #6df19b
-}
-
-.spotify-setup-check.fail {
-  color: rgba(255, 186, 192, .78)
-}
-
-.spotify-setup-check.fail::before {
-  content: '!';
-  background: rgba(255, 95, 112, .14);
-  color: #ff9ca6
-}
-
-.spotify-setup-overall {
-  margin-top: 10px;
-  padding: 9px 11px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, .065);
-  background: rgba(0, 0, 0, .14);
-  color: rgba(255, 255, 255, .54);
-  font-size: 10.5px;
-  line-height: 1.45
-}
-
-.spotify-setup-overall.success {
-  border-color: rgba(30, 215, 96, .22);
-  color: rgba(219, 255, 230, .82)
-}
-
-.spotify-setup-overall.fail {
-  border-color: rgba(255, 103, 117, .22);
-  color: rgba(255, 190, 196, .82)
-}
-
-@media (max-width: 780px) {
-  .dual-login-modal.spotify-setup-open {
-    width: min(620px, calc(100vw - 28px));
-    min-width: 0;
-    max-width: min(620px, calc(100vw - 28px))
-  }
-  .spotify-setup-progress {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
-  }
-  .spotify-setup-steps {
-    grid-template-columns: minmax(0, 1fr)
-  }
-  .spotify-setup-head {
-    align-items: start;
-    flex-direction: column;
-    gap: 5px
-  }
-  .spotify-setup-head small { text-align: left }
 }
 
 .qq-cookie-panel .modal-btn {
@@ -9322,12 +8884,6 @@ body.login-guide-active #login-guide-canvas {
   border-color: rgba(69, 214, 143, .26);
   color: #d7ffe5;
   background: rgba(69, 214, 143, .08)
-}
-
-.account-provider-chip.spotify {
-  border-color: rgba(30, 215, 96, .26);
-  color: #d8ffe2;
-  background: rgba(30, 215, 96, .08)
 }
 
 .account-modal-actions {
@@ -13731,14 +13287,48 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
 
 .cache-storage-actions {
   justify-content: flex-start;
-  margin: 7px 0 10px
+  margin: 7px 0 10px;
+  flex-wrap: wrap
 }
 
 .cache-storage-actions .fx-mini-btn {
+  flex: 1 1 90px;
   min-height: 25px;
   padding: 0 8px;
   font-size: 10px
 }
+
+.cache-storage-release {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .18);
+  border-radius: 9px;
+  background: linear-gradient(120deg, rgba(var(--fc-accent-rgb), .065), rgba(255, 255, 255, .018));
+}
+.cache-storage-release-copy { flex: 1; min-width: 0; }
+.cache-storage-release-copy > span { display: block; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.84); }
+.cache-storage-release-copy small { display: block; margin-top: 3px; font-size: 9px; line-height: 1.5; color: rgba(255,255,255,.48); }
+.cache-storage-release .cache-storage-release-btn {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .32);
+  border-radius: 8px;
+  background: rgba(var(--fc-accent-rgb), .10);
+  color: rgba(var(--fc-accent-rgb), .95);
+  font-size: 10px;
+}
+.cache-storage-release .cache-storage-release-btn:hover { background: rgba(var(--fc-accent-rgb), .18); }
+.cache-storage-panel button:focus-visible { outline: 2px solid rgba(var(--fc-accent-rgb), .8); outline-offset: 2px; }
+.cache-storage-panel button:disabled { opacity: .45; cursor: wait; }
+.cache-storage-panel button[hidden], .cache-storage-status[hidden] { display: none; }
+.cache-storage-safe-note { margin: 6px 1px 11px; color: rgba(255,255,255,.43); font-size: 9px; line-height: 1.5; }
+.cache-storage-status { margin: -3px 0 10px; color: rgba(var(--fc-accent-rgb), .85); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.cache-storage-status[data-state="error"] { color: #edbba9; }
+.cache-storage-row > span { min-width: 0; }
+.cache-storage-row b { flex-shrink: 0; }
 
 .cache-storage-row {
   color: rgba(255, 255, 255, .63);
@@ -16826,6 +16416,19 @@ body.panel-reordering .mini-queue-item.is-reordering {
   -webkit-backdrop-filter: blur(14px) saturate(1.12)
 }
 
+/* Keep routing usable when zoom puts the modal into its stacked layout. */
+@media (max-width: 760px) {
+  #audio-output-workflow-modal .workflow-link-layer,
+  #audio-output-workflow-modal .flow-port { display: block; }
+  #audio-output-workflow-modal .audio-route-graph { padding-inline: 24px; }
+  #audio-output-workflow-modal .audio-flow-source .flow-port.out {
+    left: 20px;
+    right: auto;
+    top: 100%;
+  }
+  #audio-output-workflow-modal .audio-route-status { padding-left: 36px; }
+}
+
 #playlist-panel .pl-detail-list {
   display: flex;
   flex-direction: column;
@@ -19875,12 +19478,12 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 }
 
 /* Browser login import: note on its own line, the two actions share the row below. */
-#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-actions {
+#login-modal .qq-cookie-panel .qq-cookie-actions {
   flex-wrap: wrap;
   justify-content: flex-end
 }
 
-#login-modal .qq-cookie-panel:not(.spotify-guide-panel) .qq-cookie-note {
+#login-modal .qq-cookie-panel .qq-cookie-note {
   flex: 1 0 100%
 }
 
@@ -19905,7 +19508,6 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #playback-quality-preset-panel .quality-preset-provider-seg { margin-bottom: 0; min-width: 0 }
 #playback-quality-preset-panel .quality-preset-provider-seg button { min-width: 0; padding: 6px 2px; font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 #playback-quality-preset-panel .quality-preset-provider-seg button:disabled { opacity: .38; cursor: not-allowed }
-#playback-quality-preset-panel .quality-preset-note { color: var(--fc-ink-2); font-size: 11px; line-height: 1.6; margin: 8px 0 0; opacity: .8 }
 
 /* 换源菜单：搜到但当前账号不能播放 / 只能试听 */
 #control-source-switcher .control-source-option.blocked small { color: rgba(255, 138, 128, .82) }
@@ -20030,4 +19632,275 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 #audio-output-workflow-modal .audio-route-controls input[data-route-setting="delay"]:focus-visible {
   outline: 2px solid rgba(235, 192, 109, .8);
   outline-offset: 2px;
+}
+/* Preserve intentionally hidden desktop controls after console reparenting. */
+#fx-panel #wallpaper-fps-seg[hidden],
+#fx-panel .fx-slider[hidden],
+#fx-panel .fx-console-item-label[hidden] { display: none !important; }
+
+/* Match the login graph's generous port hit areas, with a normal pointer. */
+.audio-route-graph .flow-port {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  touch-action: none;
+}
+.audio-route-graph .flow-port.out { right: -20px; }
+.audio-route-graph .flow-port.in { left: -20px; }
+.audio-route-graph .flow-port::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(235, 192, 109, .72);
+  border-radius: 50%;
+  background: rgba(18, 17, 14, .96);
+  box-shadow: 0 0 0 3px rgba(235, 192, 109, .08);
+}
+.audio-route-graph .flow-port::after {
+  inset: 18px;
+  background: rgb(235, 192, 109);
+}
+.audio-route-graph .workflow-node.drop-ready {
+  border-color: rgba(235, 192, 109, .86);
+  box-shadow: inset 0 0 0 1px rgba(235, 192, 109, .18), 0 0 18px rgba(235, 192, 109, .13);
+}
+
+/* End buttons need their own rounded border inside the segment's clip. */
+.fx-seg > button:first-child { border-radius: 10px 0 0 10px; }
+.fx-seg > button:last-child { border-radius: 0 10px 10px 0; }
+.fx-seg > button:only-child { border-radius: 10px; }
+.fx-seg > button:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: -3px; }
+
+/* Left-panel material settings: one backdrop pass for the complete panel. */
+#playlist-panel,
+html.control-glass-svg-ok #playlist-panel {
+  background: rgba(12, 12, 18, var(--playlist-panel-density, .55)) !important;
+  backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) !important;
+  -webkit-backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) !important;
+}
+#playlist-panel .playlist-panel-sticky,
+#playlist-panel .queue-toolbar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Reuse the theme's existing clear/cyan/blue sheen under the panel content. */
+#playlist-panel { isolation: isolate; }
+html.aero-water-on #playlist-panel > .aero-sheen {
+  z-index: -1;
+  pointer-events: none;
+}
+html.aero-water-on #playlist-panel > .aero-sheen .aero-sheen-tint,
+html.aero-water-on #playlist-panel > .aero-sheen .aero-sheen-light {
+  pointer-events: none;
+}
+
+/* Let full-panel density and the existing water sheen remain visible through rows. */
+#playlist-panel .pl-card,
+#playlist-panel .queue-item,
+#playlist-panel .pl-detail-row {
+  background: rgba(0, 0, 0, var(--playlist-row-a, .20)) !important;
+}
+#playlist-panel .pl-card:hover,
+#playlist-panel .queue-item:hover,
+#playlist-panel .pl-detail-row:hover {
+  background: rgba(18, 18, 22, var(--playlist-row-hover-a, .30)) !important;
+}
+#playlist-panel .pl-card.expanded,
+#playlist-panel .queue-item.now {
+  background: rgba(8, 14, 24, var(--playlist-row-selected-a, .38)) !important;
+}
+#playlist-panel .pl-inline-detail {
+  background: linear-gradient(180deg, rgba(var(--fc-accent-rgb), .105), rgba(8, 12, 20, var(--playlist-row-hover-a, .30)) 24%, rgba(4, 7, 12, var(--playlist-row-a, .20)));
+}
+#playlist-panel .pl-detail-sticky {
+  background: linear-gradient(180deg, rgba(12, 17, 27, var(--playlist-detail-header-a, .72)), rgba(12, 17, 27, var(--playlist-row-selected-a, .38)));
+}
+
+/* Optional local microphone mix stays outside the routing SVG/drag surface. */
+#audio-microphone-mixer { margin-top: 12px; border: 1px solid rgba(241,215,159,.18); border-radius: 16px; background: rgba(255,255,255,.035); color: inherit; }
+#audio-microphone-mixer .audio-mixer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
+#audio-microphone-mixer button { border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.055); color: inherit; cursor: pointer; padding: 5px 10px; font: inherit; font-size: 12px; line-height: 20px; }
+#audio-microphone-mixer button:hover { background: rgba(255,255,255,.10); }
+#audio-microphone-mixer button:focus-visible, #audio-microphone-mixer select:focus-visible, #audio-microphone-mixer input:focus-visible { outline: 2px solid rgba(231,191,101,.85); outline-offset: 2px; }
+#audio-microphone-mixer [data-mixer-expand] { display: inline-flex; align-items: center; gap: 8px; border-color: transparent; background: transparent; text-align: left; padding-left: 0; font-weight: 600; }
+#audio-microphone-mixer .audio-mixer-disclosure { flex: 0 0 6px; width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; opacity: .62; transform: rotate(-45deg); }
+#audio-microphone-mixer [data-mixer-expand][aria-expanded="true"] .audio-mixer-disclosure { transform: rotate(45deg); }
+#audio-microphone-mixer [data-mixer-state] { font-size: 11px; font-weight: 400; opacity: .62; }
+#audio-microphone-mixer [data-mixer-enable] { flex: 0 0 auto; white-space: nowrap; }
+#audio-microphone-mixer [aria-pressed="true"] { color: #edcf91; border-color: rgba(233,194,116,.46); }
+#audio-microphone-mixer .audio-mixer-body { padding: 0 12px 12px; }
+#audio-microphone-mixer [hidden] { display: none !important; }
+#audio-microphone-mixer .audio-mixer-devices { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 12px; }
+#audio-microphone-mixer .audio-mixer-devices label { display: grid; gap: 6px; min-width: 0; font-size: 11px; opacity: .88; }
+#audio-microphone-mixer select { min-width: 0; width: 100%; max-width: 100%; height: 32px; border: 1px solid rgba(255,255,255,.17); border-radius: 9px; padding: 0 8px; color: inherit; background: rgba(30,31,35,.72); font: inherit; font-size: 12px; }
+#audio-microphone-mixer .audio-mixer-levels { display: grid; grid-template-columns: minmax(0,1fr) 32px minmax(0,1fr) 32px; gap: 8px; align-items: center; }
+#audio-microphone-mixer .audio-mixer-levels label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; white-space: nowrap; }
+#audio-microphone-mixer .audio-mixer-levels input { width: 100%; min-width: 36px; margin: 0; accent-color: #ddba76; }
+#audio-microphone-mixer .audio-mixer-levels output { min-width: 28px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; opacity: .7; }
+#audio-microphone-mixer [data-mixer-mute] { display: grid; place-items: center; width: 32px; height: 30px; padding: 0; }
+#audio-microphone-mixer .audio-mixer-feedback { display: flex; gap: 12px; align-items: center; justify-content: space-between; min-height: 20px; margin-top: 8px; }
+#audio-microphone-mixer [data-mixer-message] { font-size: 11px; opacity: .65; }
+#audio-microphone-mixer meter { flex: 0 0 72px; width: 72px; height: 6px; border: 0; border-radius: 4px; appearance: none; -webkit-appearance: none; background: rgba(235,192,109,.12); }
+#audio-microphone-mixer meter::-webkit-meter-bar { height: 6px; border: 0; border-radius: 4px; background: rgba(235,192,109,.12); box-shadow: none; }
+#audio-microphone-mixer meter::-webkit-meter-optimum-value,
+#audio-microphone-mixer meter::-webkit-meter-suboptimum-value,
+#audio-microphone-mixer meter::-webkit-meter-even-less-good-value { border-radius: 4px; background: rgb(235,192,109); }
+#audio-microphone-mixer meter::-moz-meter-bar { border-radius: 4px; background: rgb(235,192,109); }
+@media (max-width: 600px) { #audio-microphone-mixer .audio-mixer-devices { grid-template-columns: minmax(0,1fr); } #audio-microphone-mixer .audio-mixer-levels { grid-template-columns: minmax(0,1fr) 32px; } }
+
+/* Match existing console controls while exposing keyboard focus. */
+#fx-panel .fx-toggle:focus-visible {
+  outline: 2px solid var(--fc-accent, #f4d28a);
+  outline-offset: 2px;
+}
+.modal-mask[role="dialog"]:focus,
+.hotkey-modal[role="dialog"]:focus {
+  outline: none;
+}
+
+/* Song titles remain visually inline while offering a native keyboard action. */
+button.queue-play-name {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.queue-play-name:focus-visible,
+.collect-item[role="button"]:focus-visible {
+  outline: 2px solid var(--fc-accent, #f4d28a);
+  outline-offset: 2px;
+}
+
+/* QQ inline scanning: one instruction, with progress kept in its own live line. */
+#login-auth-drawer.qq-scan-mode {
+  grid-template-columns: minmax(0, 1fr) 156px;
+  column-gap: 24px;
+  row-gap: 18px;
+  text-align: left;
+}
+#login-auth-drawer.qq-scan-mode.show { padding: 20px; }
+#login-auth-drawer.qq-scan-mode .login-auth-copy { min-width: 0; }
+#login-auth-drawer.qq-scan-mode h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+#login-auth-drawer.qq-scan-mode .desc {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, .64);
+  overflow-wrap: anywhere;
+}
+#login-auth-drawer.qq-scan-mode #qr-status {
+  min-height: 0;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+#login-auth-drawer.qq-scan-mode #qr-status:empty { margin: 0; }
+#login-auth-drawer.qq-scan-mode .login-auth-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0;
+}
+#login-auth-drawer.qq-scan-mode .login-auth-actions .modal-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+@media (max-width: 560px) {
+  #login-auth-drawer.qq-scan-mode { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #login-auth-drawer.qq-scan-mode.show { padding: 16px; max-height: 640px; }
+  #login-auth-drawer.qq-scan-mode .login-auth-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #login-auth-drawer.qq-scan-mode .login-auth-actions .modal-btn { min-width: 0; white-space: normal; }
+}
+
+/* A small existing-panel inner edge stays grabbable when Explorer owns wheel
+   input. Row controls and long-press song reordering keep their own gestures. */
+body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-locked) #search-results,
+body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-locked) #mini-queue-list,
+body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-locked) #track-detail-body {
+  box-sizing: border-box;
+  padding-left: 12px;
+}
+
+/* Optional virtual-driver hint uses the routing panel's existing glass card. */
+#audio-output-workflow-modal #virtual-audio-setup-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+  padding: 14px 36px 14px 14px;
+  border: 1px solid rgba(241, 215, 159, .18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .035);
+  color: inherit;
+}
+#audio-output-workflow-modal #virtual-audio-setup-card[hidden],
+#audio-output-workflow-modal #virtual-audio-setup-card [hidden] { display: none !important; }
+#audio-output-workflow-modal #virtual-audio-setup-card .virtual-audio-setup-copy {
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, .78);
+}
+#audio-output-workflow-modal #virtual-audio-setup-card .virtual-audio-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#audio-output-workflow-modal #virtual-audio-setup-card .modal-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+#audio-output-workflow-modal #virtual-audio-setup-card .virtual-audio-setup-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, .65);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+#audio-output-workflow-modal #virtual-audio-setup-card .virtual-audio-setup-close:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+#audio-output-workflow-modal #virtual-audio-setup-card button:focus-visible { outline: 2px solid rgba(231, 191, 101, .85); outline-offset: 2px; }
+#audio-output-workflow-modal #virtual-audio-setup-card button:disabled { opacity: .5; cursor: default; }
+#audio-output-workflow-modal #virtual-audio-setup-card .virtual-audio-setup-feedback { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-mixer-head { flex-wrap: wrap; }
+#audio-output-workflow-modal #audio-microphone-mixer [data-mixer-expand] { margin-right: auto; }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-virtual-setup-entry { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+#audio-output-workflow-modal #audio-microphone-mixer .virtual-audio-entry-status { flex-basis: 100%; font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, .65); }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-virtual-setup-entry button { white-space: nowrap; color: rgba(255, 255, 255, .68); border-color: rgba(255, 255, 255, .12); background: transparent; }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-virtual-setup-entry button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 720px) {
+  #audio-output-workflow-modal #virtual-audio-setup-card { grid-template-columns: minmax(0, 1fr); }
 }

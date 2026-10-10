@@ -504,7 +504,9 @@ function planCuefieldTransitionFromCache(opts = {}) {
   const from = analyzeCacheEntry(fromEntry, fromKey, opts.fromLrc);
   const to = analyzeCacheEntry(toEntry, toKey, opts.toLrc);
   const duration = Math.max(0, Number(from.cueProfile && from.cueProfile.duration) || 0);
-  const structuralFloor = resolveListeningFloor(from.structureMap, duration);
+  // Listening ownership wins over an early structural exit, even at high confidence.
+  const listeningFloor = duration > 0 ? Math.max(0, duration <= 90 ? duration - 2.2 : duration * 0.65) : 0;
+  const structuralFloor = Math.max(listeningFloor, resolveListeningFloor(from.structureMap, duration));
   const requestedListenFloor = finiteOrNull(opts.minimumListenUntil);
   const listenFloor = requestedListenFloor === null
     ? structuralFloor
@@ -514,6 +516,8 @@ function planCuefieldTransitionFromCache(opts = {}) {
   const cadenceFallbackEnabled = opts.enableCadenceFallback === true;
   const baseWindowOptions = {
     recentRecipes,
+    maxEntryTime: Math.min(12, Math.max(0, Number(to.cueProfile && to.cueProfile.duration) || 0) * 0.1,
+      opts.maxEntryTime == null ? Infinity : Math.max(0, Number(opts.maxEntryTime) || 0)),
     enableCleanBoundary: opts.enableCleanBoundary === true,
     enableCadenceFallback: cadenceFallbackEnabled,
     ...(cadenceFallbackEnabled ? {
@@ -545,6 +549,7 @@ function planCuefieldTransitionFromCache(opts = {}) {
       } else {
         const fallbackPlan = chooseTransitionWindow(from, to, {
           recentRecipes,
+          maxEntryTime: baseWindowOptions.maxEntryTime,
           enableCadenceFallback: true,
           boundaryEvidence: [],
           tailEvidence,

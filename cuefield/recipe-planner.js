@@ -25,8 +25,9 @@ function gainAtEnvelope(envelope, time) {
     }
   }
   if (!segment) return 0;
-  if (!(segment.end > segment.start) || time >= segment.end) return clamp(segment.gainEnd);
-  const progress = (time - segment.start) / (segment.end - segment.start);
+  const rampEnd = segment.rampEnd ?? segment.end;
+  if (!(rampEnd > segment.start) || time >= rampEnd) return clamp(segment.gainEnd);
+  const progress = (time - segment.start) / (rampEnd - segment.start);
   return clamp(segment.gainStart + (segment.gainEnd - segment.gainStart) * curveGain(progress, segment.curve));
 }
 
@@ -44,7 +45,9 @@ function buildGainEnvelope(timeline, deck) {
     const startGain = gainAtEnvelope(envelope, start);
     envelope = envelope
       .filter((segment) => segment.start < start)
-      .map((segment) => segment.end > start ? { ...segment, end: start } : segment);
+      .map((segment) => segment.end > start
+        ? { ...segment, end: start, rampEnd: segment.rampEnd ?? segment.end }
+        : segment);
     if (action.op === 'play') {
       const gain = clamp(action.volume);
       envelope.push({ start, end: Infinity, gainStart: gain, gainEnd: gain });
@@ -1029,6 +1032,17 @@ function chosenOverlapDiagnostics(candidate, fallback) {
   };
 }
 
+function teaserFitsTarget(candidate, targetDuration) {
+  const timeline = candidate && Array.isArray(candidate.timeline) ? candidate.timeline : [];
+  const play = timeline.find((action) => action && action.deck === 'B' && action.op === 'play');
+  const stop = timeline.find((action) => action && action.deck === 'B' && action.op === 'stop'
+    && toNumber(action.t, NaN) > toNumber(play && play.t, NaN));
+  const end = play && stop
+    ? toNumber(play.at, NaN) + toNumber(stop.t, NaN) - toNumber(play.t, NaN)
+    : NaN;
+  return Number.isFinite(end) && end <= targetDuration + 0.000001;
+}
+
 function recipeEligibility(candidate, context) {
   const { assessment, route, scores, severeOverlapRisk, sectionTier } = context;
   if (!candidate.window.runwayAvailable) return { eligible: false, reason: 'insufficient B runway', preference: 0 };
@@ -1102,6 +1116,7 @@ function recipeEligibility(candidate, context) {
     return { eligible: true, reason: '', preference: 0.16 };
   }
   if (candidate.recipe === 'hook-teaser') {
+    if (!teaserFitsTarget(candidate, context.targetDuration)) return { eligible: false, reason: 'hook teaser exceeds target duration', preference: 0 };
     if (route !== 'structure-mix') return { eligible: false, reason: 'route does not support a hook teaser', preference: 0 };
     if (!assessment.entryTrusted || !['hook', 'chorus', 'drop'].includes(String(context.entryType))) return { eligible: false, reason: 'landing is not a trusted climax', preference: 0 };
     if (!assessment.musicalEvidence || assessment.musicalCompatibility < 0.72 || assessment.melodySimilarity < 0.55) return { eligible: false, reason: 'musical evidence is not compatible enough', preference: 0 };
@@ -1118,6 +1133,7 @@ function recipeEligibility(candidate, context) {
     return { eligible: true, reason: '', preference: 0.42 };
   }
   if (candidate.recipe === 'tease-roll-double-drop') {
+    if (!teaserFitsTarget(candidate, context.targetDuration)) return { eligible: false, reason: 'hook teaser exceeds target duration', preference: 0 };
     if (context.recentRecipes.includes(candidate.recipe)) return { eligible: false, reason: 'impact recipe cooldown', preference: 0 };
     if (route !== 'structure-mix') return { eligible: false, reason: 'route does not support the impact recipe', preference: 0 };
     if (context.sectionRisks.includes('directionality mismatch')) {
@@ -1198,6 +1214,7 @@ function planRecipeCandidates(fromProfile, toProfile, opts = {}) {
       entryConfidence: assessment.entryConfidence,
       recentRecipes: Array.isArray(opts.recentRecipes) ? opts.recentRecipes : [],
       sourceDuration: Math.max(0, toNumber(fromProfile && fromProfile.duration)),
+      targetDuration: Math.max(0, toNumber(toProfile && toProfile.duration)),
     }),
   }));
   const candidatesWithEligibility = evaluated.map((item) => ({

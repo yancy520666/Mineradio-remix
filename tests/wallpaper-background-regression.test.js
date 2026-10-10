@@ -165,6 +165,7 @@ test('choosing cover background tears down the WE layer without entering desktop
   const context = vm.createContext({
     fx: { wallpaperMode: false, backgroundMedia: { type: 'video' }, backgroundImage: 'old' },
     deactivateWallpaperEngineBackground: quiet => calls.push(['stopWE', quiet]),
+    retryCustomBackgroundSurfaceSelection() {},
     updateCustomBackgroundControls: () => calls.push(['applyCover']),
     saveLyricLayout: () => {}, showToast: () => {},
   });

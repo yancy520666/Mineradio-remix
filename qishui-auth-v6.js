@@ -10,7 +10,6 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { BrowserWindow, app, session } = require('electron');
 const QRCode = require('qrcode');
 
 const API_BASE = 'https://api.qishui.com';
@@ -41,6 +40,26 @@ const ASSETS = new Map([
 let getConfig = null;
 let updateConfig = null;
 let runtime = null;
+
+function isElectronMainProcess() {
+  return !!process.versions.electron && process.type === 'browser';
+}
+
+function getElectronRuntime() {
+  // The npm Electron entry point may download its executable when imported by
+  // plain Node. Backend/module loading must never start that installer.
+  if (!isElectronMainProcess()) {
+    const error = new Error('Qishui authentication requires the Electron main process');
+    error.code = 'QISHUI_ELECTRON_REQUIRED';
+    throw error;
+  }
+  return require('electron');
+}
+
+function isAuthHostNavigationAllowed(value, assetBase) {
+  return typeof value === 'string' && typeof assetBase === 'string'
+    && (value === assetBase + 'security_seed.html' || value === assetBase + 'security_host.html');
+}
 
 function configure(hooks) {
   getConfig = hooks && hooks.getConfig;
@@ -147,6 +166,8 @@ class QishuiAuthRuntime {
     this.destroying = false;
     this.mfaNetworkLog = [];
     this.qrGeneration = 0;
+    this.mfaGeneration = 0;
+    this.mfaAttempt = null;
   }
 
   async initialize() {
@@ -242,6 +263,7 @@ class QishuiAuthRuntime {
   }
 
   async _initialize() {
+    const { BrowserWindow, app, session } = getElectronRuntime();
     if (!app.isReady()) await app.whenReady();
     ensureIdentity();
     await this._startAssetServer();
@@ -260,6 +282,9 @@ class QishuiAuthRuntime {
         partition: AUTH_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
+        nodeIntegrationInSubFrames: false,
+        nodeIntegrationInWorker: false,
+        webviewTag: false,
         sandbox: true,
         webSecurity: false,
         backgroundThrottling: false,
@@ -267,12 +292,24 @@ class QishuiAuthRuntime {
     });
     this.window.setMenuBarVisibility(false);
     this.window.webContents.setUserAgent(UA);
+    // MFA renders inside the local host. It must not replace that document or
+    // open an unbounded auxiliary window. Subframe policy requires separately
+    // verified official component origins and is not inferred here.
+    // The official web component has no Electron guest/preload capability.
+    // Keep that existing boundary explicit even if defaults change later.
+    this.window.webContents.on('will-attach-webview', event => event.preventDefault());
+    this.window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    this.window.webContents.on('will-navigate', (event, url) => {
+      if (!isAuthHostNavigationAllowed(url || event.url, this.assetBase)) event.preventDefault();
+    });
+    this.window.webContents.on('will-redirect', (event, url, _isInPlace, isMainFrame) => {
+      if (isMainFrame === false || event.isMainFrame === false) return;
+      if (!isAuthHostNavigationAllowed(url || event.url, this.assetBase)) event.preventDefault();
+    });
     this.window.on('close', event => {
       if (this.destroying) return;
       event.preventDefault();
-      this.window.webContents.executeJavaScript(
-        'window.__qishuiCancelSecondVerify && window.__qishuiCancelSecondVerify()',
-      ).catch(() => {});
+      this.cancelSecondVerify();
       this.window.hide();
     });
 
@@ -429,7 +466,29 @@ class QishuiAuthRuntime {
     return envelope;
   }
 
+  cancelSecondVerify(message = '用户取消二次验证') {
+    const attempt = this.mfaAttempt;
+    if (!attempt) return;
+    attempt.cancel({ status: false, message });
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.webContents.mainFrame.executeJavaScript(
+        `window.__qishuiCancelSecondVerify && window.__qishuiCancelSecondVerify(${JSON.stringify(attempt.id)})`,
+      ).catch(() => {});
+    }
+  }
+
   async secondVerify(decision, identity) {
+    this.cancelSecondVerify('二次验证已被新请求替换');
+    const win = this.window;
+    const id = String(++this.mfaGeneration);
+    let cancel;
+    const cancelled = new Promise(resolve => { cancel = resolve; });
+    const attempt = { id, cancel };
+    this.mfaAttempt = attempt;
+    // Parent-side bound also settles if the page disappears or fails to run.
+    const timeout = setTimeout(() => {
+      if (this.mfaAttempt === attempt) this.cancelSecondVerify('安全验证超时，请重试');
+    }, 6 * 60 * 1000);
     this.mfaNetworkLog = [];
     this.window.setTitle('汽水音乐安全验证');
     this.window.setSize(980, 760);
@@ -437,10 +496,10 @@ class QishuiAuthRuntime {
     this.window.show();
     this.window.focus();
     try {
-      return await this.window.webContents.executeJavaScript(
+      return await Promise.race([cancelled, win.webContents.mainFrame.executeJavaScript(
         `window.__qishuiSecondVerify(
           ${JSON.stringify(decision)},
-          ${JSON.stringify({ generalParams: {
+          ${JSON.stringify({ attemptId: id, generalParams: {
             device_id: identity.deviceId,
             install_id: identity.installId,
             did: identity.deviceId,
@@ -450,9 +509,13 @@ class QishuiAuthRuntime {
           } })}
         )`,
         true,
-      );
+      )]);
     } finally {
-      if (this.window && !this.window.isDestroyed()) this.window.hide();
+      clearTimeout(timeout);
+      if (this.mfaAttempt === attempt) {
+        this.mfaAttempt = null;
+        if (win && !win.isDestroyed()) win.hide();
+      }
     }
   }
 
@@ -513,6 +576,7 @@ class QishuiAuthRuntime {
 
   async clear() {
     this.qrGeneration += 1;
+    this.cancelSecondVerify();
     if (this.authSession) {
       await this.authSession.clearStorageData({
         storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'serviceworkers'],
@@ -551,6 +615,9 @@ async function clear() {
   if (runtime) {
     await runtime.clear();
   } else {
+    // A Node-only backend has no Electron partition to clear.
+    if (!isElectronMainProcess()) return;
+    const { app, session } = getElectronRuntime();
     if (!app.isReady()) await app.whenReady();
     const authSession = session.fromPartition(AUTH_PARTITION);
     await authSession.clearStorageData({

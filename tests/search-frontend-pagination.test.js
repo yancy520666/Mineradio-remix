@@ -168,7 +168,7 @@ test('catalogue search readiness is separate from login state', () => {
   };
   vm.runInNewContext(`${namedFunctionSource(searchSource, 'searchProviderCanSearch')}\nthis.canSearch = searchProviderCanSearch;`, sandbox);
   assert.equal(sandbox.canSearch('qishui'), true);
-  assert.equal(sandbox.canSearch('spotify'), true);
+  assert.equal(sandbox.canSearch('spotify'), false);
   assert.equal(sandbox.canSearch('spotify-off'), false);
   assert.equal(sandbox.canSearch('netease'), true);
   assert.equal(sandbox.canSearch('qq'), true);
@@ -238,7 +238,7 @@ test('search pagination carries provider offsets and ignores stale sessions', ()
   const sandbox = { encodeURIComponent };
   vm.runInNewContext(`${providerUrl}\nthis.url = searchProviderUrl;`, sandbox);
   assert.match(sandbox.url('qq', '晴天', 12, 24), /limit=12&offset=24$/);
-  assert.match(sandbox.url('spotify', 'Muse', 10, 30), /limit=10&offset=30$/);
+  assert.equal(sandbox.url('spotify', 'Muse', 10, 30), '');
 
   assert.match(searchSource, /fetchMusicSearchResults\(q, mode, previousPages, opts\)/);
   assert.match(searchSource, /value\.nextOffset/);
@@ -318,23 +318,23 @@ test('account platform order picks the shown copy without beating a better match
     var SEARCH_PROVIDER_RUN_PENALTY_MAX_STEPS = 3;
     var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
     var SEARCH_ORIGINAL_ARTIST_HINTS = [];
-    function contentProviderOrder() { return order.concat('spotify'); }
+    function contentProviderOrder() { return order.slice(); }
     function songProviderKey(song) { return song.provider; }
   `, 'this.merge = mergeSongSearchResults;'), sandbox);
 
   const neteaseOriginal = { provider: 'netease', id: 1, name: '晴天', artist: '周杰伦', album: '叶惠美' };
   const qqOriginal = { provider: 'qq', mid: 'a', name: '晴天', artist: '周杰伦', album: '叶惠美' };
-  let merged = sandbox.merge([neteaseOriginal], [qqOriginal], [], [], [], 10, '晴天');
+  let merged = sandbox.merge([neteaseOriginal], [qqOriginal], [], [], 10, '晴天');
   assert.equal(merged.length, 1);
   assert.equal(merged[0].provider, 'qq', 'the top account platform supplies the shared song');
 
   sandbox.order = ['netease', 'qq', 'kugou', 'qishui'];
-  merged = sandbox.merge([{ ...neteaseOriginal }], [{ ...qqOriginal }], [], [], [], 10, '晴天');
+  merged = sandbox.merge([{ ...neteaseOriginal }], [{ ...qqOriginal }], [], [], 10, '晴天');
   assert.equal(merged[0].provider, 'netease', 'reordering accounts changes the preferred copy');
 
   sandbox.order = ['kugou', 'netease', 'qq', 'qishui'];
   const kugouCover = { provider: 'kugou', id: 'k', name: '晴天（翻唱）', artist: '其他歌手', album: '翻唱集' };
-  merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], [], 10, '晴天');
+  merged = sandbox.merge([{ ...neteaseOriginal }], [], [kugouCover], [], 10, '晴天');
   assert.equal(merged[0].provider, 'netease', 'platform preference must not lift a cover above the original');
 
   // A lower platform has more, slightly better songs; the preferred platform
@@ -343,7 +343,7 @@ test('account platform order picks the shown copy without beating a better match
   const titles = ['晴天', '稻香', '七里香', '夜曲', '青花瓷', '搁浅', '轨迹', '借口', '枫', '园游会', '以父之名', '半岛铁盒'];
   const qishuiSongs = titles.map((name, i) => ({ provider: 'qishui', id: 'q' + i, name, artist: '周杰伦', album: name, popularity: 1e9 }));
   const neteaseSongs = ['屋顶', '布拉格广场', '刀马旦'].map((name, i) => ({ provider: 'netease', id: 'n' + i, name, artist: '周杰伦 / 温岚', album: name }));
-  merged = sandbox.merge(neteaseSongs, [], [], qishuiSongs, [], 30, '周杰伦');
+  merged = sandbox.merge(neteaseSongs, [], [], qishuiSongs, 30, '周杰伦');
   const firstNetease = merged.findIndex((song) => song.provider === 'netease');
   assert.ok(firstNetease >= 0 && firstNetease <= 3, 'the preferred platform appears within the first rows, got index ' + firstNetease);
   assert.equal(merged.length, 15);
@@ -356,7 +356,7 @@ test('account platform order picks the shown copy without beating a better match
   const qqOriginalSunny = { provider: 'qq', mid: 'o', name: '晴天', artist: '周杰伦', album: '叶惠美' };
   const qqLive = { provider: 'qq', mid: 'l', name: '晴天', artist: '周杰伦', album: '地表最强演唱会 Live' };
   const selfNamed = { provider: 'qishui', id: 'x', name: '晴天', artist: '晴天', album: '' };
-  merged = sandbox.merge(covers, [qqOriginalSunny, qqLive], [], [selfNamed], [], 30, '晴天');
+  merged = sandbox.merge(covers, [qqOriginalSunny, qqLive], [], [selfNamed], 30, '晴天');
   assert.equal(merged[0].mid, 'o', 'the original singer\'s studio version leads');
   assert.ok(merged.findIndex((song) => song.mid === 'l') > 1, 'the hint does not lift the live edition');
   assert.ok(merged.findIndex((song) => song.id === 'x') > 0, 'a self-titled upload is not a best match');
@@ -365,7 +365,7 @@ test('account platform order picks the shown copy without beating a better match
   // The reverse never happens: a lower platform does not break up the preferred one's rows.
   const neteaseMany = titles.map((name, i) => ({ provider: 'netease', id: 'n' + i, name, artist: '周杰伦', album: name }));
   const qishuiFew = ['屋顶', '布拉格广场', '刀马旦'].map((name, i) => ({ provider: 'qishui', id: 's' + i, name, artist: '周杰伦 / 温岚', album: name }));
-  merged = sandbox.merge(neteaseMany, [], [], qishuiFew, [], 30, '周杰伦');
+  merged = sandbox.merge(neteaseMany, [], [], qishuiFew, 30, '周杰伦');
   assert.equal(merged.findIndex((song) => song.provider === 'qishui'), 12, 'the bottom platform waits until the preferred one runs out');
 
   // Artist-name query: uploads merely titled "The Weeknd" must not bury the
@@ -376,7 +376,7 @@ test('account platform order picks the shown copy without beating a better match
   const qqWeeknd = ['After Hours', 'Die For You', 'One Of The Girls'].map((n, i) => weeknd('qq', n, i));
   const qishuiUploads = ['Matthew', 'Sannan', 'Gutta', 'Southlove', 'Hitto'].map((a, i) => ({ provider: 'qishui', id: 's' + i, name: 'The Weeknd', artist: a, album: '' }))
     .concat([{ provider: 'qishui', id: 'sb', name: 'The Weeknd - Starboy (J1MBY3 Bootleg)', artist: 'The Weeknd', album: '' }]);
-  merged = sandbox.merge(neteaseWeeknd, qqWeeknd, [], qishuiUploads, [], 30, 'theweeknd');
+  merged = sandbox.merge(neteaseWeeknd, qqWeeknd, [], qishuiUploads, 30, 'theweeknd');
   assert.equal(merged[0].provider, 'netease', 'the preferred platform supplies the first song');
   const firstUpload = merged.findIndex((song) => song.provider === 'qishui');
   assert.ok(firstUpload >= 5, 'title-only uploads rank after the artist\'s songs, got ' + firstUpload);
@@ -389,7 +389,7 @@ test('typed results put the closest name first, then the account platform order'
     'simpleSearchNorm', 'searchProviderPreferenceRanks', 'typedSearchMatchScore', 'mergeTypedSearchItems',
   ], `
     var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
-    function contentProviderOrder() { return order.concat('spotify'); }
+    function contentProviderOrder() { return order.slice(); }
   `, 'this.merge = mergeTypedSearchItems;'), sandbox);
   const merged = sandbox.merge({
     netease: [{ provider: 'netease', name: '周杰伦的床边故事' }, { provider: 'netease', name: '周杰伦' }],
@@ -420,7 +420,7 @@ test('a duplicate-only song page updates sources and continues to later missing 
   let pages = 0;
   let refreshes = 0;
   const sandbox = {
-    MUSIC_SEARCH_MAX_RESULTS: 180, searchRequestSeq: 1, searchMode: 'song', searchLastResultQuery: 'song|晴天',
+    window: {AbortController}, AbortController, searchAbortController:null, MUSIC_SEARCH_MAX_RESULTS: 180, searchRequestSeq: 1, searchMode: 'song', searchLastResultQuery: 'song|晴天',
     $input: { value: '晴天' }, searchMusicRenderState: {key:'song|晴天', query:'晴天',mode:'song',songs:[original],remoteHasMore:true,providerPages:{}},
     contentProviderOrder: () => ['netease', 'qq'], songProviderKey: song => song.provider,
     refreshSearchLoadMoreSentinel() {}, refreshSearchSongSources() { refreshes++; }, appendNextSearchResults: () => true,
@@ -429,7 +429,7 @@ test('a duplicate-only song page updates sources and continues to later missing 
       : {songs:[{provider:'netease',id:2,name:'稻香',artist:'周杰伦'}],hasMore:false,providerPages:{netease:{nextOffset:19,hasMore:false}}},
   };
   vm.runInNewContext(functionBundle(['simpleSearchNorm', 'sourceSwitchArtistParts', 'searchVersionSignature', 'searchCanonicalSongKey',
-    'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'mergeUniqueSearchSongPools', 'loadNextMusicSearchPage'], '', 'this.next = loadNextMusicSearchPage;'), sandbox);
+    'searchProviderPreferenceRanks', 'searchProviderPreferenceRank', 'mergeUniqueSearchSongPools', 'searchProviderPagesHaveFailed', 'loadNextMusicSearchPage'], '', 'this.next = loadNextMusicSearchPage;'), sandbox);
   await sandbox.next('song|晴天');
   assert.equal(sandbox.searchMusicRenderState.songs[0], preferred);
   assert.equal(sandbox.searchMusicRenderState.remoteHasMore, true);
@@ -449,7 +449,7 @@ test('typed pagination deduplicates rows, prevents concurrent loads and drops a 
     apiJson: url => {urls.push(url); return new Promise(resolve => {finish = resolve;});},
     typedSearchState:{query:'精选',mode:'song',type:'playlist',requestSeq:1,items:[oldItem],providerPages:{netease:{nextOffset:18,hasMore:true}}},
   };
-  vm.runInNewContext(functionBundle(['fetchTypedSearchProviderPage', 'typedSearchRequestIsCurrent', 'loadNextTypedSearchPage'], '', 'this.next = loadNextTypedSearchPage;'), sandbox);
+  vm.runInNewContext(functionBundle(['searchProviderPagesHaveFailed', 'fetchTypedSearchProviderPage', 'typedSearchRequestIsCurrent', 'loadNextTypedSearchPage'], '', 'this.next = loadNextTypedSearchPage;'), sandbox);
   const first = sandbox.next();
   assert.equal(await sandbox.next(), false);
   assert.match(urls[0], /offset=18$/);
@@ -470,7 +470,7 @@ test('empty song results retain the active key so a late overview can appear', a
   let finishOverview;
   let overviewWork;
   const sandbox = {
-    window:{AbortController}, AbortController, searchRequestSeq:0, searchMode:'song', searchResultType:'all', searchAbortController:null,
+    cancelPendingSearchTimer() {}, searchProviderPagesHaveFailed:()=>false, window:{AbortController}, AbortController, searchRequestSeq:0, searchMode:'song', searchResultType:'all', searchAbortController:null,
     searchMusicRenderState:{key:''}, $input:{value:'测试歌手'}, $results:{innerHTML:'',classList:{add() {}}}, searchProviderNotice:'',
     searchResultKey:(q,mode)=>(mode||'song')+'|'+q,
     abortActiveSearch() {}, disconnectSearchLoadMoreObserver() {}, setSearchHistorySurface() {},

@@ -278,7 +278,7 @@ function makeContentListManager() {
       return '/api/qishui/playlist/tracks?id=' + encodeURIComponent(contentSource.id) + '&limit=' + limit + '&offset=' + Math.max(0, offset || 0);
     }
     if (contentSource.provider === 'spotify') {
-      return '/api/spotify/playlist/tracks?id=' + encodeURIComponent(contentSource.id) + '&limit=' + limit + '&offset=' + Math.max(0, offset || 0);
+      return '';
     }
     if (contentSource.provider === 'netease') {
       return '/api/playlist/tracks?id=' + encodeURIComponent(contentSource.id) + '&limit=' + limit + '&offset=' + Math.max(0, offset || 0);
@@ -677,6 +677,7 @@ function makeContentListManager() {
       syncRenderedRows(true);
     },
     open: async function (playlistId, title, fromCard) {
+      if (/^spotify:/i.test(String(playlistId || ''))) { showToast('Spotify 已停止支持，历史记录已保留'); return false; }
       open = true;
       playlistTitle = title;
       sourceCard = fromCard;
@@ -747,12 +748,11 @@ function makeContentListManager() {
       var qqPlaylistId = String(playlistId || '').indexOf('qq:') === 0 ? String(playlistId).slice(3) : '';
       var kugouPlaylistId = String(playlistId || '').indexOf('kugou:') === 0 ? String(playlistId).slice(6) : '';
       var qishuiPlaylistId = String(playlistId || '').indexOf('qishui:') === 0 ? String(playlistId).slice(7) : '';
-      var spotifyPlaylistId = String(playlistId || '').indexOf('spotify:') === 0 ? String(playlistId).slice(8) : '';
       var builtInPlaylistId = String(playlistId || '').indexOf('mineradio:') === 0 ? String(playlistId).slice(10) : '';
       contentKind = podcastCollectionKey ? 'podcast' : 'playlist';
       contentSource = podcastCollectionKey ? null : {
-        provider: builtInPlaylistId ? 'mineradio' : (qqPlaylistId ? 'qq' : (kugouPlaylistId ? 'kugou' : (qishuiPlaylistId ? 'qishui' : (spotifyPlaylistId ? 'spotify' : 'netease')))),
-        id: builtInPlaylistId || qqPlaylistId || kugouPlaylistId || qishuiPlaylistId || spotifyPlaylistId || playlistId
+        provider: builtInPlaylistId ? 'mineradio' : (qqPlaylistId ? 'qq' : (kugouPlaylistId ? 'kugou' : (qishuiPlaylistId ? 'qishui' : 'netease'))),
+        id: builtInPlaylistId || qqPlaylistId || kugouPlaylistId || qishuiPlaylistId || playlistId
       };
       // 拉取歌单/播客集合
       var r = null;
@@ -767,9 +767,7 @@ function makeContentListManager() {
               ? await apiJson('/api/kugou/playlist/tracks?id=' + encodeURIComponent(kugouPlaylistId) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE + '&offset=0')
               : (qishuiPlaylistId
                 ? await apiJson('/api/qishui/playlist/tracks?id=' + encodeURIComponent(qishuiPlaylistId) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE + '&offset=0')
-                : (spotifyPlaylistId
-                  ? await apiJson('/api/spotify/playlist/tracks?id=' + encodeURIComponent(spotifyPlaylistId) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE + '&offset=0')
-                  : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE + '&offset=0'))))));
+                : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId) + '&limit=' + PLAYLIST_LAZY_BATCH_SIZE + '&offset=0')))));
       } catch (e) {
         if (!open || token !== requestToken) return;
         console.warn('[ShelfContentLoadApi]', playlistId, e);
@@ -819,6 +817,8 @@ function makeContentListManager() {
     close: function () {
       open = false;
       requestToken++;
+      // Closing retires the cover viewport as well as its row subscribers.
+      updatePlaylistCoverViewport([], []);
       var targetGroup = group;
       var targetRows = rows.slice();
       var targetPanel = panel;

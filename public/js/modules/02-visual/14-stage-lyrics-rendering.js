@@ -1093,7 +1093,8 @@ function scheduleStageLyricResidentBuildWork(job, delay) {
   delay = Math.max(0, Number(delay) || 0);
   if (typeof lyricWorkScheduler !== 'undefined') {
     lyricWorkScheduler.schedule('resident-build', function () { runStageLyricResidentBuild(job); },
-      { delay: delay, priority: job.urgent ? 0 : 10, urgent: job.urgent === true });
+      { delay: delay, priority: job.urgent ? 0 : 10, urgent: job.urgent === true,
+        runWhenPaused: job.effectsOnly && typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(job.mesh.userData.lyric) });
     return;
   }
   var queue = function () {
@@ -1350,6 +1351,24 @@ function ensureStageLyricPersistentTrackRows(mesh, targetIndex, options) {
     var editJob = stageLyricResidentBuild.job;
     if (editJob && editJob.mesh === mesh && editJob.textOnly && editJob.start <= visibleStart && editJob.end >= visibleEnd) return true;
     return startStageLyricResidentBuild(mesh, targetIndex, visibleStart, visibleEnd, { textOnly: true, interactive: true, reason: 'fx-edit-visible-text' });
+  }
+  // A released, paused edit restores its finite visible window before the
+  // ordinary sharp-text/runway queue, which must still wait for playback.
+  if (typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(data)) {
+    var commitStart = Infinity, commitEnd = -Infinity, commitEffectsMissing = false;
+    (data.pausedFxCommitRows || []).forEach(function (row) {
+      if (!row || !row.isPrimary || !isFinite(Number(row.lineIndex))) return;
+      var line = Math.round(Number(row.lineIndex));
+      commitStart = Math.min(commitStart, line); commitEnd = Math.max(commitEnd, line);
+      if (!stageLyricPersistentLineEffectsResident(data, line, residentRowMap)) commitEffectsMissing = true;
+    });
+    if (commitEffectsMissing && isFinite(commitStart) && isFinite(commitEnd)) {
+      var commitJob = stageLyricResidentBuild.job;
+      if (commitJob && commitJob.mesh === mesh && commitJob.effectsOnly
+        && commitJob.start === commitStart && commitJob.end === commitEnd) return true;
+      return startStageLyricResidentBuild(mesh, targetIndex, commitStart, commitEnd,
+        { effectsOnly: true, reason: 'fx-edit-visible-effects' });
+    }
   }
   // Prepare crisp base text before a row enters the display window.  This is
   // one text phase per row, independent of the slower glow/readability build.
@@ -1845,6 +1864,10 @@ function finishStageLyricCooperativePrewarm(job) {
   stageLyricPrewarm.key = finalKey;
   stageLyricPrewarm.lightweight = job.lightweight;
   mesh.userData.preparedTrackToken = trackSwitchToken;
+  if (job.reason === 'fx-edit-commit' && audio && audio.paused && mesh.userData.lyric) {
+    mesh.userData.lyric.pausedFxCommitToken = trackSwitchToken;
+    mesh.userData.lyric.pausedFxCommitRows = (mesh.userData.lyric.rowLayers || []).slice();
+  }
   initializeStageLyricPersistentTrack(mesh, job.payload);
   clearStageLyricWarmup();
   if (job.reason === 'fx-edit-commit') {
@@ -1901,7 +1924,8 @@ function scheduleStageLyricCooperativeWork(job, delay) {
   delay = Math.max(0, Number(delay) || 0);
   if (typeof lyricWorkScheduler !== 'undefined') {
     lyricWorkScheduler.schedule('prewarm-build', function () { runStageLyricCooperativePrewarm(job); },
-      { delay: delay, priority: job.lightweight ? 5 : 20, urgent: !stageLyrics.current && job.lightweight });
+      { delay: delay, priority: job.lightweight ? 5 : 20, urgent: !stageLyrics.current && job.lightweight,
+        runWhenPaused: job.reason === 'fx-edit-commit' });
     return;
   }
   function runAfterPaint() {
@@ -3195,7 +3219,8 @@ function updateStageLyrics3D(dt) {
         deltaTime: dt,
         previewMotionLock: previewMotionLock,
         motionBlend: previewMotionBlend,
-        ease: contextIntro < 0.98 ? 0.19 : 0.135
+        trackEase: lyricMotionSlideEase(lyricMotion, clampRange((contextIntro < 0.98 ? 0.19 : 0.135) * 1.16, 0.08, 0.34)),
+        ease: lyricMotionSlideEase(lyricMotion, contextIntro < 0.98 ? 0.19 : 0.135)
       });
       if (data.textMat && data.textMat.uniforms.uSolar) {
         var solarTarget = stageLyrics.highBloom * shelfDetailLyricDim;
@@ -3261,23 +3286,26 @@ function updateStageLyrics3D(dt) {
         var rootScaleTarget = 0.96 + a * 0.055 + breathe + bass * 0.038 + beatPulse * 0.014;
         mesh.scale.setScalar(previewMotionBlend < 1 ? mesh.scale.x + (rootScaleTarget - mesh.scale.x) * 0.06 : rootScaleTarget);
         if (singleLineSwap) {
-          mesh.position.y += ((0.18 + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * 0.075;
-          mesh.position.z += ((1.48 + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.080 * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.080;
+          mesh.position.y += ((0.18 + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.055 + Math.sin(t * 1.35 + seed) * 0.014) * lyricMotion.verticalAmp * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * 0.075;
+          mesh.position.z += ((1.48 + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.080 * lyricMotion.depthAmp * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.080;
         } else {
           var enterDir = mesh.userData.enterDirection || 0;
           var enterOffsetY = enterDir * lineStepWorld * (1 - a);
           var progressLift = -shownProgress * 0.026;
-          mesh.position.y += ((0.20 + enterOffsetY + progressLift + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.046 + Math.sin(t * 1.35 + seed) * 0.012) * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * (enterDir ? 0.115 : 0.080);
-          mesh.position.z += ((1.48 - Math.abs(enterDir) * 0.045 * (1 - a) + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.070 * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.090;
+          mesh.position.y += ((0.20 + enterOffsetY + progressLift + (verticalFloatOn ? (Math.sin(t * 0.55 + seed) * 0.046 + Math.sin(t * 1.35 + seed) * 0.012) * lyricMotion.verticalAmp * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.y) * (enterDir ? 0.115 : 0.080);
+          mesh.position.z += ((1.48 - Math.abs(enterDir) * 0.045 * (1 - a) + (verticalFloatOn ? Math.cos(t * 0.48 + seed) * 0.070 * lyricMotion.depthAmp * previewMotionBlend * shelfFloatDamp : 0)) - mesh.position.z) * 0.090;
         }
         var rootRotationTarget = (Math.sin(t * 0.34 + seed) * (style === 'smooth' ? 0.006 : (style === 'float' ? 0.026 : 0.018)) + textJitterX * 0.18 + glitchCameraDrive * glitchAmount * 0.014) * previewMotionBlend;
         mesh.rotation.z = previewMotionBlend < 1 ? mesh.rotation.z + (rootRotationTarget - mesh.rotation.z) * 0.18 : rootRotationTarget;
       }
       if (data.sparks && data.sparkMat) data.sparks.visible = !editPreview && (fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015);
       if (!editPreview && data.sparks && data.basePositions) {
+        // Preserve angular phase while the invisible point buffer sleeps.
+        data.sparks.rotation.z += ((fx.lyricGlowParticles ? 0.0009 : 0.00025) + stageLyrics.beatGlow * 0.0007) * (dt * 60);
+      }
+      if (!editPreview && data.sparks && data.sparks.visible !== false && data.basePositions) {
         var pos = data.sparks.geometry.attributes.position;
         var arr = pos.array, base = data.basePositions;
-        data.sparks.rotation.z += ((fx.lyricGlowParticles ? 0.0009 : 0.00025) + stageLyrics.beatGlow * 0.0007) * (dt * 60);
         data.sparks.rotation.x = Math.sin(t * 0.12 + seed) * 0.012;
         for (var si = 0; si < arr.length / 3; si++) {
           var s = si * 12.989 + seed;
@@ -3316,7 +3344,8 @@ function updateStageLyrics3D(dt) {
       deltaTime: dt,
       previewMotionLock: previewMotionLock,
       motionBlend: previewMotionBlend,
-      ease: 0.22
+      trackEase: lyricMotionSlideEase(lyricMotion, 0.22 * 1.16),
+      ease: lyricMotionSlideEase(lyricMotion, 0.22)
     });
     if (data.textMat && data.textMat.uniforms.uSolar) data.textMat.uniforms.uSolar.value *= shelfDetailOpen ? 0.72 : 0.86;
     if (data.glowMat) data.glowMat.opacity = (!data.suppressStaticGlow && lyricGlowStrength > 0) ? (shelfDetailOpen ? Math.min(shelfDetailLyricProfile.glowCap * 0.40, opacity * 0.05 * lyricGlowStrength) : opacity * 0.08 * lyricGlowStrength) : 0;
@@ -3364,6 +3393,9 @@ function updateStageLyrics3D(dt) {
     }
   }
   if (typeof finalizeLyricQualitySelectionFrame === 'function') finalizeLyricQualitySelectionFrame();
+  if (typeof finishLyricFxPausedCommit === 'function') {
+    finishLyricFxPausedCommit(stageLyrics.current && stageLyrics.current.userData.lyric);
+  }
 }
 
 var lyricKaraokeMeasureCanvas = null;
@@ -3376,6 +3408,7 @@ function lyricKaraokeMetricsKey(line) {
     line && line.text || '',
     line && line.words && line.words.length || 0,
     normalizeLyricFontKey(fx && fx.lyricFont),
+    typeof lyricTextMeasureGeneration !== 'undefined' ? lyricTextMeasureGeneration : 0,
     Math.round(lyricFontWeightValue()),
     Math.round((Number(fx && fx.lyricLetterSpacing) || 0) * 10000)
   ].join('|');

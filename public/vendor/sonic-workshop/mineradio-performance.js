@@ -4,10 +4,12 @@
   var policy = window.MineradioSonicPerformancePolicy;
   var config = { profile: null, target: 60, fpsLimit: 0, eligible: false, paused: false };
   try {
-    if (parent.MineradioSonicPerformance) config = parent.MineradioSonicPerformance.config();
+    if (parent.MineradioSonicPerformance) config = parent.MineradioSonicPerformance.config(8);
   } catch (_) {}
   var root = null, state = 'loading', rendererName = '', meter = policy.createMeter(), signature = '';
-  var lastDrawReport = 0;
+  var lastDrawReport = 0, firstFrameSent = false;
+  var generation = Number((String(location.search || '').match(/[?&]generation=(\d+)/) || [0, 0])[1]);
+  function frameSignal(type) { send(type, { generation: generation }); }
   function send(type, data) { parent.postMessage(Object.assign({ type: type }, data), location.origin); }
   function health(next) {
     if (state === next) return;
@@ -43,9 +45,16 @@
       try { result = render.apply(this, arguments); }
       catch (error) {
         if (state !== 'failed' && state !== 'lost') health('failed');
+        if (!firstFrameSent) frameSignal('mineradio-sonic-workshop-frame-failed');
         throw error;
       }
       if (!gl.isContextLost()) {
+        // Signal only after the real renderer submitted a nonempty scene, never on iframe load.
+        var scene = arguments[0];
+        if (!firstFrameSent && window.__mineradioWorkshopPropertiesReady && scene && scene.children && scene.children.length) {
+          firstFrameSent = true;
+          frameSignal('mineradio-sonic-workshop-first-frame');
+        }
         var time = performance.now();
         if (state !== 'ready') { health('ready'); lastDrawReport = time; }
         else if (time - lastDrawReport >= 1000) {
@@ -94,7 +103,10 @@
   window.addEventListener('resize', resize);
   // Script errors only mean failure before the first draw; afterwards drawing
   // itself (and WebGL context events) report health, so stray errors don't flash.
-  function initFailed() { if (state !== 'ready') health('failed'); }
+  function initFailed() {
+    if (state !== 'ready') health('failed');
+    if (!firstFrameSent) frameSignal('mineradio-sonic-workshop-frame-failed');
+  }
   window.addEventListener('error', initFailed);
   window.addEventListener('unhandledrejection', initFailed);
   document.addEventListener('webglcontextcreationerror', function () { health('failed'); }, true);

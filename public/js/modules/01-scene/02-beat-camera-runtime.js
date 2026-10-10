@@ -342,6 +342,7 @@ function scheduleUiWarmTask(fn, timeout) {
 }
 
 function cancelBeatAnalysisTimer() {
+  if (typeof cancelActiveBeatAnalysisRequests === 'function') cancelActiveBeatAnalysisRequests('mr');
   if (beatAnalysisTimer) {
     clearTimeout(beatAnalysisTimer);
     beatAnalysisTimer = null;

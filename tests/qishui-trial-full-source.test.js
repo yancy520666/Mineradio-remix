@@ -190,6 +190,7 @@ test('remembered studio audio is not reused for Live versions or changed duratio
   const { ctx, calls } = sandbox({ statuses: neteaseLoggedIn, search: () => neteaseMatch,
     resolve: () => ({ url: 'https://ne.invalid/studio', trial: false }) });
   const studio = Object.assign({}, qishuiSong);
+  ctx.playQueue[0] = studio;
   assert.equal(await ctx.tryQishuiTrialFullSourceUpgrade(studio, trialData, 0, 1, {}), true);
   assert.ok(ctx.qishuiRememberedFullSource(studio), 'the original recording still reuses its match');
   const live = { ...studio, id: 'live', name: studio.name + ' (Live)', duration: 300 };
@@ -241,4 +242,15 @@ test('startup autoplay never shows the progress card', async () => {
   ctx.beginQishuiPlaybackProgress(ctx.playQueue[0], ctx.trackSwitchToken, { startupAutoplay: true });
   await wait(700);
   assert.equal(notices.length, 0);
+});
+
+test('an alternative with explicitly unknown source extent never announces a full-version switch', async () => {
+  const { ctx, calls, notices } = sandbox({
+    statuses: neteaseLoggedIn,
+    search: () => neteaseMatch,
+    resolve: () => ({ url: 'https://fixture.invalid/unknown', trial: null, trialKnown: false, duration: 205 }),
+  });
+  assert.equal(await ctx.tryQishuiTrialFullSourceUpgrade(ctx.playQueue[0], trialData, 0, 1, {}), null);
+  assert.equal(calls.play.length, 0);
+  assert.equal(notices.some(notice => notice.title === '已切换到完整版本'), false);
 });

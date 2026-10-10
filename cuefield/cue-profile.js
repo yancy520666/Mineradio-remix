@@ -54,11 +54,11 @@ function inferGridStep(map, beats) {
   return round(average(deltas), 3) || 0.5;
 }
 
-function isDownbeat(beat, index) {
+function isDownbeat(beat, index, hasExplicitMeter = false) {
   if (!beat) return false;
   if (beat.downbeat === true || beat.phrase === true) return true;
   if (String(beat.combo || '').toLowerCase() === 'downbeat') return true;
-  return index % 4 === 0;
+  return !hasExplicitMeter && index % 4 === 0;
 }
 
 function beatsInRange(beats, start, end) {
@@ -157,6 +157,7 @@ function buildCuePoints(candidates, downbeats, bars, duration) {
 
 function normalizeAudioMetrics(value) {
   const metric = (input) => {
+    if (input === null || input === undefined || input === '') return null;
     const number = toNumber(input, NaN);
     return Number.isFinite(number) && number >= -80 && number <= 6 ? round(number) : null;
   };
@@ -171,18 +172,22 @@ function buildCueProfile(input = {}) {
   const track = input.track || {};
   const beats = normalizeBeats(map.beats || map.cameraBeats || []);
   const gridStep = inferGridStep(map, beats);
-  const duration = round(Math.max(
+  const knownDuration = Math.max(
     toNumber(track.duration),
     toNumber(map.duration),
-    beats.length ? beats[beats.length - 1].time + gridStep : 0,
-  ));
+  );
+  const duration = round(knownDuration > 0
+    ? knownDuration
+    : Math.max(0, beats.length ? beats[beats.length - 1].time + gridStep : 0));
+  const hasExplicitMeter = beats.some((beat) => beat.downbeat || beat.phrase || !!beat.combo);
   const downbeats = beats
-    .filter((beat, index) => isDownbeat(beat, index))
+    .filter((beat, index) => isDownbeat(beat, index, hasExplicitMeter))
     .map((beat) => ({ time: beat.time, confidence: beat.confidence, energy: round(beatEnergy(beat)) }));
   const bars = buildBars(beats, downbeats, gridStep, duration);
   const gridBeats = normalizeBeats(map.gridBeats && map.gridBeats.length ? map.gridBeats : beats);
+  const gridHasExplicitMeter = gridBeats.some((beat) => beat.downbeat || beat.phrase || !!beat.combo);
   const gridDownbeats = gridBeats
-    .filter((beat, index) => isDownbeat(beat, index))
+    .filter((beat, index) => isDownbeat(beat, index, gridHasExplicitMeter))
     .map((beat) => ({ time: beat.time, confidence: beat.confidence, energy: round(beatEnergy(beat)) }));
   const gridBars = buildBars(gridBeats, gridDownbeats, gridStep, duration, 0.7);
 

@@ -4,8 +4,8 @@
     'spotifyId', 'spotifyUri', 'spotifyUrl', 'uri', 'albumUri', 'hash', 'fileHash', 'audioHash',
     'albumId', 'album_id', 'albumMid', 'albummid', 'albumAudioId', 'album_audio_id', 'mixSongId',
     'hqHash', 'sqHash', 'resHash', 'name', 'title', 'artist', 'album', 'cover', 'duration',
-    'durationMs', 'dt', 'fee', 'playable', 'playbackMode', 'recommendationSource', 'programId',
-    'radioId', 'radioName', 'localKey', 'localFileId', 'localMissing'];
+    'durationMs', 'dt', 'fee', 'playable', 'providerRemoved', 'playbackMode', 'recommendationSource', 'programId',
+    'radioId', 'radioName', 'localKey', 'localFileId', 'localMissing', '_queueOrder'];
   function song(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     var result = {};
@@ -18,6 +18,12 @@
       if (typeof artist === 'string') return artist.slice(0, 512);
       return { id: Number(artist && artist.id) || 0, name: String(artist && artist.name || '').slice(0, 512) };
     });
+    // Legacy identifiers are archive data, never an active playback provider.
+    if (result.provider === 'spotify' || result.source === 'spotify' || result.type === 'spotify' || result.spotifyId || result.spotifyUri
+      || /^spotify:/i.test(String(result.id || '')) || /^spotify:/i.test(String(result.uri || ''))) {
+      result.providerRemoved = true;
+      result.playable = false;
+    }
     return result.id || result.mid || result.hash || result.spotifyId || result.localKey || result.name || result.title ? result : null;
   }
   function normalize(value) {
@@ -38,6 +44,7 @@
     var result = { version: 1, savedAt: savedAt, reason: String(value.reason || '').slice(0, 64),
       currentIdx: value.currentIdx < 0 ? -1 : Math.min(value.currentIdx, Math.max(0, queue.length - 1)), currentTime: Math.min(value.currentTime, duration > 0 ? duration : 31536000),
       duration: duration, playing: value.playing === true, current: current, queue: queue };
+    if (['loop', 'shuffle', 'single'].indexOf(value.playMode) >= 0) result.playMode = value.playMode;
     return new TextEncoder().encode(JSON.stringify(result)).length <= 524288 ? result : null;
   }
   var api = { normalize: normalize };

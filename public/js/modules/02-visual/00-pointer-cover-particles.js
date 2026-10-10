@@ -96,7 +96,7 @@ window.addEventListener('mousedown', function (e) {
   beginParticlePointerDrag(e);
 }, true);
 window.addEventListener('mousemove', function (e) {
-  updateControlsAutoHideFromPointer(e.clientX, e.clientY);
+  queueControlsAutoHideFromPointer(e.clientX, e.clientY);
   idleGuidePointerMove(e);
   if (freeCamera && freeCamera.active) {
     markRenderInteraction('free-camera', 900);
@@ -255,20 +255,67 @@ function buildCoverParticleGeometry(grid) {
   return nextGeo;
 }
 
+// Lower detail tiers select a stable subset of the authored grid. Shared attributes
+// preserve UVs, positions and random seeds; changing quality never regenerates
+// particles or alters the user's saved coverResolution/texture detail.
+function buildCoverBudgetGeometry(source, targetGrid) {
+  var grid = source.userData.grid;
+  var lowGrid = Math.min(grid, targetGrid);
+  if (lowGrid === grid) return null;
+  var lowGeo = new THREE.BufferGeometry();
+  lowGeo.setAttribute('position', source.getAttribute('position'));
+  lowGeo.setAttribute('aUv', source.getAttribute('aUv'));
+  lowGeo.setAttribute('aRand', source.getAttribute('aRand'));
+  var indices = new Uint16Array(lowGrid * lowGrid);
+  for (var y = 0; y < lowGrid; y++) {
+    var gy = Math.round(y * (grid - 1) / (lowGrid - 1));
+    for (var x = 0; x < lowGrid; x++) {
+      var gx = Math.round(x * (grid - 1) / (lowGrid - 1));
+      indices[y * lowGrid + x] = gy * grid + gx;
+    }
+  }
+  lowGeo.setIndex(new THREE.BufferAttribute(indices, 1));
+  lowGeo.userData.grid = lowGrid;
+  lowGeo.userData.count = indices.length;
+  return lowGeo;
+}
+
 var geo = buildCoverParticleGeometry(GRID_X);
+var lowDetailCoverGeo = buildCoverBudgetGeometry(geo, 97);
+var mediumDetailCoverGeo = buildCoverBudgetGeometry(geo, 127);
+
+var highDetailCoverGeo = buildCoverBudgetGeometry(geo, 167);
+function applyCoverParticleQualityBudget() {
+  var quality = normalizePerformanceQuality(fx.performanceQuality);
+  var selected = quality === 'eco' ? lowDetailCoverGeo : (quality === 'balanced' ? mediumDetailCoverGeo : (quality === 'high' ? highDetailCoverGeo : null));
+  selected = selected || geo;
+  if (particles) particles.geometry = selected;
+  if (bloomParticles) bloomParticles.geometry = selected;
+}
 
 function applyCoverParticleResolution(value, opts) {
   opts = opts || {};
   fx.coverResolution = normalizeCoverResolution(value);
   var grid = coverParticleGridForResolution(fx.coverResolution);
-  if (grid === GRID_X && geo && geo.userData && geo.userData.grid === grid) return;
+  if (grid === GRID_X && geo && geo.userData && geo.userData.grid === grid) {
+    applyCoverParticleQualityBudget();
+    return;
+  }
   var oldGeo = geo;
+  var oldLowGeo = lowDetailCoverGeo;
+  var oldMediumGeo = mediumDetailCoverGeo;
+  var oldHighGeo = highDetailCoverGeo;
   var nextGeo = buildCoverParticleGeometry(grid);
   geo = nextGeo;
+  lowDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 97);
+  mediumDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 127);
+  highDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 167);
   GRID_X = GRID_Y = grid;
   PCOUNT = grid * grid;
-  if (particles) particles.geometry = nextGeo;
-  if (bloomParticles) bloomParticles.geometry = nextGeo;
+  applyCoverParticleQualityBudget();
+  if (oldLowGeo) oldLowGeo.dispose();
+  if (oldMediumGeo) oldMediumGeo.dispose();
+  if (oldHighGeo) oldHighGeo.dispose();
   if (oldGeo && oldGeo !== nextGeo) oldGeo.dispose();
   uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, 0.18);
   if (opts.reload !== false) scheduleCoverResolutionReload();
@@ -363,6 +410,7 @@ var uniforms = {
   uGestureGrip: { value: 0 },
   uPixel: { value: renderer.getPixelRatio() },
   uAlpha: { value: 0 },          // 整体粒子透明度 (启动 fade-in)
+  uBackgroundHandoffAlpha: { value: 1 },
   uParticleDim: { value: 1 },          // 覆盖层打开时只压低粒子背景, 不影响 3D 卡片
   uBackdropAdapt: { value: 0.72 },     // 与歌词共用亮底避光强度
   uFloatAlpha: { value: 0 },          // 空场/浮空粒子透明度
@@ -443,6 +491,14 @@ vec3 samplePrevCoverColor(vec2 uv) {
   return texture2D(uPrevCoverTex, safeCoverUv(uv)).rgb;
 }
 
+vec3 sampleMixedCoverColor(vec2 uv) {
+  vec3 current = sampleNewCoverColor(uv);
+  // The CPU finishes transitions at exactly 1. Keep all transition samples,
+  // but do not fetch an old texture whose contribution is zero at rest.
+  if (uColorMixT >= 1.0) return current;
+  return mix(samplePrevCoverColor(uv), current, clamp(uColorMixT, 0.0, 1.0));
+}
+
 vec4 sampleEdgeColor(vec2 uv) {
   return texture2D(uEdgeTex, safeCoverUv(uv));
 }
@@ -480,9 +536,7 @@ void main(){
   vec3 pos;
   vec2 sampleUv = safeCoverUv(aUv);
   // 切歌颜色渐变: 在新旧封面间 mix
-  vec3 newCol = sampleNewCoverColor(sampleUv);
-  vec3 prevCol = samplePrevCoverColor(sampleUv);
-  vec3 coverColor = mix(prevCol, newCol, clamp(uColorMixT, 0.0, 1.0));
+  vec3 coverColor = sampleMixedCoverColor(sampleUv);
   vec4 edge = sampleEdgeColor(sampleUv);
   float depthVal = edge.r;
   float edgeVal  = edge.g;
@@ -543,9 +597,7 @@ pos.z = zPos;
 
 sampleUv = vec2(aUv.x, flow);
 sampleUv = safeCoverUv(sampleUv);
-newCol = sampleNewCoverColor(sampleUv);
-prevCol = samplePrevCoverColor(sampleUv);
-coverColor = mix(prevCol, newCol, clamp(uColorMixT, 0.0, 1.0));
+coverColor = sampleMixedCoverColor(sampleUv);
 vColor = mix(defaultColor, coverColor, uHasCover);
 
 float depthFade = smoothstep(-4.5, 4.5, zPos);
@@ -616,15 +668,17 @@ vAlpha = recordAlpha;
 
 if (coverMask > 0.02) {
   vec2 coverUv = p / (coverR * 2.0) + 0.5;
-  newCol = sampleNewCoverColor(coverUv);
-  prevCol = samplePrevCoverColor(coverUv);
-  coverColor = mix(prevCol, newCol, clamp(uColorMixT, 0.0, 1.0));
+  coverColor = sampleMixedCoverColor(coverUv);
   if (hiResGuard > 0.001) {
     vec2 sx = vec2(0.0026, 0.0);
     vec2 sy = vec2(0.0, 0.0026);
     vec3 softNew = (sampleNewCoverColor(coverUv + sx) + sampleNewCoverColor(coverUv - sx) + sampleNewCoverColor(coverUv + sy) + sampleNewCoverColor(coverUv - sy)) * 0.25;
-    vec3 softPrev = (samplePrevCoverColor(coverUv + sx) + samplePrevCoverColor(coverUv - sx) + samplePrevCoverColor(coverUv + sy) + samplePrevCoverColor(coverUv - sy)) * 0.25;
-    coverColor = mix(coverColor, mix(softPrev, softNew, clamp(uColorMixT, 0.0, 1.0)), hiResGuard * 0.42);
+    vec3 softColor = softNew;
+    if (uColorMixT < 1.0) {
+      vec3 softPrev = (samplePrevCoverColor(coverUv + sx) + samplePrevCoverColor(coverUv - sx) + samplePrevCoverColor(coverUv + sy) + samplePrevCoverColor(coverUv - sy)) * 0.25;
+      softColor = mix(softPrev, softNew, clamp(uColorMixT, 0.0, 1.0));
+    }
+    coverColor = mix(coverColor, softColor, hiResGuard * 0.42);
   }
   vColor = mix(defaultColor, coverColor, uHasCover);
   float coverShade = 1.02 + 0.10 * (1.0 - smoothstep(0.0, coverR, d));
@@ -980,7 +1034,7 @@ sz = clamp(depthSize * (0.90 + ringDrive * 0.62), 1.05, 3.90);
 var fs = `
 precision highp float;
 uniform sampler2D uDotTex;
-uniform float uAlpha, uPreset, uParticleDim, uBackdropAdapt;
+uniform float uAlpha, uPreset, uParticleDim, uBackdropAdapt, uBackgroundHandoffAlpha;
 varying vec3 vColor;
 varying float vBright, vRipple, vEdgeBoost, vAlpha, vSourceLum;
 
@@ -1003,7 +1057,7 @@ void main(){
     col = mix(col, vec3(1.0), readableRim * darkParticle * (0.20 + backdropAdapt * 0.12));
   }
   col = clamp(col, vec3(0.0), vec3(1.6));
-  gl_FragColor = vec4(col, tex.a * uAlpha * uParticleDim * vAlpha);
+  gl_FragColor = vec4(col, tex.a * uAlpha * uParticleDim * vAlpha * uBackgroundHandoffAlpha);
 }
 `;
 
@@ -1018,7 +1072,7 @@ var bloomVs = vs
 var bloomFs = `
 precision highp float;
 uniform sampler2D uDotTex;
-uniform float uAlpha, uBloomStrength, uPreset, uParticleDim, uBackdropAdapt;
+uniform float uAlpha, uBloomStrength, uPreset, uParticleDim, uBackdropAdapt, uBackgroundHandoffAlpha;
 varying vec3 vColor;
 varying float vBright, vRipple, vEdgeBoost, vAlpha, vSourceLum;
 
@@ -1038,7 +1092,7 @@ void main(){
     float brightAvoid = smoothstep(0.48, 0.84, outLum) * backdropAdapt;
     bloomKeep *= 1.0 - brightAvoid * 0.34;
   }
-  gl_FragColor = vec4(col, soft * uAlpha * uBloomStrength * uParticleDim * pulse * 0.55 * vAlpha * bloomKeep);
+  gl_FragColor = vec4(col, soft * uAlpha * uBloomStrength * uParticleDim * uBackgroundHandoffAlpha * pulse * 0.55 * vAlpha * bloomKeep);
 }
 `;
 var bloomMaterial = new THREE.ShaderMaterial({
@@ -1053,6 +1107,7 @@ var particles = new THREE.Points(geo, material);
 particles.frustumCulled = false;
 particles.renderOrder = 1;
 scene.add(particles);
+applyCoverParticleQualityBudget();
 
 var BACKGROUND_STAR_RIVER_COUNT = 1400;
 

@@ -19,12 +19,18 @@ const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { WallpaperPropertyStore } = require('./wallpaper-engine-properties');
 const { WallpaperLoopCache } = require('./wallpaper-engine-loop-cache');
+const { releaseFlatCache, summarize, createCacheReleaseCoordinator } = require('./cache-release');
+const { defaultSpillDirectory } = require('../audio-spill-relay');
+const cacheReleaseCoordinator = createCacheReleaseCoordinator();
 const { WallpaperLoopWindow } = require('./wallpaper-loop-window');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
+const { MicrophonePermissionGate } = require('./microphone-permission');
+const { createVirtualAudioSetupGuide } = require('./virtual-audio-setup');
 const { createRemixUpdater } = require('./remix-updater');
 const { createInlineQrSession } = require('./login-inline-qr');
 const { prepareQQLoginPage } = require('./qq-login-page');
 const { createKugouNativeQrSession } = require('./kugou-native-qr');
+const { validateKugouVerificationUrl, detectKugouVerificationPage, kugouLoginEntryScript } = require('./kugou-verification');
 const { createQQNativeQrSession } = require('./qq-native-qr');
 const { importBrowserLogin } = require('./browser-cookie-import');
 const { createOriginalProfileImporter } = require('./original-profile-import');
@@ -34,7 +40,6 @@ const { createPlaybackCheckpointStore } = require('./playback-checkpoint-store')
 const { readOriginalPreferences } = require('./original-profile-preferences');
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
-const { clearSpotifyToken } = require('../spotify-api');
 
 registerWallpaperEngineScheme(protocol);
 registerLocalMusicScheme(protocol);
@@ -113,8 +118,27 @@ const APP_METADATA = APP_PACKAGE_INFO.mineradio || {};
 const APP_NAME = process.env.MINERADIO_RUNTIME_NAME || APP_METADATA.runtimeName || APP_PACKAGE_INFO.productName || 'Mineradio';
 const APP_USER_MODEL_ID = process.env.MINERADIO_APP_USER_MODEL_ID || APP_METADATA.appUserModelId || (APP_PACKAGE_INFO.build && APP_PACKAGE_INFO.build.appId) || 'com.mineradio.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
+let prepareUpdateShutdown = null;
+let blockFailedUpdateQuit = false;
+let updateInstallerLaunched = false;
 const remixUpdater = createRemixUpdater({
   app,
+  beforeInstall: () => {
+    blockFailedUpdateQuit = false;
+    updateInstallerLaunched = false;
+    if (!prepareUpdateShutdown) throw new Error('UPDATE_SHUTDOWN_NOT_READY');
+    return prepareUpdateShutdown({ forInstall: true });
+  },
+  beforeNativeInstall: () => { updateInstallerLaunched = true; },
+  onInstallError: () => {
+    appQuitCleanupComplete = false;
+    appQuitCleanupPromise = null;
+    updateInstallerLaunched = false;
+    appQuitting = false;
+    // A native spawn failure can race BaseUpdater's queued app.quit().
+    blockFailedUpdateQuit = true;
+    setTimeout(() => { blockFailedUpdateQuit = false; }, 1000).unref();
+  },
   enabled: process.platform === 'win32' && app.isPackaged && APP_NAME === 'Mineradio Remix',
   onState: (state) => {
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
@@ -159,8 +183,6 @@ const QQ_LOGIN_FALLBACK_URL = 'https://y.qq.com/';
 const KUGOU_LOGIN_PARTITION = 'persist:mineradio-kugou-login';
 const KUGOU_LOGIN_URL = 'https://www.kugou.com/';
 const KUGOU_LOGIN_WARMUP_URL = 'https://www.kugou.com/newuc/user/uc/type=edit';
-const SPOTIFY_LOGIN_PARTITION = 'persist:mineradio-spotify-login';
-const SPOTIFY_OAUTH_TIMEOUT_MS = 3 * 60 * 1000;
 
 // Keep app-owned settings and provider credentials independent from the
 // user-selectable Chromium cache. app.setName() must run before the first
@@ -225,7 +247,6 @@ const fullDesktopModeRuntime = new FullDesktopModeRuntime({
   screen,
   platform: process.platform,
   windowIcon: APP_ICON_ICO,
-  beforeReveal: ({ win, status }) => prepareFullDesktopRendererReveal(win, status),
   execFileImpl: execFile,
   nativeTempPath: NATIVE_HELPER_TEMP_PATH,
   beforePassive: ({ win, reason }) => prepareWallpaperEngineProjectPreviewBeforeDesktopEmbedding(win, reason),
@@ -235,6 +256,22 @@ const fullDesktopModeRuntime = new FullDesktopModeRuntime({
 let wallpaperEngineCaptureSourceId = '';
 let wallpaperEngineCaptureGrant = null;
 let gestureCameraPermissionGrant = null;
+const microphonePermissionGate = new MicrophonePermissionGate({
+  getMainWindow: () => mainWindow,
+  isTrustedDocument: (url) => isTrustedMainDocumentUrl(url),
+});
+const virtualAudioSetupGuide = createVirtualAudioSetupGuide({
+  getMainWindow: () => mainWindow,
+  isTrustedDocument: (url) => isTrustedMainDocumentUrl(url),
+  showMessageBox: (win, options) => dialog.showMessageBox(win, options),
+  openExternal: (url) => shell.openExternal(url),
+  isQuitting: () => appQuitting,
+  onState: (state) => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('mineradio-virtual-audio-setup-state', state);
+    }
+  },
+});
 let wallpaperEngineCaptureOperation = 0;
 let wallpaperEngineCapturePreparationOperation = 0;
 let wallpaperEngineGlassCaptureOperation = 0;
@@ -872,29 +909,6 @@ function broadcastDesktopWallpaperStatus(status) {
     escapeShortcutRegistered: fullDesktopEscapeRegistered === true,
   });
   if (tray) createOrUpdateTray();
-}
-
-async function prepareFullDesktopRendererReveal(win, status) {
-  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) {
-    throw new Error('FULL_DESKTOP_RENDERER_UNAVAILABLE');
-  }
-  const frame = win.webContents.mainFrame;
-  const script = `(() => {
-    if (typeof applyDesktopWallpaperRuntimeStatus !== 'function') return false;
-    applyDesktopWallpaperRuntimeStatus(${JSON.stringify(status)});
-    document.body.getBoundingClientRect();
-    return document.body.classList.contains('desktop-wallpaper-mode');
-  })()`;
-  let timer;
-  try {
-    const prepared = await Promise.race([
-      frame.executeJavaScript(script, true),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('FULL_DESKTOP_RENDERER_PREPARE_TIMEOUT')), 2000); }),
-    ]);
-    if (prepared !== true) throw new Error('FULL_DESKTOP_RENDERER_PREPARE_FAILED');
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 function wallpaperEngineProvidesDesktopBackdrop() {
@@ -1740,7 +1754,8 @@ function configureLocalAppPermissions() {
     const origin = requestingOrigin || (details && details.requestingUrl) || (webContents && webContents.getURL && webContents.getURL()) || '';
     if (permission === 'display-capture') return isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details);
     if (permission === 'media') return isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details)
-      || isTrustedGestureCameraMediaPermission(webContents, origin, details);
+      || isTrustedGestureCameraMediaPermission(webContents, origin, details)
+      || microphonePermissionGate.canEnumerate(webContents, origin, details);
     return LOCAL_APP_PERMISSION_ALLOWLIST.has(permission) && isLocalAppUrl(origin);
   });
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
@@ -1751,7 +1766,8 @@ function configureLocalAppPermissions() {
     }
     if (permission === 'media') {
       callback(isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details)
-        || isTrustedGestureCameraMediaPermission(webContents, origin, details));
+        || isTrustedGestureCameraMediaPermission(webContents, origin, details)
+        || microphonePermissionGate.consume(webContents, origin, details));
       return;
     }
     callback(LOCAL_APP_PERMISSION_ALLOWLIST.has(permission) && isLocalAppUrl(origin));
@@ -2053,14 +2069,34 @@ function isMainWindowForegroundVisible() {
   }
 }
 
+function cancelAppMemoryTrim() {
+  if (appMemoryTrimTimer) clearTimeout(appMemoryTrimTimer);
+  appMemoryTrimTimer = null;
+}
+
+function automaticAppMemoryTrimSkipReason() {
+  if (process.platform !== 'win32') return 'unsupported';
+  if (memoryAutoState.appTrimEnabled === false || memoryAutoState.backgroundTrimEnabled === false) return 'disabled';
+  if (!mainWindow || mainWindow.isDestroyed()) return 'no-window';
+  if (isMainWindowForegroundVisible()) return 'foreground-visible';
+  if (Date.now() - lastAppMemoryTrimAt < 120000) return 'cooldown';
+  return '';
+}
+
 async function trimAppMemoryNow(reason) {
   if (appMemoryTrimInFlight) {
     return { ok: false, skipped: true, reason: 'in-flight' };
   }
   const trimReason = String(reason || 'manual');
+  // All automatic callers, including renderer IPC, share one execution-time gate.
+  if (trimReason !== 'manual' && trimReason !== 'manual-force') {
+    const skipped = automaticAppMemoryTrimSkipReason();
+    if (skipped) return { ok: false, skipped: true, reason: skipped };
+  }
   if (isMainWindowForegroundVisible() && trimReason !== 'manual-force') {
     return { ok: false, skipped: true, reason: 'foreground-visible' };
   }
+  cancelAppMemoryTrim();
   appMemoryTrimInFlight = true;
   lastAppMemoryTrimAt = Date.now();
   lastAppMemoryTrimReason = trimReason;
@@ -2077,14 +2113,12 @@ async function trimAppMemoryNow(reason) {
 }
 
 function scheduleAppMemoryTrim(reason, delay = 9000) {
-  if (process.platform !== 'win32') return;
-  if (memoryAutoState.appTrimEnabled === false || memoryAutoState.backgroundTrimEnabled === false) return;
-  if (Date.now() - lastAppMemoryTrimAt < 120000) return;
-  if (appMemoryTrimTimer) clearTimeout(appMemoryTrimTimer);
+  if (automaticAppMemoryTrimSkipReason() || appMemoryTrimInFlight) return;
+  // Hide/minimize may arrive together; keep the first pending deadline.
+  if (appMemoryTrimTimer) return;
   appMemoryTrimTimer = setTimeout(() => {
     appMemoryTrimTimer = null;
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (!mainWindow.isMinimized() && mainWindow.isVisible()) return;
+    // Settings, visibility and cooldown may have changed since scheduling.
     trimAppMemoryNow(reason).catch(() => {});
   }, Math.max(4000, delay));
 }
@@ -2484,7 +2518,7 @@ function qqCookieHasPlaybackLogin(cookieText) {
 function isTrustedQQLoginUrl(targetUrl) {
   try {
     const parsed = new URL(String(targetUrl || ''));
-    if (parsed.protocol !== 'https:') return false;
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port) return false;
     const hostname = parsed.hostname.toLowerCase();
     return [
       'qq.com',
@@ -2497,6 +2531,19 @@ function isTrustedQQLoginUrl(targetUrl) {
   } catch (_) {
     return false;
   }
+}
+
+// Keep official OAuth/security callbacks inside the bounded login origin policy.
+// Embedded challenge frames retain their own sandboxed navigation.
+function installQQLoginNavigationGuards(webContents) {
+  const guard = (event, legacyUrl, _inPlace, legacyMainFrame) => {
+    if (event.isMainFrame === false || legacyMainFrame === false) return;
+    const target = typeof legacyUrl === 'string' ? legacyUrl : event.url;
+    if (!isTrustedQQLoginUrl(target)) event.preventDefault();
+  };
+  webContents.on('will-navigate', guard);
+  webContents.on('will-redirect', guard);
+  webContents.on('will-frame-navigate', guard);
 }
 
 function qqLoginCompletionFromCookie(cookieText) {
@@ -2517,6 +2564,19 @@ function qqLoginCompletionFromCookie(cookieText) {
 function neteaseCookieHasLogin(cookieText) {
   const obj = parseCookieHeader(cookieText);
   return !!obj.MUSIC_U;
+}
+
+function isNeteaseLoginNavigationUrl(targetUrl) {
+  try {
+    const url = new URL(String(targetUrl || ''));
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return false;
+    const host = url.hostname.toLowerCase();
+    // Preserve NetEase's account/music hosts, with a complete hostname
+    // boundary. A URL containing an official name is not an official URL.
+    return ['163.com', 'netease.com'].some(domain => host === domain || host.endsWith('.' + domain));
+  } catch (_) {
+    return false;
+  }
 }
 
 function isQQCookieDomain(domain) {
@@ -2667,6 +2727,13 @@ function neteaseLoginPageScript(clickLogin) {
 // Inline QR login: the official login page runs offscreen and only its QR is
 // shown inside the player. One session per provider; a new one replaces it.
 const inlineLoginSessions = new Map();
+let kugouLoginWindowEntry = null;
+let kugouLoginGeneration = 0;
+function cancelKugouLoginActivity() {
+  const inlineEntry = inlineLoginSessions.get('kugou');
+  if (inlineEntry) inlineEntry.cancel();
+  if (kugouLoginWindowEntry) kugouLoginWindowEntry.cancel();
+}
 
 function loginWindowWebPreferences(base, inline) {
   return inline ? { ...base, offscreen: true, backgroundThrottling: false } : base;
@@ -2747,13 +2814,27 @@ async function openNeteaseMusicLoginWindow(owner, options) {
     };
 
     loginWindow.webContents.setWindowOpenHandler(({ url }) => {
-      if (/^https?:\/\/([^/]+\.)?(163|music\.163|netease)\.com/i.test(url)) {
+      if (isNeteaseLoginNavigationUrl(url)) {
         loginWindow.loadURL(url).catch((e) => console.warn('Netease login popup navigation failed:', e.message));
-      } else if (/^https?:\/\//i.test(url)) {
-        shell.openExternal(url).catch(() => {});
+      } else {
+        try {
+          const external = new URL(String(url || ''));
+          if (external.protocol === 'https:' && !external.username && !external.password && !external.port) {
+            shell.openExternal(external.toString()).catch(() => {});
+          }
+        } catch (_) {}
       }
       return { action: 'deny' };
     });
+    const guardNavigation = (event, url, _isInPlace, isMainFrame) => {
+      // Electron's newer frame event carries details on the event itself;
+      // redirects also report isMainFrame as a positional argument.
+      if (isMainFrame === false || event.isMainFrame === false) return;
+      if (!isNeteaseLoginNavigationUrl(typeof url === 'string' ? url : event.url)) event.preventDefault();
+    };
+    loginWindow.webContents.on('will-navigate', guardNavigation);
+    loginWindow.webContents.on('will-redirect', guardNavigation);
+    loginWindow.webContents.on('will-frame-navigate', guardNavigation);
 
     const revealLoginWindow = inline ? () => {} : revealLoginWindowWhenReady(loginWindow);
     let qrWatch = 0;
@@ -2915,7 +2996,7 @@ async function openQQMusicLoginWindow(owner, options) {
         warmupWindow.on('closed', () => {
           warmupWindow = null;
         });
-        warmupWindow.webContents.on('did-finish-load', checkCookies);
+        installQQLoginWindowHandlers(warmupWindow, false);
         warmupWindow.loadURL('https://y.qq.com/n/ryqq/player')
           .catch((e) => console.warn('QQ login warmup navigation failed:', e.message));
       }, 5000);
@@ -2946,6 +3027,7 @@ async function openQQMusicLoginWindow(owner, options) {
 
     const installQQLoginWindowHandlers = (win, isRoot) => {
       if (!win || win.isDestroyed()) return;
+      installQQLoginNavigationGuards(win.webContents);
       win.webContents.setWindowOpenHandler(({ url }) => {
         if (isTrustedQQLoginUrl(url)) {
           return {
@@ -2967,9 +3049,6 @@ async function openQQMusicLoginWindow(owner, options) {
               },
             },
           };
-        }
-        if (/^https?:\/\//i.test(String(url || ''))) {
-          shell.openExternal(url).catch(() => {});
         }
         return { action: 'deny' };
       });
@@ -3053,18 +3132,28 @@ function openKugouNativeInlineLogin(options) {
 
 async function openKugouMusicLoginWindow(owner, options) {
   options = options && typeof options === 'object' ? options : {};
-  const inline = !!options.inline;
-  if (inline && options.nativeQr !== false) return openKugouNativeInlineLogin(options);
+  let verification = options.verification === true;
+  const requestedUrl = options.verificationUrl || options.challengeUrl;
+  const verificationUrl = requestedUrl ? validateKugouVerificationUrl(requestedUrl) : '';
+  if (verification && requestedUrl && !verificationUrl) return { ok: false, verification: true, error: 'KUGOU_VERIFICATION_URL_INVALID' };
+  const generation = ++kugouLoginGeneration;
+  cancelKugouLoginActivity();
+  if (!verification && options.inline && options.nativeQr !== false) return openKugouNativeInlineLogin(options);
+  // Website fallback must stay interactive: a QR screenshot cannot present
+  // SMS/captcha/security challenges. Only native App QR is kept inline.
+  const inline = false;
+  options = { ...options, inline };
   const cookieSession = session.fromPartition(KUGOU_LOGIN_PARTITION);
   // Explicit re-login must discard the revoked session before considering reuse.
   // Cookie presence alone cannot establish whether the server still accepts it.
-  if (options.forceReauth === true) {
+  if (!verification && options.forceReauth === true) {
     await cookieSession.clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
     });
   }
   const initialCookie = await readKugouLoginCookieHeader(cookieSession);
-  if (kugouCookieHasPlayback(initialCookie)) return { ok: true, cookie: initialCookie, reused: true };
+  if (generation !== kugouLoginGeneration) return { ok: false, cancelled: true };
+  if (!verification && kugouCookieHasPlayback(initialCookie)) return { ok: true, cookie: initialCookie, reused: true };
 
   return new Promise((resolve) => {
     let settled = false;
@@ -3078,9 +3167,9 @@ async function openKugouMusicLoginWindow(owner, options) {
       minHeight: 560,
       parent: !inline && owner && !owner.isDestroyed() ? owner : undefined,
       modal: false,
-      show: false,
+      show: verification,
       autoHideMenuBar: true,
-      title: '酷狗音乐登录',
+      title: verification ? '酷狗音乐安全验证（完成后关闭并重试）' : '酷狗音乐登录',
       backgroundColor: '#111111',
       icon: APP_ICON_ICO,
       webPreferences: loginWindowWebPreferences({
@@ -3094,78 +3183,116 @@ async function openKugouMusicLoginWindow(owner, options) {
     const finish = async (result) => {
       if (settled) return;
       settled = true;
+      if (kugouLoginWindowEntry && kugouLoginWindowEntry.window === loginWindow) kugouLoginWindowEntry = null;
       if (pollTimer) clearInterval(pollTimer);
       if (loginWindow && !loginWindow.isDestroyed()) loginWindow.close();
       resolve(result);
     };
+    kugouLoginWindowEntry = { window: loginWindow, cancel: () => finish({ ok: false, cancelled: true, ...(verification ? { verification: true } : {}) }) };
     attachInlineLogin('kugou', loginWindow, options, finish);
 
-    const checkCookies = async () => {
-      try {
-        const cookie = await readKugouLoginCookieHeader(cookieSession);
-        if (kugouCookieHasPlayback(cookie)) {
-          finish({ ok: true, cookie });
-        } else if (kugouCookieHasLogin(cookie) && !warmupStarted) {
-          warmupStarted = true;
-          setTimeout(() => {
-            if (!settled && loginWindow && !loginWindow.isDestroyed()) {
-              loginWindow.loadURL(KUGOU_LOGIN_WARMUP_URL).catch((e) => console.warn('Kugou login warmup navigation failed:', e.message));
-            }
-          }, 900);
-        }
-      } catch (e) {
-        console.warn('Kugou login cookie check failed:', e.message);
-      }
+    let checkInFlight = null;
+    let lastInspectionSafe = false;
+    const checkCookies = () => {
+      if (settled || verification) return Promise.resolve(false);
+      if (checkInFlight) return checkInFlight;
+      checkInFlight = (async () => {
+        try {
+          const challenge = await detectKugouVerificationPage(loginWindow.webContents);
+          lastInspectionSafe = challenge === false;
+          if (challenge === null) return false;
+          if (challenge) {
+            if (settled || loginWindow.isDestroyed()) return;
+            verification = true;
+            if (pollTimer) clearInterval(pollTimer);
+            loginWindow.show(); loginWindow.focus();
+            return false;
+          }
+          if (settled || verification || loginWindow.isDestroyed()) return false;
+          const cookie = await readKugouLoginCookieHeader(cookieSession);
+          if (kugouCookieHasPlayback(cookie)) {
+            finish({ ok: true, cookie });
+          } else if (kugouCookieHasLogin(cookie) && !warmupStarted) {
+            warmupStarted = true;
+            setTimeout(() => {
+              if (!settled && !verification && loginWindow && !loginWindow.isDestroyed()) {
+                loginWindow.loadURL(KUGOU_LOGIN_WARMUP_URL).catch((e) => console.warn('Kugou login warmup navigation failed:', e.message));
+              }
+            }, 900);
+          }
+          return true;
+        } catch (e) {
+          lastInspectionSafe = false;
+          console.warn('Kugou login cookie check failed:', e.message);
+          return false;
+        } finally { checkInFlight = null; }
+      })();
+      return checkInFlight;
     };
 
     loginWindow.webContents.setWindowOpenHandler(({ url }) => {
-      if (/^https?:\/\//i.test(url)) {
-        loginWindow.loadURL(url).catch((e) => console.warn('Kugou login popup navigation failed:', e.message));
-      } else {
-        shell.openExternal(url).catch(() => {});
-      }
+      const safe = validateKugouVerificationUrl(url);
+      if (safe) loginWindow.loadURL(safe).catch((e) => console.warn('Kugou login popup navigation failed:', e.message));
       return { action: 'deny' };
+    });
+    const guardNavigation = (event, legacyUrl) => {
+      if (!validateKugouVerificationUrl(event.url || legacyUrl)) event.preventDefault();
+    };
+    loginWindow.webContents.on('will-navigate', guardNavigation);
+    loginWindow.webContents.on('will-redirect', (event, legacyUrl, _inPlace, legacyMainFrame) => {
+      // Official challenges may embed a third-party captcha. Restrict top-level
+      // redirects, while leaving sandboxed embedded challenge resources usable.
+      if (event.isMainFrame === false || legacyMainFrame === false) return;
+      guardNavigation(event, legacyUrl);
     });
 
     const revealLoginWindow = inline ? () => {} : revealLoginWindowWhenReady(loginWindow);
     // Content is usable at DOM ready; full load can stall on page resources.
     loginWindow.webContents.on('dom-ready', revealLoginWindow);
-    loginWindow.webContents.on('did-finish-load', () => {
-      checkCookies();
-      loginWindow.webContents.executeJavaScript(`
-        setTimeout(() => {
-          const nodes = Array.from(document.querySelectorAll('a, button, span, div'));
-          const loginNode = nodes.find((node) => {
-            const text = (node.textContent || '').trim();
-            if (!/登录|登陆/.test(text)) return false;
-            const rect = node.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-          });
-          if (loginNode) loginNode.click();
-        }, 700);
-      `, true).catch(() => {});
+    loginWindow.webContents.on('did-start-navigation', (event, _url, _inPlace, legacyMainFrame) => {
+      if (event.isMainFrame !== false && legacyMainFrame !== false) lastInspectionSafe = false;
+    });
+    loginWindow.webContents.on('dom-ready', checkCookies);
+    loginWindow.webContents.on('did-finish-load', async () => {
+      if (!(await checkCookies())) return;
+      if (verification || settled || loginWindow.isDestroyed()) return;
+      const frame = loginWindow.webContents.mainFrame || loginWindow.webContents;
+      frame.executeJavaScript(kugouLoginEntryScript(), true).catch(() => {});
     });
     loginWindow.on('closed', async () => {
       if (settled) return;
+      settled = true;
+      if (kugouLoginWindowEntry && kugouLoginWindowEntry.window === loginWindow) kugouLoginWindowEntry = null;
       if (pollTimer) clearInterval(pollTimer);
       try {
         const cookie = await readKugouLoginCookieHeader(cookieSession);
+        if (verification || (!lastInspectionSafe && kugouCookieHasLogin(cookie))) {
+          resolve({ ok: false, verification: true, closed: true, retryRequired: true, ...(kugouCookieHasLogin(cookie) ? { cookie } : {}), message: '酷狗验证窗口已关闭，请重试播放以确认验证结果' });
+          return;
+        }
         resolve(kugouCookieHasPlayback(cookie)
           ? { ok: true, cookie }
           : (kugouCookieHasLogin(cookie)
             ? { ok: true, cookie, partial: true, message: '酷狗账号已登录，但播放 token 不完整，请稍后在播放器内重试登录' }
             : { ok: false, cancelled: true, message: '酷狗登录窗口已关闭' }));
       } catch (e) {
-        resolve({ ok: false, error: e.message || '酷狗登录窗口已关闭' });
+        resolve({ ok: false, ...(verification ? { verification: true, closed: true, retryRequired: true } : {}), error: e.message || '酷狗登录窗口已关闭' });
       }
     });
 
-    pollTimer = setInterval(checkCookies, 1200);
-    loginWindow.loadURL(KUGOU_LOGIN_URL).catch((e) => finish({ ok: false, error: e.message }));
+    if (!verification) pollTimer = setInterval(checkCookies, 1200);
+    loginWindow.loadURL(verificationUrl || KUGOU_LOGIN_URL).catch((e) => {
+      if (verification) {
+        if (!settled && !loginWindow.isDestroyed()) { loginWindow.show(); loginWindow.focus(); }
+        console.warn('Kugou verification page load failed:', e.message);
+      } else finish({ ok: false, error: e.message });
+    });
   });
 }
 
 async function clearKugouMusicLoginSession() {
+  ++kugouLoginGeneration;
+  cancelKugouLoginActivity();
   const cookieSession = session.fromPartition(KUGOU_LOGIN_PARTITION);
   await cookieSession.clearStorageData({
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
@@ -3197,296 +3324,6 @@ async function clearQishuiMusicLoginSession() {
   return { ok: true };
 }
 
-function base64Url(buffer) {
-  return Buffer.from(buffer)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
-
-function createSpotifyPkcePair() {
-  const codeVerifier = base64Url(crypto.randomBytes(48));
-  const codeChallenge = base64Url(crypto.createHash('sha256').update(codeVerifier).digest());
-  return { codeVerifier, codeChallenge };
-}
-
-function spotifyOAuthRedirectMatches(targetUrl, redirectUri) {
-  try {
-    const target = new URL(String(targetUrl || ''));
-    const redirect = new URL(String(redirectUri || ''));
-    const normalizePath = (value) => (value || '/').replace(/\/+$/, '') || '/';
-    return target.protocol === redirect.protocol &&
-      target.host === redirect.host &&
-      normalizePath(target.pathname) === normalizePath(redirect.pathname);
-  } catch (e) {
-    return false;
-  }
-}
-
-function spotifyOAuthResultHtml(ok, message) {
-  const escaped = String(message || '').replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
-  return [
-    '<!doctype html><meta charset="utf-8">',
-    '<title>Spotify Login</title>',
-    '<style>',
-    'html,body{margin:0;height:100%;background:#101414;color:#f3fff6;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}',
-    'body{display:grid;place-items:center;}',
-    'main{max-width:520px;padding:30px;text-align:center;}',
-    '.brand{font-size:12px;letter-spacing:.24em;color:#1ed760;font-weight:900;margin-bottom:14px;}',
-    'h1{font-size:26px;margin:0 0 12px;font-weight:850;}',
-    'p{margin:0 auto;color:rgba(243,255,246,.72);line-height:1.7;font-size:14px;}',
-    '</style>',
-    '<main><div class="brand">SPOTIFY</div><h1>' + (ok ? '授权完成' : '授权失败') + '</h1><p>' + escaped + '</p></main>',
-  ].join('');
-}
-
-function startSpotifyOAuthCallbackServer(redirectUri, onCallback) {
-  return new Promise((resolve, reject) => {
-    let redirect = null;
-    try {
-      redirect = new URL(String(redirectUri || ''));
-    } catch (e) {
-      reject(Object.assign(new Error('SPOTIFY_REDIRECT_URI_INVALID'), { code: 'SPOTIFY_REDIRECT_URI_INVALID' }));
-      return;
-    }
-    const redirectHost = String(redirect.hostname || '').toLowerCase();
-    if (redirect.protocol !== 'http:' || (redirectHost !== '127.0.0.1' && redirectHost !== '::1' && redirectHost !== '[::1]')) {
-      reject(Object.assign(new Error('SPOTIFY_REDIRECT_URI_MUST_BE_HTTP_LOCALHOST'), { code: 'SPOTIFY_REDIRECT_URI_MUST_BE_HTTP_LOCALHOST' }));
-      return;
-    }
-    const port = Number(redirect.port || 80);
-    const host = redirect.hostname || '127.0.0.1';
-    const normalizePath = (value) => (value || '/').replace(/\/+$/, '') || '/';
-    const expectedPath = normalizePath(redirect.pathname);
-    const callbackServer = http.createServer(async (req, res) => {
-      let current = null;
-      try {
-        current = new URL(req.url || '/', redirect.origin);
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Bad callback URL');
-        return;
-      }
-      if (normalizePath(current.pathname) !== expectedPath) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Not Found');
-        return;
-      }
-      try {
-        const result = await onCallback(current);
-        const ok = !!(result && result.ok);
-        res.writeHead(ok ? 200 : 500, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(spotifyOAuthResultHtml(ok, (result && (result.message || result.error)) || (ok ? '可以回到 Mineradio。' : '请回到 Mineradio 重新尝试。')));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(spotifyOAuthResultHtml(false, e && e.message || 'SPOTIFY_OAUTH_CALLBACK_FAILED'));
-      }
-    });
-    callbackServer.once('error', (err) => {
-      const code = err && err.code === 'EADDRINUSE' ? 'SPOTIFY_CALLBACK_PORT_BUSY' : (err && err.code || 'SPOTIFY_CALLBACK_SERVER_FAILED');
-      reject(Object.assign(new Error(code), { code, cause: err }));
-    });
-    callbackServer.listen(port, host, () => {
-      resolve({
-        server: callbackServer,
-        close: () => {
-          try { callbackServer.close(); } catch (_) {}
-        },
-      });
-    });
-  });
-}
-
-async function verifySpotifyOAuthCallbackEndpoint() {
-  const config = getSpotifyOAuthConfig();
-  if (!config.configured) {
-    return {
-      ok: false,
-      provider: 'spotify',
-      error: 'SPOTIFY_OAUTH_NOT_CONFIGURED',
-      missing: config.missing || [],
-      redirectUri: config.redirectUri,
-      message: !config.clientIdValid
-        ? 'Client ID 格式不正确，请重新复制。'
-        : '请先保存 Spotify Client ID。',
-    };
-  }
-  let callbackServer = null;
-  try {
-    callbackServer = await startSpotifyOAuthCallbackServer(config.redirectUri, async () => ({
-      ok: false,
-      error: 'SPOTIFY_PREFLIGHT_ONLY',
-      message: '当前仅执行本机回调检测。',
-    }));
-    return {
-      ok: true,
-      provider: 'spotify',
-      redirectUri: config.redirectUri,
-      callbackReady: true,
-      message: '本机回调端口可用。请确认 Spotify Dashboard 中保存了完全相同的地址。',
-    };
-  } catch (error) {
-    const code = error && (error.code || error.message) || 'SPOTIFY_CALLBACK_SERVER_FAILED';
-    return {
-      ok: false,
-      provider: 'spotify',
-      error: code,
-      redirectUri: config.redirectUri,
-      callbackReady: false,
-      message: code === 'SPOTIFY_CALLBACK_PORT_BUSY'
-        ? '本机 43879 端口被其他程序占用，请关闭占用程序后重试。'
-        : '本机回调检测失败：' + code,
-    };
-  } finally {
-    if (callbackServer && typeof callbackServer.close === 'function') callbackServer.close();
-  }
-}
-
-async function openSpotifyMusicLoginWindow(owner) {
-  const config = getSpotifyOAuthConfig();
-  if (!config.configured) {
-    return {
-      ok: false,
-      provider: 'spotify',
-      error: 'SPOTIFY_OAUTH_NOT_CONFIGURED',
-      missing: config.missing,
-      redirectUri: config.redirectUri,
-      message: 'Spotify 登录需要先配置 SPOTIFY_CLIENT_ID，并在 Spotify Developer Dashboard 登记本地回调地址 ' + config.redirectUri,
-    };
-  }
-
-  const oauthState = crypto.randomBytes(16).toString('hex');
-  const pkce = createSpotifyPkcePair();
-  let authUrl = '';
-  try {
-    authUrl = buildSpotifyOAuthAuthorizeUrl({
-      state: oauthState,
-      codeChallenge: pkce.codeChallenge,
-      redirectUri: config.redirectUri,
-      scope: config.scope,
-    });
-  } catch (e) {
-    return {
-      ok: false,
-      provider: 'spotify',
-      error: e.code || e.message,
-      missing: e.missing || config.missing,
-      message: e.message || 'Spotify 授权地址生成失败',
-    };
-  }
-
-  return new Promise(async (resolve) => {
-    let settled = false;
-    let exchangeStarted = false;
-    let callbackServer = null;
-    let oauthTimeout = null;
-
-    const finish = (result) => {
-      if (settled) return result;
-      settled = true;
-      if (oauthTimeout) clearTimeout(oauthTimeout);
-      if (callbackServer && typeof callbackServer.close === 'function') callbackServer.close();
-      resolve(result);
-      return result;
-    };
-
-    const exchangeFromRedirect = async (targetUrl, event) => {
-      if (event && typeof event.preventDefault === 'function') event.preventDefault();
-      if (exchangeStarted) return { ok: true, provider: 'spotify', message: 'Spotify 授权正在处理。' };
-      exchangeStarted = true;
-      let parsed = null;
-      try {
-        parsed = targetUrl instanceof URL ? targetUrl : new URL(String(targetUrl || ''));
-      } catch (e) {
-        return finish({ ok: false, provider: 'spotify', error: 'SPOTIFY_OAUTH_BAD_REDIRECT', message: e.message });
-      }
-      const returnedState = parsed.searchParams.get('state') || '';
-      if (returnedState !== oauthState) {
-        return finish({ ok: false, provider: 'spotify', error: 'SPOTIFY_OAUTH_STATE_MISMATCH', message: 'Spotify 授权状态校验失败，请重新登录。' });
-      }
-      const oauthError = parsed.searchParams.get('error') || '';
-      if (oauthError) {
-        return finish({
-          ok: false,
-          provider: 'spotify',
-          error: oauthError,
-          message: parsed.searchParams.get('error_description') || 'Spotify 授权已取消或失败。',
-        });
-      }
-      const code = parsed.searchParams.get('code') || '';
-      if (!code) {
-        return finish({ ok: false, provider: 'spotify', error: 'SPOTIFY_OAUTH_CODE_MISSING', message: 'Spotify 回调没有返回 code。' });
-      }
-      try {
-        const info = await exchangeSpotifyOAuthCode({
-          code,
-          codeVerifier: pkce.codeVerifier,
-          redirectUri: config.redirectUri,
-        });
-        return finish(Object.assign({ ok: true, provider: 'spotify', opened: true }, info || {}, {
-          redirectUri: config.redirectUri,
-          message: 'Spotify 登录成功，会员状态、歌单和 Liked Songs 已可同步。',
-        }));
-      } catch (e) {
-        return finish({
-          ok: false,
-          provider: 'spotify',
-          error: e.code || e.message || 'SPOTIFY_OAUTH_EXCHANGE_FAILED',
-          message: e.message || 'Spotify token 换取失败。',
-          missing: e.missing || [],
-        });
-      }
-    };
-
-    try {
-      callbackServer = await startSpotifyOAuthCallbackServer(config.redirectUri, exchangeFromRedirect);
-    } catch (e) {
-      resolve({
-        ok: false,
-        provider: 'spotify',
-        error: e.code || e.message || 'SPOTIFY_CALLBACK_SERVER_FAILED',
-        redirectUri: config.redirectUri,
-        message: (e.code || e.message) === 'SPOTIFY_CALLBACK_PORT_BUSY'
-          ? 'Spotify 本地回调端口被占用，请关闭占用 43879 端口的程序后重试。'
-          : 'Spotify 本地回调端口启动失败：' + (e.message || e.code || ''),
-      });
-      return;
-    }
-
-    oauthTimeout = setTimeout(() => {
-      finish({
-        ok: false,
-        provider: 'spotify',
-        error: 'SPOTIFY_OAUTH_TIMEOUT',
-        redirectUri: config.redirectUri,
-        message: '三分钟内没有收到 Spotify 回调。请确认 Dashboard 回调地址完全一致、App 所有者为 Premium，且当前账号已加入 Users Management。',
-      });
-    }, SPOTIFY_OAUTH_TIMEOUT_MS);
-
-    try {
-      await shell.openExternal(authUrl);
-    } catch (error) {
-      finish({
-        ok: false,
-        provider: 'spotify',
-        error: error && error.message || 'SPOTIFY_AUTH_BROWSER_OPEN_FAILED',
-        redirectUri: config.redirectUri,
-        message: '无法打开系统浏览器，请检查 Windows 默认浏览器设置。',
-      });
-    }
-  });
-}
-
-async function clearSpotifyMusicLoginSession() {
-  const cookieSession = session.fromPartition(SPOTIFY_LOGIN_PARTITION);
-  await cookieSession.clearStorageData({
-    storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
-  });
-  clearSpotifyToken();
-  return { ok: true, provider: 'spotify' };
-}
-
 async function clearAllProviderLoginState() {
   if (localServer && typeof localServer.clearAllLoginCredentials === 'function') {
     const result = localServer.clearAllLoginCredentials('logout-all');
@@ -3499,7 +3336,6 @@ async function clearAllProviderLoginState() {
     clearQQMusicLoginSession(),
     clearKugouMusicLoginSession(),
     clearQishuiMusicLoginSession(),
-    clearSpotifyMusicLoginSession(),
   ]);
   const failed = results.find((result) => result.status === 'rejected');
   if (failed) throw failed.reason;
@@ -4264,6 +4100,7 @@ ipcMain.handle('mineradio-memory-get-snapshot', async () => {
 
 ipcMain.handle('mineradio-memory-configure-auto', async (_event, payload = {}) => {
   memoryAutoState = normalizeMemoryAutoState(payload);
+  if (memoryAutoState.appTrimEnabled === false || memoryAutoState.backgroundTrimEnabled === false) cancelAppMemoryTrim();
   syncMemoryAutoTimer();
   if (memoryAutoState.enabled && payload.runNow === true && !isMainWindowForegroundVisible()) {
     await runMemoryAutoTick('configure');
@@ -4314,6 +4151,67 @@ ipcMain.handle('mineradio-memory-purge-system', async (_event, payload = {}) => 
       systemPurgeEnabled: systemMemory.SYSTEM_PURGE_ENABLED === true,
     };
   }
+});
+
+ipcMain.handle('mineradio-cache-release', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_CACHE_REQUEST' };
+  return cacheReleaseCoordinator.release(async () => {
+    const categories = [];
+    categories.push(releaseFlatCache({
+      category: 'lyrics', root: cacheSettings.lyricsPath, pattern: /^[a-f0-9]{64}\.json$/i,
+      validate(file, stat, io) {
+        if (stat.size > LYRIC_CACHE_ENTRY_MAX_BYTES) return false;
+        try { const record = JSON.parse(io.readFileSync(file, 'utf8'));
+          return record.version === LYRIC_CACHE_VERSION && record.payload && typeof record.payload === 'object';
+        } catch (_) { return false; }
+      },
+    }));
+    // Never delete beatmaps: current records do not distinguish generated maps
+    // from user-edited cues. Native runtime assets are retained while in use.
+    categories.push({ category: 'beatmaps', preserved: true, reason: 'MAY_CONTAIN_USER_EDITS' });
+    const nativeRoot = path.join(NATIVE_HELPER_TEMP_PATH, 'wallpaper-engine-muted-package-cache');
+    categories.push(releaseFlatCache({ category: 'wallpaperPackages', root: nativeRoot,
+      pattern: /^[a-f0-9]{64}\.pkg$/,
+      preserve: () => !!(wallpaperEngineRuntime.active || wallpaperEngineRuntime.pending),
+      keep: () => [...(wallpaperEngineRuntime.mutedPackagePins || [])],
+    }));
+    // Entries handed out to a renderer remain pinned; it may request more ranges
+    // later. Jobs are preserved rather than interrupting a visible recording.
+    categories.push(await wallpaperLoopCache.mutate(() => releaseFlatCache({
+      category: 'wallpaperLoops', root: wallpaperLoopCache.root,
+      pattern: /^(?:[a-f0-9]{64}\.(?:webm|json)|[a-f0-9]{48}\.partial)$/,
+      validate: (file, stat) => !file.endsWith('.partial') || Date.now() - stat.mtimeMs > 120000,
+      preserve: () => wallpaperLoopCache.jobs.size > 0,
+      keep: () => [...wallpaperLoopCache.entries.keys()].flatMap(key => Object.values(wallpaperLoopCache.files(key))),
+    })));
+    categories.push(releaseFlatCache({ category: 'audioSpill', root: defaultSpillDirectory(),
+      pattern: /^spill-\d+-[0-9a-f]{12}\.tmp$/,
+      validate(file) {
+        const pid = Number(/^spill-(\d+)-/.exec(path.basename(file))[1]);
+        if (!pid || pid === process.pid) return false;
+        try { process.kill(pid, 0); return false; }
+        catch (error) { return error.code === 'ESRCH'; }
+      },
+    }));
+    try {
+      if (localServer && typeof localServer.releaseGeneratedCaches === 'function') {
+        const memory = localServer.releaseGeneratedCaches();
+        categories.push({ category: 'backendMemory', memoryFreedBytes: memory.memoryFreedBytes });
+      } else categories.push({ category: 'backendMemory', failedFiles: 1, errors: ['BACKEND_NOT_READY'] });
+    } catch (error) { categories.push({ category: 'backendMemory', failedFiles: 1, errors: [error.code || 'MEMORY_RELEASE_FAILED'] }); }
+    try {
+      const browserSession = event.sender.session;
+      const before = await browserSession.getCacheSize();
+      await browserSession.clearCache(); // HTTP cache only; never clearStorageData/cookies.
+      const after = await browserSession.getCacheSize();
+      categories.push({ category: 'httpCache', freedBytes: Math.max(0, before - after), remainingBytes: after });
+    } catch (error) { categories.push({ category: 'httpCache', failedFiles: 1, errors: [error.code || 'HTTP_CACHE_RELEASE_FAILED'] }); }
+    const result = summarize(categories);
+    result.generation = cacheReleaseCoordinator.generation();
+    result.preservedCategories = ['beatmaps', 'accounts', 'preferences', 'playlists', 'favorites', 'downloads', 'importedMedia', 'customFonts', 'feedback'];
+    try { result.snapshot = await cacheSettingsSnapshot(); } catch (_) {}
+    return result;
+  }).catch(error => ({ ok: false, partial: true, error: error.code || 'CACHE_RELEASE_FAILED' }));
 });
 
 ipcMain.handle('mineradio-cache-get-settings', async () => {
@@ -4751,17 +4649,30 @@ ipcMain.on('mineradio-wallpaper-engine-pointer-activity', (event, payload = {}) 
   } catch (_) { }
 });
 
+const wallpaperLoopLeaseOwners = new WeakSet();
 ipcMain.handle('mineradio-wallpaper-engine-loop-cache', async (event, payload = {}) => {
   if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
   try {
-    if (payload.action === 'lookup') return await wallpaperLoopCache.lookup(String(payload.id || ''));
+    // A renderer opts into lease retirement; older callers retain session pins.
+    // Ownership is the actual trusted WebContents, never a payload-supplied ID.
+    const owner = payload.leaseProtocol === 1 ? event.sender : undefined;
+    if (owner && !wallpaperLoopLeaseOwners.has(owner)) {
+      wallpaperLoopLeaseOwners.add(owner);
+      const retire = () => { wallpaperLoopCache.releaseOwner(owner).catch(() => {}); };
+      owner.once('destroyed', retire);
+      owner.on('render-process-gone', retire);
+      owner.on('did-navigate', retire); // Committed main-frame navigation, not a failed attempt.
+    }
+    if (owner && owner.isDestroyed()) return { ok: false, error: 'LOOP_RENDERER_DESTROYED' };
+    if (payload.action === 'release') return await wallpaperLoopCache.release(String(payload.leaseId || ''), event.sender);
+    if (payload.action === 'lookup') return await wallpaperLoopCache.lookup(String(payload.id || ''), owner);
     if (payload.action === 'abort') return await wallpaperLoopCache.abort(String(payload.jobId || ''));
     const active = wallpaperEngineRuntime.getStatus();
     const id = payload.action === 'begin' ? String(payload.id || '') : wallpaperLoopCache.job(payload.jobId).id;
     if (!active.active || active.id !== id) throw new Error('LOOP_NATIVE_SESSION_CHANGED');
     if (payload.action === 'begin') return await wallpaperLoopCache.begin(id);
     if (payload.action === 'append') return await wallpaperLoopCache.append(String(payload.jobId), payload.chunk);
-    if (payload.action === 'finish') return await wallpaperLoopCache.finish(String(payload.jobId), payload.size || {});
+    if (payload.action === 'finish') return await wallpaperLoopCache.finish(String(payload.jobId), payload.size || {}, owner);
     throw new Error('LOOP_ACTION_INVALID');
   } catch (error) { return { ok: false, error: error.message || 'LOOP_CACHE_FAILED' }; }
 });
@@ -4926,21 +4837,22 @@ ipcMain.handle('mineradio-local-library-import', async (event, payload = {}) => 
 });
 
 ipcMain.handle('mineradio-cache-read-lyric', async (_event, key) => {
+  const generation = cacheReleaseCoordinator.generation();
   try {
     const file = lyricCacheFilePath(key);
-    if (!fs.existsSync(file)) return { ok: true, hit: false };
+    if (!fs.existsSync(file)) return { ok: true, generation, hit: false };
     const stat = await fs.promises.stat(file);
-    if (!stat || stat.size <= 0 || stat.size > LYRIC_CACHE_ENTRY_MAX_BYTES) return { ok: true, hit: false };
+    if (!stat || stat.size <= 0 || stat.size > LYRIC_CACHE_ENTRY_MAX_BYTES) return { ok: true, generation, hit: false };
     const record = JSON.parse(await fs.promises.readFile(file, 'utf8'));
-    if (!record || record.version !== LYRIC_CACHE_VERSION || !record.payload || typeof record.payload !== 'object') return { ok: true, hit: false };
+    if (!record || record.version !== LYRIC_CACHE_VERSION || !record.payload || typeof record.payload !== 'object') return { ok: true, generation, hit: false };
     fs.promises.utimes(file, new Date(), new Date()).catch(() => {});
-    return { ok: true, hit: true, payload: record.payload, cachedAt: record.cachedAt || 0 };
+    return { ok: true, generation, hit: true, payload: record.payload, cachedAt: record.cachedAt || 0 };
   } catch (error) {
-    return { ok: false, hit: false, error: error.message || 'LYRIC_CACHE_READ_FAILED' };
+    return { ok: false, generation, hit: false, error: error.message || 'LYRIC_CACHE_READ_FAILED' };
   }
 });
 
-ipcMain.handle('mineradio-cache-write-lyric', async (_event, key, payload) => {
+ipcMain.handle('mineradio-cache-write-lyric', async (_event, key, payload, generation = 0) => cacheReleaseCoordinator.write(generation, async () => {
   try {
     if (!key || !payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok: false, error: 'INVALID_LYRIC_CACHE_PAYLOAD' };
     const record = { version: LYRIC_CACHE_VERSION, cachedAt: Date.now(), payload };
@@ -4948,15 +4860,29 @@ ipcMain.handle('mineradio-cache-write-lyric', async (_event, key, payload) => {
     if (Buffer.byteLength(text, 'utf8') > LYRIC_CACHE_ENTRY_MAX_BYTES) return { ok: false, error: 'LYRIC_CACHE_ENTRY_TOO_LARGE' };
     await fs.promises.mkdir(cacheSettings.lyricsPath, { recursive: true });
     const file = lyricCacheFilePath(key);
-    const temporary = `${file}.tmp`;
-    await fs.promises.writeFile(temporary, text, 'utf8');
-    await fs.promises.rename(temporary, file);
+    // Each writer owns only its exclusively created temp file. Historical
+    // fixed-name .tmp files cannot be attributed safely and are left alone.
+    const temporary = `${file}.${process.pid}.${crypto.randomBytes(12).toString('hex')}.tmp`;
+    let temporaryHandle = null;
+    let ownsTemporary = false;
+    try {
+      temporaryHandle = await fs.promises.open(temporary, 'wx');
+      ownsTemporary = true;
+      await temporaryHandle.writeFile(text, 'utf8');
+      await temporaryHandle.close();
+      temporaryHandle = null;
+      await fs.promises.rename(temporary, file);
+      ownsTemporary = false;
+    } finally {
+      if (temporaryHandle) await temporaryHandle.close().catch(() => {});
+      if (ownsTemporary) await fs.promises.unlink(temporary).catch(() => {});
+    }
     pruneLyricCache().catch(() => {});
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message || 'LYRIC_CACHE_WRITE_FAILED' };
   }
-});
+}));
 
 ipcMain.handle('desktop-window-close', (event, behavior) => {
   const win = getSenderWindow(event);
@@ -5113,10 +5039,12 @@ ipcMain.handle('qq-music-clear-login', async () => {
 });
 
 ipcMain.handle('kugou-music-open-login', async (event, options) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
   return openKugouMusicLoginWindow(getSenderWindow(event), withInlineLoginNotify(event, options));
 });
 
-ipcMain.handle('kugou-music-clear-login', async () => {
+ipcMain.handle('kugou-music-clear-login', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
   return clearKugouMusicLoginSession();
 });
 
@@ -5150,7 +5078,7 @@ ipcMain.handle('mineradio-remix-update-install', async (event) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
   appQuitting = true;
   try {
-    const result = remixUpdater.install();
+    const result = await remixUpdater.install();
     if (!result.ok) appQuitting = false;
     return result;
   } catch (error) {
@@ -5295,6 +5223,20 @@ ipcMain.handle('mineradio-gesture-camera-request-permission', async (event) => {
   return { ok: true, expiresAt: grant.expiresAt };
 });
 
+ipcMain.handle('mineradio-microphone-enumerate', (event) => microphonePermissionGate.begin(event, 'enumerate'));
+ipcMain.handle('mineradio-microphone-begin-capture', (event) => microphonePermissionGate.begin(event));
+ipcMain.handle('mineradio-microphone-begin-setup', (event) => microphonePermissionGate.begin(event, 'setup'));
+ipcMain.handle('mineradio-microphone-prepare-capture', (event, token) => microphonePermissionGate.prepare(event, token));
+ipcMain.handle('mineradio-microphone-end-capture', (event, token) => microphonePermissionGate.end(event, token));
+ipcMain.handle('mineradio-virtual-audio-setup-info', (event) => {
+  if (!isTrustedMainWindowIpc(event) || !event.senderFrame || event.senderFrame !== event.sender.mainFrame) {
+    return { ok: false, error: 'UNTRUSTED_SENDER' };
+  }
+  return virtualAudioSetupGuide.getInfo();
+});
+ipcMain.handle('mineradio-virtual-audio-setup-begin', (event, topic) => virtualAudioSetupGuide.begin(event, topic));
+ipcMain.handle('mineradio-virtual-audio-setup-cancel', (event) => virtualAudioSetupGuide.cancel(event));
+
 ipcMain.handle('mineradio-wallpaper-update', async (event) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, enabled: false, error: 'WALLPAPER_UNTRUSTED_SENDER' };
   const status = {
@@ -5333,10 +5275,6 @@ function configureLocalServerEnvironment(port) {
   if (!process.env.QISHUI_OAUTH_CONFIG_FILE) {
     process.env.QISHUI_OAUTH_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.qishui-oauth.json');
   }
-  process.env.SPOTIFY_TOKEN_FILE = path.join(STABLE_USER_DATA_PATH, '.spotify-token.json');
-  if (!process.env.SPOTIFY_CONFIG_FILE && !process.env.MINERADIO_SPOTIFY_CONFIG_FILE) {
-    process.env.SPOTIFY_CONFIG_FILE = path.join(STABLE_USER_DATA_PATH, '.spotify-credentials.json');
-  }
 }
 
 const APP_OWNED_MIGRATION_FILES = [
@@ -5348,8 +5286,6 @@ const APP_OWNED_MIGRATION_FILES = [
   '.qishui-oauth.json',
   '.qishui-qr-identity.json',
   '.qishui-qr-login.json',
-  '.spotify-token.json',
-  '.spotify-credentials.json',
   'current-fx-autosave.json',
   'desktop-behavior.json',
   'cuefield-feedback.jsonl',
@@ -5521,32 +5457,7 @@ function migrateLegacyAuthStorage() {
   } catch (e) {
     console.warn('Qishui OAuth config migration skipped:', e.message);
   }
-  try {
-    const legacySpotifyToken = path.join(__dirname, '..', '.spotify-token.json');
-    if (fs.existsSync(legacySpotifyToken)) {
-      if (!fs.existsSync(process.env.SPOTIFY_TOKEN_FILE)) {
-        fs.copyFileSync(legacySpotifyToken, process.env.SPOTIFY_TOKEN_FILE);
-      }
-      fs.unlinkSync(legacySpotifyToken);
-    }
-  } catch (e) {
-    console.warn('Spotify token migration skipped:', e.message);
-  }
-  try {
-    const spotifyConfigTarget = process.env.SPOTIFY_CONFIG_FILE;
-    const legacySpotifyConfigFiles = [
-      path.join(__dirname, '..', '.spotify-credentials.json'),
-      path.join(__dirname, '..', 'spotify-credentials.json'),
-    ];
-    for (const legacySpotifyConfig of legacySpotifyConfigFiles) {
-      if (spotifyConfigTarget && fs.existsSync(legacySpotifyConfig) && !fs.existsSync(spotifyConfigTarget)) {
-        fs.copyFileSync(legacySpotifyConfig, spotifyConfigTarget);
-        break;
-      }
-    }
-  } catch (e) {
-    console.warn('Spotify config migration skipped:', e.message);
-  }
+
 }
 
 async function ensureLocalServerStarted() {
@@ -6056,6 +5967,8 @@ async function createWindowOnce() {
   win.__mineradioUnresponsive = false;
   hookExplorerRestartForFullDesktop(win);
   hookMainWindowMinimizeIntent(win);
+  microphonePermissionGate.attach(win);
+  virtualAudioSetupGuide.attach(win);
   writeStartupState('window-created', { windowCreatedAt: Date.now() });
 
   win.__mineradioStartupShowTimer = setTimeout(() => {
@@ -6173,6 +6086,7 @@ async function createWindowOnce() {
     }, MAIN_WINDOW_MINIMIZE_RECOVERY_DELAY_MS);
   });
   win.on('restore', () => {
+    cancelAppMemoryTrim();
     if (mainWindowMinimizeRecoveryTimer) clearTimeout(mainWindowMinimizeRecoveryTimer);
     mainWindowMinimizeRecoveryTimer = null;
     clearMainWindowMinimizeIntent(win);
@@ -6183,6 +6097,7 @@ async function createWindowOnce() {
     refreshMainWindowAfterForeground(win, 'restore');
   });
   win.on('show', () => {
+    cancelAppMemoryTrim();
     win.__mineradioIntentionalHide = false;
     markMainWindowExpectedVisible(win, true, 'show');
     if (fullDesktopModeHostVisibilityTransitionDepth > 0) return;
@@ -6453,22 +6368,15 @@ if (!gotSingleInstanceLock) {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('before-quit', (event) => {
+  prepareUpdateShutdown = ({ forInstall = false } = {}) => {
     appQuitting = true;
-    if (appQuitCleanupComplete) return;
-    event.preventDefault();
-    if (appQuitCleanupPromise) return;
-    clearWallpaperEngineCaptureGrant();
-    wallpaperEngineLibrary.dispose();
-    stopMemoryAutoTimer();
-    unregisterFullDesktopEscapeShortcut();
-    unregisterMineradioGlobalHotkeys();
-    closeDesktopLyricsWindow();
-    if (localServer && localServer.close) localServer.close();
-    if (tray) {
-      try { tray.destroy(); } catch (e) {}
-      tray = null;
-    }
+    virtualAudioSetupGuide.cancel();
+    if (appQuitCleanupComplete) return Promise.resolve();
+    if (appQuitCleanupPromise) return appQuitCleanupPromise;
+    const installCleanup = forInstall ? new AbortController() : null;
+    const assertCleanupActive = () => {
+      if (installCleanup && installCleanup.signal.aborted) throw new Error('UPDATE_SHUTDOWN_CANCELLED');
+    };
     const quitMainWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
     const forceDestroyQuitMainWindow = (reason, detail) => {
       console.error(`[FullDesktopMode] ${reason}; destroying the exact main window as the HWND cleanup fallback.`, detail || '');
@@ -6495,17 +6403,21 @@ if (!gotSingleInstanceLock) {
       let result = null;
       try {
         result = await Promise.race([
-          fullDesktopModeRuntime.dispose('app-before-quit'),
+          forInstall
+            ? fullDesktopModeRuntime.disable('app-before-update')
+            : fullDesktopModeRuntime.dispose('app-before-quit'),
           timeoutResult,
         ]);
       } catch (error) {
         if (fullDesktopCleanupTimeout) clearTimeout(fullDesktopCleanupTimeout);
+        if (forInstall) throw error;
         forceDestroyQuitMainWindow('dispose failed', error && error.message || error);
         return;
       }
       if (fullDesktopCleanupTimeout) clearTimeout(fullDesktopCleanupTimeout);
       if (!result || result.ok !== true) {
         const detail = result && (result.error || result.status && result.status.lastError) || 'unknown';
+        if (forInstall) throw new Error('UPDATE_DESKTOP_CLEANUP_FAILED: ' + detail);
         forceDestroyQuitMainWindow(timedOut ? 'dispose timed out after 7000ms' : 'dispose incomplete', detail);
       }
     };
@@ -6515,29 +6427,85 @@ if (!gotSingleInstanceLock) {
       // its exact WE source/DWM companion is disposed. Running these in
       // parallel can race the native detach acknowledgement.
       await disposeFullDesktopModeWithGuard();
-      await wallpaperLoopCache.abortAll().catch(() => {});
-      await wallpaperEngineRuntime.dispose().then((result) => {
-        if (result && result.ok === false) {
-          console.warn('[Wallpaper Engine] dispose incomplete:', result.reason || 'WALLPAPER_ENGINE_WINDOW_CLOSE_FAILED');
+      assertCleanupActive();
+      await wallpaperLoopCache.abortAll(forInstall ? { signal: installCleanup.signal } : undefined).catch(() => {});
+      assertCleanupActive();
+      if (forInstall) {
+        // Do not set either runtime's permanent disposed latch before an
+        // installer has successfully launched. A failed launch must leave
+        // desktop mode and future wallpaper loads usable.
+        const result = await wallpaperEngineRuntime.stop();
+        if (!result || result.ok === false || result.active || result.reason) {
+          throw new Error('UPDATE_WALLPAPER_CLEANUP_FAILED: ' + (result && result.reason || 'unknown'));
         }
-      }).catch((error) => {
-        console.warn('[Wallpaper Engine] dispose failed:', error && error.message || error);
-      });
+      } else {
+        await wallpaperEngineRuntime.dispose().then((result) => {
+          if (result && result.ok === false) {
+            console.warn('[Wallpaper Engine] dispose incomplete:', result.reason || 'WALLPAPER_ENGINE_WINDOW_CLOSE_FAILED');
+          }
+        }).catch((error) => {
+          console.warn('[Wallpaper Engine] dispose failed:', error && error.message || error);
+        });
+      }
     })();
     const checkpointCleanup = quitMainWindow && !quitMainWindow.webContents.isDestroyed()
       ? quitMainWindow.webContents.executeJavaScript("saveLastPlaybackSnapshot(true, 'app-quit'); playbackCheckpointPending").catch(() => {}).then(() => playbackCheckpointStore.flush())
       : playbackCheckpointStore.flush();
-    const runtimeCleanup = Promise.allSettled([fullDesktopAndWallpaperEngineCleanup, checkpointCleanup]);
-    const timeoutCleanup = new Promise((resolve) => {
+    const runtimeCleanup = forInstall
+      ? Promise.all([fullDesktopAndWallpaperEngineCleanup, checkpointCleanup])
+      : Promise.allSettled([fullDesktopAndWallpaperEngineCleanup, checkpointCleanup]);
+    const timeoutCleanup = new Promise((resolve, reject) => {
       cleanupTimeout = setTimeout(() => {
+        if (forInstall) {
+          installCleanup.abort();
+          reject(new Error('UPDATE_SHUTDOWN_TIMEOUT'));
+          return;
+        }
         console.warn('[Shutdown] runtime cleanup exceeded 15000ms; continuing bounded application exit.');
         resolve();
       }, 15000);
     });
-    appQuitCleanupPromise = Promise.race([runtimeCleanup, timeoutCleanup]).finally(() => {
-      if (cleanupTimeout) clearTimeout(cleanupTimeout);
+    appQuitCleanupPromise = Promise.race([runtimeCleanup, timeoutCleanup]).then(() => {
       appQuitCleanupComplete = true;
-      app.quit();
+    }).catch((error) => {
+      if (installCleanup) installCleanup.abort();
+      throw error;
+    }).finally(() => {
+      if (cleanupTimeout) clearTimeout(cleanupTimeout);
     });
+    return appQuitCleanupPromise;
+  };
+
+  app.on('before-quit', (event) => {
+    if (remixUpdater.getState().status === 'installing' && !updateInstallerLaunched) {
+      event.preventDefault();
+      return;
+    }
+    if (blockFailedUpdateQuit) {
+      event.preventDefault();
+      appQuitting = false;
+      blockFailedUpdateQuit = false;
+      return;
+    }
+    appQuitting = true;
+    virtualAudioSetupGuide.cancel();
+    if (appQuitCleanupComplete) return;
+    event.preventDefault();
+    prepareUpdateShutdown().then(() => app.quit());
+  });
+  // Keep the server/tray usable if installer launch fails after preparation.
+  app.on('will-quit', () => {
+    virtualAudioSetupGuide.dispose();
+    clearWallpaperEngineCaptureGrant();
+    wallpaperEngineLibrary.dispose();
+    stopMemoryAutoTimer();
+    unregisterFullDesktopEscapeShortcut();
+    unregisterMineradioGlobalHotkeys();
+    closeDesktopLyricsWindow();
+    if (localServer && localServer.close) localServer.close();
+    if (tray) {
+      try { tray.destroy(); } catch (e) {}
+      tray = null;
+    }
   });
 }

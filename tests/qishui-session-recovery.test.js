@@ -126,7 +126,7 @@ test('a failed player-info resolution retries immediately and cached audio canno
     if (url.pathname === '/luna/pc/me') return { body: validProfile };
     if (url.pathname === '/luna/pc/track_v2') return { body: { data: {
       track: { id: 'recover-stream', duration_ms: 180000 },
-      track_player: { url_player_info: 'https://media.example/player-info' },
+      track_player: { url_player_info: 'https://vod-luna.douyin.com/player-info' },
     } } };
     if (url.pathname === '/player-info') {
       playerRequests++;

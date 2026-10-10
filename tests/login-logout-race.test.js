@@ -21,6 +21,7 @@ let qrStarted;
 const qrStartedPromise = new Promise(resolve => { qrStarted = resolve; });
 const fake = new Proxy({}, { get: (_, name) => {
   if (name === '__esModule') return false;
+  if (name === 'login_qr_key') return async () => ({ body: { data: { unikey: 'fixture' } } });
   if (name === 'login_qr_check') return async () => { qrStarted(); await qrGate;
     return { body: { code: 803, message: 'ok' }, cookie: ['MUSIC_U=fixture-late-login; Path=/'] }; };
   return async () => ({ body: {} });
@@ -28,21 +29,25 @@ const fake = new Proxy({}, { get: (_, name) => {
 const ncmPath = require.resolve('NeteaseCloudMusicApi', { paths: [root] });
 require.cache[ncmPath] = { id: ncmPath, filename: ncmPath, loaded: true, exports: fake };
 const server = require(path.join(root, 'server.js'));
-function call(port, pn) {
+function call(port, pn, data) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, path: pn, method: pn === '/api/logout' ? 'POST' : 'GET',
-      headers: { host: '127.0.0.1:' + port } }, res => {
+    const req = http.request({ host: '127.0.0.1', port, path: pn, method: data || pn === '/api/logout' ? 'POST' : 'GET',
+      headers: { host: '127.0.0.1:' + port, 'Content-Type': 'application/json' } }, res => {
       let body = ''; res.on('data', c => { body += c; });
       res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(body || '{}') }));
     });
-    req.on('error', reject); req.end();
+    req.on('error', reject); req.end(data ? JSON.stringify(data) : undefined);
   });
 }
 server.on('listening', async () => {
   const port = server.address().port;
-  const check = call(port, '/api/login/qr/check?key=fixture');
+  const attempt = (await call(port, '/api/login/attempt', { provider: 'netease', action: 'begin' })).body.attemptId;
+  await call(port, '/api/login/qr/key?attemptId=' + attempt);
+  const check = call(port, '/api/login/qr/check?key=fixture&attemptId=' + attempt);
   await qrStartedPromise;
   if (scenario === 'logout') await call(port, '/api/logout');
+  if (scenario === 'cancel') await call(port, '/api/login/attempt', { provider: 'netease', action: 'cancel', attemptId: attempt });
+  if (scenario === 'replace') await call(port, '/api/login/attempt', { provider: 'netease', action: 'begin' });
   releaseQr();
   const result = await check;
   const status = await call(port, '/api/login/status');
@@ -59,7 +64,7 @@ function run(scenario) {
       KUGOU_COOKIE_FILE: path.join(dir, 'kugou.txt'), QISHUI_COOKIE_FILE: path.join(dir, 'qishui.txt'),
       QISHUI_QR_CONFIG_FILE: path.join(dir, 'qishui-qr.json'), MINERADIO_BEAT_CACHE_DIR: path.join(dir, 'beats'),
       CUEFIELD_FEEDBACK_FILE: path.join(dir, 'cuefield.jsonl'), MINERADIO_LISTEN_SYNC_FILE: path.join(dir, 'sync.json') };
-    const out = execFileSync(process.execPath, ['-e', child, root, scenario], { env, timeout: 30000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execFileSync(process.execPath, ['-e', child, root, scenario], { env, timeout: 30000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     const result = JSON.parse(out.slice(out.lastIndexOf('{"check"')));
     const saved = fs.existsSync(env.COOKIE_FILE) ? fs.readFileSync(env.COOKIE_FILE, 'utf8') : '';
     return { ...result, saved };
@@ -82,4 +87,11 @@ test('NetEase QR confirmation without logout still saves the session', () => {
   assert.equal(check.body.code, 803);
   assert.equal(check.body.hasCookie, true);
   assert.ok(saved.length > 0, 'cookie store written');
+});
+
+for (const scenario of ['cancel', 'replace']) test('NetEase late QR cannot write after ' + scenario, () => {
+  const { check, saved } = run(scenario);
+  assert.equal(check.status, 409);
+  assert.equal(check.body.loggedIn, false);
+  assert.doesNotMatch(saved, /fixture-late-login/);
 });

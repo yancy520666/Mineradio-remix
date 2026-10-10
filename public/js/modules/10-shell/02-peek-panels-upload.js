@@ -82,8 +82,21 @@ function yieldLeftPanelToShelf() {
   if (!pp || playlistPanelPinned || !pp.classList.contains('peek')) return;
   setPeek(pp, false, 'pl');
 }
-function setPeek(el, on, key) {
+function setPeek(el, on, key, preserveKeyboardFocus) {
   if (!el) return;
+  if (on || !preserveKeyboardFocus) el.__peekPointerHidePending = null;
+  if (preserveKeyboardFocus && !el.__peekFocusHideBound) {
+    el.__peekFocusHideBound = true;
+    el.addEventListener('focusout', function () {
+      setTimeout(function () {
+        var pendingKey = el.__peekPointerHidePending;
+        if (pendingKey && !el.contains(document.activeElement)) {
+          el.__peekPointerHidePending = null;
+          setPeek(el, false, pendingKey, true);
+        }
+      }, 0);
+    });
+  }
   if (!on && typeof visualGuideKeepsPeekOpen === 'function' && visualGuideKeepsPeekOpen(key)) return;
   if (immersiveMode && on && (key === 'search' || key === 'fx')) return;
   if (on && !diyPlayerMode && key === 'fx') return;
@@ -129,6 +142,12 @@ function setPeek(el, on, key) {
     if (key === 'pl') resetSecondaryPlaylistEdgeGuard();
     if (peekTimers[key]) clearTimeout(peekTimers[key]);
     peekTimers[key] = setTimeout(function () {
+      if (preserveKeyboardFocus && el.contains(document.activeElement)) {
+        el.__peekPointerHidePending = key;
+        peekTimers[key] = null;
+        return;
+      }
+      el.__peekPointerHidePending = null;
       if (key === 'pl') el.classList.add('playlist-panel-closing');
       el.classList.remove('peek');
       if (key === 'pl') {
@@ -422,7 +441,7 @@ window.addEventListener('mousemove', function (e) {
     var inQueuePanelImm = isPlaylistPanelPanelHit(pp, ppRectImm, ex, ey);
     var inQueueBridgeImm = isPlaylistPanelBridgeHit(pp, ppRectImm, ex, ey, H);
     if (inQueueTriggerImm || inQueuePanelImm || inQueueBridgeImm) setPeek(pp, true, 'pl');
-    else if (shouldClosePlaylistPanelFromPointer(ppOnImm, ex, ppRectImm, ey, H)) setPeek(pp, false, 'pl');
+    else if (shouldClosePlaylistPanelFromPointer(ppOnImm, ex, ppRectImm, ey, H)) setPeek(pp, false, 'pl', true);
     var shelfCanFocusImm = !!(shelfManager && shelfManager.canInteract && shelfManager.canInteract());
     var newFocusImm = null;
     var queueFocusImm = isPlaylistPanelFocusActive(inQueueTriggerImm, inQueuePanelImm || inQueueBridgeImm, pp, ex, ppRectImm, ey, H);
@@ -439,13 +458,13 @@ window.addEventListener('mousemove', function (e) {
   // 搜索 (上): 顶部 48px 内进入; 已显示时鼠标在 280px 内保留
   var saOn = sa.classList.contains('peek');
   var saRect = sa.getBoundingClientRect();
-  var searchFocused = document.activeElement === $input;
+  var searchFocused = sa.contains(document.activeElement);
   var uploadTip = document.getElementById('upload-tip');
   var uploadTipOpen = !!(uploadTip && uploadTip.classList.contains('show'));
   var uploadImportOpen = typeof isUploadImportActive === 'function' && isUploadImportActive();
   var inSearchPanel = saOn && ex >= saRect.left - 24 && ex <= saRect.right + 24 && ey >= saRect.top - 22 && ey <= saRect.bottom + 42;
   if (ey < 66 || inSearchPanel || searchFocused || uploadTipOpen || uploadImportOpen) setPeek(sa, true, 'search');
-  else if ((saOn || isSearchPeekRevealPending()) && !emptyHomeActive) setPeek(sa, false, 'search');
+  else if ((saOn || isSearchPeekRevealPending()) && !emptyHomeActive) setPeek(sa, false, 'search', true);
   // 控制台: 右下角触发；一旦面板出现，就按真实面板矩形保留显示
   var fpOn = fp.classList.contains('peek') || fp.classList.contains('show');
   var fpRect = fp.getBoundingClientRect();
@@ -463,7 +482,7 @@ window.addEventListener('mousemove', function (e) {
   if (inFxFab || inFxPanel || inFxBridge) {
     if (typeof fxPanelHoldOpen !== 'undefined') fxPanelHoldOpen = false;
     setPeek(fp, true, 'fx');
-  } else if (fpOn && !(typeof fxPanelHoldOpen !== 'undefined' && fxPanelHoldOpen)) setPeek(fp, false, 'fx');
+  } else if (fpOn && !(typeof fxPanelHoldOpen !== 'undefined' && fxPanelHoldOpen)) setPeek(fp, false, 'fx', true);
   // 歌单/队列 DOM 面板只在左侧明确停留时出现，避免和右侧 3D 架抢焦点
   var ppOn = isPlaylistPanelActiveState(pp);
   var ppRect = pp.getBoundingClientRect();
@@ -471,7 +490,7 @@ window.addEventListener('mousemove', function (e) {
   var inQueuePanel = isPlaylistPanelPanelHit(pp, ppRect, ex, ey);
   var inQueueBridge = isPlaylistPanelBridgeHit(pp, ppRect, ex, ey, H);
   if (inQueueTrigger || inQueuePanel || inQueueBridge) setPeek(pp, true, 'pl');
-  else if (shouldClosePlaylistPanelFromPointer(ppOn, ex, ppRect, ey, H)) setPeek(pp, false, 'pl');
+  else if (shouldClosePlaylistPanelFromPointer(ppOn, ex, ppRect, ey, H)) setPeek(pp, false, 'pl', true);
 
   // v8: 镜头跟拍触发判断
   //   - 队列面板 peek 时 → queue focus

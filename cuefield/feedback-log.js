@@ -217,26 +217,31 @@ function compactDiagnostics(diagnostics = {}) {
 }
 
 function compactBridge(transition = {}) {
+  const bridge = isPlainObject(transition.bridge) ? transition.bridge : {};
+  const value = (field, flatField) => firstPresent(bridge[field], transition[flatField]);
+  const bars = Number(value('bars', 'bridgeBars'));
   return {
-    selected: transition.bridgeSelected === true,
-    template: compactString(transition.bridgeTemplate, 32),
-    bars: [4, 8, 16].includes(Number(transition.bridgeBars)) ? Number(transition.bridgeBars) : null,
-    climaxType: compactString(transition.bridgeClimaxType, 16),
-    climaxTime: roundNumber(transition.bridgeClimaxTime),
-    climaxConfidence: roundNumber(transition.bridgeClimaxConfidence),
-    lyricLinkScore: roundNumber(transition.lyricLinkScore),
-    lyricLinkReasons: compactList(transition.lyricLinkReasons, 4),
+    selected: value('selected', 'bridgeSelected') === true,
+    template: compactString(value('template', 'bridgeTemplate'), 32),
+    bars: [4, 8, 16].includes(bars) ? bars : null,
+    climaxType: compactString(value('climaxType', 'bridgeClimaxType'), 16),
+    climaxTime: roundNumber(value('climaxTime', 'bridgeClimaxTime')),
+    climaxConfidence: roundNumber(value('climaxConfidence', 'bridgeClimaxConfidence')),
+    lyricLinkScore: roundNumber(value('lyricLinkScore', 'lyricLinkScore')),
+    lyricLinkReasons: compactList(value('lyricLinkReasons', 'lyricLinkReasons'), 4),
   };
 }
 
 function compactMusical(transition = {}) {
+  const musical = isPlainObject(transition.musical) ? transition.musical : {};
+  const value = (field, flatField) => firstPresent(musical[field], transition[flatField]);
   return {
-    evidence: transition.musicalEvidence === true,
-    compatibility: roundNumber(transition.musicalCompatibility),
-    harmonicSimilarity: roundNumber(transition.harmonicSimilarity),
-    keyCompatibility: roundNumber(transition.keyCompatibility),
-    melodySimilarity: roundNumber(transition.melodySimilarity),
-    risks: compactList(transition.musicalRisks, 3),
+    evidence: value('evidence', 'musicalEvidence') === true,
+    compatibility: roundNumber(value('compatibility', 'musicalCompatibility')),
+    harmonicSimilarity: roundNumber(value('harmonicSimilarity', 'harmonicSimilarity')),
+    keyCompatibility: roundNumber(value('keyCompatibility', 'keyCompatibility')),
+    melodySimilarity: roundNumber(value('melodySimilarity', 'melodySimilarity')),
+    risks: compactList(value('risks', 'musicalRisks'), 3),
   };
 }
 

@@ -22,7 +22,7 @@ function applyBuiltInPlaylistSnapshot(result, opts) {
       reason: opts.reason || 'built-in-playlists'
     });
   } else {
-    userPlaylists = builtInPlaylists.concat(neteasePlaylists, qqPlaylists, kugouPlaylists, qishuiPlaylists, spotifyPlaylists);
+    userPlaylists = builtInPlaylists.concat(neteasePlaylists, qqPlaylists, kugouPlaylists, qishuiPlaylists);
     playlistCatalogRevision += 1;
   }
   return true;
@@ -76,18 +76,21 @@ async function createBuiltInPlaylist(name, initialTrack) {
     if (typeof showToast === 'function') showToast('当前环境无法保存内置歌单');
     return null;
   }
-  var result = await window.desktopWindow.createBuiltInPlaylist(name);
-  if (!result || result.ok !== true || !result.playlist) {
-    if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '创建内置歌单失败'));
-    return null;
-  }
-  applyBuiltInPlaylistSnapshot(result, { animate: true, reason: 'built-in-playlist-create' });
-  if (initialTrack) {
-    var added = await addTrackToBuiltInPlaylist(result.playlist.id, initialTrack, { silentSuccess: true });
-    if (!added) return result.playlist;
-  }
-  if (typeof showToast === 'function') showToast('内置歌单已创建');
-  return result.playlist;
+  var releaseLocalUrl = typeof retainLocalAudioObjectUrl === 'function' ? retainLocalAudioObjectUrl(initialTrack && initialTrack.localUrl) : function () {};
+  try {
+    var result = await window.desktopWindow.createBuiltInPlaylist(name);
+    if (!result || result.ok !== true || !result.playlist) {
+      if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '创建内置歌单失败'));
+      return null;
+    }
+    applyBuiltInPlaylistSnapshot(result, { animate: true, reason: 'built-in-playlist-create' });
+    if (initialTrack) {
+      var added = await addTrackToBuiltInPlaylist(result.playlist.id, initialTrack, { silentSuccess: true });
+      if (!added) return result.playlist;
+    }
+    if (typeof showToast === 'function') showToast('内置歌单已创建');
+    return result.playlist;
+  } finally { releaseLocalUrl(); }
 }
 
 var builtInPlaylistPromptResolve = null;
@@ -126,32 +129,58 @@ function promptCreateBuiltInPlaylist() {
 async function addTrackToBuiltInPlaylist(id, track, opts) {
   opts = opts || {};
   if (!builtInPlaylistApiAvailable() || typeof window.desktopWindow.addBuiltInPlaylistTrack !== 'function') return false;
-  var result = await window.desktopWindow.addBuiltInPlaylistTrack(String(id || ''), track || {});
-  if (!result || result.ok !== true) {
-    if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '加入内置歌单失败'));
-    return false;
-  }
-  applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlist-add-track' });
-  if (typeof showToast === 'function' && !opts.silentSuccess) showToast(result.duplicate ? '歌曲已在这个内置歌单中' : '已加入内置歌单');
-  return result.duplicate ? 'duplicate' : true;
+  var localUrl = track && track.localUrl;
+  var releaseLocalUrl = typeof retainLocalAudioObjectUrl === 'function' ? retainLocalAudioObjectUrl(localUrl) : function () {};
+  try {
+    var result = await window.desktopWindow.addBuiltInPlaylistTrack(String(id || ''), track || {});
+    if (!result || result.ok !== true) {
+      if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '加入内置歌单失败'));
+      return false;
+    }
+    // A duplicate keeps the previously saved track/URL, not this new import.
+    if (!result.duplicate && typeof pinSavedLocalAudioObjectUrl === 'function') pinSavedLocalAudioObjectUrl(localUrl);
+    applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlist-add-track' });
+    if (typeof showToast === 'function' && !opts.silentSuccess) showToast(result.duplicate ? '歌曲已在这个内置歌单中' : '已加入内置歌单');
+    return result.duplicate ? 'duplicate' : true;
+  } finally { releaseLocalUrl(); }
 }
 
+var builtInPlaylistRemoveBusy = Object.create(null);
 async function removeTrackFromBuiltInPlaylist(id, index) {
   if (!builtInPlaylistApiAvailable() || typeof window.desktopWindow.removeBuiltInPlaylistTrack !== 'function') return false;
-  var result = await window.desktopWindow.removeBuiltInPlaylistTrack(String(id || ''), Number(index));
-  if (!result || result.ok !== true) {
-    if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '移除歌曲失败'));
-    return false;
+  id = String(id || '');
+  index = Number(index);
+  // Indices shift after each disk commit. Do not let two clicks on the same
+  // visible row remove the following song while the first operation is pending.
+  if (!Number.isInteger(index) || index < 0 || builtInPlaylistRemoveBusy[id]) return false;
+  builtInPlaylistRemoveBusy[id] = true;
+  var detail = playlistPanelDetailState && playlistPanelDetailState.key === 'mineradio:' + id ? playlistPanelDetailState : null;
+  if (detail) {
+    if (typeof cancelPlaylistPanelDetailRequest === 'function') cancelPlaylistPanelDetailRequest();
+    detail.token = (Number(detail.token) || 0) + 1;
+    detail.loading = false;
+    detail.loadingMore = false;
   }
-  if (playlistPanelDetailState && playlistPanelDetailState.key === 'mineradio:' + String(id || '')) {
-    playlistPanelDetailState.tracks.splice(Number(index), 1);
-    playlistPanelDetailState.total = Math.max(0, playlistPanelDetailState.tracks.length);
-    playlistPanelDetailState.nextOffset = playlistPanelDetailState.tracks.length;
-    playlistPanelDetailState.hasMore = false;
+  try {
+    var result = await window.desktopWindow.removeBuiltInPlaylistTrack(id, index);
+    if (!result || result.ok !== true) {
+      if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '移除歌曲失败'));
+      return false;
+    }
+    if (detail && playlistPanelDetailState === detail && detail.key === 'mineradio:' + id) {
+      detail.tracks.splice(index, 1);
+      var total = result.playlist && Number(result.playlist.trackCount);
+      detail.total = Number.isFinite(total) ? Math.max(detail.tracks.length, total) : Math.max(detail.tracks.length, (Number(detail.total) || 0) - 1);
+      detail.nextOffset = detail.tracks.length;
+      detail.hasMore = detail.nextOffset < detail.total;
+      if (result.playlist) detail.playlist = Object.assign({}, detail.playlist || {}, result.playlist);
+    }
+    applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlist-remove-track' });
+    if (typeof showToast === 'function') showToast('已从内置歌单移除');
+    return true;
+  } finally {
+    delete builtInPlaylistRemoveBusy[id];
   }
-  applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlist-remove-track' });
-  if (typeof showToast === 'function') showToast('已从内置歌单移除');
-  return true;
 }
 
 async function renameBuiltInPlaylist(id, currentName) {

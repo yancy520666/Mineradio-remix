@@ -65,8 +65,8 @@
     var state = global.desktopRuntimeState;
     return !document.hidden && !(state && (state.minimized || state.visible === false));
   }
-  function config() {
-    var p = preset() === 7 ? stageProfile() : currentProfile();
+  function config(forPreset) {
+    var p = (forPreset === 8 ? 8 : preset()) === 7 ? stageProfile() : currentProfile();
     // Prefer the display's reported rate. The rAF-gap estimate follows the main
     // loop, which idles under Sonic WE and swung between 48 and 240 Hz in QA;
     // every swing reset frame-drop evidence. The estimate remains a fallback.
@@ -356,18 +356,22 @@
       active = next; governor.reset(); meter.reset(now()); hardwareClock.reset(now());
       latest = null; recommendation = ''; lastConfig = ''; lastTarget = ''; noticeUntil = 0;
     }
-    if (!active) { sceneAdvice(); renderUi(); return; }
-    attachStage();
-    var c = config(), frame = document.querySelector('#sonic-workshop-layer iframe');
-    syncTarget(c);
-    if (active === 8 && frame && frame.contentWindow) {
-      var signature = JSON.stringify(c);
+    // A preparing or outgoing iframe still needs foreground/background updates.
+    // Its first frame must not wait for the very preset commit it is preparing.
+    var frame = document.querySelector('#sonic-workshop-layer iframe');
+    if (frame && frame.contentWindow) {
+      var workshopConfig = config(8);
+      var signature = JSON.stringify(workshopConfig);
       if (signature !== lastConfig) {
         lastConfig = signature;
-        frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: c }, location.origin);
+        frame.contentWindow.postMessage({ type: 'mineradio-sonic-performance-config', config: workshopConfig }, location.origin);
       }
-      if (!health[8]) status(8, 'loading');
     }
+    if (!active) { sceneAdvice(); renderUi(); return; }
+    attachStage();
+    var c = config();
+    syncTarget(c);
+    if (active === 8 && frame && frame.contentWindow && !health[8]) status(8, 'loading');
     if (!c.eligible) { meter.reset(now()); governor.clearEvidence(); }
     var h = health[active];
     // Successful draws reset this clock. Hidden time and suspended timer gaps

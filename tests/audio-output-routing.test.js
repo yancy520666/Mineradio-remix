@@ -128,3 +128,20 @@ test('a failed device connection can recover on refresh and settings survive rel
   c.audioOutputDevices = c.audioOutputDevices.filter(d => d.deviceId !== 'a'); c.syncAudioOutputMirrors('devicechange');
   assert.equal(c.audioOutputMirrorRuntime.a.state, 'disconnected');
 });
+test('unknown output snapshots keep verified existing mirrors responsive without creating or rebinding routes', async () => {
+  const c = setup(); c.audioOutputMirrorDeviceIds = ['a']; c.syncAudioOutputMirrors('play'); await flush();
+  const mirror = c.audioOutputMirrorElements.a, originalStream = mirror.srcObject;
+  let bindings = 0; mirror.setSinkId = () => { bindings++; throw Error('unknown outputs cannot rebind'); };
+  c.audioOutputDeviceSnapshotKnown = false; c.audioOutputDevices = [];
+  c.audio.paused = true; c.syncAudioOutputMirrors('pause'); assert.equal(mirror.paused, true);
+  c.audio.paused = false; c.syncAudioOutputMirrors('play'); await flush(); assert.equal(mirror.paused, false);
+  c.audio.muted = true; c.syncAudioOutputMirrors('volumechange'); assert.equal(mirror.muted, true);
+  c.audio.muted = false; c.setAudioRouteSetting('a', 'volume', 45); c.syncAudioOutputMirrors('volumechange');
+  assert.equal(mirror.muted, false); assert.equal(mirror._route.gain.gain.value, .45);
+  assert.equal(mirror.srcObject, originalStream); assert.equal(bindings, 0);
+  c.audioOutputMirrorDeviceIds.push('b'); c.syncAudioOutputMirrors('play'); await flush();
+  assert.equal(c.audioOutputMirrorElements.b, undefined, 'unknown snapshot cannot construct a new route');
+  mirror.sinkId = 'unexpected-speaker'; c.syncAudioOutputMirrors('play'); await flush();
+  assert.equal(mirror.paused, true, 'do not play a stream through an unverified sink'); assert.equal(bindings, 0);
+  c.disconnectAdditionalAudioRoutes(); assert.equal(Object.keys(c.audioOutputMirrorElements).length, 0);
+});

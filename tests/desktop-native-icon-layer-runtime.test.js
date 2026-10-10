@@ -48,29 +48,6 @@ function layout(sequence = 0, locked = false, desktopIconsVisible = true) {
   };
 }
 
-test('native wheel routing is session-bound, hit-tested and fails open', () => {
-  const script = nativeIconLayerGuardScript({ iconHostWindowId: '8200', listViewWindowId: '8300', mainWindowId: '424242' });
-  const callback = script.slice(script.indexOf('private static IntPtr HandleWheel('), script.indexOf('private static void WheelThreadMain('));
-  assert.match(callback, /code >= 0 && \(kind == 0x020A \|\| kind == 0x020E\)/);
-  assert.match(callback, /\(wheel.flags & 3\) == 0 && !_wheelStopping && !_boundTargetDestroyed/);
-  assert.match(callback, /MainWindowIdentityMatches\(\) && IsWindowVisible\(_mainWindow\)/);
-  assert.match(callback, /GWL_EXSTYLE\).ToInt64\(\) & 0x20\) == 0/);
-  assert.match(callback, /target = WindowFromPoint\(wheel.point\)/);
-  assert.match(callback, /target == _mainWindow \|\| IsChild\(_mainWindow, target\)/);
-  assert.match(callback, /processId == _mainProcessId/);
-  assert.match(callback, /if \(PostMessageW\(target, kind, new IntPtr\(word\), new IntPtr\(point\)\)\) return new IntPtr\(1\)/);
-  assert.match(callback, /return CallNextHookEx\(_wheelHook, code, message, data\)/);
-  assert.doesNotMatch(callback, /SetFocus|SetForegroundWindow|SendInput|SendMessage|Emit|WriteLine/);
-  assert.match(script, /BindExpectedTarget\(\);\s+StartWheelRouter\(\)/);
-  const wheelThread = script.slice(script.indexOf('private static void WheelThreadMain('), script.indexOf('[DllImport("user32.dll", SetLastError=true)]\n  private static extern IntPtr SetWinEventHook'));
-  assert.match(wheelThread, /new System.Threading.Thread\(WheelThreadMain\)/);
-  assert.match(wheelThread, /GetMessage\(out message/);
-  assert.doesNotMatch(wheelThread, /ApplyAndEmit|\.Probe\(|SendMessageTimeout/);
-  assert.match(wheelThread, /PostThreadMessage\(_wheelThreadId, WM_QUIT/);
-  assert.match(script, /finally \{\s+StopWheelRouter\(\)/);
-  assert.match(script, /finally \{\s+if \(_wheelHook != IntPtr.Zero\) \{\s+UnhookWindowsHookEx/);
-});
-
 test('native layered guard puts the complete main HWND below Explorer icons and restores all snapshots', () => {
   const script = nativeIconLayerGuardScript({
     iconHostWindowId: '8200',
@@ -167,7 +144,7 @@ test('native layered wrapper exposes explicit icon visibility and terminal diagn
   child.stdin = new PassThrough();
   child.stdin.on('data', (chunk) => {
     const text = String(chunk);
-    const control = text.match(/^([LZVR])\|(\d+)\|([^\r\n]*)/m);
+    const control = text.match(/^([LZV])\|(\d+)\|([^\r\n]*)/m);
     if (control) {
       const kind = control[1];
       const sequence = Number(control[2]);
@@ -205,7 +182,6 @@ test('native layered wrapper exposes explicit icon visibility and terminal diagn
   assert.equal(watcher.getLastLayout().nativeLayerLocked, true);
   assert.equal((await watcher.setIconsVisible(false)).desktopIconsVisible, false);
   assert.equal((await watcher.ensureOrder()).controlSequence, 3);
-  assert.equal((await watcher.reveal()).controlSequence, 4, 'native reveal waits for its own acknowledged sequence');
   assert.deepEqual(spawnedArgs.slice(0, 6),
     ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File']);
   const stopped = await watcher.stop();
@@ -226,6 +202,4 @@ test('native desktop guard repairs physical bounds and watches Electron child re
   assert.match(script, /UnhookWinEvent\(_mainWindowHook\)/);
   assert.match(script, /UnhookWinEvent\(_mainLocationHook\)/);
   assert.match(script, /DESKTOP_ICON_LAYER_BOUNDS_ACK_FAILED/);
-  assert.match(script, /if \(reveal\) flags \|= SWP_SHOWWINDOW/);
-  assert.match(script, /if \(!IsWindowVisible\(_mainWindow\)\) throw new InvalidOperationException\("DESKTOP_ICON_LAYER_REVEAL_FAILED"\)/);
 });

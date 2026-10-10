@@ -2,12 +2,48 @@
 function lyricFxEditActive() {
   return typeof isLyricFxEditPreviewActive === 'function' && isLyricFxEditPreviewActive();
 }
+// A released edit owns only its original visible rows. Ordinary paused
+// decoration, other roots and later runway rows keep the normal pause policy.
+function lyricFxPausedCommitActive(data, row) {
+  var current = stageLyrics.current;
+  if (!data || !current || !current.userData || current.userData.lyric !== data
+    || current.userData.__mineradioDisposeQueued || data.pausedFxCommitToken !== trackSwitchToken
+    || !audio || !audio.paused || lyricFxEditActive()) return false;
+  return !row || !!(row.renderWindowActive && Array.isArray(data.pausedFxCommitRows)
+    && data.pausedFxCommitRows.indexOf(row) >= 0);
+}
+function finishLyricFxPausedCommit(data) {
+  if (!data || data.pausedFxCommitToken == null) return;
+  if (!lyricFxPausedCommitActive(data)) {
+    delete data.pausedFxCommitToken; delete data.pausedFxCommitRows;
+    return;
+  }
+  if (data.fxEditTextOnly) return;
+  var rows = data.pausedFxCommitRows || [], visible = 0;
+  var tier = lyricTextureClarityScale();
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row || !row.renderWindowActive) continue;
+    visible += 1;
+    if (row.editTextPreview || !row.renderLineUploaded || !row.readability || !row.renderReadabilityUploaded) return;
+    if (fx.lyricGlow && Number(fx.lyricGlowStrength) > 0 && (!row.glow || !row.renderGlowUploaded)) return;
+    if (tier > 1 && row.qualityWanted === true) {
+      var target = lyricQualityCandidateTarget({ row: row, tier: tier });
+      if (target && (row.qualityQueuedKey || row.qualityPendingTexture || !row.qualityTexture
+        || row.qualityTier !== target.metrics.tier || row.qualityRasterKey !== target.key
+        || lyricQualityCurrentMap(row) !== row.qualityTexture)) return;
+    }
+  }
+  if (!visible) return;
+  delete data.pausedFxCommitToken; delete data.pausedFxCommitRows;
+}
 function suspendLyricFxEditWork() {
   if (typeof lyricWorkScheduler !== 'undefined') {
     lyricWorkScheduler.cancel('prewarm-start');
     lyricWorkScheduler.cancel('quality-build');
   }
   var currentData = stageLyrics.current && stageLyrics.current.userData.lyric;
+  if (currentData) { delete currentData.pausedFxCommitToken; delete currentData.pausedFxCommitRows; }
   if (currentData && currentData.fxEditTextOnly) fxSliderEdit.rebuild = true;
   if (stageLyricPrewarm.build && stageLyricPrewarm.build.reason === 'fx-edit-commit') fxSliderEdit.rebuild = true;
   if (lyricRealtimeRefreshTimer) clearTimeout(lyricRealtimeRefreshTimer);

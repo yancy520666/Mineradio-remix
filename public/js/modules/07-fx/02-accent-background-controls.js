@@ -121,6 +121,160 @@ function applyCustomBackgroundCropVars(root, layer) {
     if (layer) layer.style.setProperty(item[0], item[1]);
   });
 }
+// Keep the last decoded surface until its replacement is ready. All URLs below
+// are borrowed, except object URLs explicitly created for an IndexedDB blob.
+var customBgSurfaceState = { active: null, candidate: null, outgoing: null, key: '', timer: 0, frame: 0, opacity: 1 };
+function disposeCustomBackgroundSurface(surface) {
+  if (!surface) return;
+  surface.disposed = true;
+  clearTimeout(surface.timeout);
+  var node = surface.node;
+  if (node) {
+    node.onload = node.onerror = node.onloadeddata = null;
+    if (surface.videoFrame != null && node.cancelVideoFrameCallback) node.cancelVideoFrameCallback(surface.videoFrame);
+    if (surface.type === 'video') { node.pause(); node.removeAttribute('src'); node.load(); }
+    else node.removeAttribute('src');
+    if (node.parentNode) node.parentNode.removeChild(node);
+  }
+  if (surface.ownedUrl) { URL.revokeObjectURL(surface.ownedUrl); surface.ownedUrl = ''; }
+}
+function finishCustomBackgroundHandoff() {
+  var state = customBgSurfaceState;
+  clearTimeout(state.timer);
+  if (state.frame) cancelAnimationFrame(state.frame);
+  state.timer = state.frame = 0;
+  disposeCustomBackgroundSurface(state.outgoing);
+  state.outgoing = null;
+  if (state.active) state.active.node.style.setProperty('--custom-bg-surface-opacity', state.opacity.toFixed(3));
+}
+function suspendCustomBackgroundSurface() {
+  var state = customBgSurfaceState;
+  ++customBgApplyToken;
+  disposeCustomBackgroundSurface(state.candidate);
+  state.candidate = null;
+  finishCustomBackgroundHandoff();
+  state.key = state.active ? state.active.key : '';
+  if (state.active && state.active.type === 'video') state.active.node.pause();
+}
+function retryCustomBackgroundSurfaceSelection() {
+  var state = customBgSurfaceState;
+  if (!state.candidate && (!state.active || state.active.key !== state.key)) state.key = null;
+}
+function applyCustomBackgroundSurface(layer, media, opacity) {
+  if (!layer) return;
+  var state = customBgSurfaceState;
+  var key = media ? media.type + ':' + (media.src || 'id:' + media.id) : '';
+  var wallpaperActive = document.body.classList.contains('wallpaper-engine-active');
+  state.opacity = opacity;
+  if (state.active) state.active.node.style.setProperty('--custom-bg-surface-opacity', opacity.toFixed(3));
+  if (wallpaperActive) {
+    suspendCustomBackgroundSurface();
+    return;
+  }
+  if (state.key === key) {
+    if (state.active && state.active.type === 'video' && state.active.node.paused) {
+      var resume = state.active.node.play();
+      if (resume && resume.catch) resume.catch(function () {});
+    }
+    return;
+  }
+  var token = ++customBgApplyToken;
+  disposeCustomBackgroundSurface(state.candidate);
+  state.candidate = null;
+  finishCustomBackgroundHandoff();
+  state.key = key;
+  // Returning to the displayed surface cancels an in-flight replacement.
+  if (state.active && state.active.key === key) return;
+  function reducedMotion() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  function handoff(surface) {
+    if (token !== customBgApplyToken || (surface && surface.disposed)) return;
+    if (document.body.classList.contains('wallpaper-engine-active')) { fail(); return; }
+    if (surface) {
+      clearTimeout(surface.timeout);
+      surface.node.onload = surface.node.onerror = surface.node.onloadeddata = null;
+    }
+    state.candidate = null;
+    state.outgoing = state.active;
+    state.active = surface;
+    if (state.outgoing && state.outgoing.type === 'video') state.outgoing.node.removeAttribute('id');
+    if (surface && surface.type === 'video') {
+      var placeholder = document.getElementById('custom-bg-video');
+      if (placeholder && placeholder !== surface.node && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+      surface.node.id = 'custom-bg-video';
+    }
+    customBgObjectUrl = surface && surface.ownedUrl || '';
+    customBgVideoState.element = surface && surface.type === 'video' ? surface.node : null;
+    customBgVideoState.key = customBgVideoState.loadedKey = surface ? surface.key : '';
+    if (reducedMotion()) { finishCustomBackgroundHandoff(); return; }
+    // Two frames establish opacity zero even for a cache-hot decode, without
+    // forcing layout or reading pixels from video / cross-origin images.
+    state.frame = requestAnimationFrame(function () {
+      if (token !== customBgApplyToken) return;
+      state.frame = requestAnimationFrame(function () {
+        state.frame = 0;
+        if (token !== customBgApplyToken) return;
+        if (surface) surface.node.style.setProperty('--custom-bg-surface-opacity', state.opacity.toFixed(3));
+        if (state.outgoing) state.outgoing.node.style.setProperty('--custom-bg-surface-opacity', '0');
+        state.timer = setTimeout(finishCustomBackgroundHandoff, 380);
+      });
+    });
+  }
+  function fail() {
+    if (token !== customBgApplyToken) return;
+    disposeCustomBackgroundSurface(state.candidate);
+    state.candidate = null;
+    // Keep the failed intent as the key: slider updates must not retry in a loop.
+  }
+  if (!media) { handoff(null); return; }
+  var node = document.createElement(media.type === 'video' ? 'video' : 'img');
+  var surface = { node: node, type: media.type, key: key, ownedUrl: '', disposed: false, videoFrame: null };
+  state.candidate = surface;
+  node.className = 'custom-bg-media';
+  node.setAttribute('aria-hidden', 'true');
+  node.style.setProperty('--custom-bg-surface-opacity', '0');
+  layer.appendChild(node);
+  node.onerror = fail;
+  surface.timeout = setTimeout(fail, 15000);
+  if (media.type === 'image') {
+    node.alt = '';
+    node.decoding = 'async';
+    node.onload = function () {
+      node.onload = null;
+      var decoded;
+      try { decoded = node.decode ? node.decode() : Promise.resolve(); } catch (e) { fail(); return; }
+      Promise.resolve(decoded).then(function () { handoff(surface); }, fail);
+    };
+    node.src = media.src;
+    return;
+  }
+  node.muted = true;
+  node.loop = true;
+  node.playsInline = true;
+  node.preload = 'auto';
+  node.onloadeddata = function () {
+    node.onloadeddata = null;
+    if (node.requestVideoFrameCallback) surface.videoFrame = node.requestVideoFrameCallback(function () { handoff(surface); });
+    else handoff(surface); // HAVE_CURRENT_DATA is the decoded-first-frame fallback.
+  };
+  function load(src) {
+    if (token !== customBgApplyToken || surface.disposed || !src) return;
+    node.src = src;
+    node.load();
+    var play = node.play();
+    if (play && play.catch) play.catch(fail);
+  }
+  if (media.src) load(media.src);
+  else if (media.id) {
+    getCustomBackgroundBlob(media.id).then(function (blob) {
+      if (token !== customBgApplyToken || surface.disposed) return;
+      if (!blob) { fail(); return; }
+      surface.ownedUrl = URL.createObjectURL(blob);
+      load(surface.ownedUrl);
+    }).catch(fail);
+  } else fail();
+}
 function applyCustomBackground() {
   var color = normalizeHexColor(fx.backgroundColor || '#000000', '#000000');
   var rgb = hexToRgb(color);
@@ -142,7 +296,6 @@ function applyCustomBackground() {
   var override = albumMode || !!media || customColor || opacity < 1 || windowOpacity < 0.999 || glassActive;
   var root = document.documentElement;
   var layer = document.getElementById('custom-bg');
-  var video = document.getElementById('custom-bg-video');
   root.style.setProperty('--custom-bg-color', color);
   root.style.setProperty('--custom-bg-color-rgb', rgb.r + ', ' + rgb.g + ', ' + rgb.b);
   root.style.setProperty('--custom-bg-album-opacity', albumMode ? opacity.toFixed(3) : '1');
@@ -154,7 +307,7 @@ function applyCustomBackground() {
   document.body.classList.toggle('custom-window-transparent', windowOpacity < 0.999);
   document.body.classList.toggle('custom-bg-glass-active', glassActive);
   if (layer) {
-    layer.style.setProperty('--custom-bg-image', image ? 'url("' + cssImageUrl(image) + '")' : 'none');
+    layer.style.setProperty('--custom-bg-image', 'none');
     layer.style.setProperty('--custom-bg-image-opacity', image ? opacity.toFixed(3) : '0');
     layer.style.setProperty('--custom-bg-video-opacity', hasVideo ? opacity.toFixed(3) : '0');
     layer.style.setProperty('--custom-bg-base-opacity', windowOpacity.toFixed(3));
@@ -165,64 +318,9 @@ function applyCustomBackground() {
     layer.style.setProperty('--custom-bg-glass-brightness', glassBrightness.toFixed(3));
     layer.style.setProperty('--custom-bg-glass-veil', glassVeil.toFixed(3));
   }
-  if (!video) return;
-  var mediaKey = hasVideo ? (media.src || 'id:' + media.id) : '';
-  var wallpaperEngineActive = document.body.classList.contains('wallpaper-engine-active');
-  if (customBgVideoState.element === video && customBgVideoState.key === mediaKey
-    && customBgVideoState.wallpaperActive === wallpaperEngineActive) return;
-  var token = ++customBgApplyToken;
-  customBgVideoState.element = video;
-  customBgVideoState.key = mediaKey;
-  customBgVideoState.wallpaperActive = wallpaperEngineActive;
-  if (!hasVideo) {
-    if (video.getAttribute('src') || video.srcObject) {
-      video.pause();
-      video.removeAttribute('src');
-      video.srcObject = null;
-      video.load();
-    }
-    if (customBgObjectUrl) { URL.revokeObjectURL(customBgObjectUrl); customBgObjectUrl = ''; }
-    customBgVideoState.loadedKey = '';
-    return;
-  }
-  if (wallpaperEngineActive) {
-    video.pause();
-    return;
-  }
-  function setVideoSrc(src) {
-    if (token !== customBgApplyToken || !src) return;
-    if (document.body.classList.contains('wallpaper-engine-active')) {
-      video.pause();
-      return;
-    }
-    if (customBgObjectUrl && customBgObjectUrl !== src) { URL.revokeObjectURL(customBgObjectUrl); customBgObjectUrl = ''; }
-    if (video.getAttribute('src') !== src) {
-      video.setAttribute('src', src);
-      video.load();
-    }
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    customBgVideoState.loadedKey = mediaKey;
-    var p = video.paused ? video.play() : null;
-    if (p && p.catch) p.catch(function () { });
-  }
-  if (media.src) {
-    setVideoSrc(media.src);
-  } else if (media.id && customBgVideoState.loadedKey === mediaKey && customBgObjectUrl) {
-    setVideoSrc(customBgObjectUrl);
-  } else if (media.id) {
-    getCustomBackgroundBlob(media.id).then(function (blob) {
-      if (token !== customBgApplyToken || !blob) return;
-      if (customBgObjectUrl) URL.revokeObjectURL(customBgObjectUrl);
-      customBgObjectUrl = URL.createObjectURL(blob);
-      setVideoSrc(customBgObjectUrl);
-    }).catch(function (err) {
-      if (token === customBgApplyToken) customBgVideoState.key = '';
-      console.warn('background video load failed:', err);
-    });
-  }
+  applyCustomBackgroundSurface(layer, media, opacity);
 }
+
 function updateCustomBackgroundMediaPreview(media) {
   var preview = document.getElementById('bg-media-preview');
   if (!preview) return;
@@ -313,6 +411,7 @@ function setBackgroundGlassOpacity(value, silent) {
   if (!silent) showToast('\u6bdb\u73bb\u7483\u900f\u660e: ' + Math.round(fx.backgroundGlassOpacity * 100) + '%');
 }
 function setCustomBackgroundAlbumCover(enabled, silent) {
+  retryCustomBackgroundSurfaceSelection();
   fx.backgroundAlbumCover = enabled === true;
   if (fx.backgroundAlbumCover) {
     // A user selecting cover media replaces the app's WE background. Leaving
@@ -369,7 +468,9 @@ function customBackgroundCropMediaSrc(media) {
   if (!media) return '';
   if (media.type === 'image') return media.src || '';
   if (media.type === 'video') {
-    var activeVideo = document.getElementById('custom-bg-video');
+    var active = customBgSurfaceState.active;
+    var key = 'video:' + (media.src || 'id:' + media.id);
+    var activeVideo = active && active.key === key ? active.node : null;
     var activeSrc = activeVideo && (activeVideo.currentSrc || activeVideo.getAttribute('src')) || '';
     return activeSrc || media.src || '';
   }
@@ -546,6 +647,7 @@ function openCustomBackgroundCropModalSoon() {
   }, 80);
 }
 function setCustomBackgroundImage(src, silent) {
+  retryCustomBackgroundSurfaceSelection();
   var image = normalizeCustomBackgroundImage(src);
   fx.backgroundImage = image;
   fx.backgroundMedia = image ? { type: 'image', src: image } : null;
@@ -558,6 +660,7 @@ function clearCustomBackgroundImage() {
   setCustomBackgroundImage('');
 }
 function setCustomBackgroundMedia(media, silent) {
+  retryCustomBackgroundSurfaceSelection();
   media = normalizeCustomBackgroundMedia(media);
   if (media && media.type === 'album') {
     setCustomBackgroundAlbumCover(true, silent);

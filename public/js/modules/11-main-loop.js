@@ -185,6 +185,7 @@ window.__mineradioMainFrameGates = mainFrameGates;
 var mainLoopBackgroundTimer = 0;
 var mainLoopAnimationRequested = false;
 var mainLoopAnimationFrameId = 0;
+var mainLoopWakeRenderState = null;
 function mainLoopDeepBackgroundSleeping() {
   return typeof isDeepBackgroundMode === 'function'
     && isDeepBackgroundMode()
@@ -213,6 +214,18 @@ function scheduleNextMainLoopFrame() {
   }
   requestMainLoopAnimationFrame();
 }
+function mainLoopWakeCameraSignature(camera) {
+  var parts = [];
+  ['position', 'quaternion', 'scale'].forEach(function (name) {
+    var value = camera[name];
+    if (value) parts.push(value.x, value.y, value.z, value.w);
+  });
+  ['matrixWorld', 'projectionMatrix'].forEach(function (name) {
+    var value = camera[name];
+    if (value && value.elements) parts.push(Array.prototype.join.call(value.elements, ','));
+  });
+  return parts.join(':');
+}
 function wakeMainLoopFromBackground() {
   if (mainLoopBackgroundTimer) {
     clearTimeout(mainLoopBackgroundTimer);
@@ -229,7 +242,27 @@ function wakeMainLoopFromBackground() {
   // Submit the existing scene immediately; the normal loop updates it afterward.
   if (!mainLoopDeepBackgroundSleeping() && typeof renderer !== 'undefined' && renderer
     && typeof scene !== 'undefined' && typeof camera !== 'undefined'
-    && !renderer.getContext().isContextLost()) renderer.render(scene, camera);
+    && !renderer.getContext().isContextLost()) {
+    var context = renderer.getContext();
+    var canvas = renderer.domElement || {};
+    var previousWake = typeof mainLoopWakeRenderState !== 'undefined' ? mainLoopWakeRenderState : null;
+    var wakeAt = performance.now();
+    var cameraSignature = mainLoopWakeCameraSignature(camera);
+    var trackToken = typeof trackSwitchToken !== 'undefined' ? trackSwitchToken : null;
+    var displayFrameMs = 1000 / Math.max(30, typeof estimatedDisplayRefreshHz === 'function' ? estimatedDisplayRefreshHz() : 60);
+    // Keep the first native restore synchronous. Focus/visibility/native pushes
+    // before the next loop frame need not resubmit the same framebuffer.
+    // A resize or context/scene/camera replacement still gets an immediate draw.
+    if (!previousWake || wakeAt < previousWake.at || wakeAt - previousWake.at >= displayFrameMs
+      || previousWake.context !== context || previousWake.scene !== scene || previousWake.trackToken !== trackToken
+      || previousWake.camera !== camera || previousWake.cameraSignature !== cameraSignature
+      || previousWake.width !== canvas.width || previousWake.height !== canvas.height) {
+      renderer.render(scene, camera);
+      mainLoopWakeRenderState = { at: wakeAt, context: context, scene: scene, camera: camera, cameraSignature: mainLoopWakeCameraSignature(camera), trackToken: trackToken, width: canvas.width, height: canvas.height };
+    }
+  } else {
+    mainLoopWakeRenderState = null;
+  }
   requestMainLoopAnimationFrame();
 }
 function tickDeepBackgroundFrame(now, dt) {
@@ -320,6 +353,7 @@ function targetMainDesktopOverlayFps(now) {
   return 6;
 }
 function animate() {
+  mainLoopWakeRenderState = null;
   mainLoopAnimationRequested = false;
   mainLoopAnimationFrameId = 0;
   scheduleNextMainLoopFrame();
@@ -668,12 +702,21 @@ function animate() {
   tickGestureRotation(dt);
   var skullPresetActive = fx && fx.preset === SKULL_PRESET_INDEX;
   var workshopPresetActive = window.MineradioSonicWorkshop && MineradioSonicWorkshop.isActive(fx);
-  var presetUsesStarRiverParticles = fx && (Number(fx.preset) === 5 || (typeof SONIC_PRESET_INDEX !== 'undefined' && Number(fx.preset) === SONIC_PRESET_INDEX));
+  var workshopHandoff = window.MineradioSonicWorkshop && MineradioSonicWorkshop.backgroundHandoff
+    ? MineradioSonicWorkshop.backgroundHandoff() : null;
+  var backgroundHandoffAlpha = workshopHandoff ? 1 - workshopHandoff.opacity : 1;
+  if (uniforms.uBackgroundHandoffAlpha) uniforms.uBackgroundHandoffAlpha.value = backgroundHandoffAlpha;
+  // Preserve the outgoing particle geometry until the prepared iframe has faded in.
+  var visibleParticlePreset = workshopPresetActive && workshopHandoff ? workshopHandoff.preset : fx.preset;
+  if (workshopPresetActive && workshopHandoff) uniforms.uPreset.value = visibleParticlePreset;
+  var skullParticleSource = skullPresetActive || (workshopPresetActive && Number(visibleParticlePreset) === SKULL_PRESET_INDEX);
+  var workshopCoversParticles = workshopPresetActive && (!workshopHandoff || backgroundHandoffAlpha < 0.005);
+  var presetUsesStarRiverParticles = fx && (Number(visibleParticlePreset) === 5 || (typeof SONIC_PRESET_INDEX !== 'undefined' && Number(visibleParticlePreset) === SONIC_PRESET_INDEX));
   var presetStarRiverMuted = presetUsesStarRiverParticles && fx.backgroundStarRiver === false;
-  particles.visible = !skullPresetActive && !workshopPresetActive && !presetStarRiverMuted;
-  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !workshopPresetActive && !presetStarRiverMuted && fx.bloom && fx.bloomStrength > 0.01;
-  if (floatGroup) floatGroup.visible = !skullPresetActive && !workshopPresetActive;
-  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !workshopPresetActive;
+  particles.visible = !skullParticleSource && !workshopCoversParticles && !presetStarRiverMuted;
+  if (bloomParticles) bloomParticles.visible = !skullParticleSource && !workshopCoversParticles && !presetStarRiverMuted && fx.bloom && fx.bloomStrength > 0.01;
+  if (floatGroup) floatGroup.visible = !skullParticleSource && !workshopCoversParticles;
+  if (backCoverGroup) backCoverGroup.visible = !skullParticleSource && !workshopCoversParticles;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
   if (!(typeof applyPanelViewRecenter === 'function' && applyPanelViewRecenter(now))) {

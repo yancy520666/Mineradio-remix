@@ -65,10 +65,10 @@ assert(/if \(\(row\.isPrimary \|\| row\.isTranslation\) && renderWindowActive &&
 assert(/baseScale \*= lyricRowLiveViewportScale\(row, baseScale\)/.test(source), 'the live fit ratio participates in the existing scale target');
 assert(!/lyricLongLineDefaultScale|longLineScale|1380\s*\//.test(source), 'the old fixed-width hard compression must not return');
 assert(/var editLayoutEase = editPreview \? 1 : ease;/.test(source)
-  && /row\.mesh\.scale\.setScalar\(row\.mesh\.scale\.x \+ \(scaleTarget - row\.mesh\.scale\.x\) \* editLayoutEase\)/.test(source),
+  && /var nextLineScale = row\.mesh\.scale\.x \+ \(scaleTarget - row\.mesh\.scale\.x\) \* editLayoutEase;/.test(source) && /row\.mesh\.scale\.setScalar\(nextLineScale\)/.test(source),
   'slider previews follow input directly while normal playback retains original scale easing');
-assert(/row\.readability\.scale\.setScalar\(row\.readability\.scale\.x \+ \(scaleTarget - row\.readability\.scale\.x\) \* ease\)/.test(source), 'readability continues to follow the original easing');
-assert(/row\.glow\.scale\.setScalar\(row\.glow\.scale\.x \+ \(glowTargetScale - row\.glow\.scale\.x\) \* glowEase\)/.test(source), 'glow continues to follow the fitted lyric scale');
+assert(/var nextReadabilityScale = row\.readability\.scale\.x \+ \(scaleTarget - row\.readability\.scale\.x\) \* ease;/.test(source) && /row\.readability\.scale\.setScalar\(nextReadabilityScale\)/.test(source), 'readability continues to follow the original easing');
+assert(/var nextGlowScale = row\.glow\.scale\.x \+ \(glowTargetScale - row\.glow\.scale\.x\) \* glowEase;/.test(source) && /row\.glow\.scale\.setScalar\(nextGlowScale\)/.test(source), 'glow continues to follow the fitted lyric scale');
 
 console.log('[OK] Original and translated lyrics share live left/right fitting while short lines retain their original size.');
 
@@ -83,3 +83,30 @@ assert.strictEqual(sandbox.lyricShelfTranslationScale(translated,1.2,0),1.2,'clo
 assert(sandbox.lyricShelfTranslationScale(translated,1.2,.5)>shared,'hierarchy blends in rather than snapping');
 
 assert.strictEqual(sandbox.lyricShelfTranslationScale(translated,.2,1),.2,'an already-small translation is not reduced by the primary viewport fit twice');
+
+// Execute the actual scale expressions and write guard, not just their spelling.
+const layoutEaseCode = source.match(/var editLayoutEase = editPreview \? 1 : ease;/)[0];
+const scaleCode = source.match(/var nextLineScale =[^\n]+\n[^\n]+/)[0];
+for (const editPreview of [false, true]) {
+  let writes = 0;
+  const context = vm.createContext({ editPreview, ease: .16, scaleTarget: 1,
+    row: { mesh: { visible: true, scale: { x: .5, y: .5, z: .5, setScalar(v) { this.x=this.y=this.z=v; writes++; } } } } });
+  vm.runInContext(layoutEaseCode + '\n' + scaleCode, context);
+  assert.strictEqual(context.row.mesh.scale.x, editPreview ? 1 : .58, 'preview snaps while ordinary playback retains the authored easing');
+  assert.strictEqual(writes, 1);
+  context.row.mesh.visible = false; context.scaleTarget = context.row.mesh.scale.x;
+  vm.runInContext(layoutEaseCode + '\n' + scaleCode, context);
+  assert.strictEqual(writes, 1, 'only a fully unchanged hidden scale omits the setter');
+  context.scaleTarget = 2;
+  vm.runInContext(layoutEaseCode + '\n' + scaleCode, context);
+  assert.strictEqual(writes, 2, 'hidden motion continues to update its exact state');
+  // A manual layout edit while hidden must not be masked by cached scale state.
+  Object.assign(context.row.mesh.scale, { x: .25, y: .4, z: .6 });
+  context.row.mesh.visible = true; context.scaleTarget = 1;
+  vm.runInContext(layoutEaseCode + '\n' + scaleCode, context);
+  const restoredScale = editPreview ? 1 : .37;
+  assert.strictEqual(context.row.mesh.scale.x, restoredScale, 'reentry obeys the current edit mode and manually changed scale');
+  assert.strictEqual(context.row.mesh.scale.y, restoredScale);
+  assert.strictEqual(context.row.mesh.scale.z, restoredScale);
+  assert.strictEqual(writes, 3);
+}

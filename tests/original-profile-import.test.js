@@ -8,6 +8,29 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createOriginalProfileImporter } = require('../desktop/original-profile-import');
 
+test('removed Spotify credentials are neither offered nor migrated and existing files remain untouched', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-removed-provider-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const originalPath = path.join(root, 'Original');
+  const remixPath = path.join(root, 'Remix');
+  fs.mkdirSync(originalPath); fs.mkdirSync(remixPath);
+  const names = ['.spotify-token.json', '.spotify-credentials.json'];
+  for (const name of names) fs.writeFileSync(path.join(originalPath, name), '{"fixture":"original"}');
+  fs.writeFileSync(path.join(remixPath, names[0]), '{"fixture":"existing"}');
+  const importer = createOriginalProfileImporter({ originalPath, remixPath });
+  assert.deepEqual(importer.inspect(), { available: false, credentials: 0, settings: 0 });
+  assert.equal(importer.importFiles().error, 'ORIGINAL_PROFILE_NOT_FOUND');
+  fs.writeFileSync(path.join(originalPath, 'desktop-behavior.json'), '{"closeBehavior":"tray"}');
+  assert.equal(importer.importFiles().importedCredentials, 0);
+  assert.equal(fs.readFileSync(path.join(remixPath, names[0]), 'utf8'), '{"fixture":"existing"}');
+  assert.equal(fs.existsSync(path.join(remixPath, names[1])), false);
+  for (const name of names) assert.equal(fs.readFileSync(path.join(originalPath, name), 'utf8'), '{"fixture":"original"}');
+  const main = fs.readFileSync(path.join(__dirname, '../desktop/main.js'), 'utf8');
+  const migrationList = main.match(/const APP_OWNED_MIGRATION_FILES = \[([\s\S]*?)\];/);
+  assert.ok(migrationList);
+  assert.doesNotMatch(migrationList[1], /spotify/i);
+});
+
 test('original profile import fills missing files and preserves existing Remix state', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-import-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -123,4 +146,37 @@ test('preference consumers reject hostile keys, oversized strings and wrong type
   assert.equal(saved.get('apex-player-volume'), '0.15');
   assert.deepEqual([...saved.keys()], ['apex-player-volume', 'mineradio-audio-output-device-v1']);
   assert.equal(vm.runInContext('Object.prototype.polluted', c), undefined);
+});
+
+
+test('startup auth migration leaves obsolete Spotify files untouched and does not import their credentials', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-startup-removed-provider-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const resource = path.join(root, 'resources'), stable = path.join(root, 'stable');
+  fs.mkdirSync(resource); fs.mkdirSync(stable);
+  const names = ['.spotify-token.json', '.spotify-credentials.json', 'spotify-credentials.json'];
+  for (const name of names) fs.writeFileSync(path.join(resource, name), JSON.stringify({ fixture: name }));
+  const tokenTarget = path.join(stable, '.spotify-token.json');
+  const configTarget = path.join(stable, '.spotify-credentials.json');
+  fs.writeFileSync(tokenTarget, '{"fixture":"existing-account"}');
+  const source = fs.readFileSync(path.join(__dirname, '../desktop/main.js'), 'utf8');
+  const start = source.indexOf('function migrateLegacyAuthStorage() {');
+  const end = source.indexOf('\nasync function ensureLocalServerStarted()', start);
+  assert.ok(start > 0 && end > start);
+  let otherMigrations = 0;
+  const context = vm.createContext({ fs, path, console,
+    __dirname: path.join(resource, 'desktop'),
+    process: { env: { SPOTIFY_TOKEN_FILE: tokenTarget, SPOTIFY_CONFIG_FILE: configTarget } },
+    removeDeprecatedKugouVipEvidenceFiles() { otherMigrations++; },
+    migrateMisplacedAppOwnedFiles() { otherMigrations++; },
+  });
+  vm.runInContext(source.slice(start, end), context);
+  context.migrateLegacyAuthStorage();
+  assert.equal(otherMigrations, 2, 'unrelated startup migrations still run');
+  for (const name of names) assert.equal(fs.readFileSync(path.join(resource, name), 'utf8'), JSON.stringify({ fixture: name }));
+  assert.equal(fs.readFileSync(tokenTarget, 'utf8'), '{"fixture":"existing-account"}');
+  assert.equal(fs.existsSync(configTarget), false);
+  fs.unlinkSync(tokenTarget);
+  context.migrateLegacyAuthStorage();
+  assert.equal(fs.existsSync(tokenTarget), false, 'missing removed-provider token is not silently imported');
 });

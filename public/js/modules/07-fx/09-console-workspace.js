@@ -41,6 +41,10 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('bg-media-preview', '背景媒体', '封面 图片 视频 上传 裁切 清除', false),
         fxConsoleItem('wallpaper-engine-value', 'Wallpaper Engine', '壁纸库 识别 导入 恢复原背景', false),
         fxConsoleItem('wallpaper-engine-mode-controls', 'WE 播放方式', '原生 实时 循环 视频 缓存', false),
+        fxConsoleItem('wallpaper-engine-opacity', 'WE 壁纸透明度', 'Wallpaper Engine 背景强度'),
+        fxConsoleItem('wallpaper-engine-position-x', 'WE 水平位置', 'Wallpaper Engine 左右 偏移'),
+        fxConsoleItem('wallpaper-engine-position-y', 'WE 垂直位置', 'Wallpaper Engine 上下 偏移'),
+        fxConsoleItem('wallpaper-engine-scale', 'WE 壁纸缩放', 'Wallpaper Engine 放大 缩小'),
         fxConsoleItem('fx-bgopacity', '背景透明度', '背景强度'),
         fxConsoleItem('fx-bgcropx', '裁切左右', '背景水平 位置'),
         fxConsoleItem('fx-bgcropy', '裁切上下', '背景垂直 位置'),
@@ -283,7 +287,6 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-lyricBackdropAdapt', '全局歌词避光', '歌词 亮底 可读性 动态'),
         fxConsoleItem('t-coverBackdropAdapt', '封面粒子避光', '粒子 亮底 GPU 着色器'),
         fxConsoleItem('performance-background-seg', '后台渲染策略', '自动优化 保持运行 停止释放'),
-        fxConsoleItem('t-liveBackgroundKeep', '直播后台保持', '最小化继续渲染')
       ] },
       { key: 'memory', title: '内存管理', hint: '播放器压缩、系统释放范围和阈值', items: [
         fxConsoleItem('memory-status-chip', '系统内存状态', 'Mem Reduct 占用', false),
@@ -301,7 +304,9 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('cache-storage-panel', '本地缓存', '缓存路径 缓存目录 占用 歌词 封面 音频 更新', false)
       ] },
       { key: 'experimental', title: '实验功能', hint: '尚未开放或需要谨慎使用的能力', items: [
-        fxConsoleItem('t-wallpaperMode', '完整桌面模式', '完整 Mineradio 进入桌面层 Ctrl Shift M 切换操作层 本次启动有效', false)
+        fxConsoleItem('t-wallpaperMode', '完整桌面模式', '完整 Mineradio 进入桌面层 Ctrl Shift M 切换操作层 本次启动有效', false),
+        fxConsoleItem('wallpaper-fps-seg', '桌面壁纸帧率', '24 30 60 FPS'),
+        fxConsoleItem('fx-wallpaperopacity', '桌面壁纸透明度', '桌面背景透明')
       ] }
     ]
   }
@@ -451,6 +456,7 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
       var label = document.createElement('div');
       label.className = 'fx-section-label fx-console-item-label';
       label.textContent = item.title;
+      label.hidden = node.hidden;
       body.appendChild(label);
       if (!node.hasAttribute('aria-label') && !node.hasAttribute('aria-labelledby')) node.setAttribute('aria-label', item.title);
     }
@@ -494,8 +500,39 @@ function fxConsoleFindUnclassifiedControls(roots) {
   return blocks;
 }
 
+function initializeFxControlAccessibility(panel) {
+  if (!panel) return;
+  panel.querySelectorAll('.fx-slider').forEach(function (row) {
+    var label = row.querySelector('label'), input = row.querySelector('input[id]');
+    if (label && input && !label.htmlFor && !label.contains(input)) label.htmlFor = input.id;
+  });
+  function syncToggle(node) {
+    node.setAttribute('aria-pressed', String(node.classList.contains('on')));
+  }
+  panel.querySelectorAll('.fx-toggle').forEach(function (node) {
+    if (node.tagName !== 'BUTTON') {
+      node.setAttribute('role', 'button');
+      node.tabIndex = 0;
+    }
+    syncToggle(node);
+    if (!node.__fxAccessibilityObserver && typeof MutationObserver === 'function') {
+      var observer = new MutationObserver(function () { syncToggle(node); });
+      observer.observe(node, { attributes: true, attributeFilter: ['class'] });
+      node.__fxAccessibilityObserver = observer;
+    }
+  });
+  if (panel.__fxAccessibilityBound) return;
+  panel.__fxAccessibilityBound = true;
+  panel.addEventListener('keydown', function (e) {
+    var node = e.target && e.target.closest ? e.target.closest('.fx-toggle') : null;
+    if (!node || node.tagName === 'BUTTON' || !panel.contains(node) || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!e.repeat) node.click();
+  });
+}
 function organizeFxConsoleWorkspace() {
   var panel = document.getElementById('fx-panel');
+  initializeFxControlAccessibility(panel);
   if (!panel) return;
   if (panel._fxConsoleWorkspaceOrganized) {
     setFxPanelTab(fxPanelTab);

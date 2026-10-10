@@ -62,12 +62,13 @@ const os = require('os');
 const crypto = require('crypto');
 const tls = require('tls');
 const { createCookieStore } = require('./cookie-storage');
-const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES } = require('./server-security');
+const { isTrustedLocalApiRequest, fetchPublicResource, SAFE_COVER_CONTENT_TYPES, readBoundedRequestBody } = require('./server-security');
 const { createSpillRelay, cleanupStaleSpillFiles, defaultSpillDirectory } = require('./audio-spill-relay');
 const { createCoverCache } = require('./cover-cache');
 const { createGeneratedCachePruner } = require('./generated-cache-pruner');
 const { fileURLToPath } = require('url');
-const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
+const { analyzePodcastDjStream, analyzePodcastDjIntro, createPodcastAnalysisLimiter } = require('./dj-analyzer');
+const podcastAnalysisLimiter = createPodcastAnalysisLimiter();
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
@@ -120,7 +121,6 @@ const {
   handleQishuiSongUrl,
 } = require('./qishui-api');
 const qishuiQrLogin = require('./qishui-qr-login');
-const { clearSpotifyToken } = require('./spotify-api');
 const {
   appendCuefieldFeedback,
   readCuefieldFeedbackStats,
@@ -151,6 +151,7 @@ cleanupStaleSpillFiles(AUDIO_SPILL_DIR);
 // from growing the in-memory buffer without limit.
 const QISHUI_AUDIO_ENCRYPTED_MAX_BYTES = 256 * 1024 * 1024;
 let qishuiAudioDecryptCacheBytes = 0;
+let qishuiAudioDecryptCacheGeneration = 0;
 // Release notes are read the same way as the installed updater (see extractReleaseNotes).
 const { extractReleaseHighlights } = require('./desktop/remix-updater');
 const UPDATE_FALLBACK_NOTES = [
@@ -381,9 +382,26 @@ refreshConfiguredCookieStores(true);
 // Bumped on logout/credential reset. A QR check that awaited the network
 // across a logout must not write its late cookie back.
 const loginSessionGeneration = { netease: 0, qq: 0, kugou: 0, qishui: 0 };
+const loginAttempts = { netease: null, qq: null, kugou: null };
+function beginLoginAttempt(provider) {
+  const attempt = { id: crypto.randomBytes(24).toString('hex'), generation: loginSessionGeneration[provider], qrKey: '', qrRequestSeq: 0 };
+  loginAttempts[provider] = attempt;
+  return attempt;
+}
+function currentLoginAttempt(provider, id, generation) {
+  const attempt = loginAttempts[provider];
+  return !!(attempt && id && attempt.id === id && attempt.generation === loginSessionGeneration[provider]
+    && (generation == null || generation === loginSessionGeneration[provider]));
+}
+function sendLoginSuperseded(res, provider) {
+  sendJSON(res, { provider, loggedIn: false, status: 'cancelled', error: 'LOGIN_ATTEMPT_SUPERSEDED' }, 409);
+}
 function bumpLoginSessionGeneration(provider) {
-  if (provider) loginSessionGeneration[provider] += 1;
-  else Object.keys(loginSessionGeneration).forEach((key) => { loginSessionGeneration[key] += 1; });
+  const providers = provider ? [provider] : Object.keys(loginSessionGeneration);
+  providers.forEach((key) => {
+    loginSessionGeneration[key] += 1;
+    if (Object.prototype.hasOwnProperty.call(loginAttempts, key)) loginAttempts[key] = null;
+  });
 }
 
 function clearAllRuntimeLoginCredentials(reason) {
@@ -400,7 +418,6 @@ function clearAllRuntimeLoginCredentials(reason) {
   clearQQLikedPlaylistCoverCache();
   clearKugouSessionCaches();
   const qishui = clearQishuiAccessToken();
-  clearSpotifyToken();
   return {
     ok: true,
     reason: String(reason || 'login-reset'),
@@ -429,6 +446,7 @@ function serveStatic(res, filePath) {
   });
 }
 function sendJSON(res, data, status) {
+  if (res.destroyed || res.writableEnded || res.headersSent) return;
   res.writeHead(status || 200, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -894,8 +912,9 @@ function promiseWithTimeout(promise, timeoutMs, code) {
 // shared by every place that shows it (see cover-cache.js).
 const COVER_MAX_BYTES = 16 * 1024 * 1024;
 const coverCache = createCoverCache();
-async function downloadCover(coverUrl) {
-  const resp = await fetchPublicResource(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
+async function downloadCover(coverUrl, context) {
+  context = context || {};
+  const resp = await fetchPublicResource(coverUrl, { signal: context.signal, headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
   const upstreamType = String(resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   // NetEase's image CDN also labels valid JPEGs with this legacy alias.
   const contentType = upstreamType === 'image/jpg' ? 'image/jpeg' : upstreamType;
@@ -912,10 +931,12 @@ async function downloadCover(coverUrl) {
   let size = 0;
   try {
     while (true) {
-      const c = await readStreamChunkWithTimeout(reader, 12000);
+      const c = await readStreamChunkWithTimeout(reader, 12000, context.signal);
       if (c.done) break;
       size += c.value.length;
       if (size > COVER_MAX_BYTES) throw Object.assign(new Error('COVER_TOO_LARGE'), { code: 'COVER_TOO_LARGE' });
+      // Count retained chunks and the final concatenation's peak allocation.
+      if (context.addBytes) context.addBytes(c.value.length * 2);
       chunks.push(Buffer.from(c.value));
     }
   } catch (error) {
@@ -926,8 +947,13 @@ async function downloadCover(coverUrl) {
   return { status: 200, contentType, body: Buffer.concat(chunks, size) };
 }
 
-async function readStreamChunkWithTimeout(reader, timeoutMs) {
+async function readStreamChunkWithTimeout(reader, timeoutMs, signal) {
+  if (signal && signal.aborted) {
+    try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+    throw Object.assign(new Error('Upstream stream aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+  }
   let timer = null;
+  let onAbort;
   try {
     return await Promise.race([
       reader.read(),
@@ -938,9 +964,19 @@ async function readStreamChunkWithTimeout(reader, timeoutMs) {
           reject(err);
         }, timeoutMs || 12000);
       }),
+      new Promise((_, reject) => {
+        if (!signal) return;
+        onAbort = () => {
+          try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+          reject(Object.assign(new Error('Upstream stream aborted'), { name: 'AbortError', code: 'ABORT_ERR' }));
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        if (signal.aborted) onAbort();
+      }),
     ]);
   } finally {
     if (timer) clearTimeout(timer);
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort);
   }
 }
 async function fetchTextFromCandidates(candidates, timeoutMs) {
@@ -1062,24 +1098,7 @@ async function fetchLatestUpdateInfo() {
   }
 }
 function readRequestBody(req) {
-  return new Promise(resolve => {
-    let raw = '';
-    req.on('data', chunk => {
-      raw += chunk;
-      if (raw.length > 8 * 1024 * 1024) req.destroy();
-    });
-    req.on('end', () => {
-      if (!raw) { resolve({}); return; }
-      try { resolve(JSON.parse(raw)); }
-      catch (e) {
-        const params = new URLSearchParams(raw);
-        const out = {};
-        params.forEach((v, k) => { out[k] = v; });
-        resolve(out);
-      }
-    });
-    req.on('error', () => resolve({}));
-  });
+  return readBoundedRequestBody(req);
 }
 function normalizeApiCode(payload) {
   const body = payload && (payload.body || payload);
@@ -1427,8 +1446,28 @@ function isQzoneBackgroundPlaylist(pl) {
   const text = String((pl && pl.name || '') + ' ' + (pl && pl.creator || '')).toLowerCase();
   return /qzone|空间|背景音乐/i.test(text);
 }
-async function requireLogin(res) {
+function captureNeteaseAccountSession() {
+  return { cookie: userCookie, generation: loginSessionGeneration.netease };
+}
+function captureProviderAccountSession(provider) {
+  const cookies = { netease: userCookie, qq: qqCookie, kugou: kugouCookie, qishui: qishuiCookie };
+  return { provider, cookie: cookies[provider] || '', generation: loginSessionGeneration[provider] };
+}
+function checkProviderAccountSession(accountSession, res) {
+  const current = captureProviderAccountSession(accountSession.provider);
+  if (accountSession.cookie === current.cookie && accountSession.generation === current.generation) return true;
+  if (res) sendJSON(res, { provider: accountSession.provider, error: 'ACCOUNT_SESSION_CHANGED', success: false, code: 409 }, 409);
+  return false;
+}
+function checkNeteaseAccountSession(accountSession, res) {
+  if (accountSession.cookie === userCookie && accountSession.generation === loginSessionGeneration.netease) return true;
+  sendJSON(res, { provider: 'netease', error: 'ACCOUNT_SESSION_CHANGED', success: false, code: 409 }, 409);
+  return false;
+}
+async function requireLogin(res, accountSession) {
+  if (accountSession && !checkNeteaseAccountSession(accountSession, res)) return null;
   const info = await getLoginInfo();
+  if (accountSession && !checkNeteaseAccountSession(accountSession, res)) return null;
   if (!info.loggedIn || !info.userId) {
     sendJSON(res, { error: 'LOGIN_REQUIRED', loggedIn: false }, 401);
     return null;
@@ -1445,23 +1484,26 @@ const SEARCH_RESULT_CACHE_TTL_MS = 2 * 60 * 1000;
 function createSearchResultCache(maxEntries) {
   const store = new Map();
   const inflight = new Map();
+  let generation = 0;
   return {
     async wrap(key, fn) {
       const hit = store.get(key);
       if (hit && Date.now() - hit.at <= SEARCH_RESULT_CACHE_TTL_MS) return hit.value;
       if (hit) store.delete(key);
       if (inflight.has(key)) return inflight.get(key);
+      const startedGeneration = generation;
       const promise = Promise.resolve().then(fn).then((value) => {
-        if (Array.isArray(value) && value.length) {
+        if (startedGeneration === generation && Array.isArray(value) && value.length) {
           store.set(key, { at: Date.now(), value });
           if (store.size > maxEntries) store.delete(store.keys().next().value);
         }
         return value;
-      }).finally(() => inflight.delete(key));
+      }).finally(() => { if (inflight.get(key) === promise) inflight.delete(key); });
       inflight.set(key, promise);
       return promise;
     },
     clear() {
+      generation++;
       store.clear();
       inflight.clear();
     },
@@ -1805,8 +1847,10 @@ function mapDailyRecommendationSongs(raw) {
     .filter(song => song && song.id && song.name);
 }
 
-async function handleDiscoverHome() {
+async function handleDiscoverHome(res, accountSession) {
+  accountSession = accountSession || captureNeteaseAccountSession();
   const info = await getLoginInfo();
+  if (!checkNeteaseAccountSession(accountSession, res)) return null;
   const loggedIn = !!(info && info.loggedIn);
   if (!loggedIn) {
     return {
@@ -1822,11 +1866,12 @@ async function handleDiscoverHome() {
     };
   }
   const tasks = [
-    personalized({ limit: 8, cookie: userCookie, timestamp: Date.now() }),
-    recommend_resource({ cookie: userCookie, timestamp: Date.now() }),
-    recommend_songs({ cookie: userCookie, timestamp: Date.now() }),
+    personalized({ limit: 8, cookie: accountSession.cookie, timestamp: Date.now() }),
+    recommend_resource({ cookie: accountSession.cookie, timestamp: Date.now() }),
+    recommend_songs({ cookie: accountSession.cookie, timestamp: Date.now() }),
   ];
   const result = await Promise.allSettled(tasks);
+  if (!checkNeteaseAccountSession(accountSession, res)) return null;
 
   const personalizedBody = result[0].status === 'fulfilled' && result[0].value && result[0].value.body || {};
   const publicPlaylists = (personalizedBody.result || personalizedBody.data || [])
@@ -1875,28 +1920,85 @@ const qqVipInfoCache = new Map();
 function requestText(targetUrl, opts, body) {
   opts = opts || {};
   return new Promise((resolve, reject) => {
+    const timeoutMs = Number.isFinite(Number(opts.timeoutMs)) && Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 10000;
+    const maxBytes = Number.isSafeInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 8 * 1024 * 1024;
+    const signal = opts.signal;
+    let req;
+    let response;
+    let timer;
+    let settled = false;
+    const chunks = [];
+    let size = 0;
+    const finish = (error, text) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+      if (error) reject(error);
+      else resolve(text);
+    };
+    const fail = error => {
+      finish(error);
+      if (response) response.destroy();
+      if (req) req.destroy();
+    };
+    const onAbort = () => fail(Object.assign(new Error('Request aborted'), { name: 'AbortError', code: 'ABORT_ERR' }));
+    if (signal && signal.aborted) { onAbort(); return; }
     const u = new URL(targetUrl);
     const lib = u.protocol === 'https:' ? https : http;
-    const req = lib.request(u, {
+    req = lib.request(u, {
       method: opts.method || 'GET',
       headers: opts.headers || {},
-    }, response => {
-      const chunks = [];
-      response.on('data', chunk => chunks.push(chunk));
+    }, incoming => {
+      response = incoming;
+      response.on('error', fail);
+      response.on('aborted', () => fail(Object.assign(new Error('Upstream response aborted'), { code: 'UPSTREAM_RESPONSE_ABORTED' })));
+      response.on('close', () => {
+        if (!response.complete) fail(Object.assign(new Error('Upstream response incomplete'), { code: 'UPSTREAM_RESPONSE_ABORTED' }));
+      });
+      const tooLarge = () => {
+        const err = Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE', statusCode: response.statusCode });
+        // Keep bounded challenge/error text available to the existing callers.
+        if (response.statusCode >= 400) err.body = Buffer.concat(chunks, size).toString('utf8');
+        fail(err);
+      };
+      const declared = Number(response.headers['content-length']);
+      if (Number.isFinite(declared) && declared > maxBytes) { tooLarge(); return; }
+      response.on('data', chunk => {
+        if (settled) return;
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        if (size + bytes.length > maxBytes) {
+          const remaining = maxBytes - size;
+          if (remaining) { chunks.push(bytes.subarray(0, remaining)); size += remaining; }
+          tooLarge();
+          return;
+        }
+        chunks.push(bytes);
+        size += bytes.length;
+      });
       response.on('end', () => {
-        const text = Buffer.concat(chunks).toString('utf8');
+        if (settled) return;
+        if (!response.complete) { fail(Object.assign(new Error('Upstream response incomplete'), { code: 'UPSTREAM_RESPONSE_ABORTED' })); return; }
+        const text = Buffer.concat(chunks, size).toString('utf8');
         if (response.statusCode >= 400) {
           const err = new Error('HTTP ' + response.statusCode);
           err.statusCode = response.statusCode;
           err.body = text;
-          reject(err);
+          finish(err);
           return;
         }
-        resolve(text);
+        finish(null, text);
       });
     });
-    req.setTimeout(opts.timeoutMs || 10000, () => req.destroy(new Error('Request timeout')));
-    req.on('error', reject);
+    const onTimeout = () => fail(Object.assign(new Error('Request timeout'), { code: 'REQUEST_TIMEOUT' }));
+    // A wall-clock deadline covers headers and the whole body, including trickles.
+    timer = setTimeout(onTimeout, timeoutMs);
+    req.setTimeout(timeoutMs, onTimeout);
+    req.on('error', fail);
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) { onAbort(); return; }
+    }
     if (body) req.write(body);
     req.end();
   });
@@ -2246,6 +2348,7 @@ const NETEASE_PLAYLIST_TRACK_INDEX_TTL_MS = 10 * 60 * 1000;
 const NETEASE_PLAYLIST_TRACK_INDEX_MAX_ENTRIES = 8;
 const neteasePlaylistTrackIndexCache = new Map();
 const neteasePlaylistTrackIndexInflight = new Map();
+let neteasePlaylistTrackIndexGeneration = 0;
 
 function mapNeteasePlaylistMeta(pl, fallbackId) {
   pl = pl || {};
@@ -2371,13 +2474,26 @@ function pruneNeteasePlaylistTrackIndexCache() {
 }
 
 function invalidateNeteasePlaylistTrackIndex(id) {
-  const key = String(id || '');
-  if (key) neteasePlaylistTrackIndexCache.delete(key);
+  const suffix = '|' + String(id || '');
+  if (suffix === '|') return;
+  neteasePlaylistTrackIndexGeneration += 1;
+  for (const store of [neteasePlaylistTrackIndexCache, neteasePlaylistTrackIndexInflight]) {
+    for (const key of store.keys()) if (key.endsWith(suffix)) store.delete(key);
+  }
+}
+
+function clearNeteasePlaylistTrackIndexes() {
+  neteasePlaylistTrackIndexGeneration += 1;
+  neteasePlaylistTrackIndexCache.clear();
+  neteasePlaylistTrackIndexInflight.clear();
 }
 
 async function fetchNeteasePlaylistTrackIndex(id) {
-  const key = String(id || '');
-  if (!key || typeof playlist_detail !== 'function') return null;
+  const playlistId = String(id || '');
+  if (!playlistId || typeof playlist_detail !== 'function') return null;
+  const cookieKey = userCookie;
+  const key = searchCookieScope(cookieKey) + '|' + playlistId;
+  const generation = neteasePlaylistTrackIndexGeneration;
   pruneNeteasePlaylistTrackIndexCache();
   const cached = neteasePlaylistTrackIndexCache.get(key);
   if (cached && Date.now() - cached.updatedAt <= NETEASE_PLAYLIST_TRACK_INDEX_TTL_MS) {
@@ -2387,7 +2503,7 @@ async function fetchNeteasePlaylistTrackIndex(id) {
   }
   if (neteasePlaylistTrackIndexInflight.has(key)) return neteasePlaylistTrackIndexInflight.get(key);
   const pending = (async () => {
-    const detail = await playlist_detail({ id, s: 0, cookie: userCookie, timestamp: Date.now() });
+    const detail = await playlist_detail({ id, s: 0, cookie: cookieKey, timestamp: Date.now() });
     const pl = (detail.body && detail.body.playlist) || {};
     const rawIds = Array.isArray(pl.trackIds) && pl.trackIds.length ? pl.trackIds : (pl.tracks || []);
     const trackIds = rawIds.map(item => item && (item.id || item.songId || item.trackId)).filter(Boolean);
@@ -2397,11 +2513,13 @@ async function fetchNeteasePlaylistTrackIndex(id) {
       updatedAt: Date.now(),
     };
     if (!entry.playlistMeta.trackCount) entry.playlistMeta.trackCount = trackIds.length;
-    neteasePlaylistTrackIndexCache.set(key, entry);
-    pruneNeteasePlaylistTrackIndexCache();
+    if (generation === neteasePlaylistTrackIndexGeneration && cookieKey === userCookie) {
+      neteasePlaylistTrackIndexCache.set(key, entry);
+      pruneNeteasePlaylistTrackIndexCache();
+    }
     return entry;
   })().finally(() => {
-    neteasePlaylistTrackIndexInflight.delete(key);
+    if (neteasePlaylistTrackIndexInflight.get(key) === pending) neteasePlaylistTrackIndexInflight.delete(key);
   });
   neteasePlaylistTrackIndexInflight.set(key, pending);
   return pending;
@@ -2656,7 +2774,8 @@ const { qqNativeUserAgent } = require('./desktop/qq-native-protocol');
 
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
-  const nativeComm = opts.cookie && nativeCommForCookie(qqCookieObject());
+  const requestCookie = typeof opts.cookie === 'string' ? opts.cookie : (opts.cookie ? qqCookie : '');
+  const nativeComm = requestCookie && nativeCommForCookie(parseCookieString(requestCookie));
   if (nativeComm) payload = { ...payload, comm: { ...payload.comm, ...nativeComm } };
   const body = JSON.stringify(payload);
   const headers = {
@@ -2665,7 +2784,7 @@ async function qqMusicRequest(payload, opts) {
     'Content-Type': 'application/json;charset=UTF-8',
     'Content-Length': Buffer.byteLength(body),
   };
-  if (opts.cookie && qqCookie) headers.Cookie = qqCookie;
+  if (requestCookie) headers.Cookie = requestCookie;
   const text = await requestText(QQ_MUSICU_URL, {
     method: 'POST',
     headers,
@@ -2823,7 +2942,7 @@ async function fetchQQVipStatus(cookieObj, opts) {
     },
   ];
   const value = await resolveQQVipFromProbes(probes, async probe => {
-    return qqMusicRequest(probe.body, { cookie: true, timeoutMs: 4200 });
+    return qqMusicRequest(probe.body, { cookie: opts.cookie || true, timeoutMs: 4200 });
   });
   const now = Date.now();
   const stableValue = preserveQQVipStalePositive(cached, value, { now });
@@ -2894,25 +3013,26 @@ function normalizeQQProfile(body, cookieObj) {
 async function getQQLoginInfo(options) {
   options = options || {};
   if (options.forceCookie) refreshQQConfiguredCookieStore(true);
-  const cookieObj = qqCookieObject();
+  const candidateCookie = options.cookie;
+  const cookieObj = candidateCookie == null ? qqCookieObject() : parseCookieString(candidateCookie);
   const uin = qqCookieUin(cookieObj);
   const musicKey = qqCookieMusicKey(cookieObj);
   if (!uin || !musicKey) return { provider: 'qq', loggedIn: false, hasCookie: !!qqCookie };
   const fallback = normalizeQQProfile(null, cookieObj);
-  const vipProbePromise = fetchQQVipStatus(cookieObj, { force: !!options.forceVip }).catch(e => {
+  const vipProbePromise = fetchQQVipStatus(cookieObj, { force: !!options.forceVip, cookie: candidateCookie }).catch(e => {
     if (options.forceVip) console.warn('[QQLogin] VIP probe skipped:', e.message);
     return null;
   });
   try {
     if (nativeCommForCookie(cookieObj)) {
-      const body = await qqMusicRequest({ req_0: { module: 'music.UserInfo.userInfoServer', method: 'GetLoginUserInfo', param: {} } }, { cookie: true, timeoutMs: 6500 });
+      const body = await qqMusicRequest({ req_0: { module: 'music.UserInfo.userInfoServer', method: 'GetLoginUserInfo', param: {} } }, { cookie: candidateCookie || true, timeoutMs: 6500 });
       const block = body && body.req_0;
       const code = Number(block && block.code) || Number(body && body.code) || 0;
       const accepted = !!(block && code === 0 && block.data && Object.keys(block.data).length);
       const rejected = [1000, 10004, 301, -100008].includes(code);
       const vipProbe = await vipProbePromise;
       const profile = accepted ? normalizeQQProfile({ data: block.data }, cookieObj) : fallback;
-      return mergeQQVipStatus({ ...profile, profileUnavailable: !accepted, sessionRejected: rejected, unverified: !accepted && !rejected }, vipProbe, vipProbe && vipProbe.vipSource);
+      return mergeQQVipStatus({ ...profile, loggedIn: candidateCookie == null ? profile.loggedIn : (!rejected && profile.loggedIn), profileUnavailable: !accepted, sessionRejected: rejected, unverified: !accepted && !rejected }, vipProbe, vipProbe && vipProbe.vipSource);
     }
     const u = new URL('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg');
     u.searchParams.set('cid', '205360838');
@@ -2928,16 +3048,16 @@ async function getQQLoginInfo(options) {
     u.searchParams.set('platform', 'yqq.json');
     u.searchParams.set('needNewCode', '0');
     const text = await requestText(u.toString(), {
-      headers: { ...QQ_HEADERS, Cookie: qqCookie },
+      headers: { ...QQ_HEADERS, Cookie: candidateCookie == null ? qqCookie : candidateCookie },
       timeoutMs: options.forceVip ? 6500 : 10000,
     });
     const body = parseJSONText(text);
     const info = normalizeQQProfile(body, cookieObj);
     const vipProbe = await vipProbePromise;
-    if (body && (body.code === 1000 || body.result === 301)) {
+    if (body && [body.code, body.result].some(code => [1000, 10004, 301, -100008].includes(Number(code)))) {
       // QQ answered "not logged in" for this cookie. The page confirms it on a
       // second check before disconnecting, so one odd reply cannot log anyone out.
-      return mergeQQVipStatus({ ...fallback, profileUnavailable: true, sessionRejected: true }, vipProbe, vipProbe && vipProbe.vipSource);
+      return mergeQQVipStatus({ ...fallback, loggedIn: candidateCookie == null ? fallback.loggedIn : false, profileUnavailable: true, sessionRejected: true }, vipProbe, vipProbe && vipProbe.vipSource);
     }
     return mergeQQVipStatus(info, vipProbe, vipProbe && vipProbe.vipSource);
   } catch (e) {
@@ -2990,9 +3110,13 @@ function rememberQishuiDecryptedAudio(key, payload) {
   if (!payload || !Buffer.isBuffer(payload.buffer)) return;
   const previous = qishuiAudioDecryptCache.get(key);
   if (previous && Buffer.isBuffer(previous.buffer)) qishuiAudioDecryptCacheBytes -= previous.buffer.length;
+  qishuiAudioDecryptCache.delete(key);
+  // An oversized track is still returned to active playback callers, but must
+  // not occupy the retained cache (or leave a replaced entry counted twice).
+  if (payload.buffer.length > QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES) return;
   qishuiAudioDecryptCache.set(key, Object.assign({ at: Date.now() }, payload));
   qishuiAudioDecryptCacheBytes += payload.buffer.length;
-  while (qishuiAudioDecryptCacheBytes > QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES && qishuiAudioDecryptCache.size > 1) {
+  while (qishuiAudioDecryptCacheBytes > QISHUI_AUDIO_DECRYPT_CACHE_MAX_BYTES && qishuiAudioDecryptCache.size > 0) {
     const oldest = [...qishuiAudioDecryptCache.entries()].sort((a, b) => (a[1].at || 0) - (b[1].at || 0))[0];
     if (!oldest) break;
     qishuiAudioDecryptCache.delete(oldest[0]);
@@ -3000,7 +3124,10 @@ function rememberQishuiDecryptedAudio(key, payload) {
   }
 }
 
-async function getQishuiDecryptedAudio(audioUrl) {
+async function getQishuiDecryptedAudio(audioUrl, options) {
+  const signal = options && options.signal;
+  const aborted = () => Object.assign(new Error('Audio request aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+  if (signal && signal.aborted) throw aborted();
   const parsed = qishuiAudioAuthFromUrl(audioUrl);
   if (!parsed.auth) return null;
   const key = qishuiAudioCacheKey(parsed.cleanUrl, parsed.auth);
@@ -3011,33 +3138,65 @@ async function getQishuiDecryptedAudio(audioUrl) {
   }
   // The media element opens several Range requests at once; share one
   // download/decrypt per track instead of buffering the file N times.
-  const inflight = qishuiAudioDecryptInflight.get(key);
-  if (inflight) return inflight;
-  const task = (async () => {
-    const up = await fetchPublicResource(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, '') });
-    if (!up.ok) {
-      if (up.body) await up.body.cancel().catch(() => {});
-      throw new Error('Qishui encrypted audio fetch failed: HTTP ' + up.status);
-    }
-    const encryptedBuffer = await readBoundedResponseBuffer(up, QISHUI_AUDIO_ENCRYPTED_MAX_BYTES);
-    const result = qishuiAudioDecryptor.decrypt({ encryptedBuffer, spadeA: parsed.auth });
-    const payload = {
-      buffer: result.buffer,
-      contentType: result.extension === '.flac' ? 'audio/flac' : 'audio/mp4',
-      extension: result.extension,
-    };
-    rememberQishuiDecryptedAudio(key, payload);
-    return payload;
-  })();
-  qishuiAudioDecryptInflight.set(key, task);
-  try {
-    return await task;
-  } finally {
-    if (qishuiAudioDecryptInflight.get(key) === task) qishuiAudioDecryptInflight.delete(key);
+  let inflight = qishuiAudioDecryptInflight.get(key);
+  if (!inflight) {
+    const controller = new AbortController();
+    inflight = { controller, consumers: 0, settled: false, task: null };
+    const entry = inflight;
+    const cacheGeneration = qishuiAudioDecryptCacheGeneration;
+    entry.task = (async () => {
+      const up = await fetchPublicResource(parsed.cleanUrl, { headers: audioProxyHeadersFor(parsed.cleanUrl, ''), signal: controller.signal });
+      if (controller.signal.aborted) {
+        if (up.body) { try { Promise.resolve(up.body.cancel()).catch(() => {}); } catch (_) {} }
+        throw aborted();
+      }
+      if (!up.ok) {
+        if (up.body) await up.body.cancel().catch(() => {});
+        throw new Error('Qishui encrypted audio fetch failed: HTTP ' + up.status);
+      }
+      const encryptedBuffer = await readBoundedResponseBuffer(up, QISHUI_AUDIO_ENCRYPTED_MAX_BYTES, controller.signal);
+      if (controller.signal.aborted) throw aborted();
+      const result = qishuiAudioDecryptor.decrypt({ encryptedBuffer, spadeA: parsed.auth });
+      const payload = {
+        buffer: result.buffer,
+        contentType: result.extension === '.flac' ? 'audio/flac' : 'audio/mp4',
+        extension: result.extension,
+      };
+      if (cacheGeneration === qishuiAudioDecryptCacheGeneration) rememberQishuiDecryptedAudio(key, payload);
+      return payload;
+    })().finally(() => {
+      entry.settled = true;
+      if (qishuiAudioDecryptInflight.get(key) === entry) qishuiAudioDecryptInflight.delete(key);
+    });
+    qishuiAudioDecryptInflight.set(key, entry);
   }
+  // Cancel only this subscriber; another active Range request still needs the
+  // shared download. The final departing subscriber releases the upstream.
+  const entry = inflight;
+  entry.consumers += 1;
+  return new Promise((resolve, reject) => {
+    let released = false;
+    const release = () => {
+      if (released) return false;
+      released = true;
+      if (signal) signal.removeEventListener('abort', onAbort);
+      entry.consumers -= 1;
+      if (!entry.consumers && !entry.settled) {
+        if (qishuiAudioDecryptInflight.get(key) === entry) qishuiAudioDecryptInflight.delete(key);
+        entry.controller.abort();
+      }
+      return true;
+    };
+    const onAbort = () => { if (release()) reject(aborted()); };
+    entry.task.then(value => { if (release()) resolve(value); }, error => { if (release()) reject(error); });
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+    }
+  });
 }
 
-async function readBoundedResponseBuffer(response, maxBytes) {
+async function readBoundedResponseBuffer(response, maxBytes, signal) {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) {
     if (response.body) await response.body.cancel().catch(() => {});
@@ -3047,28 +3206,32 @@ async function readBoundedResponseBuffer(response, maxBytes) {
   const reader = response.body.getReader();
   const chunks = [];
   let total = 0;
-  for (;;) {
-    const c = await readStreamChunkWithTimeout(reader, 12000);
-    if (c.done) break;
-    total += c.value.byteLength;
-    if (total > maxBytes) {
-      try { await reader.cancel(); } catch (_) {}
-      throw Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE' });
+  try {
+    for (;;) {
+      const c = await readStreamChunkWithTimeout(reader, 12000, signal);
+      if (c.done) break;
+      total += c.value.byteLength;
+      if (total > maxBytes) {
+        throw Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE' });
+      }
+      chunks.push(Buffer.from(c.value.buffer, c.value.byteOffset, c.value.byteLength));
     }
-    chunks.push(Buffer.from(c.value.buffer, c.value.byteOffset, c.value.byteLength));
+    return Buffer.concat(chunks, total);
+  } catch (error) {
+    try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+    throw error;
   }
-  return Buffer.concat(chunks, total);
 }
 
 function sendAudioBuffer(res, buffer, contentType, range) {
   const total = buffer.length;
   const match = /^bytes=(\d*)-(\d*)$/i.exec(String(range || ''));
-  if (match) {
-    let start = match[1] ? Number(match[1]) : 0;
-    let end = match[2] ? Number(match[2]) : total - 1;
-    if (!Number.isFinite(start) || start < 0) start = 0;
-    if (!Number.isFinite(end) || end >= total) end = total - 1;
-    if (start > end || start >= total) {
+  if (match && (match[1] || match[2])) {
+    const suffix = !match[1];
+    const suffixLength = suffix ? Number(match[2]) : 0;
+    const start = suffix ? Math.max(0, total - suffixLength) : Number(match[1]);
+    const end = suffix || !match[2] ? total - 1 : Math.min(Number(match[2]), total - 1);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= total || (suffix && suffixLength <= 0)) {
       res.writeHead(416, { 'Content-Range': 'bytes */' + total });
       res.end();
       return;
@@ -3550,7 +3713,14 @@ function mapQQTrack(track, fallback) {
   };
 }
 
-async function qqSmartboxSearch(keywords, limit) {
+// Finish before the frontend's 8s provider deadline, including fallback and mapping.
+function qqSearchBudget(deadline, cap) {
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw Object.assign(new Error('QQ_SEARCH_TIMEOUT'), { code: 'QQ_SEARCH_TIMEOUT' });
+  return Math.min(cap, remaining);
+}
+
+async function fetchQQSmartboxData(keywords, timeoutMs = 6000) {
   const u = new URL(QQ_SMARTBOX_URL);
   u.searchParams.set('format', 'json');
   u.searchParams.set('key', keywords);
@@ -3562,8 +3732,14 @@ async function qqSmartboxSearch(keywords, limit) {
   u.searchParams.set('notice', '0');
   u.searchParams.set('platform', 'yqq.json');
   u.searchParams.set('needNewCode', '0');
-  const text = await requestText(u.toString(), { headers: QQ_HEADERS });
+  const text = await requestText(u.toString(), { headers: QQ_HEADERS, timeoutMs });
   const json = parseJSONText(text);
+  if (json && Number(json.code || 0) !== 0) throw new Error('QQ_SMARTBOX_FAILED');
+  return json;
+}
+
+async function qqSmartboxSearch(keywords, limit, timeoutMs = 2500) {
+  const json = await fetchQQSmartboxData(keywords, timeoutMs);
   const items = json && json.data && json.data.song && json.data.song.itemlist;
   return (Array.isArray(items) ? items : []).slice(0, Math.max(1, Math.min(limit || 6, 10))).map(mapQQSmartSong);
 }
@@ -3578,7 +3754,7 @@ function qqSearchSign(text) {
   return `zzc${part1}${middle}${part2}`.toLowerCase();
 }
 
-async function qqFullSongSearch(keywords, limit, offset) {
+async function qqFullSongSearch(keywords, limit, offset, timeoutMs = 4000) {
   limit = Math.max(1, Math.min(30, Number(limit) || 12));
   offset = Math.max(0, Number(offset) || 0);
   const pageNumber = Math.floor(offset / limit) + 1;
@@ -3614,7 +3790,7 @@ async function qqFullSongSearch(keywords, limit, offset) {
     'https://u.y.qq.com/cgi-bin/musics.fcg?sign=' + qqSearchSign(bodyText),
     {
       method: 'POST',
-      timeoutMs: 10000,
+      timeoutMs,
       headers: {
         'User-Agent': 'QQMusic 14090508(android 12)',
         'Content-Type': 'application/json',
@@ -3623,6 +3799,9 @@ async function qqFullSongSearch(keywords, limit, offset) {
     },
     bodyText
   );
+  if (json && (Number(json.code || 0) !== 0 || Number(json.req && json.req.code || 0) !== 0)) {
+    throw new Error('QQ_SEARCH_FAILED');
+  }
   const data = json && json.req && json.req.data;
   const body = data && (data.body || data);
   const items = body && (body.item_song || body.song && body.song.list || body.list);
@@ -3636,7 +3815,7 @@ async function qqFullSongSearch(keywords, limit, offset) {
     .filter(song => song && song.name && (song.mid || song.id));
 }
 
-async function qqSongDetail(mid, fallback) {
+async function qqSongDetail(mid, fallback, timeoutMs) {
   if (!mid) return fallback;
   const json = await qqMusicRequest({
     comm: { ct: 24, cv: 0 },
@@ -3645,7 +3824,7 @@ async function qqSongDetail(mid, fallback) {
       method: 'get_song_detail_yqq',
       param: { song_mid: mid },
     },
-  });
+  }, { timeoutMs });
   const data = json && json.songinfo && json.songinfo.data;
   return mapQQTrack(data && data.track_info, fallback);
 }
@@ -3763,16 +3942,22 @@ function qqSearchTrackComplete(track) {
 
 async function fetchQQSearch(kw, limit, offset) {
   console.log('[QQSearch]', kw, 'limit:', limit, 'offset:', offset);
+  const deadline = Date.now() + 7000;
   let base = [];
+  let fullSearchError = null;
   try {
-    base = await qqFullSongSearch(kw, limit, offset);
+    base = await qqFullSongSearch(kw, limit, offset, qqSearchBudget(deadline, offset ? 6500 : 4000));
   } catch (err) {
+    fullSearchError = err;
     console.warn('[QQSearch] full search failed:', err.message);
   }
-  if (!base.length && offset === 0) base = await qqSmartboxSearch(kw, limit);
+  if (!base.length && offset === 0) base = await qqSmartboxSearch(kw, limit, qqSearchBudget(deadline, 2500));
+  // A failed later page must remain retryable, never masquerade as exhaustion.
+  if (!base.length && fullSearchError) throw fullSearchError;
   const detailed = await Promise.all(base.map(async item => {
     if (item && item._qqSearchComplete) return item;
-    try { return await qqSongDetail(item.mid, item); }
+    if (deadline - Date.now() < 100) return item;
+    try { return await qqSongDetail(item.mid, item, qqSearchBudget(deadline, 500)); }
     catch (e) {
       console.warn('[QQSearch] detail failed:', item.mid, e.message);
       return item;
@@ -3845,11 +4030,10 @@ async function fetchNeteaseTypedSearch(type, keywords, limit, offset) {
 }
 
 async function fetchQQTypedSearch(type, keywords, limit) {
-  const u = new URL(QQ_SMARTBOX_URL);
-  [['format', 'json'], ['key', keywords], ['g_tk', '5381'], ['loginUin', '0'], ['hostUin', '0'],
-    ['inCharset', 'utf8'], ['outCharset', 'utf-8'], ['notice', '0'], ['platform', 'yqq.json'], ['needNewCode', '0']]
-    .forEach(([k, v]) => u.searchParams.set(k, v));
-  const json = parseJSONText(await requestText(u.toString(), { headers: QQ_HEADERS, timeoutMs: 6000 }));
+  return qqTypedSearchItems(type, await fetchQQSmartboxData(keywords), limit);
+}
+
+function qqTypedSearchItems(type, json, limit) {
   const block = json && json.data && (type === 'artist' ? json.data.singer : json.data.album);
   const list = block && Array.isArray(block.itemlist) ? block.itemlist : [];
   return list.slice(0, limit).map(raw => {
@@ -3897,11 +4081,12 @@ async function fetchNeteaseOverview(kw) {
 }
 
 async function fetchQQOverview(kw) {
-  const [artists, albums] = await Promise.all([
-    fetchQQTypedSearch('artist', kw, 3).catch(() => []),
-    fetchQQTypedSearch('album', kw, 4).catch(() => []),
-  ]);
-  return { artists: artists.slice(0, 2), albums, playlists: [] };
+  const json = await fetchQQSmartboxData(kw);
+  return {
+    artists: qqTypedSearchItems('artist', json, 3).slice(0, 2),
+    albums: qqTypedSearchItems('album', json, 4),
+    playlists: [],
+  };
 }
 
 async function handleSearchOverview(keywords, provider) {
@@ -4718,18 +4903,18 @@ function activeNeteaseVipPackage(pkg) {
   if (expire && expire <= Date.now()) return false;
   return firstPositiveNumberFrom([pkg], ['vipLevel', 'vip_level', 'level', 'vipType', 'vip_type', 'vipCode', 'vip_code', 'status']) > 0;
 }
-async function fetchNeteaseVipInfo(userId) {
+async function fetchNeteaseVipInfo(userId, cookie = userCookie) {
   userId = String(userId || '').trim();
-  if (!userId || !userCookie) return null;
+  if (!userId || !cookie) return null;
   const cached = neteaseVipInfoCache.get(userId);
   if (cached && Date.now() - cached.at < 5 * 60 * 1000) return cached.value;
   let body = null;
   try {
-    const r = await vip_info_v2({ uid: userId, cookie: userCookie, timestamp: Date.now() });
+    const r = await vip_info_v2({ uid: userId, cookie, timestamp: Date.now() });
     body = r && r.body ? r.body : r;
   } catch (e) {
     try {
-      const r = await vip_info({ uid: userId, cookie: userCookie, timestamp: Date.now() });
+      const r = await vip_info({ uid: userId, cookie, timestamp: Date.now() });
       body = r && r.body ? r.body : r;
     } catch (err) {
       console.warn('[Login] vip_info failed:', err.message);
@@ -4782,11 +4967,11 @@ function normalizeLoginInfo(profile, account, extra) {
     ...vip,
   };
 }
-async function enrichNeteaseLoginInfo(info, profile, account, extra) {
+async function enrichNeteaseLoginInfo(info, profile, account, extra, cookie = userCookie) {
   if (!info || !info.loggedIn || !info.userId) return info;
   let vipExtra = null;
   try {
-    vipExtra = await promiseWithTimeout(fetchNeteaseVipInfo(info.userId), 1800, 'NETEASE_VIP_INFO_TIMEOUT');
+    vipExtra = await promiseWithTimeout(fetchNeteaseVipInfo(info.userId, cookie), 1800, 'NETEASE_VIP_INFO_TIMEOUT');
   } catch (err) {
     console.warn('[Login] vip info timeout:', err.code || err.message);
   }
@@ -4800,43 +4985,45 @@ function isNeteaseAuthInvalidPayload(payload) {
   const msg = normalizeApiMessage(payload);
   return /未登录|需要登录|请先登录|login/i.test(msg) && code >= 300;
 }
-async function fetchNeteaseLoginInfo() {
-  if (!userCookie) return { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+async function fetchNeteaseLoginInfo(cookie = userCookie) {
+  if (!cookie) return { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
 
   // login_status 对二维码 cookie 的资料刷新通常更及时；失败时再降级到 user_account。
   try {
-    const st = await promiseWithTimeout(login_status({ cookie: userCookie, timestamp: Date.now() }), 2400, 'NETEASE_LOGIN_STATUS_TIMEOUT');
+    const st = await promiseWithTimeout(login_status({ cookie, timestamp: Date.now() }), 2400, 'NETEASE_LOGIN_STATUS_TIMEOUT');
     const body = st.body || {};
     const data = body.data || body;
     const profile = data.profile || body.profile;
     const account = data.account || body.account;
     const info = normalizeLoginInfo(profile, account, data);
-    if (info.loggedIn) return await enrichNeteaseLoginInfo(info, profile, account, data);
+    if (info.loggedIn) return await enrichNeteaseLoginInfo(info, profile, account, data, cookie);
+    if (isNeteaseAuthInvalidPayload(st)) return { loggedIn: false, hasCookie: true, sessionRejected: true };
   } catch (e) {
     console.warn('[Login] login_status failed:', e.message);
   }
 
   try {
-    const acc = await promiseWithTimeout(user_account({ cookie: userCookie, timestamp: Date.now() }), 2400, 'NETEASE_ACCOUNT_STATUS_TIMEOUT');
+    const acc = await promiseWithTimeout(user_account({ cookie, timestamp: Date.now() }), 2400, 'NETEASE_ACCOUNT_STATUS_TIMEOUT');
     const body = acc.body || {};
     const info = normalizeLoginInfo(body.profile, body.account, body);
-    if (info.loggedIn) return await enrichNeteaseLoginInfo(info, body.profile, body.account, body);
+    if (info.loggedIn) return await enrichNeteaseLoginInfo(info, body.profile, body.account, body, cookie);
     const authInvalid = isNeteaseAuthInvalidPayload(acc);
     // A status probe is read-only: preserve credentials for confirmation or retry.
     // Only an explicit answer from NetEase means the session ended elsewhere;
     // risk-control or other non-200 replies leave the session unverified.
     const code = normalizeApiCode(acc);
     const sessionRejected = authInvalid || (code === 200 && !body.account && !body.profile);
-    return { loggedIn: false, hasCookie: !!userCookie, sessionRejected, unverified: !sessionRejected, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    return { loggedIn: false, hasCookie: !!cookie, sessionRejected, unverified: !sessionRejected, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   } catch (e) {
     console.warn('[Login] account check failed:', e.message);
-    return { loggedIn: false, hasCookie: !!userCookie, unverified: true, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
+    return { loggedIn: false, hasCookie: !!cookie, unverified: true, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   }
 }
 const NETEASE_LOGIN_INFO_CACHE_TTL_MS = 30 * 1000;
 let neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 function clearNeteaseLoginInfoCache() {
   neteaseLikeCache.reset();
+  clearNeteasePlaylistTrackIndexes();
   neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null };
 }
 async function getLoginInfo(options) {
@@ -4873,7 +5060,7 @@ async function getPlaybackLoginInfo() {
 
 function normalizeListenReportProvider(value) {
   value = String(value || '').trim().toLowerCase();
-  if (value === 'qq' || value === 'kugou' || value === 'qishui' || value === 'spotify') return value;
+  if (value === 'qq' || value === 'kugou' || value === 'qishui') return value;
   return value === 'netease' || value === 'cloud' || value === 'song' ? 'netease' : '';
 }
 
@@ -4882,7 +5069,6 @@ function listenReportSongId(provider, song) {
   if (provider === 'qq') return String(song.qqId || song.mid || song.mediaMid || song.id || '');
   if (provider === 'kugou') return String(song.hash || song.mixSongId || song.providerSongId || song.id || '');
   if (provider === 'qishui') return String(song.providerSongId || song.trackId || song.id || '');
-  if (provider === 'spotify') return String(song.spotifyId || song.providerSongId || song.id || '').replace(/^spotify:track:/i, '');
   return String(song.id || song.providerSongId || '');
 }
 
@@ -4923,7 +5109,7 @@ function validateListenReport(body) {
   };
 }
 
-async function handlePlatformListenReport(body) {
+async function handlePlatformListenReport(body, accountSessions) {
   const report = validateListenReport(body);
   const base = {
     provider: report.provider || 'unknown',
@@ -4945,9 +5131,12 @@ async function handlePlatformListenReport(body) {
     });
   }
 
-  let credential = '';
-  if (report.provider === 'netease') credential = userCookie;
-  else if (report.provider === 'qishui') credential = qishuiCookie;
+  const accountSession = ['netease', 'qishui'].includes(report.provider)
+    ? accountSessions && accountSessions[report.provider] || captureProviderAccountSession(report.provider) : null;
+  const changedSession = () => accountSession && !checkProviderAccountSession(accountSession);
+  const sessionChanged = result => Object.assign({}, result || base, { accepted: false, reason: 'ACCOUNT_SESSION_CHANGED', code: 409 });
+  if (changedSession()) return sessionChanged();
+  const credential = accountSession ? accountSession.cookie : '';
   const journalKey = listenSyncJournalKey(report.provider, credential, report.sessionId);
   const previous = listenSyncJournal.entries[journalKey];
   if (previous) {
@@ -4960,7 +5149,8 @@ async function handlePlatformListenReport(body) {
 
   if (report.provider === 'netease') {
     const info = await getLoginInfo();
-    if (!info.loggedIn || !userCookie) {
+    if (changedSession()) return sessionChanged();
+    if (!info.loggedIn || !credential) {
       return Object.assign(base, { accepted: true, reason: 'NETEASE_LOGIN_REQUIRED' });
     }
     const rawSourceId = report.context.playlistId || report.context.id || report.context.sourceId || 0;
@@ -4969,7 +5159,7 @@ async function handlePlatformListenReport(body) {
       id: report.songId,
       sourceid: sourceId,
       time: Math.max(1, Math.floor(report.listenMs / 1000)),
-      cookie: userCookie,
+      cookie: credential,
       timestamp: Date.now(),
     });
     const code = normalizeApiCode(result);
@@ -4986,14 +5176,14 @@ async function handlePlatformListenReport(body) {
       platformCode: code,
     });
     rememberListenSyncSubmission(journalKey, submitted);
-    return submitted;
+    return changedSession() ? sessionChanged(submitted) : submitted;
   }
 
   if (report.provider === 'qishui') {
-    if (!qishuiCookieHasLogin(qishuiCookie)) {
+    if (!qishuiCookieHasLogin(credential)) {
       return Object.assign(base, { accepted: true, reason: 'QISHUI_LOGIN_REQUIRED' });
     }
-    await handleQishuiReportRecentlyPlayed(report.songId, qishuiCookie);
+    await handleQishuiReportRecentlyPlayed(report.songId, credential);
     const submitted = Object.assign(base, {
       accepted: true,
       platformSubmitted: true,
@@ -5002,13 +5192,29 @@ async function handlePlatformListenReport(body) {
       note: 'Qishui accepted a recent-play item, but its PC endpoint carries no listening duration.',
     });
     rememberListenSyncSubmission(journalKey, submitted);
-    return submitted;
+    return changedSession() ? sessionChanged(submitted) : submitted;
   }
 
   return Object.assign(base, {
     accepted: true,
     reason: 'PLATFORM_DURATION_WRITE_UNAVAILABLE',
   });
+}
+
+let generatedCacheGeneration = 0;
+function releaseGeneratedMemoryCaches() {
+  generatedCacheGeneration++;
+  const cover = coverCache.clear();
+  neteaseSearchCache.clear(); qqSearchCache.clear(); typedSearchCache.clear();
+  const audioCacheBytes = qishuiAudioDecryptCacheBytes;
+  qishuiAudioDecryptCacheGeneration++;
+  qishuiAudioDecryptCache.clear();
+  qishuiAudioDecryptCacheBytes = 0;
+  // Only drop reusable audio references; active responses and in-flight
+  // decrypts keep their buffers and are not aborted. Old decrypts cannot refill
+  // the cleared cache. These are logical cache bytes, not an immediate RSS drop.
+  // Login/account stores and editable beatmaps remain untouched.
+  return { ok: true, memoryFreedBytes: cover.bytes + audioCacheBytes };
 }
 
 // ====================================================================
@@ -5073,13 +5279,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/listen/report') {
+    const accountSessions = { netease: captureProviderAccountSession('netease'), qishui: captureProviderAccountSession('qishui') };
     try {
       if (req.method !== 'POST') {
         sendJSON(res, { accepted: false, error: 'METHOD_NOT_ALLOWED' }, 405);
         return;
       }
       const body = await readRequestBody(req);
-      sendJSON(res, await handlePlatformListenReport(body));
+      const result = await handlePlatformListenReport(body, accountSessions);
+      sendJSON(res, result, result.code === 409 ? 409 : 200);
     } catch (err) {
       console.error('[ListenReport]', err);
       sendJSON(res, {
@@ -5139,6 +5347,12 @@ const server = http.createServer(async (req, res) => {
       error: 'UPDATE_EXTERNAL_ONLY',
       message: 'Mineradio 已停用客户端本地下载与快速补丁，请使用外部下载页面。',
     }, 410);
+    return;
+  }
+
+  if (pn === '/api/cache/release') {
+    if (req.method !== 'POST') { sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    sendJSON(res, releaseGeneratedMemoryCaches());
     return;
   }
 
@@ -5258,9 +5472,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/discover/home') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      sendJSON(res, await handleDiscoverHome());
+      const data = await handleDiscoverHome(res, accountSession);
+      if (data) sendJSON(res, data);
     } catch (err) {
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       console.error('[DiscoverHome]', err);
       sendJSON(res, { error: err.message, loggedIn: false, dailySongs: [], playlists: [], podcasts: [] }, 500);
     }
@@ -5581,16 +5798,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qishui/song/like') {
+    const accountSession = captureProviderAccountSession('qishui');
     try {
       if (req.method !== 'POST') {
         sendJSON(res, { provider: 'qishui', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
         return;
       }
       const body = await readRequestBody(req);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       const song = body.song || body;
       const id = song.providerSongId || song.trackId || song.id || '';
       const liked = String(body.like != null ? body.like : 'true') !== 'false';
-      const result = await handleQishuiSetTrackLiked(id, liked, qishuiCookie);
+      const result = await handleQishuiSetTrackLiked(id, liked, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       sendJSON(res, Object.assign({ success: true }, result));
     } catch (err) {
       console.error('[QishuiLike]', err);
@@ -5600,14 +5820,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qishui/playlist/collect') {
+    const accountSession = captureProviderAccountSession('qishui');
     try {
       if (req.method !== 'POST') {
         sendJSON(res, { provider: 'qishui', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
         return;
       }
       const body = await readRequestBody(req);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       const collected = String(body.collected != null ? body.collected : 'true') !== 'false';
-      const result = await handleQishuiSetPlaylistCollected(body.id || body.playlistId || '', collected, qishuiCookie);
+      const result = await handleQishuiSetPlaylistCollected(body.id || body.playlistId || '', collected, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       sendJSON(res, Object.assign({ success: true }, result));
     } catch (err) {
       console.error('[QishuiPlaylistCollect]', err);
@@ -5617,13 +5840,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qishui/playlist/add-song') {
+    const accountSession = captureProviderAccountSession('qishui');
     try {
       if (req.method !== 'POST') {
         sendJSON(res, { provider: 'qishui', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
         return;
       }
       const body = await readRequestBody(req);
-      sendJSON(res, await handleQishuiPlaylistAddSong(body.pid || body.playlistId || '', body.song || body, qishuiCookie));
+      if (!checkProviderAccountSession(accountSession, res)) return;
+      const result = await handleQishuiPlaylistAddSong(body.pid || body.playlistId || '', body.song || body, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
+      sendJSON(res, result);
     } catch (err) {
       console.error('[QishuiPlaylistAddSong]', err);
       sendJSON(res, { provider: 'qishui', success: false, error: err.message }, 500);
@@ -5632,14 +5859,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qishui/album/collect') {
+    const accountSession = captureProviderAccountSession('qishui');
     try {
       if (req.method !== 'POST') {
         sendJSON(res, { provider: 'qishui', success: false, error: 'METHOD_NOT_ALLOWED' }, 405);
         return;
       }
       const body = await readRequestBody(req);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       const collected = String(body.collected != null ? body.collected : 'true') !== 'false';
-      const result = await handleQishuiSetAlbumCollected(body.id || body.albumId || '', collected, qishuiCookie);
+      const result = await handleQishuiSetAlbumCollected(body.id || body.albumId || '', collected, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
       sendJSON(res, Object.assign({ success: true }, result));
     } catch (err) {
       console.error('[QishuiAlbumCollect]', err);
@@ -5649,11 +5879,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qishui/song/comments') {
+    const accountSession = req.method === 'POST' ? captureProviderAccountSession('qishui') : null;
     try {
       const id = url.searchParams.get('id') || url.searchParams.get('trackId') || '';
       if (req.method === 'POST') {
         const body = await readRequestBody(req);
-        sendJSON(res, await handleQishuiCreateComment(id || body.id || body.trackId || '', body.content || body.text || '', qishuiCookie));
+        if (!checkProviderAccountSession(accountSession, res)) return;
+        const result = await handleQishuiCreateComment(id || body.id || body.trackId || '', body.content || body.text || '', accountSession.cookie);
+        if (!checkProviderAccountSession(accountSession, res)) return;
+        sendJSON(res, result);
       } else {
         const limit = Math.max(1, Math.min(50, parseInt(url.searchParams.get('limit') || '18', 10) || 18));
         sendJSON(res, await handleQishuiComments(id, {
@@ -5751,6 +5985,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/login/attempt') {
+    if (req.method !== 'POST') { sendJSON(res, { error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    const generations = { ...loginSessionGeneration };
+    try {
+      const body = await readRequestBody(req);
+      const provider = body.provider;
+      if (!Object.prototype.hasOwnProperty.call(loginAttempts, provider)) { sendJSON(res, { error: 'INVALID_LOGIN_PROVIDER' }, 400); return; }
+      if (generations[provider] !== loginSessionGeneration[provider]) { sendLoginSuperseded(res, provider); return; }
+      if (body.action === 'cancel') {
+        if (currentLoginAttempt(provider, body.attemptId)) loginAttempts[provider] = null;
+        sendJSON(res, { ok: true });
+        return;
+      }
+      if (body.action !== 'begin') { sendJSON(res, { error: 'INVALID_LOGIN_ATTEMPT_ACTION' }, 400); return; }
+      sendJSON(res, { provider, attemptId: beginLoginAttempt(provider).id });
+    } catch (err) { sendJSON(res, { error: err.message }, 400); }
+    return;
+  }
+
   if (pn === '/api/kugou/login/status') {
     try {
       sendJSON(res, await getKugouLoginInfo(kugouCookie));
@@ -5762,8 +6015,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/kugou/login/cookie') {
+    const generation = loginSessionGeneration.kugou;
     try {
       const body = await readRequestBody(req);
+      if (!currentLoginAttempt('kugou', body.attemptId, generation)) { sendLoginSuperseded(res, 'kugou'); return; }
       const raw = body.cookie || body.data || body.text || '';
       const normalized = normalizeKugouCookieInput(raw);
       const auth = extractKugouAuth(normalized);
@@ -5771,8 +6026,11 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, { provider: 'kugou', loggedIn: false, error: 'INVALID_KUGOU_COOKIE', message: '酷狗 cookie 无效或缺少登录标识' }, 400);
         return;
       }
+      const info = await getKugouLoginInfo(normalized);
+      if (!currentLoginAttempt('kugou', body.attemptId, generation)) { sendLoginSuperseded(res, 'kugou'); return; }
+      if (info.verificationRequired) { sendJSON(res, { ...info, saved: false }); return; }
+      if (!info.loggedIn || info.sessionRejected) { sendJSON(res, { ...info, loggedIn: false, saved: false }, 401); return; }
       saveKugouCookie(normalized);
-      const info = await getKugouLoginInfo(kugouCookie);
       sendJSON(res, { ...info, saved: true, partial: auth.loggedIn && !auth.playbackReady });
     } catch (err) {
       console.error('[KugouLoginCookie]', err);
@@ -5828,15 +6086,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/kugou/song/like') {
+    const accountSession = captureProviderAccountSession('kugou');
     try {
-      if (!kugouCookieHasPlayback(kugouCookie)) {
+      if (!kugouCookieHasPlayback(accountSession.cookie)) {
         sendJSON(res, { provider: 'kugou', success: false, error: 'KUGOU_AUTH_REQUIRED' }, 401);
         return;
       }
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkProviderAccountSession(accountSession, res)) return;
       const song = body.song || {};
       const like = String(body.like != null ? body.like : (url.searchParams.get('like') || 'true')) !== 'false';
-      sendJSON(res, await handleKugouLikeToggle(song, like, kugouCookie));
+      const result = await handleKugouLikeToggle(song, like, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
+      sendJSON(res, result);
     } catch (err) {
       console.error('[KugouLike]', err);
       sendJSON(res, { provider: 'kugou', success: false, error: err.message }, 500);
@@ -5845,16 +6107,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/kugou/playlist/add-song') {
+    const accountSession = captureProviderAccountSession('kugou');
     try {
-      if (!kugouCookieHasPlayback(kugouCookie)) {
+      if (!kugouCookieHasPlayback(accountSession.cookie)) {
         sendJSON(res, { provider: 'kugou', success: false, error: 'KUGOU_AUTH_REQUIRED' }, 401);
         return;
       }
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkProviderAccountSession(accountSession, res)) return;
       const pid = body.pid || url.searchParams.get('pid') || '';
       const song = body.song || body;
       if (!pid) { sendJSON(res, { provider: 'kugou', success: false, error: 'Missing playlist id' }, 400); return; }
-      sendJSON(res, await handleKugouPlaylistAddSong(pid, song, kugouCookie));
+      const result = await handleKugouPlaylistAddSong(pid, song, accountSession.cookie);
+      if (!checkProviderAccountSession(accountSession, res)) return;
+      sendJSON(res, result);
     } catch (err) {
       console.error('[KugouPlaylistAddSong]', err);
       sendJSON(res, { provider: 'kugou', success: false, error: err.message }, 500);
@@ -5911,8 +6177,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/qq/login/cookie') {
+    const generation = loginSessionGeneration.qq;
     try {
       const body = await readRequestBody(req);
+      if (!currentLoginAttempt('qq', body.attemptId, generation)) { sendLoginSuperseded(res, 'qq'); return; }
       const raw = body.cookie || body.data || body.text || '';
       const normalized = normalizeQQCookieInput(raw);
       const obj = parseCookieString(normalized);
@@ -5929,9 +6197,14 @@ const server = http.createServer(async (req, res) => {
         }, 400);
         return;
       }
+      const info = await getQQLoginInfo({ forceVip: true, cookie: normalized });
+      if (!currentLoginAttempt('qq', body.attemptId, generation)) { sendLoginSuperseded(res, 'qq'); return; }
+      if (!info.loggedIn || info.sessionRejected) {
+        sendJSON(res, { ...info, loggedIn: false, saved: false, error: 'QQ_SESSION_REJECTED', message: 'QQ 会话已失效，请重新登录' }, 401);
+        return;
+      }
       saveQQCookie(normalized);
-      const info = await getQQLoginInfo({ forceVip: true, forceCookie: true });
-      sendJSON(res, { ...info, saved: true });
+      sendJSON(res, { ...info, saved: true, hasCookie: true });
     } catch (err) {
       console.error('[QQLoginCookie]', err);
       sendJSON(res, { provider: 'qq', loggedIn: false, error: err.message }, 500);
@@ -6159,14 +6432,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/album/subscribe') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      const info = await requireLogin(res);
+      const info = await requireLogin(res, accountSession);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const id = body.id || body.albumId || url.searchParams.get('id') || '';
       const subscribed = String(body.subscribed != null ? body.subscribed : (url.searchParams.get('subscribed') || 'true')) !== 'false';
       if (!id) { sendJSON(res, { success: false, error: 'Missing album id' }, 400); return; }
-      const result = await album_sub({ id, t: subscribed ? 1 : 0, cookie: userCookie, timestamp: Date.now() });
+      const result = await album_sub({ id, t: subscribed ? 1 : 0, cookie: accountSession.cookie, timestamp: Date.now() });
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const code = normalizeApiCode(result);
       sendJSON(res, { provider: 'netease', id, subscribed, success: code === 200, code, body: result.body || result });
     } catch (err) {
@@ -6208,14 +6484,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/playlist/subscribe') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      const info = await requireLogin(res);
+      const info = await requireLogin(res, accountSession);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const id = body.id || body.playlistId || url.searchParams.get('id') || '';
       const subscribed = String(body.subscribed != null ? body.subscribed : (url.searchParams.get('subscribed') || 'true')) !== 'false';
       if (!id) { sendJSON(res, { success: false, error: 'Missing playlist id' }, 400); return; }
-      const result = await playlist_subscribe({ id, t: subscribed ? 1 : 0, cookie: userCookie, timestamp: Date.now() });
+      const result = await playlist_subscribe({ id, t: subscribed ? 1 : 0, cookie: accountSession.cookie, timestamp: Date.now() });
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const code = normalizeApiCode(result);
       sendJSON(res, { provider: 'netease', id, subscribed, success: code === 200, code, body: result.body || result });
     } catch (err) {
@@ -6256,8 +6535,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/login/cookie') {
+    const generation = loginSessionGeneration.netease;
     try {
       const body = await readRequestBody(req);
+      if (!currentLoginAttempt('netease', body.attemptId, generation)) { sendLoginSuperseded(res, 'netease'); return; }
       const raw = body.cookie || body.data || body.text || '';
       const normalized = normalizeCookieHeader(raw);
       const obj = parseCookieString(normalized);
@@ -6265,9 +6546,13 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, { loggedIn: false, error: 'INVALID_NETEASE_COOKIE', message: '网易云 cookie 缺少 MUSIC_U' }, 400);
         return;
       }
-      saveCookie(normalized);
-      let info = await getLoginInfo();
-      if (!info.loggedIn && userCookie) {
+      let info = await fetchNeteaseLoginInfo(normalized);
+      if (!currentLoginAttempt('netease', body.attemptId, generation)) { sendLoginSuperseded(res, 'netease'); return; }
+      if (info.sessionRejected) {
+        sendJSON(res, { ...info, loggedIn: false, saved: false, error: 'NETEASE_SESSION_REJECTED', message: '网易云会话已失效，请重新登录' }, 401);
+        return;
+      }
+      if (!info.loggedIn && info.unverified) {
         info = {
           loggedIn: true,
           pendingProfile: true,
@@ -6278,8 +6563,10 @@ const server = http.createServer(async (req, res) => {
           isVip: false,
           isSvip: false,
           vipLabel: '无VIP',
+          unverified: true,
         };
       }
+      saveCookie(normalized);
       sendJSON(res, { ...info, saved: true, hasCookie: !!userCookie });
     } catch (err) {
       console.error('[LoginCookie]', err);
@@ -6291,6 +6578,11 @@ const server = http.createServer(async (req, res) => {
   // ---------- 登录: QR Key ----------
   // ---------- 播客 DJ 长音频后端离线锁拍 ----------
   if (pn === '/api/podcast/dj-beatmap') {
+    const controller = new AbortController();
+    const depart = () => controller.abort();
+    req.once('aborted', depart);
+    res.once('close', depart);
+    if (req.aborted || res.destroyed) depart();
     try {
       const audioUrl = url.searchParams.get('url');
       const durationSec = Math.max(0, Number(url.searchParams.get('duration') || 0) || 0);
@@ -6301,23 +6593,37 @@ const server = http.createServer(async (req, res) => {
       console.log('[PodcastDjBeatmap] start', Math.round(durationSec || 0) + 's');
       const started = Date.now();
       const introSec = Math.max(0, Number(url.searchParams.get('intro') || 0) || 0);
-      const map = introSec
-        ? await analyzePodcastDjIntro(audioUrl, { durationSec, introSec, userAgent: UA })
-        : await analyzePodcastDjStream(audioUrl, { durationSec, userAgent: UA });
+      const map = await podcastAnalysisLimiter.run(() => introSec
+        ? analyzePodcastDjIntro(audioUrl, { durationSec, introSec, userAgent: UA, signal: controller.signal })
+        : analyzePodcastDjStream(audioUrl, { durationSec, userAgent: UA, signal: controller.signal }), controller.signal);
+      if (controller.signal.aborted || res.destroyed) return;
       console.log('[PodcastDjBeatmap] done beats:', map.visualBeatCount || 0, 'ms:', Date.now() - started, 'decode:', map.decode || {});
       sendJSON(res, { ok: true, map });
     } catch (err) {
+      if (controller.signal.aborted || res.destroyed) return;
       console.error('[PodcastDjBeatmap]', err);
-      sendJSON(res, { ok: false, error: err.message || String(err) }, 500);
+      sendJSON(res, { ok: false, error: err.message || String(err) }, err.code === 'ANALYSIS_QUEUE_FULL' ? 429 : 500);
+    } finally {
+      req.removeListener('aborted', depart);
+      res.removeListener('close', depart);
+      controller.abort();
     }
     return;
   }
 
   if (pn === '/api/login/qr/key') {
     try {
+      const attemptId = url.searchParams.get('attemptId');
+      if (!currentLoginAttempt('netease', attemptId)) { sendLoginSuperseded(res, 'netease'); return; }
+      const attempt = loginAttempts.netease;
+      // Replacing the image also invalidates checks already using its old key.
+      attempt.qrKey = '';
+      const qrRequestSeq = ++attempt.qrRequestSeq;
       const r = await login_qr_key({ timestamp: Date.now() });
       const key = r.body && r.body.data && r.body.data.unikey;
-      sendJSON(res, { key });
+      if (!currentLoginAttempt('netease', attemptId) || loginAttempts.netease !== attempt || qrRequestSeq !== attempt.qrRequestSeq) { sendLoginSuperseded(res, 'netease'); return; }
+      attempt.qrKey = key || '';
+      sendJSON(res, { key, attemptId });
     } catch (err) { sendJSON(res, { error: err.message }, 500); }
     return;
   }
@@ -6326,7 +6632,10 @@ const server = http.createServer(async (req, res) => {
   if (pn === '/api/login/qr/create') {
     try {
       const key = url.searchParams.get('key');
+      const attemptId = url.searchParams.get('attemptId');
+      if (!currentLoginAttempt('netease', attemptId) || loginAttempts.netease.qrKey !== key) { sendLoginSuperseded(res, 'netease'); return; }
       const r = await login_qr_create({ key, qrimg: true, timestamp: Date.now() });
+      if (!currentLoginAttempt('netease', attemptId) || loginAttempts.netease.qrKey !== key) { sendLoginSuperseded(res, 'netease'); return; }
       const d = r.body && r.body.data;
       sendJSON(res, { img: d && d.qrimg, url: d && d.qrurl });
     } catch (err) { sendJSON(res, { error: err.message }, 500); }
@@ -6337,12 +6646,16 @@ const server = http.createServer(async (req, res) => {
   if (pn === '/api/login/qr/check') {
     try {
       const key = url.searchParams.get('key');
+      const attemptId = url.searchParams.get('attemptId');
       const generation = loginSessionGeneration.netease;
+      const isCurrent = () => currentLoginAttempt('netease', attemptId, generation) && loginAttempts.netease.qrKey === key;
+      if (!isCurrent()) { sendLoginSuperseded(res, 'netease'); return; }
       let r = await login_qr_check({ key, noCookie: true, timestamp: Date.now() });
       let body = r.body || {};
       let code = Number(body.code || r.code);
       let msg  = body.message || r.message || '';
       let cookie = readCookieFromResponse(r);
+      if (!isCurrent()) { sendLoginSuperseded(res, 'netease'); return; }
       if (code === 803 && !cookie) {
         try {
           const retry = await login_qr_check({ key, timestamp: Date.now() });
@@ -6360,18 +6673,19 @@ const server = http.createServer(async (req, res) => {
       }
       // 803 = 授权成功, 802 = 已扫待确认, 801 = 等待扫码, 800 = 二维码过期
       if (code === 803) {
-        if (generation !== loginSessionGeneration.netease) {
-          sendJSON(res, { code, loggedIn: false, status: 'cancelled', error: 'NETEASE_LOGIN_SUPERSEDED' }, 409);
+        if (!isCurrent()) { sendLoginSuperseded(res, 'netease'); return; }
+        let info = cookie ? await fetchNeteaseLoginInfo(cookie) : { loggedIn: false };
+        if (!isCurrent()) { sendLoginSuperseded(res, 'netease'); return; }
+        if (info.sessionRejected) {
+          sendJSON(res, { code, ...info, loggedIn: false, hasCookie: false, saved: false, error: 'NETEASE_SESSION_REJECTED' }, 401);
           return;
         }
-        if (cookie) saveCookie(cookie);
-        let info = await getLoginInfo();
         if (!info.loggedIn) {
           const profile = body.profile || (body.data && body.data.profile) || {};
           const account = body.account || (body.data && body.data.account);
           const extra = body.data || body;
           info = normalizeLoginInfo(profile, account, extra);
-          if (info.loggedIn) info = await enrichNeteaseLoginInfo(info, profile, account, extra);
+          if (info.loggedIn) info = await enrichNeteaseLoginInfo(info, profile, account, extra, cookie);
         }
         if (!info.loggedIn && cookie) {
           info = {
@@ -6386,6 +6700,8 @@ const server = http.createServer(async (req, res) => {
             vipLabel: '无VIP',
           };
         }
+        if (!isCurrent()) { sendLoginSuperseded(res, 'netease'); return; }
+        if (cookie) saveCookie(cookie);
         sendJSON(res, { code, message: msg, ...info, hasCookie: !!cookie });
         return;
       }
@@ -6405,8 +6721,9 @@ const server = http.createServer(async (req, res) => {
   // ---------- 登出 ----------
   if (pn === '/api/logout') {
     bumpLoginSessionGeneration('netease');
-    try { await logout({ cookie: userCookie }); } catch (e) {}
+    const loggedOutCookie = userCookie;
     saveCookie('');
+    try { await logout({ cookie: loggedOutCookie }); } catch (e) {}
     sendJSON(res, { ok: true });
     return;
   }
@@ -6488,14 +6805,17 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 创建歌单 ----------
   if (pn === '/api/playlist/create') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      const info = await requireLogin(res);
+      const info = await requireLogin(res, accountSession);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const name = String(body.name || url.searchParams.get('name') || '').trim();
       const privacy = String(body.privacy || url.searchParams.get('privacy') || '0');
       if (!name) { sendJSON(res, { error: 'Missing playlist name' }, 400); return; }
-      const r = await playlist_create({ name, privacy, cookie: userCookie, timestamp: Date.now() });
+      const r = await playlist_create({ name, privacy, cookie: accountSession.cookie, timestamp: Date.now() });
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const created = (r.body && (r.body.playlist || r.body.data)) || {};
       sendJSON(res, { loggedIn: true, playlist: created, body: r.body || r });
     } catch (err) {
@@ -6507,10 +6827,12 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 收藏歌曲到歌单 ----------
   if (pn === '/api/playlist/add-song') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      const info = await requireLogin(res);
+      const info = await requireLogin(res, accountSession);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const pid = body.pid || url.searchParams.get('pid');
       const id = body.id || body.ids || url.searchParams.get('id') || url.searchParams.get('ids');
       if (!pid || !id) { sendJSON(res, { error: 'Missing playlist id or song id' }, 400); return; }
@@ -6520,7 +6842,8 @@ const server = http.createServer(async (req, res) => {
       let finalMessage = '';
       let success = false;
 
-      const primary = await playlist_tracks({ op: 'add', pid, tracks: String(id), cookie: userCookie, timestamp: Date.now() });
+      const primary = await playlist_tracks({ op: 'add', pid, tracks: String(id), cookie: accountSession.cookie, timestamp: Date.now() });
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       finalBody = primary.body || primary;
       finalCode = normalizeApiCode(primary);
       finalMessage = normalizeApiMessage(primary);
@@ -6529,7 +6852,8 @@ const server = http.createServer(async (req, res) => {
 
       if (!success && typeof playlist_track_add === 'function') {
         try {
-          const fallback = await playlist_track_add({ pid, ids: String(id), cookie: userCookie, timestamp: Date.now() });
+          const fallback = await playlist_track_add({ pid, ids: String(id), cookie: accountSession.cookie, timestamp: Date.now() });
+          if (!checkNeteaseAccountSession(accountSession, res)) return;
           finalBody = fallback.body || fallback;
           finalCode = normalizeApiCode(fallback);
           finalMessage = normalizeApiMessage(fallback);
@@ -6544,6 +6868,7 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       if (!success) {
         sendJSON(res, { loggedIn: true, pid, id, success: false, code: finalCode, error: finalMessage || 'PLAYLIST_ADD_FAILED', attempts }, finalCode === 401 ? 401 : 409);
         return;
@@ -6594,9 +6919,15 @@ const server = http.createServer(async (req, res) => {
         console.warn('[LyricNew]', errNew.message);
       }
       if (!lyricBodyHasPrimary(body) || !lyricBodyHasTranslation(body)) {
-        const r = await lyric({ id, cookie: userCookie, timestamp: Date.now() });
-        body = mergeLyricBodies(body, r.body || {});
-        source = source === 'lyric_new' ? 'lyric_new+lyric' : 'lyric';
+        try {
+          const r = await lyric({ id, cookie: userCookie, timestamp: Date.now() });
+          body = mergeLyricBodies(body, r.body || {});
+          source = source === 'lyric_new' ? 'lyric_new+lyric' : 'lyric';
+        } catch (errFallback) {
+          // Translation is optional once the new endpoint supplied original lyrics.
+          if (!lyricBodyHasPrimary(body)) throw errFallback;
+          console.warn('[LyricFallback]', errFallback.message);
+        }
       }
       sendJSON(res, {
         lyric: (body.lrc && body.lrc.lyric) || '',
@@ -6648,11 +6979,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/song/comments') {
+    const accountSession = req.method === 'POST' ? captureNeteaseAccountSession() : null;
     try {
       const requestBody = req.method === 'POST' ? await readRequestBody(req) : {};
       const id = requestBody.id || url.searchParams.get('id');
       if (req.method === 'POST') {
-        const info = await requireLogin(res);
+        if (!checkNeteaseAccountSession(accountSession, res)) return;
+        const info = await requireLogin(res, accountSession);
         if (!info) return;
         const content = String(requestBody.content || requestBody.text || '').trim();
         if (!id || !content) { sendJSON(res, { created: false, error: 'Missing song id or comment content' }, 400); return; }
@@ -6662,9 +6995,10 @@ const server = http.createServer(async (req, res) => {
           id,
           commentId: requestBody.replyTo || '',
           content,
-          cookie: userCookie,
+          cookie: accountSession.cookie,
           timestamp: Date.now(),
         });
+        if (!checkNeteaseAccountSession(accountSession, res)) return;
         const code = normalizeApiCode(result);
         sendJSON(res, { provider: 'netease', id, created: code === 200, success: code === 200, code, body: result.body || result });
         return;
@@ -6682,15 +7016,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/song/comments/like') {
+    const accountSession = captureNeteaseAccountSession();
     try {
-      const info = await requireLogin(res);
+      const info = await requireLogin(res, accountSession);
       if (!info) return;
       const body = req.method === 'POST' ? await readRequestBody(req) : {};
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const id = body.id || url.searchParams.get('id') || '';
       const cid = body.commentId || body.cid || url.searchParams.get('commentId') || '';
       const liked = String(body.liked != null ? body.liked : (url.searchParams.get('liked') || 'true')) !== 'false';
       if (!id || !cid) { sendJSON(res, { success: false, error: 'Missing song id or comment id' }, 400); return; }
-      const result = await comment_like({ type: 0, id, cid, t: liked ? 1 : 0, cookie: userCookie, timestamp: Date.now() });
+      const result = await comment_like({ type: 0, id, cid, t: liked ? 1 : 0, cookie: accountSession.cookie, timestamp: Date.now() });
+      if (!checkNeteaseAccountSession(accountSession, res)) return;
       const code = normalizeApiCode(result);
       sendJSON(res, { provider: 'netease', id, commentId: cid, liked, success: code === 200, code, body: result.body || result });
     } catch (err) {
@@ -6801,6 +7138,10 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 封面代理 (带 CORS 头, 给 canvas 提取像素用) ----------
   if (pn === '/api/cover') {
+    const requestGeneration = generatedCacheGeneration;
+    const subscriber = new AbortController();
+    const onClose = () => { if (!res.writableEnded) subscriber.abort(); };
+    res.on('close', onClose);
     try {
       const coverUrl = url.searchParams.get('url');
       // URL 校验: 必须是 http(s) 开头, 否则直接 404 (不要让 fetch 抛错)
@@ -6809,7 +7150,10 @@ const server = http.createServer(async (req, res) => {
         res.end('Invalid cover url');
         return;
       }
-      const cover = await coverCache.load(coverUrl, () => downloadCover(coverUrl));
+      const cover = await coverCache.load(coverUrl, context => downloadCover(coverUrl, context), {
+        signal: subscriber.signal, priority: url.searchParams.get('priority') === 'background' ? 'background' : 'visible',
+      });
+      if (subscriber.signal.aborted || res.destroyed) return;
       if (cover.status !== 200 || !cover.body) {
         res.writeHead(cover.status || 502, { 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
         res.end(cover.status === 415 ? 'Unsupported cover type' : undefined);
@@ -6820,32 +7164,53 @@ const server = http.createServer(async (req, res) => {
         'Content-Length': cover.body.length,
         'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': requestGeneration === generatedCacheGeneration ? 'public, max-age=86400' : 'no-store',
       });
       res.end(cover.body);
     } catch (err) {
+      if (subscriber.signal.aborted || res.destroyed) return;
       console.warn('[Cover]', err && (err.code || err.name || 'COVER_PROXY_FAILED'));
       if (res.headersSent) res.destroy();
       else { res.writeHead(502); res.end(); }
-    }
+    } finally { res.removeListener('close', onClose); }
     return;
   }
 
   // ---------- 音频代理 (支持 Range) ----------
   if (pn === '/api/audio') {
+    const controller = new AbortController();
+    let reader = null;
+    let relay = null;
+    let clientClosed = false;
+    const closeClient = () => {
+      clientClosed = true;
+      controller.abort();
+      if (reader) { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} }
+      if (relay) relay.abort();
+    };
+    // Register before any awaited work, even before the upstream sends headers.
+    res.once('close', closeClient);
+    req.once('aborted', closeClient);
+    const disconnected = () => clientClosed || res.destroyed || req.aborted;
     try {
+      if (disconnected()) { closeClient(); return; }
       const audioUrl = url.searchParams.get('url');
       if (!audioUrl) { res.writeHead(400); res.end('Missing url'); return; }
       const range = req.headers.range || '';
       if (audioUrl.includes('#auth=')) {
-        const decrypted = await getQishuiDecryptedAudio(audioUrl);
+        const decrypted = await getQishuiDecryptedAudio(audioUrl, { signal: controller.signal });
+        if (disconnected()) return;
         if (decrypted && decrypted.buffer) {
           sendAudioBuffer(res, decrypted.buffer, decrypted.contentType, range);
           return;
         }
       }
       const hdr = audioProxyHeadersFor(audioUrl, range);
-      const up = await fetchPublicResource(audioUrl, { headers: hdr });
+      const up = await fetchPublicResource(audioUrl, { headers: hdr, signal: controller.signal });
+      if (disconnected()) {
+        if (up.body) { try { Promise.resolve(up.body.cancel()).catch(() => {}); } catch (_) {} }
+        return;
+      }
       const out = {
         'Content-Type': audioContentTypeForUrl(audioUrl, up.headers.get('content-type')),
         'X-Content-Type-Options': 'nosniff',
@@ -6856,34 +7221,26 @@ const server = http.createServer(async (req, res) => {
       const cr = up.headers.get('content-range');  if (cr) out['Content-Range']  = cr;
       res.writeHead(up.status, out);
       if (!up.body) { res.end(); return; }
-      const reader = up.body.getReader();
+      reader = up.body.getReader();
       // Upstream is still read as fast as before; only bytes the player has
       // not taken yet are capped in memory and spill to a temp file.
-      const relay = createSpillRelay(res, { directory: AUDIO_SPILL_DIR });
-      let clientClosed = false;
-      const closeReader = () => {
-        clientClosed = true;
-        try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
-      };
-      res.once('close', closeReader);
+      relay = createSpillRelay(res, { directory: AUDIO_SPILL_DIR });
       try {
-        while (!clientClosed) {
-          const c = await readStreamChunkWithTimeout(reader, 12000);
+        while (!disconnected()) {
+          const c = await readStreamChunkWithTimeout(reader, 12000, controller.signal);
+          if (disconnected()) break;
           if (c.done) break;
           await relay.push(c.value);
+          if (disconnected()) break;
         }
       } catch (error) {
         relay.abort();
         throw error;
-      } finally {
-        res.removeListener('close', closeReader);
-        if (clientClosed) {
-          try { await reader.cancel(); } catch (_) {}
-        }
       }
-      if (clientClosed) { relay.abort(); return; }
+      if (disconnected()) { relay.abort(); return; }
       await relay.end();
     } catch (err) {
+      if (disconnected()) return;
       console.error('[Audio]', err && (err.code || err.name || err.message || 'AUDIO_PROXY_FAILED'));
       if (res.headersSent) {
         try { res.destroy(); } catch (_) {}
@@ -6891,6 +7248,13 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(err && err.name === 'AbortError' ? 504 : 502, { 'Cache-Control': 'no-store' });
         res.end();
       }
+    } finally {
+      res.removeListener('close', closeClient);
+      req.removeListener('aborted', closeClient);
+      // Also release the owned upstream on relay/read failures. Destroying a
+      // response schedules close later, after these listeners are removed.
+      controller.abort();
+      if (reader) { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} }
     }
     return;
   }
@@ -6914,6 +7278,7 @@ server.listen(PORT, HOST, () => {
   console.log('======================================================');
 });
 
+server.releaseGeneratedCaches = releaseGeneratedMemoryCaches;
 server.clearAllLoginCredentials = clearAllRuntimeLoginCredentials;
 
 module.exports = server;

@@ -106,7 +106,7 @@ function serverPresenceFixture(code = 301) {
   const c = vm.createContext({ console: { warn() {} }, userCookie: 'fixture-session',
     NETEASE_LOGIN_INFO_CACHE_TTL_MS: 30000,
     neteaseLoginInfoCache: { cookie: '', at: 0, value: null, promise: null },
-    login_status: async () => ({ body: { code: 301 } }),
+    login_status: async () => { if (code === 'offline') throw new Error('offline'); return { body: { code: 301 } }; },
     user_account: async () => { if (code === 'offline') throw new Error('offline'); return { body: { code } }; },
     promiseWithTimeout: promise => promise, normalizeLoginInfo: () => ({ loggedIn: false }),
     saveCookie: value => { saved.push(value); c.userCookie = value; c.neteaseLoginInfoCache = { cookie: '', at: 0, value: null, promise: null }; },
