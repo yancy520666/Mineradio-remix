@@ -14,20 +14,37 @@ var presetMeta = [
   { name: '折光蝶群', nameHtml: '折光蝶群 <span class="pc-name-en">PRISM FLOCK</span>', desc: '折纸翼阵 · 光谱迁徙', premiumVisual: true, accent: '#f0d7ff', accent2: '#75e6d1' },
   { name: '深海绽放', nameHtml: '深海绽放 <span class="pc-name-en">ABYSSAL BLOOM</span>', desc: '生物荧光 · 潮汐花冠', premiumVisual: true, accent: '#75f0d0', accent2: '#8178ff' },
 ];
+function presetIconSvg(body) {
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + body + '</svg>';
+}
+// 统一线性图标：24 网格、1.6 圆头描边，图形对应各背景的主体
 var presetIcons = [
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14c3-2 5-2 8 0s5 2 8 0M3 10c3-2 5-2 8 0s5 2 8 0M3 18c3-2 5-2 8 0s5 2 8 0"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><path d="M5 12a7 7 0 0 0 14 0"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="7"/><path d="M8.8 8.8l6.4 6.4"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.4"/><path d="M16.5 5.2c2.1.9 3.4 2.4 4 4.5"/><path d="M18.8 3.2l1.5 4.8"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15c2.2-4.4 4.4-4.4 6.6 0s4.4 4.4 6.6 0S20.6 10.6 23 15"/><path d="M3 9c2.2 2.2 4.4 2.2 6.6 0s4.4-2.2 6.6 0S20.6 11.2 23 9"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.2h4v6.2h4.2v3.8H14v7.6h-4v-7.6H5.8V9.4H10z"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M3 12c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><path d="M3 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="18" cy="5" r="1.2" fill="currentColor"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 15c1.4-4 2.8-4 4.2 0s2.8 4 4.2 0 2.8-4 4.6 0"/><path d="M4 10c2-2 4-2 6 0s4 2 6 0 3-2 4 0"/><path d="M7 6h10"/><circle cx="18.2" cy="5.8" r="1.35" fill="currentColor"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(-18 12 12)"/><ellipse cx="12" cy="12" rx="6.3" ry="2.2" transform="rotate(24 12 12)"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"><path d="M5 3v8M9 2v15M13 5v8M17 2v18M21 6v9"/><path d="M4 19c4-3 8 3 16-1" opacity=".7"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"><path d="M12 12 3 6l3 9 6-3 6 3 3-9-9 6Z"/><path d="M12 12V4M6 15l3 4 3-7 3 7 3-4"/></svg>',
-  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"><path d="M12 20c-1-5-7-5-7-10 4 0 6 2 7 5 1-3 3-5 7-5 0 5-6 5-7 10Z"/><path d="M12 15c-3-3-2-7 0-11 2 4 3 8 0 11Z"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  // emily 专辑封面：封面方块向右上散开的粒子
+  presetIconSvg('<rect x="3.5" y="7.5" width="13" height="13" rx="2.5"/><circle cx="20" cy="4" r="0.9" fill="currentColor" stroke="none"/><circle cx="16.2" cy="3.8" r="0.7" fill="currentColor" stroke="none"/><circle cx="20.2" cy="8.2" r="0.7" fill="currentColor" stroke="none"/>'),
+  // 滚筒：透视隧道
+  presetIconSvg('<circle cx="12" cy="12" r="9"/><circle cx="13.2" cy="10.8" r="5.4"/><circle cx="14.1" cy="9.9" r="2.1"/>'),
+  // 星球：带环行星
+  presetIconSvg('<circle cx="12" cy="12" r="5.5"/><path d="M6.6 10.1C3.5 11.6 2 13.3 2.6 14.5c.9 1.8 6 1.1 11.4-1.6s9.1-6.2 8.2-8c-.5-1.1-2.6-1.2-5.4-.4"/>'),
+  // 虚空：空环
+  presetIconSvg('<circle cx="12" cy="12" r="8" stroke-dasharray="2.4 3"/>'),
+  // 唱片：黑胶与纹路
+  presetIconSvg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/><path d="M12 6.2a5.8 5.8 0 0 1 5.8 5.8M12 17.8A5.8 5.8 0 0 1 6.2 12"/>'),
+  // 星河：星芒与星点
+  presetIconSvg('<path d="M10 4.5l1.6 4.4L16 10.5l-4.4 1.6L10 16.5l-1.6-4.4L4 10.5l4.4-1.6Z"/><circle cx="18.5" cy="5.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="17.5" cy="18" r="0.9" fill="currentColor" stroke="none"/><circle cx="20.5" cy="13" r="0.6" fill="currentColor" stroke="none"/>'),
+  // 安魂：骷髅
+  presetIconSvg('<path d="M12 3a7.5 7.5 0 0 0-4.5 13.5V20h9v-3.5A7.5 7.5 0 0 0 12 3Z"/><circle cx="9.3" cy="11" r="1.5"/><circle cx="14.7" cy="11" r="1.5"/><path d="M10.5 20v-2.2M13.5 20v-2.2"/>'),
+  // 音域回响 Sonic-Topography：山形地貌与等高线
+  presetIconSvg('<path d="M2.5 19.5 9 10.5l3.5 4.5 3.5-6 5.5 10.5Z"/><path d="M6.6 14l2.4 1.4 2.2-.6M14.2 12.6l1.8-.9 1.9 1.5"/>'),
+  // 音域回响 Wallpaper Engine：频谱柱
+  presetIconSvg('<path d="M5 20h14"/><path d="M6.5 16v-3M10 16V7M13.5 16V9.5M17 16v-5"/>'),
+  // 月蚀圣环：日冕与被遮挡的圆盘
+  presetIconSvg('<circle cx="12" cy="12" r="9" stroke-dasharray="1 2.8"/><circle cx="12" cy="12" r="5.5"/><path d="M12 6.5a5.5 5.5 0 0 0 0 11 7 7 0 0 1 0-11Z" fill="currentColor" stroke="none"/>'),
+  // 雨幕霓虹：云与斜雨丝
+  presetIconSvg('<path d="M7 14.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17 6.8a3.9 3.9 0 0 1 .5 7.7Z"/><path d="M8.5 17.5l-1 2.5M12.5 17.5l-1 2.5M16.5 17.5l-1 2.5"/>'),
+  // 折光蝶群：蝴蝶
+  presetIconSvg('<path d="M12 8.5v10"/><path d="M12 11.5C10.6 7 7.5 4.5 5 5.2c-2.4.7-.9 5.6 2.5 6.6 1.6.4 3.3.2 4.5-.3Z"/><path d="M12 11.5c1.4-4.5 4.5-7 7-6.3 2.4.7.9 5.6-2.5 6.6-1.6.4-3.3.2-4.5-.3Z"/><path d="M12 13c-2.6.2-5 1.6-4.9 3.8.1 1.9 3.3 1.5 4.9-1.8M12 13c2.6.2 5 1.6 4.9 3.8-.1 1.9-3.3 1.5-4.9-1.8"/>'),
+  // 深海绽放：发光水母
+  presetIconSvg('<path d="M4.5 12a7.5 7.5 0 0 1 15 0Z"/><path d="M8 12v3c0 1.4 1 1.8 1 3.4M12 12v7.5M16 12v3c0 1.4-1 1.8-1 3.4"/>'),
 ];
 var presetDisplayOrder = [0, 9, 10, 11, 12, 6, 7, 8, 5, 4, 2, 1, 3];
 var lyricColorPresets = [
