@@ -202,6 +202,7 @@ function onUserBtnClick() {
 var ACCOUNT_PROVIDER_KEYS = ['netease', 'qq', 'kugou', 'qishui'];
 var ACCOUNT_PROVIDER_ORDER_STORE_KEY = 'mineradio-account-provider-order-v1';
 var ACCOUNT_PROVIDER_VISIBLE_STORE_KEY = 'mineradio-account-provider-visible-v1';
+var ACCOUNT_PROVIDER_VISIBILITY_DECIDED_STORE_KEY = 'mineradio-account-provider-visibility-decided-v1';
 var topAccountPillDrag = null;
 var topAccountPillClickSuppressed = false;
 
@@ -315,8 +316,40 @@ function isAccountProviderExternallyVisible(provider) {
   provider = normalizeAccountProviderKey(provider);
   return accountProviderVisibleList().indexOf(provider) >= 0;
 }
+// Providers whose visibility has been decided once (auto-shown on first login, or toggled by the user).
+// Later logins must not override that decision.
+function accountProviderVisibilityDecidedList() {
+  try {
+    var raw = localStorage.getItem(ACCOUNT_PROVIDER_VISIBILITY_DECIDED_STORE_KEY);
+    if (raw == null) {
+      // Older versions had no record; an existing visible list means the user already curated it.
+      return localStorage.getItem(ACCOUNT_PROVIDER_VISIBLE_STORE_KEY) == null ? [] : ACCOUNT_PROVIDER_KEYS.slice();
+    }
+    var parsed = JSON.parse(raw);
+    return (Array.isArray(parsed) ? parsed : []).map(normalizeAccountProviderKey);
+  } catch (e) {
+    return ACCOUNT_PROVIDER_KEYS.slice();
+  }
+}
+function markAccountProviderVisibilityDecided(provider) {
+  provider = normalizeAccountProviderKey(provider);
+  var list = accountProviderVisibilityDecidedList();
+  if (list.indexOf(provider) < 0) list.push(provider);
+  try { localStorage.setItem(ACCOUNT_PROVIDER_VISIBILITY_DECIDED_STORE_KEY, JSON.stringify(list)); } catch (e) { }
+}
+function autoShowAccountProviderOnFirstLogin(provider) {
+  provider = normalizeAccountProviderKey(provider);
+  if (accountProviderVisibilityDecidedList().indexOf(provider) >= 0) return false;
+  markAccountProviderVisibilityDecided(provider);
+  if (isAccountProviderExternallyVisible(provider)) return false;
+  var list = accountProviderVisibleList();
+  list.push(provider);
+  saveAccountProviderVisibleList(list);
+  return true;
+}
 function toggleAccountProviderExternal(provider) {
   provider = normalizeAccountProviderKey(provider);
+  markAccountProviderVisibilityDecided(provider);
   var list = accountProviderVisibleList();
   var idx = list.indexOf(provider);
   if (idx >= 0) list.splice(idx, 1);
