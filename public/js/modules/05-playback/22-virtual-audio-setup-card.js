@@ -85,9 +85,14 @@ function updateVirtualAudioSetupEntry(panel) {
   var supported = virtualAudioSetupIsSupported();
   var title = supported ? '获取 VB-CABLE 官方驱动，安装前会再次确认'
     : '请在 Windows 桌面版打开驱动安装设置';
+  // A detected virtual output makes the download entry noise; keep it only
+  // while no driver is visible or a setup operation is still running.
+  var installed = typeof audioOutputDevices !== 'undefined' && typeof isVirtualMicOutputDevice === 'function'
+    && (audioOutputDevices || []).some(function (device) { return device && isVirtualMicOutputDevice(device); });
   [virtualAudioSetupEntry, virtualAudioSetupCard].forEach(function (root) {
     if (!root) return;
     var button = root.querySelector('[data-virtual-audio-install]');
+    if (root === virtualAudioSetupEntry) virtualAudioSetupHideAction(root, button, installed && !virtualAudioSetupIsBusy());
     button.disabled = !supported || virtualAudioSetupIsBusy();
     button.title = title;
     button.setAttribute('aria-busy', String(virtualAudioSetupIsBusy()));

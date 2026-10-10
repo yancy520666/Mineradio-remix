@@ -21,7 +21,12 @@ function microphoneMixerAutomaticChoice(devices) {
     // Name detection alone cannot establish routing for arbitrary virtual mixer
     // buses. Only an unambiguous simple CABLE endpoint is a safe first default.
     var cables = targets.filter(function (device) { return /\bcable(?:[-\s][a-z])?\s+input\b|vb-audio virtual cable/i.test(device.label || ''); });
+    // A standard VB-CABLE install also exposes "CABLE In 16ch" for the same
+    // cable; one plain "CABLE Input" is still an unambiguous default.
+    var plainCables = targets.filter(function (device) { return /^cable input\b/i.test(device.label || ''); });
+    var standardCable = targets.every(function (device) { return /^cable (?:input|in 16ch)\b/i.test(device.label || ''); });
     if (targets.length === 1 && cables.length === 1) target = cables[0];
+    else if (plainCables.length === 1 && standardCable) target = plainCables[0];
   }
   if (!target) {
     var virtual = (audioOutputDevices || []).filter(isVirtualMicOutputDevice);
