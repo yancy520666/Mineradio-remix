@@ -203,10 +203,36 @@ function scheduleLyricTextMeasureWarmup(delay) {
     else run();
   }, delay);
 }
+// Web fonts (Inter, Noto Sans SC subsets) and system fonts can finish loading
+// after a lyric was rasterised with a fallback. The text, its glow and the HD
+// upgrade are rasterised at different moments, so a late font left the glow in
+// one face and the text in another (a shifted ghost). Redraw them together.
+var lyricFontLoadGeneration = 0;
+var lyricFontLoadRefreshTimer = 0;
+function lyricFontFacesAffectLyrics(faces) {
+  if (!faces || !faces.length) return true;
+  var stack = String(lyricFontStackForKey(fx && fx.lyricFont) || '').toLowerCase();
+  for (var i = 0; i < faces.length; i++) {
+    var family = String(faces[i] && faces[i].family || '').replace(/^["']|["']$/g, '').toLowerCase();
+    if (family && stack.indexOf(family) >= 0) return true;
+  }
+  return false;
+}
+function handleLyricFontFacesLoaded(faces) {
+  if (!lyricFontFacesAffectLyrics(faces)) return;
+  lyricFontLoadGeneration += 1;
+  if (lyricFontLoadRefreshTimer) clearTimeout(lyricFontLoadRefreshTimer);
+  lyricFontLoadRefreshTimer = setTimeout(function () {
+    lyricFontLoadRefreshTimer = 0;
+    if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('lyric-font-loaded', { release: true });
+    if (typeof refreshCurrentLyricStyle === 'function') refreshCurrentLyricStyle();
+  }, 60);
+}
 if (typeof document !== 'undefined' && document.fonts && document.fonts.addEventListener) {
-  document.fonts.addEventListener('loadingdone', function () {
+  document.fonts.addEventListener('loadingdone', function (event) {
     clearLyricTextMeasureCache();
     scheduleLyricTextMeasureWarmup(0);
+    handleLyricFontFacesLoaded(event && event.fontfaces);
   });
 }
 scheduleLyricTextMeasureWarmup(120);

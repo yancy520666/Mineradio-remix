@@ -45,7 +45,10 @@ function stageLyricPrewarmStyleKey(options) {
     fx && fx.lyricHighlightMode || '',
     fx && fx.lyricHighlightColor || '',
     fx && fx.lyricGlowLinked !== false ? 'glow-linked' : 'glow-detached',
-    fx && fx.lyricGlowColor || ''
+    fx && fx.lyricGlowColor || '',
+    // Prepared lines must not outlive a font switch or a late font load.
+    fx && fx.lyricFont || '',
+    typeof lyricFontLoadGeneration === 'number' ? lyricFontLoadGeneration : 0
   ];
   if (!options || !options.omitLivePalette) {
     parts.push(

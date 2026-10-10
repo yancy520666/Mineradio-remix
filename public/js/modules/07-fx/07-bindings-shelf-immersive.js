@@ -89,8 +89,8 @@ function bindFxPanel() {
       }
       if (pair[1] === 'playlistPanelGlassBlur') fx.playlistPanelGlassBlur = Math.round(clampRange(fx.playlistPanelGlassBlur, 14, 60));
       if (pair[1] === 'playlistPanelGlassDensity') fx.playlistPanelGlassDensity = clampRange(fx.playlistPanelGlassDensity, 0.55, 1);
-      if (pair[1] === 'playlistPanelOpenDuration') fx.playlistPanelOpenDuration = clampRange(fx.playlistPanelOpenDuration, 0.08, 0.72);
-      if (pair[1] === 'playlistPanelCloseDuration') fx.playlistPanelCloseDuration = clampRange(fx.playlistPanelCloseDuration, 0.06, 0.48);
+      if (pair[1] === 'playlistPanelOpenDuration') fx.playlistPanelOpenDuration = clampRange(fx.playlistPanelOpenDuration, 0.16, 1.2);
+      if (pair[1] === 'playlistPanelCloseDuration') fx.playlistPanelCloseDuration = clampRange(fx.playlistPanelCloseDuration, 0.12, 0.9);
       if (pair[1] === 'desktopLyricsSize') fx.desktopLyricsSize = clampRange(fx.desktopLyricsSize, 0.72, 1.55);
       if (pair[1] === 'desktopLyricsOpacity') fx.desktopLyricsOpacity = clampRange(fx.desktopLyricsOpacity, 0.28, 1);
       if (pair[1] === 'desktopLyricsY') fx.desktopLyricsY = clampRange(fx.desktopLyricsY, 0.08, 0.92);
@@ -258,7 +258,7 @@ function bindFxPanel() {
     sv.addEventListener('pointermove', function (e) { if (colorLabState.dragging) updateColorLabFromSv(e); });
     sv.addEventListener('pointerup', function () {
       colorLabState.dragging = false;
-      if (typeof commitColorLabValue === 'function') commitColorLabValue(true);
+      if (typeof commitColorLabValue === 'function') commitColorLabValue(false);
     });
     sv.addEventListener('pointercancel', function () {
       colorLabState.dragging = false;
@@ -293,6 +293,7 @@ function bindFxPanel() {
       var hex = normalizeHexColor(btn.getAttribute('data-color') || '#000000', '#000000');
       syncColorLabUi(hex);
       applyColorLabValue(hex);
+      closeColorLab();
     });
   }
   if (!document._colorLabOutsideBound) {
@@ -526,6 +527,7 @@ function toggleFxPanel(force) {
   fxPanelPinned = false;
   if (force === false) {
     endFxSliderEdit();
+    if (typeof closeFxFloatingPopups === 'function') closeFxFloatingPopups();
     el.classList.remove('show', 'peek');
     el.classList.toggle('closing', currentlyOpen);
     setTimeout(function () { el.classList.remove('closing'); }, 280);

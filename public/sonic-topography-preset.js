@@ -322,6 +322,7 @@
       'uniform float uDensity;',
       'uniform float uEnergy;',
       'uniform float uAmplitude;',
+      'uniform float uRise;',
       'uniform vec4 uRipples[' + RIPPLE_MAX + '];',
       'varying vec2 vUv;',
       'varying float vElevation;',
@@ -409,11 +410,11 @@
       '    }',
       '  }',
       '  elevation+=rippleElevation;',
-      '  vRippleAnim=vec2(clamp(rippleIntensityNormal,0.0,1.0),clamp(rippleIntensityWhite,0.0,1.0));',
-      '  vElevation=elevation;',
+      '  vRippleAnim=vec2(clamp(rippleIntensityNormal,0.0,1.0),clamp(rippleIntensityWhite,0.0,1.0))*uRise;',
+      '  vElevation=elevation*uRise;',
       '  float yPos=position.y+0.5;',
       '  vRelativeY=yPos;',
-      '  float totalHeight=1.0+elevation;',
+      '  float totalHeight=1.0+elevation*uRise;',
       '  vec3 pos=position;',
       '  pos.y=-0.5+yPos*totalHeight;',
       '  vec4 worldPosition=modelMatrix*instanceMatrix*vec4(pos,1.0);',
@@ -563,6 +564,7 @@
       uDensity: { value: 0 },
       uEnergy: { value: 0 },
       uAmplitude: { value: 1 },
+      uRise: { value: 1 },
       uRipples: { value: makeRippleUniforms() },
       uBaseColor1: { value: new THREE.Color(0.01, 0.02, 0.04) },
       uBaseColor2: { value: new THREE.Color(0.03, 0.05, 0.09) },
@@ -1062,6 +1064,8 @@
     state.initialized = false;
     state.orbitThetaReady = false;
     state.opacity = 0;
+    state.fadeProgress = 0;
+    state.riseProgress = 0;
     state.floatingCount = DEFAULT_FLOATING_BLOCK_COUNT;
   }
 
@@ -1119,13 +1123,50 @@
     return job;
   }
 
+  // Fixed-length eased fades. The former exponential approach needed ~2 s to
+  // leave and kept a dim, see-through terrain over the incoming visual (the
+  // Workshop variant is fully in after ~0.35 s), which read as a stuck frame.
+  var FADE_IN_SECONDS = 0.55;
+  var FADE_OUT_SECONDS = 0.32;
+  // Columns grow from a flat floor into the music after the layer appears, and
+  // settle flat before it fades: a flat floor has no columns cutting through
+  // each other, so the fading layer no longer shows see-through blocks.
+  var RISE_IN_SECONDS = 1.1;
+  var RISE_OUT_SECONDS = 0.22;
+  // The first selection in a session compiled the terrain (~57 ms) and block
+  // (~24 ms) programs synchronously, freezing the outgoing scene. Compiling
+  // the same programs once ahead of time (on hover) leaves the real switch to
+  // hit the driver's program cache (~2 ms). One program per idle frame.
+  var prewarmState = 0;
+  function prewarm(ctx) {
+    if (prewarmState || state.initialized || !ctx || !ctx.renderer || !ctx.renderer.compile || !ctx.camera || !global.requestAnimationFrame) return;
+    prewarmState = 1;
+    var builders = [
+      function () { return new THREE.ShaderMaterial({ uniforms: makeTerrainUniforms(), vertexShader: buildTerrainVertexShader(), fragmentShader: buildTerrainFragmentShader(), transparent: true, depthWrite: true, depthTest: true }); },
+      function () { return new THREE.ShaderMaterial({ uniforms: makeFloatingUniforms(), vertexShader: buildFloatingVertexShader(), fragmentShader: buildFloatingFragmentShader(), transparent: true, depthWrite: false, depthTest: true }); }
+    ];
+    function next() {
+      if (!builders.length || state.initialized) { prewarmState = 2; return; }
+      var mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), builders.shift()(), 1);
+      try { ctx.renderer.compile(mesh, ctx.camera); } catch (e) { builders.length = 0; }
+      disposeMesh(mesh);
+      global.requestAnimationFrame(next);
+    }
+    global.requestAnimationFrame(next);
+  }
+
   function update(dt, ctx) {
     ctx = ctx || {};
     var fx = ctx.fx || {};
     var scene = ctx.scene;
     var active = isActive(fx);
-    var target = active ? 1 : 0;
-    state.opacity += (target - state.opacity) * Math.min(1, dt * (active ? 3.0 : 2.2));
+    if (!(state.fadeProgress >= 0)) state.fadeProgress = clamp01(state.opacity);
+    var fadeStep = Math.max(0, Number(dt) || 0) / (active ? FADE_IN_SECONDS : FADE_OUT_SECONDS);
+    state.fadeProgress = clamp01(state.fadeProgress + (active ? fadeStep : -fadeStep));
+    state.opacity = smoothstep01(state.fadeProgress);
+    if (!(state.riseProgress >= 0)) state.riseProgress = state.fadeProgress;
+    var riseStep = Math.max(0, Number(dt) || 0) / (active ? RISE_IN_SECONDS : RISE_OUT_SECONDS);
+    state.riseProgress = clamp01(state.riseProgress + (active ? riseStep : -riseStep));
     if (!active && state.opacity < 0.01) {
       if (state.root) state.root.visible = false;
       if (!pendingPreparation && state.root) clearLayer(true);
@@ -1144,6 +1185,7 @@
     updateFloatingBlocks(fx, audio, dt, time);
     updateMeteorsAndTrails(dt);
     state.terrainMat.uniforms.uLayerOpacity.value = state.opacity;
+    state.terrainMat.uniforms.uRise.value = smoothstep01(state.riseProgress);
     state.floatingMat.uniforms.uLayerOpacity.value = state.opacity;
     state.meteorMat.opacity = state.opacity;
     state.trailMat.opacity = 0.6 * state.opacity;
@@ -1163,6 +1205,7 @@
   global.MineradioSonicTopography = {
     INDEX: INDEX,
     prepare: prepare,
+    prewarm: prewarm,
     isActive: isActive,
     update: update,
     clear: function () {

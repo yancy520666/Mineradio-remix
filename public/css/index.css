@@ -12559,28 +12559,6 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 0 18px color-mix(in srgb, var(--lyric-glow-color) 22%, transparent), 0 10px 22px rgba(0, 0, 0, .18)
 }
 
-.lyric-glow-effect-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: -1px 0 10px;
-  --lyric-glow-color: #9db8cf
-}
-
-.lyric-glow-effect-row .fx-mini-btn {
-  width: 100%;
-  min-width: 0;
-  border-color: color-mix(in srgb, var(--lyric-glow-color) 18%, rgba(255, 255, 255, .10));
-  color: color-mix(in srgb, var(--lyric-glow-color) 72%, rgba(255, 255, 255, .74))
-}
-
-.lyric-glow-effect-row .fx-mini-btn.active {
-  background: color-mix(in srgb, var(--lyric-glow-color) 14%, transparent);
-  border-color: color-mix(in srgb, var(--lyric-glow-color) 36%, rgba(255, 255, 255, .16));
-  color: color-mix(in srgb, var(--lyric-glow-color) 90%, #fff);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--lyric-glow-color) 14%, transparent)
-}
-
 .lyric-color-picker:hover {
   border-color: rgba(var(--fc-accent-rgb), .34);
   box-shadow: 0 0 0 1px rgba(var(--fc-accent-rgb), .12), 0 10px 24px rgba(0, 0, 0, .22)
@@ -20066,4 +20044,38 @@ html.perf-glass-lite #search-box:not(#mr-glass-a):not(#mr-glass-b),
 html.perf-glass-lite #search-results:not(#mr-glass-a):not(#mr-glass-b),
 html.perf-glass-lite #bottom-bar:not(#mr-glass-a):not(#mr-glass-b) {
   background-color: rgba(14, 16, 22, 0.62) !important;
+}
+
+/* 视觉控制台组内小标题：长分组按功能分成几块（如文字颜色 / 跟唱高亮 / 歌词溢光）。
+   比按钮组标题更醒目，并与上一块拉开距离。 */
+#fx-panel .fx-console-group-body > .fx-console-subhead {
+  margin: 18px 2px 8px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: none;
+  color: rgba(255, 255, 255, .78) !important;
+}
+#fx-panel .fx-console-group-body > .fx-console-subhead::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, .16), transparent);
+}
+#fx-panel .fx-console-group-body > .fx-console-subhead:first-child {
+  margin-top: 4px;
+}
+
+/* 左侧歌单栏收起：先慢后快地滑出（打开仍是先快后慢），避免收起时“先猛一下再拖尾”。 */
+#playlist-panel.playlist-panel-closing,
+html.control-glass-svg-ok #playlist-panel.playlist-panel-closing {
+  transition: opacity var(--playlist-panel-motion-ms) cubic-bezier(.5, 0, .9, .4),
+    transform var(--playlist-panel-motion-ms) cubic-bezier(.55, 0, .8, .25);
+}
+/* 列表行只过渡颜色类属性。原先 `transition: all` 会把入场动画逐帧写入的透明度/位移
+   再做一次 0.2s 过渡，两者打架，行先往反方向淡出。 */
+#playlist-panel .queue-item,
+#playlist-panel .pl-card {
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s !important;
+}
+/* 小标题随其下方第一个控件一起隐藏（例如只属于某款视觉的分组在其他视觉下）。 */
+#fx-panel .fx-console-subhead:has(+ .fx-sonic-hidden),
+#fx-panel .fx-console-subhead:has(+ [hidden]) {
+  display: none !important;
 }

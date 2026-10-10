@@ -1818,8 +1818,8 @@ function checkQishuiProviderGuard() {
   if (!/网易云 \/ QQ \/ 酷狗 \/ 汽水/.test(homeText) || !/hasAnyPlatformLogin\(\)/.test(homeText) || /网易云 \/ QQ 音乐/.test(homeText)) {
     fail('Home discover must acknowledge Qishui/Kugou login playlists instead of only Netease/QQ');
   }
-  if (!/lyric-glow-enable-btn/.test(indexText) || !/lyric-glow-beat-btn/.test(indexText)) {
-    fail('Lyric glow back-layer controls must stay visible in the lyric appearance panel');
+  if (!/id="t-lyricGlow"/.test(indexText) || !/id="t-lyricGlowBeat"/.test(indexText) || /lyric-glow-enable-btn|lyric-glow-beat-btn/.test(indexText)) {
+    fail('Lyric glow on/off and beat-follow must stay visible once (as toggles) in the lyric appearance panel');
   }
   console.log('[OK] Qishui search/lyric fallback stays usable without third-party playback proxy.');
 }
@@ -3441,11 +3441,11 @@ function checkPlaylistPanelTriggerGuard() {
   if (!/--playlist-panel-open-ms:\s*var\(--mineradio-playlist-panel-open-ms,\s*280ms\)/.test(cssText) || !/--playlist-panel-close-ms:\s*var\(--mineradio-playlist-panel-close-ms,\s*180ms\)/.test(cssText) || !/setPlaylistPanelCssVar\('--mineradio-playlist-panel-open-ms'/.test(fxRuntimeText) || !/setPlaylistPanelCssVar\('--mineradio-playlist-panel-close-ms'/.test(fxRuntimeText)) {
     fail('playlist panel animation durations must be driven by runtime CSS variables, not only static panel defaults');
   }
-  if (!/playlistPanelOpenDuration:\s*0\.72/.test(fxDefaultsText) || !/playlistPanelCloseDuration:\s*0\.48/.test(fxDefaultsText)) {
+  if (!/playlistPanelOpenDuration:\s*0\.56/.test(fxDefaultsText) || !/playlistPanelCloseDuration:\s*0\.34/.test(fxDefaultsText)) {
     fail('playlist panel animation defaults must preserve the captured first-launch state');
   }
   const durationRangeText = [fxRuntimeText, persistenceText, fxBindText, archiveText].join('\n');
-  if ((durationRangeText.match(/0\.08,\s*0\.72/g) || []).length < 4 || (durationRangeText.match(/0\.06,\s*0\.48/g) || []).length < 4 || !/fx-playlistopen" type="range" min="0\.08" max="0\.72"/.test(indexText) || !/fx-playlistclose" type="range" min="0\.06" max="0\.48"/.test(indexText)) {
+  if ((durationRangeText.match(/0\.16,\s*1\.2\)/g) || []).length < 4 || (durationRangeText.match(/0\.12,\s*0\.9\)/g) || []).length < 4 || !/fx-playlistopen" type="range" min="0\.16" max="1\.2"/.test(indexText) || !/fx-playlistclose" type="range" min="0\.12" max="0\.9"/.test(indexText)) {
     fail('playlist panel animation slider range must match runtime, persistence, and archive clamps');
   }
   console.log('[OK] Playlist panel trigger, secondary-edge, bottom-control, and animation-duration guards are in sync.');

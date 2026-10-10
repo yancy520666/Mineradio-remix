@@ -26,8 +26,18 @@ function buildPresetGrid() {
   }).join('');
   refreshPresetGrid();
 }
+// Hovering a visual's card compiles its shaders ahead of the click, so the
+// first switch in a session does not freeze the current scene.
+function prewarmPresetFromCard(event) {
+  var card = event && event.currentTarget;
+  var topo = window.MineradioSonicTopography;
+  if (!card || !topo || typeof topo.prewarm !== 'function') return;
+  if (Number(card.getAttribute('data-preset')) !== topo.INDEX) return;
+  topo.prewarm({ renderer: typeof renderer !== 'undefined' ? renderer : null, camera: typeof camera !== 'undefined' ? camera : null });
+}
 function refreshPresetGrid() {
   document.querySelectorAll('.preset-card').forEach(function (el) {
+    el.addEventListener('pointerenter', prewarmPresetFromCard);
     el.classList.toggle('active', Number(el.dataset.preset) === fx.preset);
   });
 }

@@ -784,6 +784,10 @@
     if (!(global.playing && global.audio && !global.audio.paused)) {
       for (var k = 0; k < out.length; k++) out[k] = out[k] * WORKSHOP_AUDIO_PAUSED_GAIN;
     }
+    // Columns start flat and grow into the music after the scene appears, and
+    // settle flat while it leaves (see update()).
+    var rise = state.riseProgress >= 0 ? state.riseProgress * state.riseProgress * (3 - 2 * state.riseProgress) : 1;
+    if (rise < 0.999) for (var r = 0; r < out.length; r++) out[r] = out[r] * rise;
     state.samples = out;
     return out;
   }
@@ -841,15 +845,26 @@
     state.active = targetActive;
     bodyClass(targetActive || state.opacity > 0.02);
     if (targetActive) ensureLayer();
-    var targetOpacity = targetActive && state.ready ? 1 : 0;
-    var rate = targetOpacity > state.opacity ? 7.5 : 5.0;
-    state.opacity += (targetOpacity - state.opacity) * clamp(1 - Math.exp(-rate * Math.max(0.001, dt || 1 / 60)), 0, 1);
+    // Fixed-length eased fades (in 0.45 s, out 0.4 s), matching the built-in terrain.
+    var fadeIn = targetActive && state.ready;
+    if (!(state.fadeProgress >= 0)) state.fadeProgress = clamp01(state.opacity);
+    var fadeStep = Math.max(0.001, dt || 1 / 60) / (fadeIn ? 0.45 : 0.4);
+    state.fadeProgress = clamp01(state.fadeProgress + (fadeIn ? fadeStep : -fadeStep));
+    var eased = state.fadeProgress * state.fadeProgress * (3 - 2 * state.fadeProgress);
+    state.opacity = eased;
+    if (!(state.riseProgress >= 0)) state.riseProgress = state.fadeProgress;
+    var riseStep = Math.max(0.001, dt || 1 / 60) / (fadeIn ? 1.1 : 0.3);
+    state.riseProgress = clamp01(state.riseProgress + (fadeIn ? riseStep : -riseStep));
     if (state.layer) state.layer.style.opacity = state.opacity.toFixed(3);
     if (targetActive) {
       pushProperties(false);
       pushMedia(false);
       pushAudio(false, ctx.audio);
-    } else if (state.layer && state.opacity <= 0.01 && !state.preparation) {
+    } else if (state.layer && state.opacity > 0.01) {
+      // Keep the terrain moving while it fades out instead of freezing a frame.
+      pushAudio(false, ctx.audio);
+    }
+    if (!targetActive && state.layer && state.opacity <= 0.01 && !state.preparation) {
       removeLayer();
       bodyClass(false);
     }
@@ -859,6 +874,8 @@
     if (state.preparation) state.preparation.cancel();
     state.active = false;
     state.opacity = 0;
+    state.fadeProgress = 0;
+    state.riseProgress = 0;
     bodyClass(false);
     removeLayer();
   }

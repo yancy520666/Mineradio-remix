@@ -717,7 +717,8 @@ async function togglePlay() {
     if (typeof lyricWorkScheduler !== 'undefined') lyricWorkScheduler.hold(180);
     forcePlaybackControlsInteractive();
     if ((!audio || !audio.src) && playQueue.length && currentIdx >= 0) {
-      await playQueueAt(currentIdx, { manual: true });
+      var warmData = typeof takeStartupWarmPlaybackData === 'function' ? takeStartupWarmPlaybackData(playQueue[currentIdx]) : null;
+      await playQueueAt(currentIdx, warmData ? { manual: true, preResolvedPlaybackData: warmData } : { manual: true });
       return;
     }
     if (audio && audio.src && playQueue.length && currentIdx >= 0 && !playbackMediaMatchesCurrentQueueItem(audio)) {

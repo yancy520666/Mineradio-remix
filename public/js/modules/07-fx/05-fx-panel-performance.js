@@ -371,7 +371,6 @@ function updateFxInputs() {
   updateLyricGlowControls();
   applyPlaylistPanelFxSettings();
   // 同步开关
-  document.getElementById('t-float').classList.toggle('on', fx.floatLayer);
   var floatToggle = document.getElementById('t-float');
   if (floatToggle) floatToggle.classList.toggle('on', fx.floatLayer);
   document.getElementById('t-cinema').classList.toggle('on', fx.cinema);
@@ -379,10 +378,6 @@ function updateFxInputs() {
   if (lyricGlowToggle) lyricGlowToggle.classList.toggle('on', fx.lyricGlow);
   var lyricGlowBeatToggle = document.getElementById('t-lyricGlowBeat');
   if (lyricGlowBeatToggle) lyricGlowBeatToggle.classList.toggle('on', fx.lyricGlowBeat);
-  var lyricGlowEnableBtn = document.getElementById('lyric-glow-enable-btn');
-  if (lyricGlowEnableBtn) lyricGlowEnableBtn.classList.toggle('active', fx.lyricGlow);
-  var lyricGlowBeatBtn = document.getElementById('lyric-glow-beat-btn');
-  if (lyricGlowBeatBtn) lyricGlowBeatBtn.classList.toggle('active', fx.lyricGlowBeat);
   var lyricGlowParticlesToggle = document.getElementById('t-lyricGlowParticles');
   if (lyricGlowParticlesToggle) lyricGlowParticlesToggle.classList.toggle('on', fx.lyricGlowParticles);
   var backgroundStarRiverToggle = document.getElementById('t-backgroundStarRiver');
@@ -802,7 +797,7 @@ function applyBackgroundMediaHint() {
 }
 function relabelFxPanelControls() {
   setFxSliderLabel('fx-windowbgopacity', '\u7a97\u53e3\u80cc\u666f\u900f\u660e');
-  setFxSliderLabel('fx-bgglassopacity', '\u6bdb\u73bb\u7483\u900f\u660e');
+  setFxSliderLabel('fx-bgglassopacity', '背景图模糊');
   setFxSliderLabel('fx-bgcropx', '\u88c1\u5207\u5de6\u53f3');
   setFxSliderLabel('fx-bgcropy', '\u88c1\u5207\u4e0a\u4e0b');
   setFxSliderLabel('fx-bgzoom', '\u88c1\u5207\u7f29\u653e');
@@ -851,10 +846,11 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-lyricglow', '溢光强度');
   setFxSliderLabel('fx-bgopacity', '背景透明度');
   setFxSliderLabel('fx-glassaberration', '玻璃色差');
-  setFxSliderLabel('fx-playlistblur', '左栏雾面');
-  setFxSliderLabel('fx-playlistdensity', '左栏遮挡');
-  setFxSliderLabel('fx-playlistopen', '左栏唤出秒数');
-  setFxSliderLabel('fx-playlistclose', '左栏收起秒数');
+  setFxSliderLabel('fx-playlistblur', '透底模糊');
+  setFxSliderLabel('fx-playlistdensity', '面板不透明度');
+  setFxSliderLabel('fx-playlistopen', '唤出时长');
+  setFxSliderLabel('fx-playlistclose', '收起时长');
+  setFxSliderLabel('fx-bloom', '粒子溢光强度');
   setFxSliderLabel('fx-lyricspacing', '字间距');
   setFxSliderLabel('fx-lyriclineheight', '行距');
   setFxSliderLabel('fx-lyricweight', '字重');
@@ -914,7 +910,6 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-speed', '运动速度');
   setFxSliderLabel('fx-twist', '粒子扭曲');
   setFxSliderLabel('fx-color', '色彩张力');
-  setFxSliderLabel('fx-bloom', '光晕强度');
   setFxSliderLabel('fx-scatter', '离散感');
   setFxSliderLabel('fx-bgfade', '背景压暗');
 }

@@ -6,8 +6,8 @@ var searchPeekRevealToken = 0;
 var searchPeekRevealPending = false;
 var PLAYLIST_PANEL_MOTION_MS = 360;
 var PLAYLIST_PANEL_OPEN_ANIM_COOLDOWN = 520;
-var PLAYLIST_PANEL_OPEN_DURATION_RANGE = { min: 0.08, max: 0.72, fallback: 0.28 };
-var PLAYLIST_PANEL_CLOSE_DURATION_RANGE = { min: 0.06, max: 0.48, fallback: 0.18 };
+var PLAYLIST_PANEL_OPEN_DURATION_RANGE = { min: 0.16, max: 1.2, fallback: 0.56 };
+var PLAYLIST_PANEL_CLOSE_DURATION_RANGE = { min: 0.12, max: 0.9, fallback: 0.34 };
 function playlistPanelMotionRange(type) {
   return type === 'close' ? PLAYLIST_PANEL_CLOSE_DURATION_RANGE : PLAYLIST_PANEL_OPEN_DURATION_RANGE;
 }
@@ -156,6 +156,7 @@ function setPeek(el, on, key, preserveKeyboardFocus) {
       }
       if (key === 'pl') setTimeout(function () { el.classList.remove('playlist-panel-closing'); }, playlistPanelMotionMs('close') + 80);
       if (key === 'fx') {
+        if (typeof closeFxFloatingPopups === 'function') closeFxFloatingPopups();
         var fabOff = document.getElementById('fx-fab');
         if (fabOff && !el.classList.contains('show')) fabOff.classList.remove('active');
       }
@@ -474,6 +475,7 @@ window.addEventListener('mousemove', function (e) {
   var inFxPanel = fpOn && ex >= fpRect.left - 24 && ex <= fpRect.right + 24 && ey >= fpRect.top - 24 && ey <= fpRect.bottom + 24;
   var inFxFab = ex >= fabRect.left - 18 && ex <= fabRect.right + 18 && ey >= fabRect.top - 18 && ey <= fabRect.bottom + 18;
   var inFxBridge = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
+  if (fpOn && !inFxPanel && typeof fxFloatingPopupContainsPoint === 'function' && fxFloatingPopupContainsPoint(ex, ey)) inFxPanel = true;
   if (!diyPlayerMode) inFxPanel = inFxFab = inFxBridge = false;
   // 点击收起后，鼠标要先离开按钮/面板区域，悬停才会再次展开。
   if (typeof fxPanelDismissed !== 'undefined' && fxPanelDismissed) {
