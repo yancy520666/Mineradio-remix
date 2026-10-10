@@ -118,7 +118,7 @@ function lyricMotionProfile() {
     floatAmp: 1.0
   };
   if (style === 'smooth') {
-    profile.enter = 0.72; profile.exit = 0.62; profile.slide = 0.24; profile.progressEase *= 0.72; profile.contextDrift = 0.030; profile.edgeBoost = 0.62; profile.sweep = 0.18; profile.shimmer = 0.05; profile.glowLift = 0.74; profile.floatAmp = 0.55;
+    profile.enter = 0.72; profile.exit = 0.62; profile.slide = 0.66; profile.progressEase *= 0.72; profile.contextDrift = 0.030; profile.edgeBoost = 0.62; profile.sweep = 0.18; profile.shimmer = 0.05; profile.glowLift = 0.74; profile.floatAmp = 0.55;
   } else if (style === 'float') {
     profile.enter = 0.86; profile.exit = 0.76; profile.slide = 0.54; profile.progressEase *= 0.66; profile.contextDrift = 0.120; profile.edgeBoost = 1.04; profile.sweep = 0.36; profile.shimmer = 0.14; profile.glowLift = 1.16; profile.floatAmp = 1.45;
   } else if (style === 'shine') {
@@ -130,9 +130,25 @@ function lyricMotionProfile() {
   } else {
     profile.enter = 0.62; profile.exit = 0.52; profile.slide = 0.38; profile.progressEase *= 0.90; profile.contextDrift = 0.066; profile.edgeBoost = 1.18; profile.sweep = 0.72; profile.shimmer = 0.22; profile.glowLift = 1.0; profile.floatAmp = 1.0;
   }
+  // Keep the authored float trajectory; the other styles have their own
+  // spatial character instead of inheriting the same common wobble.
+  profile.verticalAmp = style === 'float' ? 1 : (style === 'glass' ? 0.22 : (style === 'smooth' ? 0.08 : (style === 'quick' ? 0 : 0.15)));
+  profile.depthAmp = style === 'float' ? 1 : (style === 'glass' ? 0.12 : (style === 'smooth' ? 0.06 : (style === 'quick' ? 0 : 0.18)));
+  profile.glass = style === 'glass' ? 1 : 0;
   profile.enter *= soft;
   profile.exit *= soft;
   profile.slide *= clampRange(0.80 + soft * 0.35, 0.75, 1.28);
   profile.progressEase = clampRange(profile.progressEase / clampRange(soft, 0.35, 1.2), 0.08, 0.72);
   return profile;
+}
+
+// slide is the transition duration scale.  Reference the saved default float
+// profile so existing defaults retain their exact 60 Hz adjacent-line timing.
+// Row layers normalize the resulting ease for the actual frame duration.
+function lyricMotionSlideEase(profile, baseEase) {
+  var referenceSlide = 0.54 * (0.80 + 0.72 * 0.35);
+  var slide = profile && isFinite(Number(profile.slide)) ? Number(profile.slide) : referenceSlide;
+  if (slide === referenceSlide) return baseEase;
+  var ratio = referenceSlide / clampRange(slide, 0.12, 1.2);
+  return clampRange(1 - Math.pow(1 - clampRange(baseEase, 0.04, 0.60), ratio), 0.04, 0.60);
 }

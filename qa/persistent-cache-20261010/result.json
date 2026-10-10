@@ -1,0 +1,10 @@
+{
+  "lyricRenameFailure": "injected rename failure",
+  "orphanBeforeRetry": "3b4af992b2e67e79fab6a9e737e37fddde98466ea68457aae88b58116ef67fda.json.tmp",
+  "pruneLeftOrphan": true,
+  "manualReleaseLeftOrphan": true,
+  "sameKeySuccessfulRetryRemovesOrphan": true,
+  "generatedOnlineMapMarkedAutomaticLocalAnalysis": false,
+  "beatWriteReadRoundtrip": true,
+  "rootIsTemporary": true
+}

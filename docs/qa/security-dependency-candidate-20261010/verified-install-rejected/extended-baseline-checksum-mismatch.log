@@ -1,0 +1,1 @@
+{"version":"3.0.0","mode":"checksum-mismatch","passed":true,"proxyHits":1,"connectHits":0,"tlsOptionsEvidence":null,"errorEvidence":{"message":"Generated checksum for \"benign-fixture.txt\" did not match expected checksum."}}

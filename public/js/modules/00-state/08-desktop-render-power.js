@@ -225,7 +225,7 @@ function collectProtectedCoverDepthIds() {
   } catch (e) { }
   return keep;
 }
-function trimObjectCache(cache, keep, protectedKeys, skipRecord) {
+function trimObjectCache(cache, keep, protectedKeys, skipRecord, disposeRecord) {
   var keys = safeObjectKeys(cache);
   if (!cache || keys.length <= keep) return 0;
   var drop = keys.length - keep;
@@ -236,6 +236,7 @@ function trimObjectCache(cache, keep, protectedKeys, skipRecord) {
     var rec = cache[key];
     if (skipRecord && skipRecord(rec, key)) continue;
     delete cache[key];
+    if (disposeRecord) disposeRecord(key, rec);
     drop--;
     dropped++;
   }
@@ -366,9 +367,11 @@ function trimRuntimeCaches(reason, aggressive) {
   var protectedCovers = collectProtectedCoverUrls();
   var protectedBeats = collectProtectedBeatMapKeys();
   var dropped = 0;
-  dropped += trimObjectCache(playlistCoverCache, aggressive ? 72 : 180, protectedCovers, function (rec) {
-    return rec && rec.loading;
-  });
+  dropped += trimObjectCache(playlistCoverCache, aggressive ? 72 : 180, protectedCovers, function (rec, url) {
+    return rec && rec.loading
+      || typeof playlistCoverViewportVisible !== 'undefined' && playlistCoverViewportVisible.has(url)
+      || typeof playlistCoverViewportNearby !== 'undefined' && playlistCoverViewportNearby.has(url);
+  }, typeof disposePlaylistCoverRecord === 'function' ? disposePlaylistCoverRecord : null);
   dropped += trimCoverDepthCache(aggressive ? 4 : 10, collectProtectedCoverDepthIds());
   dropped += trimObjectCache(beatMapCache, aggressive ? 12 : 36, protectedBeats);
   dropped += trimObjectCache(djBeatMapCache, aggressive ? 4 : 12, protectedBeats);
@@ -386,6 +389,9 @@ function trimRuntimeCaches(reason, aggressive) {
 }
 function trimVisualCachesForBackground() {
   if (!isDeepBackgroundMode()) return;
+  // Chromium may suspend rAF before animate can retire the optional UI target.
+  // Keep the main canvas and all visible desktop resources intact.
+  if (typeof releaseMainUiRenderCache === 'function') releaseMainUiRenderCache();
   trimRuntimeCaches('deep-background', true);
   requestBackgroundAppMemoryTrim('deep-background', isBackgroundReleaseMode() ? 900 : 1800);
 }

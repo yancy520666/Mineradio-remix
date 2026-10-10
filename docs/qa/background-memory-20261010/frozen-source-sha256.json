@@ -1,0 +1,5 @@
+{
+  "desktop/main.js": "53cfa0460f57c7f544b3548849cbbab10efa10e3dcccb2bb4cb8c81e9c48abaa",
+  "public/js/modules/00-state/08-desktop-render-power.js": "3c3439d2d32b53acf674f04d8ed3e9f184c0bad3e0c780a5a868049238aafdeb",
+  "tests/background-memory-policy.test.js": "e74ce3cb9ec0de12eab7fbde4595d7460191d98bb08c24b256b4b61f459212cd"
+}

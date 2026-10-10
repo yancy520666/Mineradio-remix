@@ -178,19 +178,25 @@
       window.__qishuiRequest = function (request) {
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
+          const signal = request.signal;
+          const cleanup = () => { if (signal) signal.removeEventListener('abort', abort); };
+          const fail = error => { cleanup(); reject(error); };
+          const abort = () => { xhr.abort(); fail(new Error('用户取消二次验证')); };
+          if (signal && signal.aborted) { fail(new Error('用户取消二次验证')); return; }
+          if (signal) signal.addEventListener('abort', abort, { once: true });
           xhr.open(request.method || 'GET', request.url, true);
           for (const [name, value] of Object.entries(request.headers || {})) {
             xhr.setRequestHeader(name, String(value));
           }
           xhr.timeout = request.timeout || 20000;
-          xhr.onload = () => resolve({
+          xhr.onload = () => { cleanup(); resolve({
             status: xhr.status,
             body: xhr.responseText,
             responseURL: xhr.responseURL,
             headers: xhr.getAllResponseHeaders(),
-          });
-          xhr.onerror = () => reject(new Error('XMLHttpRequest network error'));
-          xhr.ontimeout = () => reject(new Error('XMLHttpRequest timeout'));
+          }); };
+          xhr.onerror = () => fail(new Error('XMLHttpRequest network error'));
+          xhr.ontimeout = () => fail(new Error('XMLHttpRequest timeout'));
           xhr.send(request.body == null ? null : request.body);
         });
       };
@@ -218,19 +224,46 @@
         return result.toString();
       }
 
-      function loadVerifyScript(url) {
+      // Transport constraints only. These do not establish a trusted component
+      // origin; an official decision-component origin policy remains required.
+      function normalizeVerifyComponentUrl(value) {
+        if (typeof value !== 'string' || !value || value.length > 8192 || value.includes('#') || /[\u0000-\u0020\u007f]/.test(value)) {
+          throw new Error('二次验证组件 URL 无效');
+        }
+        const resource = new URL(value, 'https://api.qishui.com/');
+        if (resource.protocol !== 'https:' || resource.username || resource.password || resource.port || resource.hash || resource.href.length > 8192) {
+          throw new Error('二次验证组件 URL 不符合安全要求');
+        }
+        return resource;
+      }
+
+      function loadVerifyScript(url, signal) {
         return new Promise((resolve, reject) => {
+          const resource = normalizeVerifyComponentUrl(url);
           const script = document.createElement('script');
+          let settled = false;
+          const finish = error => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (signal) signal.removeEventListener('abort', abort);
+            script.onload = script.onerror = null;
+            if (error) { script.remove(); reject(error); } else resolve();
+          };
+          const abort = () => finish(new Error('用户取消二次验证'));
+          const timer = setTimeout(() => finish(new Error('二次验证组件加载超时，请重试')), 20000);
+          if (signal && signal.aborted) { abort(); return; }
+          if (signal) signal.addEventListener('abort', abort, { once: true });
           script.type = 'text/javascript';
           script.crossOrigin = 'anonymous';
-          script.src = url;
-          script.onload = resolve;
-          script.onerror = () => reject(new Error(`二次验证组件加载失败：${safeUrl(url)}`));
+          script.src = resource.href;
+          script.onload = () => finish();
+          script.onerror = () => finish(new Error(`二次验证组件加载失败：${safeUrl(url)}`));
           document.head.appendChild(script);
         });
       }
 
-      async function expandVerifyCenterDecision(originDecision, options) {
+      async function expandVerifyCenterDecision(originDecision, options, signal) {
         if (originDecision.verify_from !== 'verify_center') return originDecision;
         const payload = {
           aid: 386088,
@@ -247,6 +280,7 @@
           },
           body: formEncode(payload),
           timeout: 30000,
+          signal,
         });
         const envelope = JSON.parse(response.body || '{}');
         const expanded = envelope.data || envelope;
@@ -256,72 +290,106 @@
         return { ...originDecision, ...expanded };
       }
 
-      window.__qishuiCancelSecondVerify = function () {
-        if (window.__qishuiMfaResolve) {
-          window.__qishuiMfaResolve({ status: false, message: '用户取消二次验证' });
+      let currentMfaAttempt = null;
+      let cancelledMfaThrough = 0;
+      window.__qishuiCancelSecondVerify = function (attemptId) {
+        const numericId = Number(attemptId);
+        if (Number.isSafeInteger(numericId) && numericId > 0) {
+          // Main supplies increasing IDs. Retain a bounded watermark so a
+          // delayed invocation stays cancelled even after many replacements.
+          cancelledMfaThrough = Math.max(cancelledMfaThrough, numericId);
+        }
+        if (currentMfaAttempt && (attemptId == null || currentMfaAttempt.id === String(attemptId))) {
+          currentMfaAttempt.finish({ status: false, message: '用户取消二次验证' });
         }
       };
 
-      window.__qishuiSecondVerify = async function (originDecision, options = {}) {
+      window.__qishuiSecondVerify = function (originDecision, options = {}) {
+        if (currentMfaAttempt) currentMfaAttempt.finish({ status: false, message: '二次验证已被新请求替换' });
+        const id = String(options.attemptId == null ? '' : options.attemptId);
+        if (Number(id) > 0 && Number(id) <= cancelledMfaThrough) return Promise.resolve({ status: false, message: '用户取消二次验证' });
+        const controller = new AbortController();
+        let finished = false;
+        let resolveResult;
+        const resultPromise = new Promise(resolve => { resolveResult = resolve; });
+        let timer;
+        const attempt = {
+          id,
+          finish(result) {
+            if (finished) return;
+            let normalized;
+            try {
+              normalized = result && typeof result === 'object'
+                ? JSON.parse(JSON.stringify(result))
+                : { status: false, message: String(result || '验证未完成') };
+            } catch (_) {
+              normalized = { status: false, message: '安全验证返回无效结果，请重试' };
+            }
+            finished = true;
+            clearTimeout(timer);
+            controller.abort();
+            if (currentMfaAttempt === attempt) {
+              currentMfaAttempt = null;
+              window.__qishuiMfaResolve = null;
+              setMfaStatus('');
+            }
+            resolveResult(normalized);
+          },
+        };
+        // Register before the first await, including decision and script loads.
+        currentMfaAttempt = attempt;
+        window.__qishuiMfaResolve = attempt.finish;
+        timer = setTimeout(() => attempt.finish({ status: false, message: '安全验证加载超时，请重试', code: 'QISHUI_MFA_LOAD_TIMEOUT' }), 45000);
         setMfaStatus('正在加载汽水安全验证组件…');
-        try {
-          const decision = await expandVerifyCenterDecision(originDecision || {}, options);
+        (async () => {
+          const decision = await expandVerifyCenterDecision(originDecision || {}, options, controller.signal);
+          if (finished) return;
           if (!decision.url) throw new Error('2046 决策中缺少二次验证组件 URL');
           const eventParams = normalizeObject(decision.event_params);
-          const resource = new URL(String(decision.url), 'https://api.qishui.com/');
+          const resource = normalizeVerifyComponentUrl(decision.url);
           resource.searchParams.set('aid', '386088');
           resource.searchParams.set('verify_reason', String(eventParams.verify_reason || ''));
           resource.searchParams.set('verify_scene', String(eventParams.verify_scene || ''));
           window.$$account_verify_portrait_id = decision.verify_portrait_id || '';
 
           if (typeof window.ucWebSecondVerify !== 'function') {
-            await loadVerifyScript(resource.toString());
+            await loadVerifyScript(resource.toString(), controller.signal);
           }
+          if (finished) return;
           if (typeof window.ucWebSecondVerify !== 'function') {
             throw new Error('官方二次验证组件未导出 ucWebSecondVerify');
           }
 
           setMfaStatus('请在窗口中完成二次验证');
-          return await new Promise(resolve => {
-            let finished = false;
-            const finish = result => {
-              if (finished) return;
-              finished = true;
-              window.__qishuiMfaResolve = null;
-              const normalized = result && typeof result === 'object'
-                ? JSON.parse(JSON.stringify(result))
-                : { status: false, message: String(result || '验证未完成') };
-              resolve(normalized);
-            };
-            window.__qishuiMfaResolve = finish;
-            const data = {
-              verifyFinishCallback: finish,
-              aid: 386088,
-              isNewVerifyUI: true,
-              generalParams: options.generalParams || {},
-              newSecondVerifyWebOptions: {
-                host: 'https://api.qishui.com',
-                verifyAppName: '汽水音乐移动端',
-              },
-              newSecondVerificationCall: { reportAppLog: () => {} },
-              ...decision,
-              event_params: eventParams,
-              monitorTime: {
-                startTime: Date.now(),
-                fetchEndTime: Date.now(),
-                scriptLoadStartTime: 0,
-                scriptLoadEndTime: Date.now(),
-                renderStartTime: Date.now(),
-              },
-              fun: decision.verify_from === 'verify_center' ? 'verify_center' : 'verify',
-              uc_account_verify_version: '1.0.29',
-            };
-            window.ucWebSecondVerify(data);
-          });
-        } catch (error) {
-          setMfaStatus(String(error && error.message ? error.message : error), true);
-          throw error;
-        }
+          clearTimeout(timer);
+          timer = setTimeout(() => attempt.finish({ status: false, message: '安全验证超时，请重试', code: 'QISHUI_MFA_TIMEOUT' }), 5 * 60 * 1000);
+          const data = {
+            verifyFinishCallback: attempt.finish,
+            aid: 386088,
+            isNewVerifyUI: true,
+            generalParams: options.generalParams || {},
+            newSecondVerifyWebOptions: {
+              host: 'https://api.qishui.com',
+              verifyAppName: '汽水音乐移动端',
+            },
+            newSecondVerificationCall: { reportAppLog: () => {} },
+            ...decision,
+            event_params: eventParams,
+            monitorTime: {
+              startTime: Date.now(),
+              fetchEndTime: Date.now(),
+              scriptLoadStartTime: 0,
+              scriptLoadEndTime: Date.now(),
+              renderStartTime: Date.now(),
+            },
+            fun: decision.verify_from === 'verify_center' ? 'verify_center' : 'verify',
+            uc_account_verify_version: '1.0.29',
+          };
+          window.ucWebSecondVerify(data);
+        })().catch(error => {
+          if (!finished) attempt.finish({ status: false, message: String(error && error.message ? error.message : error) });
+        });
+        return resultPromise;
       };
     </script>
     <style>

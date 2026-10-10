@@ -1025,7 +1025,18 @@ function lyricQualityDragBuildAllowed(job) {
 
 function scheduleLyricQualityBuild(delay) {
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
-  if (lyricQualityState.timer || lyricQualityState.idle || !lyricQualityState.queue.length) return;
+  if (!lyricQualityState.queue.length) return;
+  var runWhenPaused = lyricQualityState.queue.some(function (job) {
+    return typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(job.data, job.row);
+  });
+  if (lyricQualityState.timer || lyricQualityState.idle) {
+    // A normal quality job may already be held at Infinity while paused.
+    // Replace that keyed schedule only for the explicit current-owner commit.
+    if (lyricQualityState.idle === -1 && runWhenPaused && typeof lyricWorkScheduler !== 'undefined' && !lyricWorkScheduler.canPrepare()) {
+      lyricWorkScheduler.cancel('quality-build');
+      lyricQualityState.idle = 0;
+    } else return;
+  }
   if (delay > 0) {
     lyricQualityState.timer = setTimeout(function () {
       lyricQualityState.timer = 0;
@@ -1038,6 +1049,10 @@ function scheduleLyricQualityBuild(delay) {
     if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
     if (!lyricQualityState.queue.length) return;
     var dragging = typeof isProgressDragPreviewActive === 'function' && isProgressDragPreviewActive();
+    var pausedRestricted = typeof lyricWorkScheduler !== 'undefined' && !lyricWorkScheduler.canPrepare();
+    if (pausedRestricted && !lyricQualityState.queue.some(function (job) {
+      return typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(job.data, job.row);
+    })) return;
     if (lyricQualityInputPending()) {
       scheduleLyricQualityBuild(72);
       return;
@@ -1050,7 +1065,12 @@ function scheduleLyricQualityBuild(delay) {
     // Dragging retains the same quality selection as playback. Build one
     // selected row per idle slice and keep the existing upload/memory budgets.
     var jobIndex = 0;
-    if (dragging) {
+    if (pausedRestricted) {
+      jobIndex = lyricQualityState.queue.findIndex(function (job) {
+        return typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(job.data, job.row);
+      });
+      if (jobIndex < 0) return;
+    } else if (dragging) {
       jobIndex = lyricQualityState.queue.findIndex(lyricQualityDragBuildAllowed);
       if (jobIndex < 0) {
         scheduleLyricQualityBuild(72);
@@ -1099,7 +1119,7 @@ function scheduleLyricQualityBuild(delay) {
   };
   if (typeof lyricWorkScheduler !== 'undefined') {
     lyricQualityState.idle = -1;
-    lyricWorkScheduler.schedule('quality-build', run, { priority: 30 });
+    lyricWorkScheduler.schedule('quality-build', run, { priority: 30, runWhenPaused: runWhenPaused });
   } else if (typeof requestIdleCallback === 'function') {
     lyricQualityState.idle = requestIdleCallback(run, { timeout: 180 });
   } else {
@@ -1232,7 +1252,7 @@ function registerLyricQualityCommitCandidate(data, row, priority) {
 }
 
 function commitDeferredLyricQualityRows() {
-  if (typeof lyricWorkScheduler !== 'undefined' && !lyricWorkScheduler.canPrepare()) return false;
+  var preparationAllowed = typeof lyricWorkScheduler === 'undefined' || lyricWorkScheduler.canPrepare();
   if (!lyricQualityState.frameCommits.length) return false;
   var commits = lyricQualityState.frameCommits.slice().sort(function (a, b) { return a.priority - b.priority; });
   var seen = [];
@@ -1241,6 +1261,7 @@ function commitDeferredLyricQualityRows() {
     var row = candidate && candidate.row;
     if (!row || seen.indexOf(row) >= 0 || !lyricQualityOwnerActive(candidate.data, row)) continue;
     seen.push(row);
+    if (!preparationAllowed && !(typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(candidate.data, row))) continue;
     if (row.qualityWanted !== true) continue;
     if (!row.qualityPendingTexture && (!row.qualityTexture || lyricQualityCurrentMap(row) === row.qualityTexture)) continue;
     if (!consumeLyricRenderUploadFrameBudget()) return false;
@@ -1812,7 +1833,9 @@ function updateLyricRowLayers(data, opts) {
       }
       row.mesh.position.y += rowYStep;
       row.mesh.position.z += (zTarget - row.mesh.position.z) * ease;
-      row.mesh.scale.setScalar(row.mesh.scale.x + (scaleTarget - row.mesh.scale.x) * editLayoutEase);
+      // Preserve all runway/easing state; omit only exactly redundant hidden writes.
+      var nextLineScale = row.mesh.scale.x + (scaleTarget - row.mesh.scale.x) * editLayoutEase;
+      if (row.mesh.visible || row.mesh.scale.x !== nextLineScale || row.mesh.scale.y !== nextLineScale || row.mesh.scale.z !== nextLineScale) row.mesh.scale.setScalar(nextLineScale);
       row.mesh.renderOrder = isActive ? (renderBase + 0.40) : (row.isTranslation ? (renderBase + 0.05 + (currentTranslation ? 0.34 : translationFocus * 0.30)) : (renderBase - 0.40 - Math.min(5.5, abs) * 0.015));
     }
     if (row.mat && row.mat.uniforms) {
@@ -1853,7 +1876,8 @@ function updateLyricRowLayers(data, opts) {
       if (data.usesTrack && persistentPrimedTrack && row.mesh) row.readability.position.y = row.mesh.position.y;
       else row.readability.position.y += (yTarget + (verticalFloatOn ? (isActive ? jitterY * 0.40 : (currentTranslation ? jitterY * 0.34 : jitterY * 0.12)) : 0) - row.readability.position.y) * ease;
       row.readability.position.z += (zTarget - 0.012 - row.readability.position.z) * ease;
-      row.readability.scale.setScalar(row.readability.scale.x + (scaleTarget - row.readability.scale.x) * ease);
+      var nextReadabilityScale = row.readability.scale.x + (scaleTarget - row.readability.scale.x) * ease;
+      if (row.readability.visible || row.readability.scale.x !== nextReadabilityScale || row.readability.scale.y !== nextReadabilityScale || row.readability.scale.z !== nextReadabilityScale) row.readability.scale.setScalar(nextReadabilityScale);
       row.readability.renderOrder = row.mesh ? row.mesh.renderOrder - 0.04 : (row.isTranslation ? renderBase : renderBase - 0.45);
     }
     if (row.readabilityMat) {
@@ -1883,12 +1907,14 @@ function updateLyricRowLayers(data, opts) {
       var glowLockedToText = !!row.mesh && (isActive || currentTranslation || translationGlowFocus > 0.001);
       if ((data.usesTrack && persistentPrimedTrack) || previewMotionLock || glowLockedToText) {
         row.glow.position.set(glowTargetX, glowTargetY, glowTargetZ);
-        row.glow.scale.setScalar(glowTargetScale);
+        var nextLockedGlowScale = glowTargetScale;
+        if (row.glow.visible || row.glow.scale.x !== nextLockedGlowScale || row.glow.scale.y !== nextLockedGlowScale || row.glow.scale.z !== nextLockedGlowScale) row.glow.scale.setScalar(nextLockedGlowScale);
       } else {
         row.glow.position.x += (glowTargetX - row.glow.position.x) * (opts.glitchPulse ? 0.52 : Math.max(glowEase, 0.26));
         row.glow.position.y += (glowTargetY - row.glow.position.y) * glowEase;
         row.glow.position.z += (glowTargetZ - row.glow.position.z) * glowEase;
-        row.glow.scale.setScalar(row.glow.scale.x + (glowTargetScale - row.glow.scale.x) * glowEase);
+        var nextGlowScale = row.glow.scale.x + (glowTargetScale - row.glow.scale.x) * glowEase;
+        if (row.glow.visible || row.glow.scale.x !== nextGlowScale || row.glow.scale.y !== nextGlowScale || row.glow.scale.z !== nextGlowScale) row.glow.scale.setScalar(nextGlowScale);
       }
       row.glow.renderOrder = row.isTranslation ? (renderBase - 0.02) : (renderBase - 0.52);
     }
@@ -1936,7 +1962,8 @@ function updateLyricRowLayers(data, opts) {
       if (reveal.quality && deferQualityCommit) continue;
       // Keep existing layers drawing. Only postpone new decorative/HD and
       // off-screen uploads while the playback button is being handled.
-      if (!backgroundUploadsAllowed && (reveal.quality || reveal.flag !== 'renderLineUploaded' || !reveal.row.renderWindowActive)) continue;
+      if (!backgroundUploadsAllowed && (reveal.quality || reveal.flag !== 'renderLineUploaded' || !reveal.row.renderWindowActive)
+        && !(typeof lyricFxPausedCommitActive === 'function' && lyricFxPausedCommitActive(data, reveal.row))) continue;
       if (!consumeLyricRenderUploadFrameBudget()) break;
       if (reveal.quality) {
         commitLyricRowQuality(reveal.row);

@@ -1,0 +1,1 @@
+{"version":"3.0.0","mode":"get-https-ca","passed":true,"proxyHits":0,"connectHits":1,"tlsOptionsEvidence":{"hasCA":true,"secureEndpoint":"absent","protocol":"https:","rejectUnauthorized":true},"errorEvidence":null}

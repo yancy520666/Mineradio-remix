@@ -1,0 +1,10 @@
+{
+  "kind": "production-excerpt-VM-not-GPU-timing",
+  "frames": 600,
+  "visibleFrames": 327,
+  "baselineTrigCalls": 429590,
+  "optimizedTrigCalls": 255747,
+  "baselineAttributeDirtyWrites": 590,
+  "optimizedAttributeDirtyWrites": 327,
+  "allVisiblePositionsAndRotationEquivalent": true
+}

@@ -1,0 +1,149 @@
+Focused virtual audio regression checks; no driver downloads or installer execution.
+
+
+== virtual-audio-package.test.js ==
+✔ official package pins and complete license/readme manifest are immutable (4.000908ms)
+✔ synthetic ZIP verifies all text files and preserves every byte, method 0 (2.075362ms)
+✔ synthetic ZIP verifies all text files and preserves every byte, method 8 (0.840649ms)
+✔ whole-archive size and SHA-256 are checked before ZIP parsing (1.264599ms)
+✔ ZIP rejects unsafe flat Windows filename ../bad.txt (0.645745ms)
+✔ ZIP rejects unsafe flat Windows filename /readm.txt (0.411401ms)
+✔ ZIP rejects unsafe flat Windows filename ..\bad.txt (0.315416ms)
+✔ ZIP rejects unsafe flat Windows filename C:evil.txt (0.333393ms)
+✔ ZIP rejects unsafe flat Windows filename readme.tx  (0.375076ms)
+✔ ZIP rejects unsafe flat Windows filename NUL.tx.txt (0.415367ms)
+✔ ZIP rejects duplicate and case-insensitive Windows collisions (0.937215ms)
+✔ ZIP rejects symlink (0.31837ms)
+✔ ZIP rejects directory (0.336428ms)
+✔ ZIP rejects encryption (0.288506ms)
+✔ ZIP rejects data descriptor (0.348085ms)
+✔ ZIP rejects unsupported compression (0.3049ms)
+✔ ZIP rejects ZIP64 version (0.236377ms)
+✔ ZIP rejects ZIP64 size sentinel (0.979548ms)
+✔ ZIP rejects extra fields (0.299372ms)
+✔ ZIP rejects entry comments (1.544281ms)
+✔ ZIP rejects non-ASCII filename (0.241635ms)
+✔ ZIP rejects split archive (0.214093ms)
+✔ ZIP rejects archive comment (0.273222ms)
+✔ ZIP rejects unsupported entry count (0.209917ms)
+✔ ZIP rejects ZIP64 count sentinel (0.253443ms)
+✔ ZIP rejects local/central disagreement in version (0.546865ms)
+✔ ZIP rejects local/central disagreement in flags (0.249176ms)
+✔ ZIP rejects local/central disagreement in compression (0.196777ms)
+✔ ZIP rejects local/central disagreement in time (0.171219ms)
+✔ ZIP rejects local/central disagreement in CRC (0.228154ms)
+✔ ZIP rejects local/central disagreement in compressed size (0.297439ms)
+✔ ZIP rejects local/central disagreement in size (0.18594ms)
+✔ ZIP rejects local/central disagreement in name length (0.233964ms)
+✔ ZIP rejects local/central disagreement in extras (0.234234ms)
+✔ ZIP rejects changed local names, gaps, trailing compressed bytes, CRC mismatch and per-file SHA mismatch (1.40473ms)
+✔ bounded inflate rejects compressed text bombs and mismatched manifest sizes (6.846934ms)
+✔ preparation writes only verified fake text files into a unique exact-payload directory and retains the raw archive (6.305478ms)
+✔ at most two retained package slots survive and cleanup allows another reservation (6.746844ms)
+✔ a concurrent or stale cache creation lock prevents additional reservations without deleting it (2.135934ms)
+✔ symlink parents and unowned pre-existing namespace roots are refused before network access (2.21986ms)
+✔ cleanup refuses unexpected payload or parent files and never recursively removes user data (2.461726ms)
+✔ cleanup refuses swapped directory, payload, file, and ownership marker identities (4.677741ms)
+✔ redirects permit only the identical official HTTPS URL and share one overall deadline (1.860568ms)
+✔ download rejects source-changing redirect http://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip (0.691443ms)
+✔ download rejects source-changing redirect https://evil.example/VBCABLE_Driver_Pack45.zip (0.549299ms)
+✔ download rejects source-changing redirect https://download.vb-audio.com:444/Download_CABLE/VBCABLE_Driver_Pack45.zip (0.65544ms)
+✔ download rejects source-changing redirect https://download.vb-audio.com:443/Download_CABLE/VBCABLE_Driver_Pack45.zip (0.678695ms)
+✔ download rejects source-changing redirect https://@download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip (1.740246ms)
+✔ download rejects source-changing redirect https://user:password@download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip (0.486394ms)
+✔ download rejects source-changing redirect https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip?new=1 (0.679726ms)
+✔ download rejects source-changing redirect https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip#fragment (0.665324ms)
+✔ download rejects source-changing redirect https://download.vb-audio.com/another.zip (0.666526ms)
+✔ redirect loop is bounded to two hops (0.553135ms)
+✔ download rejects unexpected status and removes only its failed fake package (0.70193ms)
+✔ download rejects wrong content length and removes only its failed fake package (0.501477ms)
+✔ download rejects duplicate content length and removes only its failed fake package (1.170928ms)
+✔ download rejects HTTP compressed body and removes only its failed fake package (0.534146ms)
+✔ download rejects truncated body and removes only its failed fake package (0.712305ms)
+✔ download rejects unbounded body and removes only its failed fake package (0.442869ms)
+✔ download rejects wrong pinned SHA and removes only its failed fake package (0.663882ms)
+✔ download rejects connection error and removes only its failed fake package (0.50981ms)
+✔ download rejects interrupted response and removes only its failed fake package (0.47058ms)
+✔ download rejects incomplete HTTP response and removes only its failed fake package (0.66935ms)
+✔ download rejects closed before end and removes only its failed fake package (0.685414ms)
+✔ a hung request is destroyed at the overall 60-second deadline using fake timers (1.110806ms)
+✔ cancellation before reservation, during download, and during extraction is safe and cleans owned fake files (3.207571ms)
+✔ progress callback cancellation stops the bounded response and thrown progress callbacks are inert (1.647106ms)
+✔ failed fake file writes remove partial owned files and exclusive creation never overwrites a pre-existing symlink (3.745263ms)
+ℹ tests 68
+ℹ suites 0
+ℹ pass 68
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 96.22481
+
+== virtual-audio-installer.test.js ==
+✔ real 31-file manifest uses bounded encoded commands and checks exact directory, hashes and timestamp-aware Windows signature (2.233912ms)
+✔ verification uses fixed system PowerShell, bounded output/time, and fails closed on any unverifiable response (2.671362ms)
+✔ visible installer launch has no installer flags, returns on started and only cleans after observed exit (1.816532ms)
+✔ UAC rejection or spawn failure is safe to clean, while ambiguous helper loss preserves dependencies (1.952147ms)
+✔ unsupported platform, altered setup path, invalid manifest and excessive native command length cannot spawn (1.884104ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.40361
+
+== virtual-audio-setup.test.js ==
+✔ Windows x64 capability promises visible installer assistance, never installed or ready (1.838645ms)
+✔ native explicit confirmation precedes download, verification and visible launch; cleanup waits for known exit (3.189785ms)
+✔ native cancel and untrusted frames cannot download, verify, launch or open arbitrary pages (0.278971ms)
+✔ fixed official information topics cannot accept URLs, paths or prototype names (0.619395ms)
+✔ repeated setup clicks share exactly one pending native confirmation (1.413373ms)
+✔ navigation, renderer loss, window close, disposal and quit fence late confirmation (0.881271ms)
+✔ cancel during download or verify cleans owned package and cannot reach native handoff (0.751844ms)
+✔ verification failures fail closed; no guessed launch or automatic fallback occurs (0.33817ms)
+✔ UAC rejection permits safe cleanup, but uncertain launch or exit retains bounded files and blocks relaunch (0.637973ms)
+✔ guide rechecks frame and quitting after confirmation and refuses unsupported architectures (0.452153ms)
+✔ attachment replaces lifecycle listeners; cleanup removes them and stale owners receive no state (0.271971ms)
+✔ same-frame same-URL reload fences late verification and late completion state from the next document (0.332242ms)
+✔ preload requires Chromium activation, whitelists topics and removes state subscription (2.151898ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.718194
+
+== microphone-permission.test.js ==
+✔ microphone requires native activation and the exact trusted main frame (1.703361ms)
+✔ only one audio request consumes a grant; frames, guests, video and loopback remain denied (0.664713ms)
+✔ expiry, token cancellation and stale cancellation cannot grant or revoke another operation (0.267524ms)
+✔ navigation, renderer loss and window destruction cancel in-flight activation and grant (0.482127ms)
+✔ preload cannot invoke begin without real Chromium activation; end remains available (2.562057ms)
+✔ session media check denies microphone caching while request consumes grant and preserves camera rules (2.257197ms)
+✔ explicit enumeration grants labels only, never capture, and expires on end/navigation (0.454396ms)
+✔ one-click setup promotes the same fresh token once without extending expiry or caching capture permission (0.315085ms)
+✔ setup promotion rejects stale, mismatched, cancelled and plain enumeration grants (0.813899ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.351731
+
+== external-update-page-bridge.test.js ==
+✔ desktop update bridge opens only bounded HTTPS pages from the trusted main document (1.096887ms)
+✔ local update installer and update-cache bridges are absent (1.096607ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.415696

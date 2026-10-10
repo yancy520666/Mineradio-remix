@@ -249,7 +249,8 @@ function testStaticRecoveryWiring() {
   assert(/clearPlaybackResumeWatchdogs\(\);\s*playbackResumeRecovery\.serial =/.test(controlsText));
   assert(/\['play', 'playing', 'pause'[\s\S]{0,500}audioEl !== audio/.test(progressText));
   assert(/\['error', 'stalled'\][\s\S]{0,700}schedulePlaybackStallRecovery/.test(progressText));
-  assert((startText.match(/else setTimeout\(nextTrack, 0\)/g) || []).length >= 2, 'normal ended playback must still advance');
+  assert((startText.match(/schedulePlaybackEndedAdvance\(this, token\)/g) || []).length >= 2, 'local and online ended playback must still schedule advancement');
+  assert(/function schedulePlaybackEndedAdvance\(media, token\)[\s\S]{0,500}token !== trackSwitchToken[\s\S]{0,300}audio !== media[\s\S]{0,300}else nextTrack\(\)/.test(startText), 'deferred advancement must retain media/token ownership and normal next behavior');
   const nextTrackBlock = controlsText.slice(
     controlsText.indexOf('function nextTrack'),
     controlsText.indexOf('function prevTrack')

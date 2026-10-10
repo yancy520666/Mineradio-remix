@@ -7,7 +7,6 @@ const { createCookieStore, isProtectedCredentialFile } = require('../cookie-stor
 const CREDENTIAL_FILES = [
   '.cookie', '.qq-cookie', '.kugou-cookie', '.qishui-cookie', '.qishui-token',
   '.qishui-oauth.json', '.qishui-qr-identity.json', '.qishui-qr-login.json',
-  '.spotify-token.json', '.spotify-credentials.json',
 ];
 const SETTINGS_FILES = ['desktop-behavior.json', 'built-in-playlists.json', 'local-music-library.json'];
 const FX_FILE = 'current-fx-autosave.json';

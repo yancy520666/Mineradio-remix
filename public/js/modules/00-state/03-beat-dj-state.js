@@ -14,20 +14,44 @@ function estimateBeatMapBytes(value) {
   }
   return bytes;
 }
+// Only active reads are observed; no unbounded per-key version history and no
+// metadata on the enumerable/persisted map values.
+var beatMapCacheObservers = new WeakMap();
+function observeBeatMapCacheKey(cache, key) {
+  var observers = beatMapCacheObservers.get(cache);
+  if (!observers) return null;
+  var tickets = observers.get(key);
+  if (!tickets) { tickets = new Set(); observers.set(key, tickets); }
+  var ticket = { valid: true, release: function () {
+    tickets.delete(ticket);
+    if (!tickets.size && observers.get(key) === tickets) observers.delete(key);
+  } };
+  tickets.add(ticket);
+  return ticket;
+}
 function createBeatMapMemoryCache(maxBytes, maxEntries) {
   var values = Object.create(null), entries = new Map(), bytes = 0;
+  var observers = new Map();
+  function invalidateReads(key) {
+    var tickets = observers.get(key);
+    if (!tickets) return;
+    tickets.forEach(function (ticket) { ticket.valid = false; });
+    observers.delete(key);
+  }
   maxBytes = maxBytes || 8 * 1024 * 1024;
   maxEntries = maxEntries || 24;
   function remove(key) {
+    invalidateReads(key);
     bytes -= entries.get(key) || 0;
     entries.delete(key); delete values[key];
   }
-  return new Proxy(values, {
+  var cache = new Proxy(values, {
     get: function (target, key) {
       if (entries.has(key)) { var size = entries.get(key); entries.delete(key); entries.set(key, size); }
       return target[key];
     },
     set: function (target, key, value) {
+      invalidateReads(key);
       if (entries.has(key)) remove(key);
       var size = estimateBeatMapBytes(value);
       if (size > maxBytes) return true;
@@ -37,6 +61,8 @@ function createBeatMapMemoryCache(maxBytes, maxEntries) {
     },
     deleteProperty: function (target, key) { remove(key); return true; }
   });
+  beatMapCacheObservers.set(cache, observers);
+  return cache;
 }
 
 var targetVolume = readSavedVolume();
@@ -166,6 +192,7 @@ function resetDjBeatMapState() {
 }
 
 function cancelDjBeatAnalysisTimer() {
+  if (typeof cancelActiveBeatAnalysisRequests === 'function') cancelActiveBeatAnalysisRequests('dj');
   if (djBeatAnalysisTimer) {
     clearTimeout(djBeatAnalysisTimer);
     djBeatAnalysisTimer = null;

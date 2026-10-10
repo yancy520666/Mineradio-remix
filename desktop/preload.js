@@ -11,6 +11,43 @@ function preventPlayerHistoryMouseNavigation(event) {
 
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
+  getVirtualAudioSetupInfo: () => ipcRenderer.invoke('mineradio-virtual-audio-setup-info'),
+  beginVirtualAudioSetup: (topic = 'install') => {
+    if (!navigator.userActivation || !navigator.userActivation.isActive) {
+      return Promise.resolve({ ok: false, error: 'VIRTUAL_AUDIO_SETUP_USER_ACTIVATION_REQUIRED' });
+    }
+    if (!['install', 'official', 'license', 'donation'].includes(topic)) {
+      return Promise.resolve({ ok: false, error: 'INVALID_VIRTUAL_AUDIO_SETUP_TOPIC' });
+    }
+    return ipcRenderer.invoke('mineradio-virtual-audio-setup-begin', topic);
+  },
+  cancelVirtualAudioSetup: () => ipcRenderer.invoke('mineradio-virtual-audio-setup-cancel'),
+  onVirtualAudioSetupState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, state) => callback(state || {});
+    ipcRenderer.on('mineradio-virtual-audio-setup-state', listener);
+    return () => ipcRenderer.removeListener('mineradio-virtual-audio-setup-state', listener);
+  },
+  beginMicrophoneEnumeration: () => {
+    if (!navigator.userActivation || !navigator.userActivation.isActive) {
+      return Promise.resolve({ ok: false, error: 'MICROPHONE_USER_ACTIVATION_REQUIRED' });
+    }
+    return ipcRenderer.invoke('mineradio-microphone-enumerate');
+  },
+  beginMicrophoneCapture: () => {
+    if (!navigator.userActivation || !navigator.userActivation.isActive) {
+      return Promise.resolve({ ok: false, error: 'MICROPHONE_USER_ACTIVATION_REQUIRED' });
+    }
+    return ipcRenderer.invoke('mineradio-microphone-begin-capture');
+  },
+  beginMicrophoneMixingSetup: () => {
+    if (!navigator.userActivation || !navigator.userActivation.isActive) {
+      return Promise.resolve({ ok: false, error: 'MICROPHONE_USER_ACTIVATION_REQUIRED' });
+    }
+    return ipcRenderer.invoke('mineradio-microphone-begin-setup');
+  },
+  prepareMicrophoneCapture: (token) => ipcRenderer.invoke('mineradio-microphone-prepare-capture', typeof token === 'string' ? token : undefined),
+  endMicrophoneCapture: (token) => ipcRenderer.invoke('mineradio-microphone-end-capture', typeof token === 'string' ? token : undefined),
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
   restore: () => ipcRenderer.invoke('desktop-window-restore'),
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),
@@ -24,6 +61,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   trimAppMemory: (payload) => ipcRenderer.invoke('mineradio-memory-trim-app', payload || {}),
   purgeSystemMemory: (payload) => ipcRenderer.invoke('mineradio-memory-purge-system', payload || {}),
   getCacheSettings: () => ipcRenderer.invoke('mineradio-cache-get-settings'),
+  releaseCaches: () => ipcRenderer.invoke('mineradio-cache-release'),
   chooseCacheDirectory: () => ipcRenderer.invoke('mineradio-cache-choose-directory'),
   setCacheSettings: (payload) => ipcRenderer.invoke('mineradio-cache-set-settings', payload || {}),
   listWallpaperEngineProjects: (payload) => ipcRenderer.invoke('mineradio-wallpaper-engine-list', payload || {}),
@@ -83,7 +121,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
     return ipcRenderer.invoke('mineradio-local-library-import', { token: authorization.token });
   },
   readLyricCache: (key) => ipcRenderer.invoke('mineradio-cache-read-lyric', key || ''),
-  writeLyricCache: (key, payload) => ipcRenderer.invoke('mineradio-cache-write-lyric', key || '', payload || {}),
+  writeLyricCache: (key, payload, generation) => ipcRenderer.invoke('mineradio-cache-write-lyric', key || '', payload || {}, generation),
   close: (behavior) => ipcRenderer.invoke('desktop-window-close', behavior),
   getCloseBehavior: () => ipcRenderer.invoke('desktop-window-get-close-behavior'),
   setCloseBehavior: (behavior) => ipcRenderer.invoke('desktop-window-set-close-behavior', behavior),

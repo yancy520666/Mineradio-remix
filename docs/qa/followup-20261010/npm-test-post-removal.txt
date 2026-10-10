@@ -1,0 +1,3414 @@
+
+== account-action-epoch.test.js ==
+✔ late liked-state GET from A cannot populate B after an authorization change (5.182974ms)
+✔ an old like POST completion neither overwrites B nor releases B busy ownership (1.247473ms)
+✔ auth change clears only that provider liked and album states; old album reads stay discarded (1.116616ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.86527
+
+== adjacent-preparation.test.js ==
+✔ candidates are the actual adjacent queue items and follow navigation direction (2.365911ms)
+✔ speculative memory is capped, evicted resources are disposed and taking transfers ownership (0.890875ms)
+✔ extra preparation pauses under sustained render pressure without changing display quality (0.713316ms)
+✔ all background image consumers share two slots and release each slot once (0.64272ms)
+✔ a prepared title adopts the current cover palette rather than the previous song colors (1.369387ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.595022
+
+== album-cover-background.test.js ==
+✔ the live playback thumbnail stays visible until the larger background is decoded (4.459882ms)
+✔ known provider thumbnails are upgraded and unknown, inline and signed sources stay intact (1.783041ms)
+✔ a late image or decode from an earlier song cannot replace the current cover (1.287524ms)
+✔ errors and timeouts keep the fallback without repeated requests; toggling allows a fresh attempt (1.973259ms)
+✔ promotion also rechecks a changed live source before its next UI refresh (1.224969ms)
+✔ switching to a custom or absent cover cancels pending promotion (1.091097ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.990937
+
+== artist-albums-more.test.js ==
+✔ 查看全部 expands every album in place, page by page, then collapses (8.411777ms)
+✔ a short catalogue hides the button, and an empty page ends paging (12.356532ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25.189012
+
+== audio-output-routing.test.js ==
+✔ short and tall audio links keep forward travel and horizontal port tangents (3.343817ms)
+✔ two virtual microphones receive the same graph, with independent levels and delay (1.911105ms)
+✔ late sink completion cannot reactivate a disconnected route (1.167011ms)
+✔ offline devices keep preference and rebuild from the current graph on reconnect (1.255515ms)
+✔ legacy single bridge stays selected and default-device aliases never duplicate output (2.262815ms)
+✔ output switch requests are serialized and preserve an unavailable primary preference (1.177057ms)
+✔ a failed device connection can recover on refresh and settings survive reload (1.187022ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.905007
+
+== audio-proxy-lifecycle.test.js ==
+✔ closing an audio client before upstream headers aborts fetch and never reads its returned body (47.20903ms)
+✔ closing during an awaited stream read prevents a late chunk from reaching the relay (4.277737ms)
+✔ decrypted audio serves suffix, open-ended, clipped and unsatisfiable ranges correctly (3.484589ms)
+✔ an upstream stream error cancels the owned reader even when response close is deferred (4.12119ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63.530156
+
+== audio-route-construction-lifecycle.test.js ==
+✔ every construction failure retires only the owned partial route; retry preserves the normal settings (11.827584ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.473455
+
+== audio-route-drag.test.js ==
+✔ route geometry maps scaled client coordinates into SVG coordinates (3.275684ms)
+✔ drop snapping excludes clipped ports, other UI controls and unrelated surfaces (1.374945ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.172415
+
+== audio-spill-relay.test.js ==
+✔ a client that stops reading keeps relay memory capped and receives identical bytes (476.822794ms)
+✔ a reading client never touches the disk at the default 16 MB window (17.080332ms)
+✔ closing the player mid-song removes the spill file (315.722483ms)
+✔ an unusable spill directory falls back to the previous in-memory behaviour (315.693769ms)
+✔ startup cleanup removes files of exited processes only (0.879428ms)
+✔ spill retries short writes at the actual offset until every byte is stored (3.880858ms)
+✔ a spill failure after a short prefix queues only the unwritten suffix (0.985157ms)
+✔ a zero-progress spill write stops retrying and safely falls back to memory (4.682798ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1142.558882
+
+== background-idb-lifecycle.test.js ==
+✔ background IDB reads retain the request-success contract and writes wait for transaction commit (4.40537ms)
+✔ background IDB request error and transaction abort/error events settle and close only once (1.726796ms)
+✔ background IDB abort-only events reject instead of keeping import or restore pending (1.955401ms)
+✔ background IDB synchronous transaction, store or request failures release their opened connection (3.633935ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.488809
+
+== background-window-state-recovery.test.js ==
+OK background-window-state-recovery
+
+== beat-analysis-memory.test.js ==
+[OK] Beat analysis reduces PCM one band at a time and releases cancelled/failed renders.
+
+== beat-analysis-request-lifecycle.test.js ==
+✔ a track switch aborts the owned MR body and releases busy without waiting for old download (6.658781ms)
+✔ DJ intro and full map keep separate ownership; cancelling an old pair cannot clear a new busy job (2.165188ms)
+✔ an old idle continuation cannot hide the replacement analysis chip (3.681066ms)
+music-tempo worker transfer failed: Error: fixture-transfer-error
+    at s.c.Worker.postMessage (/workspace/scratch/b9368a61956a/automix-20261010/repo/tests/beat-analysis-request-lifecycle.test.js:68:59)
+    at evalmachine.<anonymous>:183:20
+    at new Promise (<anonymous>)
+    at Object.analyzeMusicTempoInWorker (evalmachine.<anonymous>:154:18)
+✔ worker abort or failed transfer terminates promptly and clears its watchdog (3.326842ms)
+✔ backend cancellation interrupts a pending body, frees its decoder, and never falls back to another download (3.478651ms)
+✔ analysis limiter preserves intro/full capacity, bounds the queue, and cancels only the departing job (2.439382ms)
+✔ a departing HTTP analysis cancels only its own job and removes route listeners (3.198758ms)
+✔ memory status names its main-process RSS rather than implying whole-player memory (0.685695ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.954685
+
+== bottom-controls-hover.test.js ==
+✔ coordinate updates clear stale hover when mouseleave was missed, including DIY early-return (2.257248ms)
+✔ pointer over a bar popover above the bar rect keeps controls visible (0.671654ms)
+✔ held slider drag outside the popover keeps controls until pointer release (0.646646ms)
+✔ leaving document, blur and hidden page clear hover and schedule normal hide (0.892617ms)
+✔ open source portal and quality handoff protect against expired hide timers, then release (1.23246ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.734363
+
+== browser-cookie-import.test.js ==
+✔ Chromium values decrypt with and without the host hash, and App-Bound values are reported, not guessed (1.683401ms)
+✔ only the platform domain and allowlisted login cookies are kept (0.388216ms)
+✔ import returns the browser login and explains locked or App-Bound browsers (2.324508ms)
+✔ music-site cookie scope rejects sibling accounts and chooses site cookies over shared parent cookies (0.661498ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.023529
+
+== built-in-playlist-library.test.js ==
+✔ built-in playlists persist mixed-provider songs without changing their source (12.417634ms)
+✔ Electron and renderer wiring exposes built-in playlists in collection, panel, queue and shelf (1.827608ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.802692
+
+== cache-lifecycle.test.js ==
+✔ legacy statistics shrink on startup while preserving lifetime count, leaders and settings (79.269153ms)
+✔ statistics retry within quota without removing any other storage key (22.916592ms)
+✔ daily details remain bounded without resetting total listening time (2.227032ms)
+✔ beat memory uses LRU, accounts for replacements and leaves active maps intact (1.518322ms)
+✔ both beat modes stop accumulating after hundreds of tracks (2.920208ms)
+✔ disk pruning enforces size/count and ignores user files, folders and current packages (11.85189ms)
+✔ one oversized active package stays usable; after release it can be evicted (1.316707ms)
+✔ server beat persistence prunes legacy entries and rejects oversized writes (23.268172ms)
+✔ wallpaper cache pins both active and preparing sessions during concurrent cleanup (6.921958ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 156.58676
+
+== cache-release-ui.test.js ==
+✔ release locks all actions, avoids double invocation and renders fresh totals without changing playback (2.677542ms)
+✔ partial cleanup reports remaining files and refreshes missing snapshot (0.867119ms)
+✔ rejected or synchronously throwing bridges unlock controls without claiming success (1.333814ms)
+✔ unsupported release does not reset caches or mutate anything (0.679165ms)
+✔ lyric writes carry the generation captured before fetch; old generation and unowned writes are dropped (1.436378ms)
+✔ a comment result already queued before reset neither renders nor repopulates the cache, even without AbortController (2.537801ms)
+✔ intentional active-file skips show preservation rather than a retry error (0.813708ms)
+✔ cover refresh owns the current song, not a previous visible texture, and does not replace user covers (1.506914ms)
+✔ queued translation fallback cannot start after cache release, including the idle-callback gap (1.414815ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.087712
+
+== cache-release.test.js ==
+✔ only allowlisted flat generated files are deleted; active and user files survive (2.261073ms)
+✔ symlink file, root and ancestor cannot escape the allowlist (0.675931ms)
+✔ active generation skips files, validation preserves unknown data and errors are partial (1.447706ms)
+✔ release is singleflight and drains existing writers; stale callbacks cannot rewrite (0.349768ms)
+✔ cover clear allows active request to finish but prevents stale memory resurrection (1.034762ms)
+✔ search clear does not let old completion replace a fresh result or remove its inflight request (2.230006ms)
+✔ desktop release reports exact disk bytes and retains active wallpaper, login files and edited maps (4.398639ms)
+✔ desktop IPC rejects untrusted release and stale lyric writes while fresh writes continue (5.636498ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22.01488
+
+== cache-root-fallback.test.js ==
+✔ desktop cache falls back to C drive user data when D drive is absent (1.628548ms)
+✔ existing D drive remains a supported default without changing user preferences (0.556359ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.00239
+
+== client-qr-login.test.js ==
+✔ QQ client QR exports validated music credentials and releases the session (3.157696ms)
+✔ QR create failure stays on the client path without replacing the old login (0.92779ms)
+✔ cancel during generation rejects late QR and cleans up returned key (0.343068ms)
+✔ expired code refreshes once, and hung refresh stays retryable on the client path (130.553634ms)
+✔ credential injection and incomplete authorization are rejected (0.575148ms)
+✔ App QR accepts the phone account login type instead of discarding a confirmed WeChat or QQ account (0.632905ms)
+✔ desktop NetEase uses App QR first while webpage fallback stays explicit (1.810342ms)
+✔ late NetEase check cannot modify a newly selected provider (1.23872ms)
+✔ authorization arriving after cancel is discarded and its SDK token is revoked (0.412392ms)
+✔ QQ QR transient poll failures retry without discarding phone authorization (0.441106ms)
+✔ official QQ and Kugou fallback bypasses client QR and requests fresh web authorization (1.672244ms)
+✔ native QQ requests restore the device used by QR authorization, with web login unchanged (5.362785ms)
+✔ native QQ audio uses the client vkey endpoint and two-ID filenames; web sessions retain their route (4.159078ms)
+✔ native QQ profile uses client authorization and keeps temporary empty results distinct from expired credentials (5.27998ms)
+✔ clicking the official button while QR is waiting transitions the active request instead of being rejected as busy (0.809372ms)
+✔ QQ authorization failures are not displayed as expired, and mention unsupported scanners without claiming which App was used (0.45695ms)
+✔ a credential issued after SDK expiry still completes the current QR within the grace window (0.34417ms)
+✔ refresh creates an isolated client auth store; old QR authorization cannot confirm the replacement code (0.318281ms)
+✔ refresh IPC never opens the official webpage (0.875892ms)
+✔ even a displayed expiry cannot discard a later valid credential for the same unrefreshed code (0.308375ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 165.750843
+
+== comment-avatar-loader.test.js ==
+✔ visible avatars deduplicate, retry once and do not strand a cancelled retry on reopening (2.783071ms)
+✔ online clears visible failed avatar cooldown, but does not restart hidden or removed avatars (0.9674ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.964952
+
+== comment-replies.test.js ==
+✔ reply pagination preserves content, retries, deduplicates and caches collapsed threads on every platform (14.456972ms)
+✔ replies cannot leak into a new song and repeated cursors cannot keep pagination alive (3.006869ms)
+✔ reply content is escaped and only positive known counts create expanders (1.577802ms)
+✔ QQ reply requests preserve ranking and sequence cursors and reject unavailable responses (1.104607ms)
+✔ Netease floor replies use the parent and time cursor instead of main-comment offsets (1.160672ms)
+✔ Qishui nested reply records follow the explicit end flag despite a returned cursor (2.002753ms)
+✔ reply errors tell logged-out Qishui users to sign in without claiming content was preserved (1.877795ms)
+✔ Qishui PC reply fields preserve counters, timestamps and the recipient (1.460073ms)
+✔ duplicate-only reply pages retain advancing cursors, with a bounded empty-page guard (1.90165ms)
+✔ reply GET uses an owner deadline and cancellation without rendering an error (1.549679ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38.998847
+
+== content-provider-priority.test.js ==
+✔ content selection follows saved ordering, skips disconnected accounts and ignores the last account viewed (8.246236ms)
+✔ hoisted content functions can render home before account constants are initialized (1.858064ms)
+✔ changing platform priority preserves per-platform manual order and groups newly paged rows (2.328014ms)
+✔ daily playback uses the preferred real feed, including QQ daily 30 (2.404971ms)
+✔ an empty preferred platform offers the other connected platforms instead of a search (2.41156ms)
+✔ changing priority while a daily feed loads prevents obsolete content from playing (2.437309ms)
+✔ daily playback waits for the real in-flight feed, including previously cached songs (8.106767ms)
+✔ an in-flight empty response is considered empty only after it completes and can be retried (2.76983ms)
+✔ failed shared feeds release loading state and allow another request (3.760156ms)
+✔ clicking a QQ daily recommendation plays its selected row (2.534495ms)
+✔ logging out of the chosen fallback platform during loading prevents its daily songs from playing (2.017185ms)
+✔ refreshing during a load reloads once after it, however often it is clicked (1.888571ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.411347
+
+== cookie-storage.test.js ==
+✔ credentials migrate and round-trip; failed encryption preserves existing data (5.295332ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.652109
+
+== cover-cache.test.js ==
+✔ concurrent requests for one cover share a single download (1.40456ms)
+✔ a failed or incomplete download is not remembered (0.628739ms)
+✔ the cache is bounded by entry count, total bytes, item size and age (0.18569ms)
+✔ one subscriber leaving preserves the shared download; the last leaving aborts it (0.900259ms)
+✔ unique downloads, queue, total deadline and retained bytes stay bounded (30.893713ms)
+✔ background work reserves foreground capacity and bytes, and visible work jumps the queue (1.09279ms)
+✔ isolated cold/hot cover timings preserve one upstream request (36.585094ms)
+ℹ local fake upstream delay 35ms: cover cold=36.25ms, hot=0.01ms; not a platform/CDN benchmark
+✔ late cancelled cover completion cannot overwrite or remove its replacement (0.474155ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 76.581006
+
+== cover-load-retry.test.js ==
+✔ the old cover stays on every surface until the new one loads, then all switch together (4.177125ms)
+✔ a failing proxy is retried, then the CDN is tried directly (1.39796ms)
+✔ when every attempt fails the previous song art is cleared, not left behind (1.048823ms)
+✔ a newer track switch stops the older cover from landing or retrying (0.993931ms)
+✔ after a cover settles the next queued covers are warmed with the playback address (1.590791ms)
+✔ failed and cancelled prefetches can retry; only loaded covers are marked done (1.446053ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.294947
+
+== cover-proxy-lifecycle.test.js ==
+✔ cover downstream closing before upstream headers aborts the orphan request (16.888852ms)
+✔ cover total deadline aborts a continuous drip, and incomplete or unsupported images never cache (33.368519ms)
+✔ a cover finishing across explicit cache release cannot repopulate browser HTTP cache (1.106431ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55.491221
+
+== credential-migration-lifecycle.test.js ==
+✔ old application cache credentials cannot revive after verified migration and logout (5.414954ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.97677
+
+== cuefield-crossfade-envelope.test.js ==
+✔ paired envelope preserves endpoints, live master and outgoing attenuation (5.189964ms)
+✔ synthetic correlated peaks are bounded; uncorrelated-power tradeoff is explicit (5.220981ms)
+✔ smoothstep gives gentler attack/release than the raw sine envelope (0.12594ms)
+✔ rAF starvation uses interval-driven media progress and never wall-time-only handoff (2.268183ms)
+✔ pause/seek/token invalidation settles once and removes the paired timer (0.879237ms)
+✔ explicit cancellation settles once and removes the paired timer (0.686506ms)
+✔ stalled-media watchdog settles once and removes the paired timer (0.686236ms)
+✔ only the new plain safety fade takes the paired path; effect timelines remain intact (1.274433ms)
+✔ real gain writers apply each nominal paired gain once across direct and graph routes (1.628137ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.828959
+
+== cuefield-execution-ownership.test.js ==
+✔ obsolete Cuefield output settlement cannot clear a newer execution (5.047318ms)
+✔ obsolete Cuefield play settlement cannot clear a newer execution (2.213882ms)
+✔ obsolete Cuefield timeline settlement cannot clear a newer execution (1.349347ms)
+✔ obsolete Cuefield handoff settlement cannot clear a newer execution (1.295946ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.631095
+
+== cuefield-listening-safety.test.js ==
+✔ 30s songs keep their body and incoming short songs start at zero (2.127391ms)
+✔ 60s songs keep their body and incoming short songs start at zero (0.374456ms)
+✔ high confidence only preserves an intro-bounded sufficiently late musical window (0.294955ms)
+✔ entry-relative residence survives an already advanced incoming deck (0.173913ms)
+✔ late preparation uses remaining natural tail; unknown duration defers to ended (0.45726ms)
+✔ safety preparation honors caller residence and does not add a phantom preroll (1.123697ms)
+✔ rapid next invalidates a slow preparation without capturing the new track (0.254905ms)
+✔ timeline play does not rewind a next deck that already became audible (1.647237ms)
+✔ a tiny incoming clip is not consumed entirely by the overlap (0.245ms)
+✔ cache-to-planner output carries the short-track residence floor (28.463676ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41.212881
+
+== cuefield-mineradio-integration.test.js ==
+✔ loads Cuefield helpers before the Mineradio integration module (0.772977ms)
+✔ keeps album gapless priority and provides bounded advanced timeline fallbacks (0.472944ms)
+✔ passes only cache keys, lyric evidence and bounded transition hints to the local route (1.13951ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.077213
+
+== cuefield-planner-boundaries.test.js ==
+✔ multi-tag and interleaved LRC preserve lyric evidence and long minute timestamps (2.782901ms)
+✔ English first-person links require an i token and preserve real English/CJK responses (0.678374ms)
+✔ interrupted volume ramps keep their original time basis and ordinary ramps stay unchanged (3.095683ms)
+✔ known duration remains seconds and does not grow to the next grid beat (1.552844ms)
+✔ explicit meter is authoritative while unmarked beat maps keep the old index inference (0.716862ms)
+✔ missing loudness values stay unavailable and a measured zero peak stays valid (1.23208ms)
+✔ end crossfade budgets source-zero pre-roll on both tracks and after listening protection (1.088242ms)
+✔ invalid and fully pre-rolled targets fail honestly without a zero-time executable handoff (0.280424ms)
+✔ the cache bridge returns physical track durations and propagates impossible runway failure (8.945784ms)
+✔ vocal avoidance cannot push terminal rescue past a measured silent tail (0.689511ms)
+✔ negative boundary distances cannot authorize an early cadence cut (0.216347ms)
+✔ new nested musical and bridge feedback round-trips and old flat feedback still migrates (2.568517ms)
+✔ artifact identity includes bounded bridge synthesis parameters and detects changed payloads (0.716311ms)
+✔ split Cuefield runtime and loader changes update the version fingerprint (7.530027ms)
+✔ ordinary recipes retain finite second timestamps, millisecond fades and exact landing equations (12.705219ms)
+✔ a trusted climax near target EOF cannot authorize a teaser that plays beyond the target (8.813534ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 60.083387
+
+== cuefield-transition-runtime.test.js ==
+✔ deduplicates one in-flight pair preparation and rejects a changed queue target (1.317729ms)
+✔ normalizes advanced Cuefield actions without collapsing filter frequency (0.783232ms)
+✔ keeps bridge synthesis and source-loop runtime bounded (1.311389ms)
+✔ plans a cache-only transition with an executable handoff timeline (19.941002ms)
+✔ a rejected obsolete preparation cannot reset a newer ready transition (2.076524ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29.632601
+
+== curated-visual-presets.test.js ==
+OK curated-visual-presets
+
+== custom-cover-home-sync.test.js ==
+✔ restoring the official cover clears recommendation copies and preserves other songs (2.829191ms)
+✔ changing a custom cover replaces old recommendation copies immediately (1.097347ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.973927
+
+== custom-font-classic-startup.test.js ==
+✔ the earlier core-store caller can register a saved font before the later module initializer (4.203284ms)
+✔ a synchronous saved-font loader failure cannot abort classic-script startup (0.965548ms)
+✔ an immediately resolved font waits until later metrics/cache initialization and keeps its early owner (1.436299ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.366186
+
+== custom-font-lifecycle.test.js ==
+[LyricFont] load failed Error: fixture-load-failure
+    at TestContext.<anonymous> (/workspace/scratch/b9368a61956a/automix-20261010/repo/tests/custom-font-lifecycle.test.js:82:71)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Test.postRun (node:internal/test_runner/test:1522:19)
+    at Test.run (node:internal/test_runner/test:1447:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+✔ repeated load shares one owner and explicit remove releases FontFaceSet only (4.752063ms)
+✔ removed or superseded pending face cannot register on late completion (1.042464ms)
+✔ same-name replacement and count eviction release discarded runtime faces (1.727457ms)
+✔ load rejection releases the owner so a later attempt can retry (1.648098ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.484535
+
+== desktop-icon-shape-runtime.test.js ==
+✔ empty desktop icon list keeps one full local shape rectangle (1.779396ms)
+✔ desktop icon grid is cut out while adjacent strips are merged (0.559084ms)
+✔ physical rectangles map onto a negative-coordinate high-DPI display (0.348356ms)
+✔ inward high-DPI mapping does not expose an extra Explorer background fringe (0.233582ms)
+✔ protected shield restores Mineradio input over an icon hole (0.33118ms)
+✔ shape complexity limit refuses an unsafe partial region (0.480575ms)
+✔ native probe is one-shot read-only and frees Explorer memory (0.374866ms)
+✔ persistent watcher is Explorer-event-driven and always releases hooks (0.418151ms)
+✔ probe parser normalizes physical icon rectangles (0.405682ms)
+✔ exec wrapper invokes hidden PowerShell and parses the probe ack (0.800768ms)
+✔ apply and clear wrappers only call BrowserWindow.setShape (0.334195ms)
+✔ watcher wrapper parses changed layouts and stops through stdin Q (3.633215ms)
+✔ watcher spawn error marks it exited and notifies recovery without an exit event (0.608078ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.804017
+
+== desktop-native-icon-layer-runtime.test.js ==
+﹣ Windows compiles the native guard without installing hooks or touching Explorer (0.701899ms) # SKIP
+✔ native layered guard puts the complete main HWND below Explorer icons and restores all snapshots (1.279661ms)
+✔ external guard keeps WMI crash recovery but runs PowerShell under headless System32 conhost (0.337941ms)
+✔ external guard gives both named-pipe connections a five second deadline (0.338912ms)
+✔ native layered ACK preserves icon geometry, lock compatibility, and visibility (0.73503ms)
+✔ native layered ACK rejects an unconfirmed Explorer background key (0.351581ms)
+✔ native layered wrapper exposes explicit icon visibility and terminal diagnostics (5.136383ms)
+✔ native desktop guard repairs physical bounds and watches Electron child reorders (0.302737ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 13.064922
+
+== dev-launcher.test.js ==
+✔ Dev exit requests cannot shut down the production runtime (2.582758ms)
+﹣ Windows launcher selects only verified Dev process trees (0.13221ms) # SKIP
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 7.390345
+
+== external-update-page-bridge.test.js ==
+✔ desktop update bridge opens only bounded HTTPS pages from the trusted main document (0.876694ms)
+✔ local update installer and update-cache bridges are absent (0.776872ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6.374763
+
+== fallback-reorder-ownership.test.js ==
+✔ provider fallback follows the reordered live entry (4.172128ms)
+✔ Qishui trial upgrade follows the reordered live entry (1.651913ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.598058
+
+== fallback-rollback-ownership.test.js ==
+✔ a nested failed provisional source rolls back under the same owner and continues the next provider (3.376527ms)
+✔ a proved nested rollback still cannot resume after new-selection (2.788409ms)
+✔ a proved nested rollback still cannot resume after same-original-new-token (1.244519ms)
+✔ a proved nested rollback still cannot resume after new-queue-same-entry (0.981742ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.563644
+
+== first-run-quality.test.js ==
+✔ real Windows ANGLE renderer names map to GPU classes (2.077447ms)
+✔ first launch keeps original detail on every machine without probing a disposable GPU context (3.090335ms)
+✔ any stored settings, including an explicit ultra on an integrated GPU, are kept (1.440504ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.827714
+
+== foreground-recovery-work.test.js ==
+✔ visible focus changes keep lyric recovery without scheduling viewport bursts or long boosts (2.43092ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.108741
+
+== full-desktop-mode-runtime.test.js ==
+✔ desktop entry, focus changes, exit and re-entry keep taskbar policy symmetric (8.878322ms)
+✔ failed desktop entry restores the configured taskbar policy (0.845647ms)
+✔ desktop attachment uses screen-converted physical bounds while Electron receives logical display bounds (2.321515ms)
+✔ Electron reveals the desktop widget before native ordering and restores the icon before the taskbar (1.087963ms)
+✔ a failed native order acknowledgement restores the ordinary visible window (0.495788ms)
+✔ enable defaults to a fully interactive Mineradio desktop (0.554076ms)
+✔ toggling to passive mode attaches the same main window to WorkerW (0.950715ms)
+✔ passive preparation is serialized before hiding or attaching the main window (3.235644ms)
+✔ passive preparation failure leaves the full Mineradio window interactive (0.559865ms)
+✔ dispose during passive preparation prevents a late WorkerW attach (0.598213ms)
+✔ disable detaches and restores the exact pre-desktop window state (0.40397ms)
+✔ software lock passes normal areas through while the controller remains an unlock island (0.526564ms)
+✔ trusted desktop pointer focus restores web contents without raising the DefView child window (0.208655ms)
+✔ software lock blurs keyboard focus and rejects focus requests until unlocked (0.222887ms)
+✔ keyboard focus requests are rejected outside interactive coexistence mode (0.15911ms)
+✔ software lock is rejected while inactive and disable always restores normal window input (0.441417ms)
+✔ desktop icon visibility uses the watcher and confirmed stop restores visible state (0.508888ms)
+✔ unchanged desktop icon visibility is reasserted through the native watcher (0.191409ms)
+✔ desktop icon visibility failure rolls software state back to the acknowledged value (0.301835ms)
+✔ desktop mode adopts an initially hidden Explorer icon state without forcing it visible (0.349337ms)
+✔ rapid interaction changes are serialized and finish disabled (0.483971ms)
+✔ native attach failure fails closed and restores the normal window (0.345702ms)
+✔ coexist attach places the complete Mineradio surface below SysListView without mouse synthesis (0.324901ms)
+✔ legacy BrowserWindow shape is cleared before reparenting and never mutated after coexist attach (0.428397ms)
+✔ native detach validates parent only after converting WS_CHILD to WS_POPUP (0.204348ms)
+✔ partial detach failure is strictly recovered to a known WorkerW passive state (0.454025ms)
+✔ failed detach recovery hides the window and never reports a stale passive attachment (0.356898ms)
+✔ failed WorkerW recovery falls back to a verified disabled top-level window when possible (0.316588ms)
+✔ removing the saved display rebases normal-window restore bounds onto an available display (0.641328ms)
+✔ dispose invalidates queued interaction work before final cleanup (0.181003ms)
+✔ unconfirmed native-layer stop keeps the same watcher and cannot be bypassed by a second stop (0.80124ms)
+✔ restore-unconfirmed watcher exit taints native state and blocks a clean disable report (0.322987ms)
+✔ host-change rebind waits for a restored terminal ACK and restore failure cancels it (692.020208ms)
+✔ unexpected watcher exit with confirmed restoration queues recovery without hiding Mineradio (230.689858ms)
+✔ repeated unexpected watcher exits open a recovery circuit instead of flickering forever (341.498206ms)
+✔ setInteractive true repairs a stale enabled interactive state instead of returning unchanged (0.52994ms)
+✔ stale setInteractive after disable does not poison the disabled phase (0.574968ms)
+✔ restore leaves an ordinary detached window at its native restored bounds (0.168374ms)
+✔ restore still applies changed bounds and constraints (0.179571ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1300.079871
+
+== gesture-camera-permission.test.js ==
+OK gesture-camera-permission
+
+== gesture-player-actions.test.js ==
+OK gesture-player-actions
+
+== gesture-runtime-lifecycle.test.js ==
+[GestureCamera] disabled: test
+OK gesture-runtime-lifecycle
+
+== home-background-image-lifecycle.test.js ==
+✔ home art owns one request, cancels superseded decodes and keeps old art until success (3.719594ms)
+✔ failure and timeout retry once, then cooldown and online permit a fresh attempt (1.779406ms)
+✔ home art shares two slots and releases hidden, detached and pagehide requests (2.240723ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.239405
+
+== home-daily-recommendation-virtualization.test.js ==
+✔ daily recommendation modal consumes the full frontend dataset without an eight-song slice (1.334464ms)
+✔ daily recommendation viewport range exposes every index while keeping each DOM window bounded (1.281725ms)
+✔ virtualized daily cards preserve absolute indexes and full-queue playback (0.678885ms)
+✔ daily viewport updates are scroll-driven and animation-frame throttled (0.363739ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.207029
+
+== home-daily-recommendations-backend.test.js ==
+✔ daily recommendation mapper preserves every valid upstream song in order (2.622919ms)
+✔ discover home returns the complete mapped daily list without a fixed song cap (0.574347ms)
+✔ discover home does not request or return recommended podcasts (0.35101ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.571239
+
+== home-dashboard-update.test.js ==
+✔ new home discovery strip is present in the homepage DOM (1.853638ms)
+✔ dashboard selects local discovery candidates and keeps cover swaps stable (0.873128ms)
+✔ discovery song playback uses the existing Mineradio queue path (0.707899ms)
+✔ homepage update does not import LX-only data paths (0.615084ms)
+✔ discovery CSS stays scoped to the homepage surface (100.481633ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.574823
+
+== home-discover-ownership.test.js ==
+✔ home discovery rejects old private rows with unchanged request token (4.720315ms)
+✔ home discovery rejects old failure with unchanged request token (1.088033ms)
+✔ home discovery rejects old private rows with new account refresh (1.201404ms)
+✔ home discovery rejects old failure with new account refresh (0.825386ms)
+✔ same-account home requests remain deduplicated while loading (0.873128ms)
+✔ same-account home force refresh preserves last usable rows on failure (1.7422ms)
+✔ home API account switch through login success returns 409 without mixed private data (5.007299ms)
+✔ home API account switch through login failure returns 409 without mixed private data (3.819636ms)
+✔ home API account switch through upstream success returns 409 without mixed private data (3.455886ms)
+✔ home API account switch through upstream failure returns 409 without mixed private data (3.066338ms)
+✔ same-account home API preserves recommendation ordering and successful status (4.174091ms)
+✔ logged-out home API remains a successful empty starter response (2.568377ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38.176017
+
+== home-hero-mp4-platform-recommend.test.js ==
+✔ home hero picker only exposes MP4 files and validates the selected file (2.211748ms)
+✔ home hero video has isolated persistence and never enters global wallpaper paths (0.686086ms)
+✔ home hero video is low-impact and releases its object URL off home (0.865486ms)
+✔ platform recommendation entry uses real feeds and does not synthesize radio searches (1.082294ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.086795
+
+== home-video-ui-lifecycle.test.js ==
+✔ native deep-background policy suppresses hero playback even before document.hidden catches up (2.434365ms)
+✔ removing a pending saved MP4 prevents its stale continuation from restoring metadata or success (2.022693ms)
+✔ a later file selection wins over an earlier save continuation (1.056114ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.457245
+
+== inline-login-lifecycle.test.js ==
+✔ unusable paint and a hung frame both reach the independent QR deadline once (82.386794ms)
+✔ a usable QR satisfies the deadline and stopping removes its paint listener (41.126637ms)
+✔ late cancellation cannot reset a newer platform or replay its QR events (4.138968ms)
+✔ explicit window fallback remains owned by the request that asked for it (1.644293ms)
+✔ logout consumes undo state before awaiting the backend and commits only once (1.431811ms)
+✔ closing the drawer revokes a pending request to open the official window (1.223658ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 138.002382
+
+== installer-cleanup.test.js ==
+SKIP native NSIS cleanup: Windows required
+
+== kugou-account-cache-isolation.test.js ==
+✔ unliking under B never sends A account fileId, even after session reset (11.012864ms)
+✔ late reads from a cleared session cannot refill favorite-list or fileId caches (4.398449ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.229798
+
+== kugou-api-resilience.test.js ==
+[KugouSongUrl] hash: free-song album:  mix: 42 auth: guest tier: none
+✔ current official songinfo route includes the H5 signature and stable web UUID (6.835819ms)
+[KugouSongUrl] hash: member-fallback-song album:  mix: 0 auth: ready tier: svip
+✔ transport and non-JSON failures reach the official retry host instead of breaking fallback (5.320651ms)
+[KugouSongUrl] hash: preview-song album:  mix: 0 auth: ready tier: svip
+✔ official previews stay marked as previews in both fresh and cached responses (2.657202ms)
+[KugouSongUrl] hash: full-fallback-song album:  mix: 0 auth: ready tier: svip
+✔ a full authorized fallback can replace a preview without relabeling preview audio (1.581327ms)
+[KugouSongUrl] hash: client-only-song album:  mix: 0 auth: ready tier: svip
+✔ URL arrays select one valid address and failed gateway payloads cannot authorize audio (1.536439ms)
+[KugouSongUrl] hash: unavailable-song album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: challenge-song album:  mix: 0 auth: guest tier: none
+✔ upstream errors are distinct from non-membership and official security challenges are preserved (2.626605ms)
+[KugouSongUrl] hash: challenge-stop album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: challenge-stop album:  mix: 0 auth: ready tier: svip
+✔ an official challenge stops all endpoint and quality fallbacks and retains its URL and upstream code (1.744153ms)
+[KugouSongUrl] hash: preview-then-challenge album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: preview-then-challenge album:  mix: 0 auth: ready tier: svip
+✔ a security challenge wins over an earlier official preview and JSON HTTP failures preserve challenges (1.978076ms)
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+✔ clear upstream verification messages and structured challenge links cannot be mistaken for audio URLs (1.734629ms)
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+✔ missing and unsafe challenge URLs retain verification state without inventing a destination (2.903564ms)
+✔ unknown or stale membership waits for verification without claiming non-membership or requesting paid audio (3.76292ms)
+✔ login profile challenges preserve identity, deny playback readiness and stop membership probing (4.400913ms)
+✔ web, primary and fallback VIP challenges survive login and stop subsequent probes without caching (2.419142ms)
+✔ VIP probes are sequential and transport failures never become security verification (7.005785ms)
+✔ membership security challenges also terminate playback before any audio request (0.504221ms)
+[KugouSearch] fixture search limit: 3 offset: 0
+[KugouSearch] fixture search limit: 3 offset: 0
+✔ search failures are rejected and not cached as an empty successful search (1.421285ms)
+[KugouSearch] page test limit: 3 offset: 2
+✔ search offsets cross page boundaries without returning preceding tracks (1.136235ms)
+✔ Cookie object helpers preserve login identity and lyrics decode official base64 content (0.677082ms)
+✔ personal-library failures retain an explicit upstream code and are retried instead of cached as empty (0.903885ms)
+✔ malformed personal-library and track payloads cannot become successful cached empty libraries (0.93392ms)
+✔ personal library reads every page, not just the first 50 playlists (0.917716ms)
+✔ failed later pages retain loaded playlists and retry to a complete library (1.13912ms)
+✔ page limit is explicit with or without totals, but a known complete final page succeeds (17.383711ms)
+✔ cloudlist connection rejection stays a failure with an explicit recovery action (0.344089ms)
+✔ cloudlist library and created-list tracks use the Android contract, retaining failure codes (0.813057ms)
+✔ Android tracker signs all parameters and does not request an unnecessary preview (0.58961ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80.830375
+
+== kugou-community.test.js ==
+✔ Kugou resolves the public comment resource, separates hot/newest and paginates only newest (5.199168ms)
+✔ Kugou daily preserves the full real-schema list, metadata and quality hashes (2.023384ms)
+✔ daily requires login while anonymous access stays limited to public comment routes (0.596501ms)
+✔ daily failures remain errors and never masquerade as an empty daily list (0.812216ms)
+✔ Kugou floor replies use the original resource and stop at comments_num (0.558934ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.239474
+
+== kugou-login-bridge.test.js ==
+✔ Kugou ordinary login keeps a reusable session without clearing storage (3.146069ms)
+✔ Kugou explicit re-login discards a revoked token before reuse and completes with a fresh session (3.857863ms)
+✔ Kugou only literal true requests storage clearing (2.584882ms)
+✔ Kugou cancelled re-login never returns the discarded session (1.068663ms)
+✔ Kugou renderer re-login options reach the main handler without an unlock step (2.098247ms)
+✔ Kugou website fallback is an interactive visible window, not a QR-only screenshot (1.17887ms)
+✔ Kugou verification stays visible with existing playback cookies, keeps the session and closes without claiming success (1.025038ms)
+✔ Kugou verification rejects unsafe challenge URLs before opening a window (3.077135ms)
+✔ Kugou navigation and popups cannot leave official HTTPS hosts or invoke an external app (2.021422ms)
+✔ a visible security challenge during website login takes precedence over complete cookies (1.00078ms)
+✔ new Kugou verification replaces an older window and logout cancels all login activity before clearing cookies (1.020961ms)
+✔ Kugou redirect guard supports current Electron details and leaves captcha subframes usable (0.915862ms)
+✔ untrusted renderers cannot launch Kugou login or clear its session (0.776603ms)
+✔ logout while cookie reuse is pending cannot create a late Kugou window or return success (0.66886ms)
+✔ DOM-ready and full-load share the pending challenge check before any login-entry click (1.191879ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.782666
+
+== kugou-native-qr.test.js ==
+✔ native QR uses only a confirmed complete client session and stops afterward (2.630371ms)
+✔ cancellation rejects a late scan confirmation without changing the previous login (0.430269ms)
+✔ expired QR refreshes on click and malformed credentials never count as login (0.37809ms)
+✔ QR creation security challenges retain only validated official URLs and never fall back (0.832416ms)
+✔ polling security challenge takes precedence over a complete-looking confirmation and late polls (0.393585ms)
+✔ ordinary QR network failures still fall back, while thrown explicit captcha errors do not (0.49021ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.184123
+
+== kugou-verification-flow.test.js ==
+✔ security challenge opens a visible official window and never treats close or cookie as success (2.657392ms)
+✔ concurrent challenges share one window and a failure permits a later explicit retry (0.922893ms)
+✔ bridge exception and browser-only mode do not leave verification busy (0.994081ms)
+✔ foreground Kugou verification is handled before automatic source fallback (0.362587ms)
+✔ native login challenge reaches visible verification without saving cookies or claiming login (1.969252ms)
+✔ post-scan account probe challenge is surfaced instead of reported as login success (1.743482ms)
+✔ status polling prompts once per challenge episode rather than reopening every poll (1.094422ms)
+✔ late status challenge cannot reopen a window after logout or account replacement (1.042033ms)
+✔ a playback challenge overrides previously ready playback credentials in UI state (1.858516ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.92682
+
+== kugou-verification.test.js ==
+✔ official verification URLs have strict HTTPS host, credentials, port and parser boundaries (1.345962ms)
+✔ a hung official frame cannot accumulate JavaScript checks or falsely establish no challenge (11.108639ms)
+✔ visible challenge elements prevent automatic login clicks, including a late challenge (1.569129ms)
+✔ a visible security challenge in a child frame is detected without clicking or submitting (0.465523ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.592015
+
+== kugou-vip-hardening.test.js ==
+[OK] Kugou VIP hardening: web roles are source-scoped, expiry-aware, and cannot overgrant music-package accounts.
+
+== listen-report-session-isolation.test.js ==
+✔ listen report remains bound to A through body (7.83ms)
+✔ listen report remains bound to A through login (4.290907ms)
+✔ listen report remains bound to A through upstream (4.643168ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20.822481
+
+== local-alternate-fingerprint-cache.test.js ==
+✔ identical recent stats cannot hide alternate-file replacement or restoration (11.171784ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.967133
+
+== local-analysis-ownership.test.js ==
+✔ an obsolete rejected local analysis cannot clear a newer active analysis (2.728198ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.144795
+
+== local-import-ownership.test.js ==
+✔ a late local import cannot replace a newer selected queue (4.28616ms)
+✔ a late local-import playback result cannot assign its cover to another song (1.567136ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.462243
+
+== local-library-offline-relink.test.js ==
+✔ offline records survive; content relinking preserves IDs, playlists and media bytes (20.851666ms)
+✔ version 1 index and capability token remain readable without destructive migration (0.66902ms)
+✔ a stale alternate path holding different audio becomes a new song, not the moved one (7.486791ms)
+✔ a replaced file at an old location is not played under the moved song (5.239639ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38.239373
+
+== local-music-library-persistence.test.js ==
+✔ FLAC tags, embedded cover and same-name LRC survive a full library reload (68.47866ms)
+✔ subsequent imports append to the persistent library by default (5.011726ms)
+✔ GB18030 sidecar lyrics and synchronized embedded lyrics normalize to readable LRC (0.466784ms)
+✔ metadata and manifest failures preserve the last committed cover and index (7.082331ms)
+✔ embedded cover budget rejects oversized pixel dimensions on low-spec devices (0.16609ms)
+✔ renderer and Electron wiring restore persistent tracks instead of blob-only missing records (2.38455ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.459091
+
+== local-playback-skip-notice.test.js ==
+✔ known offline entries do not exhaust the playback failure budget before an available song (6.712863ms)
+✔ actual local read failures still stop at twelve attempts (1.615279ms)
+✔ offline skips name the song, coalesce notices and terminate instead of cycling (3.151708ms)
+✔ output-device waits cannot overwrite a newer local track selection (1.658163ms)
+✔ a local resolution follows its moved live entry without overwriting a neighboring song (5.61826ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22.799767
+
+== login-attempt-contract.test.js ==
+✔ netease rejects missing or invalidated attempt before cookie submission (5.721807ms)
+✔ netease never commits a probe finishing after logout (5.099718ms)
+✔ netease never commits a probe finishing after cancel (2.855841ms)
+✔ netease never commits a probe finishing after replace (9.395803ms)
+✔ netease also rejects an in-flight body after logout (4.15357ms)
+✔ qq rejects missing or invalidated attempt before cookie submission (3.074311ms)
+✔ qq never commits a probe finishing after logout (3.408866ms)
+✔ qq never commits a probe finishing after cancel (2.891355ms)
+✔ qq never commits a probe finishing after replace (2.678032ms)
+✔ qq also rejects an in-flight body after logout (2.997425ms)
+✔ kugou rejects missing or invalidated attempt before cookie submission (2.478391ms)
+✔ kugou never commits a probe finishing after logout (2.434836ms)
+✔ kugou never commits a probe finishing after cancel (2.752003ms)
+✔ kugou never commits a probe finishing after replace (2.321805ms)
+✔ kugou also rejects an in-flight body after logout (2.190707ms)
+✔ netease validates candidate without replacing a rejected session (3.05336ms)
+✔ qq validates candidate without replacing a rejected session (2.326652ms)
+✔ NetEase temporary profile failure remains pending, while Kugou verification is passed through unsaved (5.137685ms)
+✔ late cancellation only cancels its own server-issued attempt (3.236916ms)
+✔ QQ candidate rejection uses its own authorization and leaves existing-session tolerance separate (4.794738ms)
+✔ a begin response arriving after close is cancelled rather than restoring the attempt (1.784344ms)
+✔ a delayed success timer cannot close a newly opened login attempt (1.092489ms)
+✔ closing while NetEase QR check is pending discards the late confirmation (2.359681ms)
+✔ netease official-window result arriving after close never submits its cookie (3.421164ms)
+✔ qq official-window result arriving after close never submits its cookie (2.362737ms)
+✔ kugou official-window result arriving after close never submits its cookie (2.25252ms)
+✔ netease manual cookie response arriving after close cannot revive renderer state (1.977856ms)
+✔ qq manual cookie response arriving after close cannot revive renderer state (3.942712ms)
+✔ kugou manual cookie response arriving after close cannot revive renderer state (1.694508ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102.3572
+
+== login-commit-ownership.test.js ==
+✔ Qishui QR commit rejects the previous status success without cancelling its own poll (4.053348ms)
+✔ catalog page awaiting across an account identity change rejects old success even at the same epoch (1.765325ms)
+✔ Qishui QR commit rejects the previous status error without cancelling its own poll (1.381795ms)
+✔ catalog page awaiting across an account identity change rejects old error even at the same epoch (0.86146ms)
+✔ the first NetEase QR803 commit invalidates a previous account status before delayed profile refresh (2.377859ms)
+✔ netease web commits auth before starting its own catalog or home refresh (2.296127ms)
+✔ netease cookie commits auth before starting its own catalog or home refresh (1.924986ms)
+✔ qq web commits auth before starting its own catalog or home refresh (1.765765ms)
+✔ qq cookie commits auth before starting its own catalog or home refresh (2.723135ms)
+✔ kugou web commits auth before starting its own catalog or home refresh (2.211288ms)
+✔ kugou cookie commits auth before starting its own catalog or home refresh (2.801108ms)
+✔ NetEase delayed fresh profile uses the first QR commit epoch and its own home refresh survives (2.025027ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32.566284
+
+== login-entry-direct.test.js ==
+OK login-entry-direct
+
+[NOT RUN: execution approval cancelled; no assertion evidence] login-logout-race.test.js
+
+== login-presence-check.test.js ==
+✔ NetEase stays connected when the online check cannot reach the platform (3.710892ms)
+✔ NetEase disconnects only after the platform confirms the logout twice (4.141892ms)
+✔ NetEase recovers when the confirmation finds the session alive (1.698404ms)
+✔ QQ treats "not logged in" from QQ as a logout only on the second reply (1.04692ms)
+✔ real server replies preserve credentials so the second confirmation can unplug the wire (4.116764ms)
+✔ real server network failure cannot unplug an existing session or erase its cookie (2.804042ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.781199
+
+== login-qr-loading.test.js ==
+✔ clearing the QR removes src instead of setting an empty URL (4.191026ms)
+✔ the spinner stays until the new QR decodes; a stale load is ignored (1.07332ms)
+✔ a QR that fails to decode leaves a clean card, not a broken image (1.142294ms)
+✔ the login markup does not start with an empty src (0.911836ms)
+✔ selecting a Qishui node still waiting for its scan generates the QR instead of leaving an empty card (2.218759ms)
+✔ selecting a logged-in node only selects it and does not open the scan drawer (0.981692ms)
+✔ reopening with the same provider QR on screen resumes polling instead of regenerating (1.096075ms)
+✔ an expired or other-provider QR is regenerated (1.793367ms)
+✔ desktop NetEase generates App QR; cookie mode and an unconnected node do not (2.367293ms)
+✔ the MR scan-mode button also generates the QR for a connected Qishui node (5.247562ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28.202773
+
+== login-status-refresh-epoch.test.js ==
+✔ netease late status success cannot overwrite a newer login attempt (3.325991ms)
+✔ netease late status failure cannot degrade a newer account (1.12637ms)
+✔ qq late status success cannot overwrite a newer login attempt (0.841641ms)
+✔ qq late status failure cannot degrade a newer account (0.604994ms)
+✔ kugou late status success cannot overwrite a newer login attempt (0.890554ms)
+✔ kugou late status failure cannot degrade a newer account (0.669551ms)
+✔ qishui late status success cannot overwrite a newer login attempt (0.862562ms)
+✔ qishui late status failure cannot degrade a newer account (0.606396ms)
+✔ NetEase presence read ignores a previous epoch even when the user ID is unchanged (0.975372ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.469521
+
+== lyric-active-line-viewport-fit.test.js ==
+[OK] Original and translated lyrics share live left/right fitting while short lines retain their original size.
+
+== lyric-drag-quality.test.js ==
+✔ dragging allows all selected visible rows at their original tier, including distant context (2.104046ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6.826845
+
+== lyric-edit-preview.test.js ==
+[OK] Gesture lifetime and compact translation spacing.
+
+== lyric-fallback-availability.test.js ==
+✔ a failed optional legacy translation cannot discard valid lyric_new original lyrics (2.094431ms)
+✔ valid karaoke survives optional translation failure; required primary failure remains an error (1.460104ms)
+✔ successful fallback fills missing translation and remains usable if primary failed (1.214172ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.977561
+
+== lyric-font-ready-refresh.test.js ==
+✔ a saved selected font refreshes rendered lyrics when its delayed load completes (3.509007ms)
+✔ loading a font invalidates cached proportional karaoke ranges for the same line and font key (2.134522ms)
+✔ a display refresh exception does not orphan a successfully registered font face (0.956744ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.680021
+
+== lyric-motion-profiles.test.js ==
+✔ saved default float keeps existing easing and spatial amplitudes; softness controls adjacent-line timing (2.06664ms)
+✔ ordinary line advances have distinct stable modes with the same duration at 30 and 60 Hz (1.151549ms)
+✔ glass uses its own glyph material while other styles retain zero glass reflection (1.702981ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.678249
+
+== lyric-runway-preparation.test.js ==
+✔ whole-song runway accounts for CPU and GPU copies, including translated lines (3.125147ms)
+✔ small preview raster preserves authored geometry and karaoke proportions (1.017456ms)
+✔ high quality redraw uses the original row width rather than enlarging the preview (1.146641ms)
+✔ resident work accepts the current prepared root but rejects old songs and disposed roots (1.819927ms)
+✔ leaving a visible window releases the full base and returns to the cheap mask (2.023224ms)
+✔ stationary captions reject the tiny runway but allow committed sharp text (0.776973ms)
+✔ sharp upcoming text takes priority over the remaining whole-song runway (1.751854ms)
+✔ startup prepares clear visible text without making the whole initial page expensive (1.704714ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.459405
+
+== lyric-seek-visibility.test.js ==
+✔ a cold seek retains the existing visible text, glow and texture until the new line is on screen (4.214152ms)
+✔ rapid retarget, cancellation and a new track cannot release or reuse an obsolete bridge (1.749881ms)
+✔ a repeated click keeps the original scroll pose and opacity instead of pinning the old row (1.825496ms)
+✔ visible runway rows keep their normal motion; only a real cold gap activates the fallback (1.663441ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.862413
+
+== lyric-spacing-stability.test.js ==
+[OK] DIY spacing stays stable across texture sizes, clarity, songs and mixed translations.
+
+== lyric-style-refresh.test.js ==
+[OK] Lyric style refresh is deferred, coalesced, lightweight and track-safe.
+
+== lyric-title-handoff.test.js ==
+✔ a delayed lyric response keeps the current track title even after payload invalidation (2.680596ms)
+✔ a zero-second lyric waits for the sole title to finish its upward exit (1.936283ms)
+✔ a long intro, pause and delayed lyric preserve one title, while progress restoration skips it (1.62988ms)
+✔ a seek during title introduction bypasses its timer and remains visible during the internal pause (1.751104ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.917148
+
+== lyric-track-seek-glide.test.js ==
+✔ a progress-bar jump glides fast first, then decelerates and stops exactly on the target (0.926669ms)
+✔ a new target mid-glide restarts from the current position; drags and line advances do not glide (0.298531ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5.887928
+
+== lyric-work-scheduler.test.js ==
+✔ lyric builds and cleanup take separate paints; replacements and cancellation reject stale work (2.974656ms)
+✔ pause keeps decoration queued, gives current text priority, and resume wakes the same jobs (0.965327ms)
+✔ pending HD uploads wait through interaction hold without replacing the displayed texture (1.203216ms)
+✔ seek preview can prepare selected HD rows even while its audio is temporarily paused (0.755581ms)
+✔ decoration yields to a texture upload and old cleanup cannot starve behind repeated urgent work (2.510449ms)
+✔ resuming a displayed lightweight track reuses it without starting new preparation (1.740457ms)
+✔ resident background text obeys pause and interaction hold; missing visible text can proceed (1.324359ms)
+✔ FX editing cancels queued prewarm and quality work through the production suspend entry (0.932968ms)
+✔ cooperative preparation yields after an expensive phase and never runs a stale track job (1.367113ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.494804
+
+== main-window-runtime-recovery.test.js ==
+[OK] Main-window runtime recovery preserves intentional minimize and restores unexpected window loss.
+
+== membership-badge-consistency.test.js ==
+✔ login panel and main badge agree on pending, verified ordinary and verified VIP (3.059889ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.694539
+
+== microphone-mixer-ui.test.js ==
+✔ first device discovery never captures or restores enabled state and filters aliases/loopback (3.262324ms)
+✔ late enumeration after closing panel cannot update devices and always revokes grant (2.244929ms)
+✔ failed primary switch excludes actual old output as a mixed target (0.633026ms)
+✔ discovery cleanup errors do not leave the UI stuck (0.85501ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.084242
+
+== microphone-mixer.test.js ==
+✔ explicit enable targets virtual output first, never monitors microphone, preserves saved levels and pauses only music (4.02101ms)
+✔ duplicate enables share one pending capture; cancelled late stream is stopped and never played (3.040259ms)
+✔ sink and permission failures do not open microphone or fall back to system speakers (0.452223ms)
+✔ device unplug, track end and output failure stop capture and never reopen automatically (2.661388ms)
+✔ music bridges stay unique across AutoMix adoption and never disconnect monitor nodes globally (1.544782ms)
+✔ sample safety ceiling and low-rate meter bound the sum; input and music mutes are independent (2.341745ms)
+✔ immediate construction errors can be retried and play failure releases every stream (3.518206ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.63314
+
+== microphone-permission.test.js ==
+✔ microphone requires native activation and the exact trusted main frame (1.597021ms)
+✔ only one audio request consumes a grant; frames, guests, video and loopback remain denied (0.526274ms)
+✔ expiry, token cancellation and stale cancellation cannot grant or revoke another operation (0.302166ms)
+✔ navigation, renderer loss and window destruction cancel in-flight activation and grant (0.459905ms)
+✔ preload cannot invoke begin without real Chromium activation; end remains available (2.390518ms)
+✔ session media check denies microphone caching while request consumes grant and preserves camera rules (2.135163ms)
+✔ explicit enumeration grants labels only, never capture, and expires on end/navigation (0.337931ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.378059
+
+== music-dns.test.js ==
+✔ installer includes the resolver required by the server boundary (1.03332ms)
+✔ known music fake-IP uses real addresses; public DNS and unsafe hosts do not use DoH (6.833035ms)
+✔ DoH answers and redirects retain private-IP blocking and Range requests (2.057976ms)
+✔ DoH can be disabled without allowing fake-IP sockets (0.274985ms)
+✔ DoH coalesces queries, honors CNAME TTL and retries after expiration (1.199811ms)
+✔ DoH validates question and responses, uses second bootstrap and does not cache failure (2.699375ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21.714558
+
+== netease-like-cache.test.js ==
+✔ concurrent readers share one full list, including a successful empty list (2.010355ms)
+✔ 405 backs off and logs only safe status fields without inventing unliked songs (0.615599ms)
+✔ session switch and logout reject an old in-flight result (0.341315ms)
+✔ successful like/unlike writes survive an older list response and update cached hearts (0.22554ms)
+✔ refresh failure retains the last known liked list during cooldown (0.350148ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.764269
+
+== netease-login-navigation.test.js ==
+✔ NetEase official HTTPS hosts require complete boundaries and no userinfo (2.017275ms)
+✔ NetEase protected login blocks top-level navigations and redirects, preserving child frames (2.936253ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.851081
+
+== netease-playlist-index-session.test.js ==
+✔ B requesting the same playlist ID never reuses A private metadata or track order (4.008301ms)
+✔ clear prevents A late cache fill and does not release B singleflight ownership (2.064977ms)
+✔ successful mutations invalidate stale inflight indexes rather than letting them refill (2.657542ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.857759
+
+== netease-write-session-isolation.test.js ==
+✔ /api/album/subscribe cannot submit A operation using B after waiting for login (7.34013ms)
+✔ /api/album/subscribe cannot submit A operation using B after waiting for body (3.82857ms)
+✔ /api/playlist/subscribe cannot submit A operation using B after waiting for login (4.281152ms)
+✔ /api/playlist/subscribe cannot submit A operation using B after waiting for body (3.360233ms)
+✔ /api/playlist/create cannot submit A operation using B after waiting for login (4.384528ms)
+✔ /api/playlist/create cannot submit A operation using B after waiting for body (3.878205ms)
+✔ /api/playlist/add-song cannot submit A operation using B after waiting for login (4.222795ms)
+✔ /api/playlist/add-song cannot submit A operation using B after waiting for body (3.386652ms)
+✔ /api/song/comments cannot submit A operation using B after waiting for login (4.794758ms)
+✔ /api/song/comments cannot submit A operation using B after waiting for body (3.669178ms)
+✔ /api/song/comments/like cannot submit A operation using B after waiting for login (4.070665ms)
+✔ /api/song/comments/like cannot submit A operation using B after waiting for body (3.177506ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56.480338
+
+== network-compatibility.test.js ==
+✔ Netease empty info cannot mask VIP or SVIP from another source (2.667407ms)
+✔ C drive cache is allowed and actual isolated cache round-trips without D drive (8.118375ms)
+✔ weather uses HTTPS and rejects failed, absent or out-of-range coordinates (1.5501ms)
+✔ isolated production server persists beatmaps through its HTTP API on the temp drive (468.04543ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 484.791455
+
+== next-critical-boundaries.test.js ==
+✔ credential encryption and atomic replacement failures preserve the last encrypted account (3.276342ms)
+✔ credential error diagnostics never echo the account value returned by a failing backend (0.705863ms)
+✔ removed Spotify provider has no packaged API module or runtime credential importer (2.82966ms)
+✔ camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases (2.840497ms)
+✔ update IPC handlers reject remote windows and subframes before invoking native operations (5.607132ms)
+✔ public audio proxy headers retain Range without sending account credentials (1.868172ms)
+✔ local media rejects forged capabilities and malformed ranges; cover links cannot serve outside the cover cache (71.238707ms)
+✔ playlist normalization bounds hostile values and drops prototype keys through persistence (2.672734ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95.814214
+
+== onboarding-guide.test.js ==
+✔ empty players explain when song-dependent controls become available (5.831348ms)
+✔ the guide tours quality, comments, visuals, the 3D shelf and login on elements that exist (2.600054ms)
+✔ console steps preview DIY without saving it and put mode, panel and tab back afterwards (1.114698ms)
+✔ an already open console is restored with its tab and scroll, rather than closed (0.769649ms)
+✔ guide visibility holds are limited to the current step and end on close (2.546654ms)
+✔ a mode the user switches to during the guide is kept when the guide moves on (1.136381ms)
+✔ Aero is optional: entering the guide preserves the theme and only an explicit click changes it (1.561461ms)
+✔ fresh user defaults and captured archive both keep Aero off (0.368635ms)
+✔ leaving the shelf lesson cancels its delayed reveal and restores display preferences (1.29547ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25.950969
+
+== original-profile-import.test.js ==
+✔ removed Spotify credentials are neither offered nor migrated and existing files remain untouched (4.168496ms)
+✔ original profile import fills missing files and preserves existing Remix state (1.849064ms)
+✔ damaged JSON is skipped and a source symlink cannot be copied (0.828357ms)
+✔ original import cannot overwrite existing Remix behavior and playlist files (1.129791ms)
+✔ visual import replaces only default Remix values and persists the merged settings (2.261364ms)
+✔ preference import fills audio settings without replacing user choices or importing history (0.751371ms)
+✔ preference consumers reject hostile keys, oversized strings and wrong types without changing current settings (1.557505ms)
+✔ startup auth migration leaves obsolete Spotify files untouched and does not import their credentials (2.228004ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20.328104
+
+== original-render-quality.test.js ==
+✔ ultra preserves native 4K resolution on all hardware up to the original 2x DPR (4.508537ms)
+✔ manual lower tiers retain useful pixel budgets without changing the chosen setting (1.706659ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.062304
+
+== packaging-runtime-files.test.js ==
+✔ both package file lists include the local runtime dependency closure and authentication assets (15.454617ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20.620464
+
+== panel-view-recenter.test.js ==
+✔ near a complete turn the panel opens immediately without spinning a whole turn backwards (3.232737ms)
+✔ a large angle recenters along the shortest path and ends precisely at zero (0.970641ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.346461
+
+== paused-lyric-edit-commit.test.js ==
+✔ explicit raster commit finishes on a paused track; ordinary prewarm still waits (4.777723ms)
+✔ paused timing calibration applies the adjusted line through the existing restoration path (2.509158ms)
+✔ playing timing changes leave restoration to the normal lyric tick (0.654866ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.465904
+
+== paused-lyric-effects-owner.test.js ==
+✔ paused commit permission belongs only to the current original visible rows and generation (2.467094ms)
+✔ finite paused commit retires only after effects and the selected HD map really commit (1.431716ms)
+✔ released multi-line edit restores only its visible effects before ordinary paused runway (3.062831ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.899811
+
+== paused-lyric-layout.test.js ==
+✔ shelf avoidance and return move existing high-quality lyrics without rebuilding them (10.637205ms)
+✔ the flip lasts as long as the shelf takes to open, then settles without drifting (7.772562ms)
+✔ lyrics dragged away go straight to the shelf while the cover recentres, never back through the centre first (5.989637ms)
+✔ closing shelf keeps the lyric return on UI frames briefly, then releases ownership (0.981138ms)
+✔ a skipped background frame advances camera and lyric pose, not expensive lyric effects (1.673209ms)
+✔ background frames do not integrate camera motion twice after extra UI frames (0.817341ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33.638363
+
+== paused-lyric-quality-ownership.test.js ==
+✔ explicit paused quality replaces the held key and builds only the current visible snapshot owner (3.929917ms)
+✔ deferred upload obeys the one-upload budget and excludes outgoing, offscreen and stale tokens (1.555161ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.123357
+
+== paused-render-cadence.test.js ==
+✔ paused foreground defaults to 60 and respects lower saved rates without changing the preference (1.987352ms)
+✔ paused interaction such as opening the shelf renders like playback (0.645702ms)
+✔ 60 and 45 FPS background caps keep their cadence on a 144 Hz UI clock (7.916098ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.153149
+
+== platform-account-sync-guard.test.js ==
+[OK] Platform account actions, provider-affine listen reports, and truthful duration-sync boundaries are guarded.
+
+== playback-audio-graph-recovery.test.js ==
+OK playback-audio-graph-recovery
+
+== playback-background-resume.test.js ==
+OK playback-background-resume
+
+== playback-checkpoint.test.js ==
+✔ an empty queue checkpoint replaces the removed song and survives a fresh store (6.272624ms)
+✔ latest checkpoint survives process death without shutdown handlers (60.33076ms)
+✔ corrupt main file and interrupted temporary write fall back to valid backup (3.412988ms)
+✔ duplicate-content optimization still repairs a corrupt primary after backup recovery (2.821037ms)
+✔ out-of-order submissions cannot overwrite progress, failed writes preserve last valid file (1.751938ms)
+✔ unchanged checkpoints skip fsync but preserve ordering and important state changes (4.355888ms)
+✔ browser snapshots remain compatible and newest valid source wins (1.519177ms)
+✔ resume waits for metadata and does not erase the saved position while loading (0.854687ms)
+✔ large queues keep the current track; browser storage failure still saves to disk (1.63405ms)
+✔ busy IPC coalesces pending saves and shutdown can await the complete chain (1.212185ms)
+✔ a system clock set back keeps saving progress and does not discard the last checkpoint (1.645998ms)
+✔ renderer periodic saves continue after clock rollback and a forced pause save (1.106136ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 93.094747
+
+== playback-duration-units.test.js ==
+✔ explicit seconds and milliseconds remain correct across short and long duration boundaries (3.307789ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.380592
+
+== playback-ended-ownership.test.js ==
+✔ deferred loop ended cannot advance a newer selection (3.475572ms)
+✔ duplicate deferred loop ended advances once (2.114013ms)
+✔ deferred single ended cannot advance a newer selection (1.075509ms)
+✔ duplicate deferred single ended advances once (1.063053ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.274455
+
+== playback-load-recovery.test.js ==
+✔ temporary URL errors get one retry at the same quality; offline makes no request (3.970634ms)
+✔ permanent failures and intentional aborts are not retried; exhausted network errors stop after two (4.547845ms)
+✔ replaced tracks reject both late successful responses and pending automatic retries (1.413995ms)
+✔ a recovery card retains resume and quality, stops startup retries and ignores stale actions (1.351761ms)
+✔ saved resume stays pending through asynchronous seek and late seeked cannot modify a new track (1.434395ms)
+✔ restore warmup prefers saved line over bootstrap and ignores the old media clock (1.60256ms)
+✔ placeholder title is complete without altering real timed lyric progress (2.317499ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22.320304
+
+== playback-local-restore-lifecycle.test.js ==
+✔ current local and current online checkpoints retain mixed queue, shuffle mode and logical ranks (6.076523ms)
+✔ offline records retain identity and missing status; deleted library entries are dropped, never replaced with unrelated imports (1.582949ms)
+✔ deleted current local record selects only a saved successor at zero progress (1.315155ms)
+✔ a delayed local resolver cannot rewrite a newer playback selection (3.472692ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.460979
+
+== playback-network-ownership.test.js ==
+✔ quality cap follows account identity, entitlement and authorization epoch; TTL distinguishes temporary evidence (3.886818ms)
+✔ explicit high quality gets one consumable probe per minute while repeated playback retains its cap (2.819055ms)
+✔ clearing stale next-track URL work aborts it and stops before alternate search (1.670441ms)
+✔ cancel during alternate search stops the next URL request and old cleanup preserves the new owner (3.886787ms)
+✔ duplicate preload scheduling shares only the next track and stale scheduler cannot cancel current work (1.162325ms)
+✔ replaced work awaiting output selection never starts an audio download (1.429007ms)
+✔ main URL abort releases old work without old finally or stale caller cancelling the new track (1.817523ms)
+✔ main source cancellation reaches the actual apiJson fetch signal and settles without a retry (1.579514ms)
+✔ alternate search carries the owner signal and drops a late result after invalidation (1.122735ms)
+✔ runtime caps stay within a small bounded in-memory budget and prune expired songs (81.149719ms)
+✔ quality UI leaves above-cap tiers selectable for explicit reprobe and clears ceiling after membership changes (2.297217ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107.943144
+
+== playback-pause-cancellation.test.js ==
+OK playback-pause-cancellation: cancellation, repeated wake, subsequent pause, replacement media/source
+
+== playback-single-repeat-loop.test.js ==
+OK playback-single-repeat-loop
+
+== playback-source-fallback-transaction.test.js ==
+OK playback-source-fallback-transaction
+
+== playback-start-stall.test.js ==
+OK playback-start-stall: partial/later stall, event deduplication, healthy playback, error/manual pause, stale track, bounded retry and notice
+
+== playlist-catalog-epoch.test.js ==
+✔ catalog auth epoch blocks old rows with unchanged root token (4.41198ms)
+✔ catalog auth epoch blocks old failure with unchanged root token (1.563681ms)
+✔ catalog auth epoch blocks old rows with immediate refresh (2.598151ms)
+✔ catalog auth epoch blocks old failure with immediate refresh (1.412753ms)
+✔ a partial new-account catalog never retains the previous account cache (1.55649ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.791627
+
+== playlist-catalog-page-owner.test.js ==
+✔ catalog paging rejects old before relabeling ownership or requesting an old offset (3.630831ms)
+✔ catalog paging rejects same-account-old-epoch before relabeling ownership or requesting an old offset (1.016364ms)
+✔ catalog paging rejects old-account-same-epoch before relabeling ownership or requesting an old offset (1.048072ms)
+✔ new-account root with matching ownership continues its own normal pagination (1.063355ms)
+✔ same-account forced refresh still preserves the last usable rows on network failure (0.945437ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.535702
+
+== playlist-catalog-recovery.test.js ==
+✔ partial library remains visible with a retry that fills missing rows and clears the warning (3.94172ms)
+✔ both providers show a page-limit warning without offering a retry that repeats the cap (2.521827ms)
+✔ a stale partial response cannot mark a new account sync incomplete (0.835381ms)
+✔ a page-limit result that also lost a page still allows recovery of that failed page (1.181894ms)
+✔ a zero-row incomplete result shows the warning rather than a successful empty library (2.15955ms)
+✔ normal paged results clear completion errors and continue when the total is unknown (0.884325ms)
+✔ failed paged retry resumes its offset and schedules the remaining pages (1.060411ms)
+✔ forced refresh keeps existing rows through failure, then replaces a successful snapshot (2.139009ms)
+✔ an empty page reporting more data warns and stops instead of spinning forever (1.133431ms)
+✔ an upstream connection rejection keeps cached rows and offers only one retry without logging out (3.039738ms)
+✔ a multi-page refresh retains the old complete snapshot through a later failure (2.137657ms)
+✔ progress uses a known provider total even on an empty rejected response (1.649349ms)
+✔ failed reads with an unknown total never claim that the full library has zero items (0.753037ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32.964021
+
+== playlist-collection-ui-race.test.js ==
+✔ a late collection result cannot clear or cancel the newly opened playlist (2.315045ms)
+✔ closing and reopening the same playlist invalidates an earlier collection result (0.862502ms)
+✔ a current collection result still refreshes the catalog and closes its own detail (0.899208ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.859753
+
+== playlist-cover-loader.test.js ==
+✔ requests deduplicate, cap concurrency and prioritize visible covers (2.785595ms)
+✔ one automatic retry, later open and online recovery are bounded (0.973119ms)
+✔ a visible cold cover does not wait for a backlog of stalled prefetches (1.457309ms)
+✔ failed covers become retryable after cooldown without reopening the panel (0.916374ms)
+✔ small NetEase row covers keep their requested dimensions and signed URLs are untouched (0.786838ms)
+✔ row thumbnails retain enough image density for the selected ultra quality (0.674287ms)
+✔ nearby covers share background allowance while visible covers bypass it and cancellation releases it (1.415787ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.107225
+
+== playlist-mutation-lifecycle.test.js ==
+✔ built-in removal preserves unloaded songs, advances page token and suppresses index-shifting double clicks (2.766376ms)
+✔ built-in failure releases the mutation lock and a late result cannot edit another opened detail (1.072298ms)
+✔ tail next-page completion cannot replace a new queue or a newer selected track (4.168002ms)
+✔ tail next-page completion advances once on its own queue despite duplicate next clicks (0.980601ms)
+✔ a newer first-page request owns the queue even when the older request settles last (2.622429ms)
+✔ manual playback and clearing cancel late playlist and podcast first pages (2.968651ms)
+✔ cancelled seek resumes only the same previously-playing track (2.30561ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22.016545
+
+== playlist-paging.test.js ==
+✔ NetEase honors upstream more when total is absent and ends on the last page (3.674066ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.635325
+
+== playlist-panel-material.test.js ==
+✔ left-panel sliders and resets update the complete panel without changing other panel scopes or storage fields (3.317989ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.271947
+
+== pre-release-startup-memory.test.js ==
+✔ fresh install runs visual guide once, then login; help can replay it (3.227843ms)
+✔ automatic system memory cleanup never requests UAC; explicit manual cleanup can (1.393043ms)
+✔ old memory settings disable automatic elevation while preserving background cleanup (0.800008ms)
+✔ built-in playlist dialog accepts a name and cancellation without native prompt (1.471111ms)
+✔ application renderer sources never reintroduce Electron native prompt calls (14.172644ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26.755398
+
+== progress-seek-gesture.test.js ==
+✔ real progress handlers distinguish a click, movement, long hold and cancellation (4.620204ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.504577
+
+== provider-entitlement-boundary.test.js ==
+[KugouSongUrl] hash: ordinary-free-track-hash album:  mix: 0 auth: ready tier: none
+[KugouSongUrl] hash: verified-vip-track-hash album:  mix: 0 auth: ready tier: vip
+[KugouSongUrl] hash: music-package-track-hash album:  mix: 0 auth: ready tier: none
+[OK] Provider entitlement boundaries reject false VIP signals and protect restricted URLs.
+
+== provider-login-state-recovery.test.js ==
+✔ catalogue credentials cannot become a Qishui account or playback authorization (3.117156ms)
+✔ API timeout remains active while a response body is stalled (3.701718ms)
+✔ temporary provider errors retain account identity without claiming current authorization (1.726085ms)
+✔ JSON error responses are also treated as temporary status failures (1.140101ms)
+✔ officially expired Qishui session clears account and asks for a new scan (1.797774ms)
+✔ unknown membership does not overwrite verified audit history as a normal account (0.938176ms)
+✔ the shared badge retains QQ pending and verified ordinary account states (1.123526ms)
+✔ an old saved cookie cannot confirm a waiting or expired QR attempt (5.183053ms)
+✔ only a newly confirmed and valid QR session is saved (5.874207ms)
+✔ a Qishui QR confirmation that resolves after logout is not saved (1.963334ms)
+✔ a rejected fresh session stops the QR poll and displays a rescan action (2.440394ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34.162841
+
+== provider-network-bounds.test.js ==
+✔ kugou rejects both declared and streamed oversized metadata (21.641489ms)
+✔ kugou retains bounded HTTP challenge bodies (4.800376ms)
+✔ kugou cancellation closes requests before headers and during body reads (6.715397ms)
+✔ kugou valid large metadata, truncation and total deadline preserve contracts (284.073871ms)
+✔ qishui rejects both declared and streamed oversized metadata (10.512589ms)
+✔ qishui retains bounded HTTP challenge bodies (7.20032ms)
+✔ qishui cancellation closes requests before headers and during body reads (6.215123ms)
+✔ qishui valid large metadata, truncation and total deadline preserve contracts (281.127424ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 627.553107
+
+== provider-removal-diy-cinema-preload.test.js ==
+✔ removed provider has no user-facing or callable login surface (5.702568ms)
+✔ fullscreen DIY control follows the bottom-most visible account pill (0.234534ms)
+✔ full-track cinematic analysis waits for playback and retries bounded failures (0.233903ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.435813
+
+== provider-write-session-isolation.test.js ==
+✔ /api/kugou/song/like is isolated when account changes during body (5.442926ms)
+✔ /api/kugou/song/like is isolated when account changes during upstream (3.508256ms)
+✔ /api/kugou/playlist/add-song is isolated when account changes during body (2.712624ms)
+✔ /api/kugou/playlist/add-song is isolated when account changes during upstream (2.910624ms)
+✔ /api/qishui/song/like is isolated when account changes during body (3.535406ms)
+✔ /api/qishui/song/like is isolated when account changes during upstream (2.537811ms)
+✔ /api/qishui/playlist/collect is isolated when account changes during body (2.59672ms)
+✔ /api/qishui/playlist/collect is isolated when account changes during upstream (2.997164ms)
+✔ /api/qishui/playlist/add-song is isolated when account changes during body (2.59682ms)
+✔ /api/qishui/playlist/add-song is isolated when account changes during upstream (2.396287ms)
+✔ /api/qishui/album/collect is isolated when account changes during body (2.970885ms)
+✔ /api/qishui/album/collect is isolated when account changes during upstream (2.29165ms)
+✔ /api/qishui/song/comments is isolated when account changes during body (2.57691ms)
+✔ /api/qishui/song/comments is isolated when account changes during upstream (2.772786ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.558662
+
+== qa-css-property.test.js ==
+✔ same-selector QA guard reads inherited declarations and final explicit overrides (0.872868ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5.345229
+
+== qishui-auth-url-policy.test.js ==
+✔ MFA component URLs require bounded HTTPS transport without credentials, fragments or nonstandard ports (1.185139ms)
+✔ MFA top-level navigation only accepts the exact local seed and host documents (0.233903ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6.677641
+
+== qishui-cache-generation.test.js ==
+✔ clear prevents a late old library response from replacing fresh cache data (3.655798ms)
+✔ late old completion cannot delete a newer inflight request with the same key (1.360413ms)
+✔ clear also prevents a rejected old request from releasing the newer singleflight slot (1.772295ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.935007
+
+== qishui-decrypt-cache-bounds.test.js ==
+✔ concurrent Range requests share one Qishui download and keep byte accounting exact (6.433091ms)
+✔ oversized encrypted audio is rejected by header and by streamed size (5.832454ms)
+✔ disconnecting one encrypted-audio subscriber preserves the shared download for another (7.940317ms)
+✔ the last departing subscriber aborts its shared upstream without caching stale audio (3.901939ms)
+✔ aborting a stalled encrypted-audio body settles promptly and cancels its reader (2.428767ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.523607
+
+== qishui-entitlement-cache.test.js ==
+[OK] Qishui account membership, expiry TTL, and account-scoped metadata cache verified.
+
+== qishui-local-official-merge.test.js ==
+[OK] Qishui local PC search, playback fallback, lyrics, collections, recent-play, and comments verified.
+
+== qishui-mfa-lifecycle.test.js ==
+✔ Qishui cancellation exists during decision loading and aborts its request (4.236355ms)
+✔ Qishui cancellation while the component loads settles and blocks a late render (1.363148ms)
+✔ Qishui decision and script loading both have finite deadlines (1.642059ms)
+✔ Qishui pre-entry cancel and replaced callback cannot affect a new manual attempt (2.04068ms)
+✔ Qishui main process cancellation settles even if renderer execution never resolves (2.251338ms)
+✔ Qishui replaced main attempt cannot hide the newer window, and parent deadline settles a hung page (0.940169ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.552596
+
+== qishui-native-signing.test.js ==
+✔ signing covers exact UTF-8 body and lowercases the actual headers (1.227293ms)
+✔ concurrent signatures preserve each request headers, bound concurrency and isolate the worker (1.808049ms)
+✔ signature injection and targets outside the single official endpoint are rejected (0.581177ms)
+✔ hung workers release pending requests; idle workers are reclaimed (47.037255ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 54.780624
+
+== qishui-node-import-boundary.test.js ==
+✔ Node-only auth import, configuration and clear never resolve the Electron package (3.208764ms)
+✔ Electron main clear still waits for readiness and clears the persistent partition (1.150427ms)
+✔ injected QR authentication never loads the default desktop auth module (1.240693ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.768126
+
+== qishui-passport-qr-login.test.js ==
+✔ Qishui Passport QR bridge persists a confirmed official web session and clears it (2.580134ms)
+✔ an old saved cookie or superseded QR poll cannot confirm a new login (0.74916ms)
+✔ Qishui login product surface uses only the signed Passport QR flow (3.084586ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.738729
+
+== qishui-player-info-boundary.test.js ==
+✔ PC player-info never sends even fixture credentials to loopback or plaintext HTTP (9.435774ms)
+✔ only the known HTTPS VOD origin is accepted, and VOD receives no account Cookie (2.058347ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.99839
+
+== qishui-provider-distribution.test.js ==
+[OK] Qishui search pagination and official-session account boundary verified.
+
+== qishui-quality-tier.test.js ==
+✔ Qishui honours the requested tier instead of always taking the largest stream (1.622639ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6.202412
+
+== qishui-seo-playback.test.js ==
+✔ empty PC responses recover full public audio despite misleading preview metadata (7.179106ms)
+▶ public 60-second audio remains a trial for both free and VIP accounts
+  ✔ free account (4.347012ms)
+  ✔ VIP account (2.452152ms)
+✔ public 60-second audio remains a trial for both free and VIP accounts (7.282934ms)
+▶ short full songs are not trials, while 30-second excerpts and the duration tolerance are respected
+  ✔ 29000/28.5 (1.53689ms)
+  ✔ 240000/30 (1.292361ms)
+  ✔ 32000/30 (0.844354ms)
+  ✔ 33000/30 (0.813188ms)
+✔ short full songs are not trials, while 30-second excerpts and the duration tolerance are respected (5.325039ms)
+✔ failed public requests retry and successful public audio is reused (2.160722ms)
+✔ expired login stops before public playback fallback (1.021061ms)
+▶ mismatched songs, unsafe VOD targets, unknown durations and disallowed quality fail closed
+  ✔ {"wrongId":"other-song"} (0.964967ms)
+  ✔ {"playerUrl":"http://127.0.0.1/private"} (0.561377ms)
+  ✔ {"duration":0} (0.782531ms)
+  ✔ {"bitrate":999000} (0.758354ms)
+✔ mismatched songs, unsafe VOD targets, unknown durations and disallowed quality fail closed (3.443097ms)
+✔ successful PC playback keeps its existing source and never calls public fallback (1.37803ms)
+▶ unsafe public player origins are rejected before requesting an otherwise valid audio response
+  ✔ https://attacker.invalid/player-info (0.855121ms)
+  ✔ https://vod-luna.douyin.com.attacker.invalid/player-info (0.812486ms)
+  ✔ http://vod-luna.douyin.com/player-info (0.717664ms)
+  ✔ https://fixture:secret@vod-luna.douyin.com/player-info (0.765265ms)
+  ✔ https://vod-luna.douyin.com:444/player-info (0.540637ms)
+  ✔ https://127.0.0.1/player-info (0.68899ms)
+✔ unsafe public player origins are rejected before requesting an otherwise valid audio response (4.78303ms)
+✔ metadata-only PC success falls back instead of caching an empty playable source (0.895321ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41.338472
+
+== qishui-session-recovery.test.js ==
+✔ expired official session cannot become a successful status or an empty synchronized library (5.851012ms)
+✔ a transient profile failure stays unknown and immediately recovers on retry (3.965507ms)
+✔ HTTP 200 with missing account identity cannot validate saved cookies (1.240743ms)
+✔ personal playlists load without waiting for recommendation feeds and partial failures are retried (2.670061ms)
+✔ empty PC responses keep public search available but identify an expired playback session (3.910783ms)
+✔ a failed player-info resolution retries immediately and cached audio cannot override stricter rights (3.270176ms)
+✔ playback settles under a wall-clock deadline even when DNS or the response never emits an event (22.70206ms)
+✔ an explicit numeric end-of-search flag stops pagination even when the final page is full (1.266762ms)
+✔ created playlists follow the cursor past the first 50; a response without paging fields stays one page (2.865425ms)
+✔ a library with more pages at the safety limit stays incomplete and is not cached as complete (9.661641ms)
+✔ has_more with a missing or unchanged cursor cannot become a completed library (1.541703ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.805057
+
+== qishui-tier-rights.test.js ==
+✔ VIP may use lossless but cannot use Hi-Res reserved for explicit SVIP (2.25838ms)
+✔ unknown membership never grants a premium stream (0.559865ms)
+✔ SVIP-only track flags are normalized and gated independently from VIP (0.552504ms)
+✔ VIP and SVIP expiry fields are evaluated independently (1.210517ms)
+✔ a same-cookie official positive survives only a short immediate outage (0.464761ms)
+✔ unknown without positive history is not converted to an ordinary account (0.29829ms)
+✔ an official positive is never retained beyond its expiry (0.15898ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.921356
+
+== qishui-trial-full-source.test.js ==
+✔ a Qishui preview is replaced by a matching full track from a signed-in platform (6.101551ms)
+✔ no signed-in alternative, a different length or another preview keeps the Qishui preview (2.39186ms)
+✔ full Qishui tracks, nested attempts and remembered misses do not search (1.076094ms)
+✔ a candidate that fails to start falls back to the Qishui preview once (1.108263ms)
+✔ a user switching songs during the search stops the upgrade (1.768229ms)
+✔ a paid Qishui song starts the lookup in parallel and the trial path reuses it (1.430089ms)
+✔ free or unknown-length Qishui songs and nested attempts do not prefetch (0.928772ms)
+✔ a matched song is remembered: the next play only refreshes the playback URL (1.36479ms)
+✔ a remembered match whose URL is no longer full is forgotten and the normal path continues (0.998227ms)
+✔ remembered studio audio is not reused for Live versions or changed durations (1.160112ms)
+✔ progress card appears only after a noticeable wait, updates in place and reports the result (805.58202ms)
+✔ a quick full Qishui answer dismisses nothing and shows nothing (802.584335ms)
+✔ startup autoplay never shows the progress card (702.047551ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2334.218972
+
+== qq-login-page.test.js ==
+✔ QQ opener clicks the exact login anchor, never a parent containing login text (2.315504ms)
+✔ QQ login begins at DOM readiness without waiting for load completion, and cleans up on close (2.203876ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.301208
+
+== qq-native-protocol.test.js ==
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.device-context.ready {
+  kind: 'memory',
+  source: 'restored',
+  hasDevice: true,
+  hasQimei: false,
+  qimeiAgeMs: undefined,
+  hasSession: false
+}
+✔ new protocol refreshes derived bootstrap cache once without replacing device identity (2.499352ms)
+✔ QIMEI envelope encrypts the current version and signs the exact transmitted ciphertext (11.013822ms)
+qq-auth.qimei-result {
+  source: 'upstream',
+  httpStatus: 200,
+  outerCode: 0,
+  outerDataType: 'string',
+  innerCode: 0,
+  q16Length: 11,
+  q36Length: 11
+}
+qq-auth.upstream-result {
+  phase: 'get-session',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.qr-session-created { loginChannel: 'qq' }
+qq-auth.upstream-result { phase: 'create-qr', httpStatus: 200, globalCode: 0, upstreamCode: 0 }
+qq-auth.qr-created { loginChannel: 'qq', qrIdentifierLength: 10 }
+qq-auth.upstream-result {
+  phase: 'credential-exchange',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.login-confirmed {
+  loginChannel: 'qq',
+  hasCredential: true,
+  credentialLoginType: 2,
+  credentialKeys: [ 'loginType', 'musicid', 'musickey' ],
+  credentialKeyLength: 18
+}
+qq-auth.qimei-result { source: 'cache' }
+qq-auth.upstream-result {
+  phase: 'get-session',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.qr-session-created { loginChannel: 'qq' }
+qq-auth.qr-session-canceled { loginChannel: 'qq' }
+✔ real pinned SDK uses one protocol for bootstrap, QR and credential exchange (47.107086ms)
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.device-context.ready {
+  kind: 'memory',
+  source: 'restored',
+  hasDevice: true,
+  hasQimei: false,
+  qimeiAgeMs: undefined,
+  hasSession: false
+}
+qq-auth.qimei-result {
+  source: 'upstream',
+  httpStatus: 200,
+  outerCode: 0,
+  outerDataType: 'string',
+  innerCode: 0,
+  q16Length: 11,
+  q36Length: 11
+}
+qq-auth.upstream-result {
+  phase: 'get-session',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.qr-session-created { loginChannel: 'qq' }
+qq-auth.upstream-result { phase: 'create-qr', httpStatus: 200, globalCode: 0, upstreamCode: 0 }
+qq-auth.qr-created { loginChannel: 'qq', qrIdentifierLength: 10 }
+qq-auth.upstream-result {
+  phase: 'credential-exchange',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 50006
+}
+qq-auth.upstream-result {
+  phase: 'get-login-user',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 1000
+}
+qq-auth.session-failed {
+  loginChannel: 'qq',
+  retryAfterMs: 30000,
+  failureStage: 'credential-validation',
+  failureReason: 'upstream-rejected',
+  upstreamHttpStatus: 200,
+  upstreamCode: 1000,
+  upstreamGlobalCode: 0,
+  upstreamSubCode: undefined,
+  name: 'QqProtocolError'
+}
+qq-auth.qr-session-canceled { loginChannel: 'qq' }
+✔ exchange rejection keeps 50006 and validation 1000; UI never claims expiry or a wrong scanner (4.636838ms)
+✔ adapter leaves other HTTP routes unchanged and does not mutate caller RPC parameters (0.42465ms)
+✔ server sends the same native profile for playback while web requests retain their original headers (4.040678ms)
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.auth-session.ready { kind: 'memory', restoredCount: 0, rejectedCount: 0 }
+qq-auth.device-context.ready {
+  kind: 'memory',
+  source: 'restored',
+  hasDevice: true,
+  hasQimei: false,
+  qimeiAgeMs: undefined,
+  hasSession: false
+}
+qq-auth.qimei-result {
+  source: 'upstream',
+  httpStatus: 200,
+  outerCode: 0,
+  outerDataType: 'string',
+  innerCode: 0,
+  q16Length: 3,
+  q36Length: 3
+}
+qq-auth.upstream-result {
+  phase: 'get-session',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.qr-session-created { loginChannel: 'qq' }
+qq-auth.upstream-result { phase: 'create-qr', httpStatus: 200, globalCode: 0, upstreamCode: 0 }
+qq-auth.qr-created { loginChannel: 'qq', qrIdentifierLength: 10 }
+qq-auth.upstream-result {
+  phase: 'credential-exchange',
+  httpStatus: 200,
+  globalCode: 0,
+  upstreamCode: 0
+}
+qq-auth.login-confirmed {
+  loginChannel: 'qq',
+  hasCredential: true,
+  credentialLoginType: 1,
+  credentialKeys: [ 'loginType', 'musicid', 'musickey' ],
+  credentialKeyLength: 34
+}
+✔ 19-digit WeChat/phone account ids reach the exchange and the saved cookie without rounding (4.533873ms)
+✔ large-integer JSON parsing leaves strings and safe numbers alone (0.215946ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.863864
+
+== qq-vip-entitlement.test.js ==
+[OK] QQ VIP entitlement regression tests passed
+
+== quality-chip-local-track.test.js ==
+✔ quality chip hides for local files and returns for online songs (2.559163ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.459188
+
+== quality-preset.test.js ==
+✔ one-tap presets set every tiered platform and are recognised afterwards (3.932125ms)
+✔ only the playing platform reloads; master tier stays locked without SVIP (4.408383ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.989344
+
+== queue-logical-order.test.js ==
+✔ shuffle, single repeat and list repeat preserve the selected media and restore logical order (6.693793ms)
+✔ new and removed entries during shuffle cannot resurrect an obsolete backup (1.915341ms)
+✔ next insertion deduplicates the live entry and moves it after the current logical entry (1.534056ms)
+✔ manual reordering moves only the chosen logical entry and survives repeated shuffle (2.044716ms)
+✔ replacing the queue resets ranks while progressive pages retain their provider order (1.151548ms)
+✔ checkpoint normalization retains shuffle mode and logical positions across restart (2.382926ms)
+✔ the explicit shuffle button outside shuffle playback commits a manual logical order (2.759184ms)
+✔ mode changes before restored playback starts save mode and order without erasing progress (3.339971ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.402124
+
+== queue-removal.test.js ==
+✔ removing before the current song preserves its identity and the next song (3.304247ms)
+✔ removing the current song plays its successor, including wraparound and shuffle order (2.174983ms)
+✔ removing the last song stops media and invalidates outstanding playback (1.200432ms)
+✔ removing a paused current song selects the successor without resuming it (1.808309ms)
+✔ removing before an unresolved playback restarts the same song at its new index (1.045758ms)
+✔ removing a later item or an invalid index cannot change current playback (0.976173ms)
+✔ explicitly clearing the queue stops media, invalidates pending work and persists empty selection (0.91444ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.292319
+
+== remix-updater-download.test.js ==
+✔ actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes (1051.238881ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1055.111126
+
+== remix-updater-install.test.js ==
+✔ installer waits for shutdown preparation; duplicate clicks/checks/stale events cannot replace installing state (2.087992ms)
+✔ synchronous throw, emitted failure and asynchronous spawn failure preserve verified download and allow one retry (2.196364ms)
+✔ failed preparation never launches, and an inconclusive restart timeout never unlocks a duplicate installer (15.687906ms)
+✔ verified completion event does not make a still-pending or rejected download installable (3.758502ms)
+✔ renderer disables repeated install, shows errors and restores restart action after failed launch (2.449998ms)
+✔ real main quit handlers block shutdown during preparation and preserve server/tray until successful quit (2.757442ms)
+✔ failed installer leaves reversible desktop and wallpaper runtimes usable for subsequent enable/load (2.457219ms)
+✔ timed-out preparation cannot stop resumed wallpaper or overwrite a newer retry after delayed cache cleanup (2.342415ms)
+✔ already-running native cleanup owns old sessions and desktop enable queues behind old disable (9.768423ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.193935
+
+== remix-updater.test.js ==
+✔ no release and slow network keep update checks nonblocking (1.1459ms)
+✔ download waits for user action, tracks progress and installs only when ready (0.779115ms)
+✔ checksum or network failure is reported without claiming a downloaded update (0.602779ms)
+✔ late progress and downloaded events cannot revive a failed download or bypass user confirmation (0.332492ms)
+✔ an empty download result without a verified completion event is not an installable update (0.451772ms)
+✔ duplicate checks and confirmations use one native operation, and wrong-version events cannot mark readiness (0.49708ms)
+✔ an installed update download is removed; a newer pending one and the differential base are kept (2.310747ms)
+✔ the update dialog gets only the release highlights as short plain text (1.465221ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.76238
+
+== removed-provider-backend.test.js ==
+✔ removed provider has no executable backend, token configuration or login/reset handler (5.258136ms)
+✔ archived provider tracks survive reload and unrelated playlist writes without becoming playable (4.833795ms)
+✔ saved playback checkpoints retain old IDs as non-playable archive records (0.435367ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.410839
+
+== request-body-lifecycle.test.js ==
+✔ JSON preserves multibyte text split across Buffer chunks and cleans listeners (2.020319ms)
+✔ empty and form bodies retain successful contracts, prototype key remains ordinary data (0.680477ms)
+✔ error rejects incomplete data instead of running mutation with empty body (0.609129ms)
+✔ aborted rejects incomplete data instead of running mutation with empty body (0.168203ms)
+✔ close rejects incomplete data instead of running mutation with empty body (0.267464ms)
+✔ limits actual UTF8 bytes, closes oversized request and releases listeners (0.243928ms)
+✔ overall body deadline settles even without incoming events (10.411744ms)
+✔ already unavailable request rejects immediately without listeners (0.417109ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.547723
+
+== request-lifecycle.test.js ==
+✔ JSON request settles when an upstream truncates its response body (33.518358ms)
+✔ a continuously trickling body still hits the total deadline (115.003483ms)
+✔ AbortSignal stops requests before headers and while reading the body (13.078198ms)
+✔ bounded text requests reject declared and streamed oversized bodies (9.459366ms)
+✔ HTTP error responses retain challenge bodies and oversized errors remain bounded (7.470265ms)
+✔ successful JSON and malformed JSON keep their existing behavior (7.826121ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 191.630462
+
+== script-loader-lifecycle.test.js ==
+✔ simultaneous callers wait for the same load and verify the expected SDK symbol (2.142073ms)
+✔ network failure removes the failed node and permits a fresh retry (0.97428ms)
+✔ timeout releases listeners; a stale late load cannot resolve or replace the retry owner (0.654658ms)
+✔ an unmanaged existing script waits while loading, while an available SDK needs no node (0.676251ms)
+✔ a load event without the promised SDK symbol is recoverable failure (0.582579ms)
+✔ a synchronous append failure never leaves a rejected singleflight owner (0.745385ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.925969
+
+== search-backend-latency.test.js ==
+✔ search cache shares in-flight work and never keeps empty results (2.059068ms)
+✔ QQ search only asks for song details when the search row is incomplete (1.014301ms)
+✔ typed search maps NetEase artists, albums, playlists and users into one row shape (1.043094ms)
+✔ overview search keeps a few artists, albums and playlists from one NetEase call (1.104607ms)
+✔ artist albums keep the newest releases first and cap the list (2.414805ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.540085
+
+== search-frontend-pagination.test.js ==
+✔ legacy search histories migrate into one list shared by every tab (4.076422ms)
+✔ history rendering and replay keep the currently selected tab (0.721308ms)
+✔ catalogue search readiness is separate from login state (0.926739ms)
+✔ ranking favors exact originals while preserving explicitly requested versions (4.899665ms)
+✔ overview best match names the singer of a searched title before a same-name artist (1.660416ms)
+✔ search pagination carries provider offsets and ignores stale sessions (1.206251ms)
+✔ song search shows each provider as it arrives and keeps engaged rows stable (4.150364ms)
+✔ account platform order picks the shown copy without beating a better match (7.3148ms)
+✔ typed results put the closest name first, then the account platform order (2.218799ms)
+✔ late preferred copies replace the source without moving songs or collapsing Live editions (2.789325ms)
+✔ a duplicate-only song page updates sources and continues to later missing songs (1.830533ms)
+✔ typed pagination deduplicates rows, prevents concurrent loads and drops a stale page (1.535607ms)
+✔ empty song results retain the active key so a late overview can appear (1.136775ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40.456584
+
+== search-pinyin.test.js ==
+✔ pinyin initials turn hanzi titles into letters and ignore pure Latin titles (8.648904ms)
+✔ 2-12 letters count as an initials query (0.745225ms)
+✔ local matches prefer exact title initials, skip Latin-only titles and respect the platform tab (1.674177ms)
+✔ pinyin hits go after literal matches and never reorder platform results (0.800678ms)
+✔ search wires pinyin in once, without an extra request (0.386674ms)
+✔ pinyin supplementation keeps the preferred platform copy of the same recording (0.698784ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.159276
+
+== server-security.test.js ==
+✔ HTTP boundary preserves same-origin/native requests and rejects remote authority (1.658714ms)
+✔ proxy blocks encoded, mapped, DNS and redirect targets before opening a socket (9.337944ms)
+✔ transport uses its validated address, preserving HEAD and Range bytes (51.493006ms)
+✔ media transport falls back between pinned DNS addresses without replaying a partial stream (27.73537ms)
+✔ actual server rejects cross-site calls and every private media entry (481.383046ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 576.40644
+
+== shelf-cover-close-lifecycle.test.js ==
+✔ closing real content manager cancels its cover viewport, pending rows and later online retries (4.493892ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.337621
+
+== shelf-lyric-flip.test.js ==
+✔ the shelf anchor is the measurement, held exactly while the shelf keeps still, and eased when it changes (4.324627ms)
+✔ 歌词左右 / 歌词上下 move where the lyrics stop beside the shelf, within the screen (1.46441ms)
+✔ the flip runs on the shelf's own S-curve and for as long as the shelf takes to appear or leave (1.605643ms)
+✔ an open detail list lets the lyrics reach into its left margin (2.860948ms)
+✔ the lyrics measure the shelf from the view the camera settles on, not from the glide towards it (3.860496ms)
+✔ the reference follows the live camera while no shelf focus is coming (1.527165ms)
+✔ closing keeps the settled view the lyrics are leaving along, then a new engagement starts from the live camera (1.644342ms)
+✔ opening a detail list under lyrics already beside the shelf eases the reference instead of jumping (4.243084ms)
+✔ dragged lyrics leave from where they are and the recentring cover underneath cannot pull them through the middle (1.774689ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29.426212
+
+== shelf-panel-interaction.test.js ==
+✔ shelf hit testing follows the projected card shape instead of its bounding box (22.797868ms)
+✔ lyrics beside the shelf keep a fixed gap to it whatever their width (8.499147ms)
+✔ the left playlist panel and the right shelf yield to each other (1.428906ms)
+✔ the visual console closes from a second button click, an outside click, or leaving the window (1.175554ms)
+✔ shelf caption follows the focused card or song row and projects its tilted ink beside it (17.833405ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57.690159
+
+== shelf-texture-quality.test.js ==
+✔ on a large screen the tier caps density, preserves logical layout and releases storage only on change (2.597741ms)
+✔ small on-screen cards are not oversized while larger detail rows still gain density (0.709581ms)
+✔ large shelf panels stay within GPU limits and sampling works without anisotropy support (0.639505ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.129338
+
+== song-comments-pagination.test.js ==
+✔ comment pages retain the first normal page, deduplicate, retry and ignore stale responses (11.978459ms)
+✔ cursor platforms advance encoded cursors and stop when the server repeats a cursor (4.898172ms)
+✔ a completed comment submission cannot reset another song's loaded comments or draft (1.739976ms)
+✔ Netease lists hot comments once, then pages newest comments by cursor with reply counts (4.022ms)
+✔ QQ lists hot and newest comments with reply counts, badges and a sequence cursor (1.847408ms)
+✔ QQ supports a saved MID and reports upstream failures instead of showing no comments (3.118276ms)
+✔ hot comments have their own section and later pages append only to more comments (1.642239ms)
+✔ Qishui respects explicit end flags and stops empty or non-advancing pages (1.111127ms)
+✔ Netease HTTP route forwards the cursor and rejects oversized ones (2.944213ms)
+✔ the 最新 / 热门 switch reloads by popularity as one section and drops the previous order's responses (2.413212ms)
+✔ a comment without replies keeps its heart on the text row; one with replies gets the reply row (1.511932ms)
+✔ Netease emoticon codes become their CDN images; 多多 stickers become chips; other text stays (1.422296ms)
+✔ sort reload and close cancel only GET owners, while POST remains independent (1.885615ms)
+✔ first-page GET cache merges subscribers, isolates authorization epochs/sorts and skips failed results (1.902582ms)
+✔ isolated cold/hot comment first-page timings avoid repeat upstream work (37.410963ms)
+ℹ local fake upstream delay 35ms: comment cold=35.80ms, hot=0.04ms; not a platform/client benchmark
+✔ expired cache and an auth change between cache lookup and render cannot reuse old-account data (1.89486ms)
+✔ late cancelled comment GET cannot cache stale data or delete a replacement task (1.659755ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.778779
+
+== sonic-cover-palette-timing.test.js ==
+✔ Sonic cover palette is available before deferred depth work, using a bounded image read (2.572052ms)
+✔ late old cover cannot recolor a new song; other presets keep their existing scheduling (1.640696ms)
+✔ bridge gradually finishes a theme, ignores repeated targets, and cancels an obsolete transition (3.785594ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.785925
+
+== sonic-performance.test.js ==
+✔ opt-in budgets preserve legacy defaults and stay below the saved quality (1.435917ms)
+✔ ultra is the original wallpaper and default vsync leaves the renderer uncapped (0.187723ms)
+✔ measurement excludes warmup, background, resume and deliberate frame caps (0.82204ms)
+✔ sustained load lowers detail while it helps; reports in flight are ignored; recovery is slow and bounded (0.206862ms)
+✔ a lowering that does not help is undone and further lowering pauses, doubling while it repeats (0.370749ms)
+✔ failed recovery rolls back just the probe; repeated failures back off up to 10 minutes (0.464231ms)
+✔ following the screen never trades detail for refresh above 60 FPS; a fixed cap is the goal (0.196286ms)
+✔ repeated long frames count as stutter even when average FPS looks fine (1.399322ms)
+✔ adaptive quality is on by default; switching it off is remembered and restores the saved visual (6.780394ms)
+✔ older saved preferences: untouched users are switched on, an earlier refusal stays off (3.661947ms)
+✔ Sonic shows no opt-in advice; the first automatic lowering says where to switch it off (3.49837ms)
+✔ changing the requested FPS clears old advice and rejects late samples for the old target (1.350448ms)
+✔ render interruption times out, recovers, and leaves the selected wallpaper intact (1.779746ms)
+✔ suspended background timers do not cause an immediate failure on resume (1.780187ms)
+✔ missing successful draws fail even after ready; current draws recover and old frames cannot (2.799515ms)
+✔ severe sustained drops are reported after warmup and four slow seconds (1.49765ms)
+✔ borderline loss keeps long-window confirmation; brief freezes and alternating load do not trigger fast advice (1.260402ms)
+✔ manual disable stays disabled across restart; opting back in permits adaptation (2.802499ms)
+✔ guides, background interruptions and target changes keep reports from counting (1.352061ms)
+✔ recovery returns to original detail without any FPS cap and honors a manual cap (0.237178ms)
+✔ fractional recovery smoothly increases actual 4K resolution and geometry without exceeding saved quality (0.214965ms)
+✔ a one-second hitch on a 144Hz screen cannot borrow severe evidence from the wrong threshold (0.358311ms)
+✔ high-refresh floor still detects actual sustained low FPS quickly (0.151038ms)
+✔ changing FPS after a failed probe discards recovery history without a visual jump (1.751504ms)
+✔ the topography stage uses the same recovery and target-reset path without iframe reports (32.969599ms)
+✔ background gaps and repeated copies of a sample cannot fabricate stable recovery time (0.269306ms)
+✔ reduced-motion notices skip animation; closing only hides the card (1.948ms)
+✔ ordinary scenes on an integrated GPU suggest a lower quality tier once, without changing it unasked (4.04815ms)
+✔ ordinary-scene advice skips discrete GPUs, manual quality choices and keeps Sonic preferences (4.932143ms)
+✔ the FPS goal follows the display rate reported by Electron, not the main loop estimate (1.29905ms)
+✔ a saved non-ultra tier that the user never picked is reset to ultra once, through the normal save path (4.188762ms)
+✔ a reset attempted before later scripts are ready retries without being mistaken for a manual choice (1.334685ms)
+✔ a high-refresh screen keeps original detail at any FPS above the 60 FPS goal, however fast it ran before (1.260683ms)
+✔ ineffective backoff is limited to the old load and does not block severe loss or new jank (0.240953ms)
+✔ desktop choices override another origin mirror and retain a manual tier and explicit disable (3.118687ms)
+✔ already-reset legacy choices migrate without user interaction, retry failures and survive an empty origin (2.207381ms)
+✔ a reset is not completed until both the ultra tier and the desktop marker are durable (1.346542ms)
+✔ a marker retry does not rebuild visuals or override a real choice made during migration (1.434385ms)
+✔ paused Sonic uses 60 FPS or a lower saved cap without suspending its canvas (1.176836ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 112.170714
+
+== sonic-preferences-store.test.js ==
+✔ desktop Sonic preferences survive reopening and reject invalid input without replacing saved choices (2.182214ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.322892
+
+== sonic-topography-quality-continuity.test.js ==
+✔ quality probes resize real terrain buffers without restarting opacity, motion or active effects (13.397429ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.179366
+
+== sonic-workshop-audio.test.js ==
+✔ retained zero FFT uses valid bands, while genuine silence remains silent (9.482311ms)
+✔ FFT downsampling preserves peaks between sampled bins (6.428993ms)
+✔ byte noise is not full-scale audio and paused attenuation stays intact (11.34319ms)
+✔ iframe readiness replays the latest band frame instead of empty audio (9.562342ms)
+✔ activation repairs analysis once and ignores a song changed during recovery (2.586433ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43.468585
+
+== sonic-workshop-cadence.test.js ==
+✔ uncapped workshop draws at display cadence rather than half refresh (24.150679ms)
+✔ fixed caps, paused rendering and scheduler cleanup retain their cadence (25.457672ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55.746766
+
+== sonic-workshop-ripples.test.js ==
+✔ a replaced visible wave keeps its position, original time and shape through a continuous 200ms retirement (2.466853ms)
+✔ bursts keep four retirement slots and eight pending events; dequeuing does not restart wave time (1.451451ms)
+✔ pause and background restoration do not age every live ripple by the hidden wall-clock gap (0.809753ms)
+✔ ordinary waves retain the original WE propagation and shading constants (6.966494ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.921348
+
+== source-switch-playability.test.js ==
+✔ a search match is only selectable once the platform returns a full playback url (21.616936ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28.966438
+
+== spotify-frontend-removal.test.js ==
+✔ removed provider archives cannot start playback, preload, or change the existing queue (16.634365ms)
+✔ archived provider identity survives without search, album or artist requests (2.99509ms)
+✔ renderer has no Spotify API routes or login integration left (24.432816ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.96483
+
+== spotify-playlist-removal.test.js ==
+[OK] Removed Spotify playlist and lyric paths reject archived records without network access.
+
+== stage-lyric-background-restore.test.js ==
+✔ paused lyrics are rebuilt from the current position after the mesh disappears (3.343136ms)
+✔ foreground recovery redraws a paused mesh once and rejects a stale track (0.93413ms)
+✔ pause-hide preference keeps lyrics hidden while paused (1.028963ms)
+✔ resume during a seek retargets a persistent track without snapping its scroll or rebuilding it (1.020019ms)
+✔ first play restores a detached lyric even when pause hold is disabled (0.913669ms)
+✔ wake repairs hidden scene attachment without rebuilding healthy lyric textures (0.95404ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.027861
+
+== stage-lyric-mesh-boundaries.test.js ==
+✔ empty and long logical masks stay finite; compaction and runway preserve authored world dimensions (8.605588ms)
+✔ quality targets respect original tier, texture dimensions and per-item byte budget (3.32612ms)
+✔ all lightweight windows contain their requested line across display and translation modes (36.526197ms)
+✔ cooperative cancellation is idempotent and rejects a stale finish before transferring resources (1.858765ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56.288263
+
+== startup-navigation-readiness.test.js ==
+[StartupWindow] navigation attempt 1 failed: loadURL attempt 1 timed out in test
+[StartupWindow] navigation attempt 2 failed: loadURL attempt 2 timed out in test
+[OK] startup navigation accepts a trusted ready document without killing it, while truly unready loads still retry and fail
+
+== startup-qa-userdata-isolation.test.js ==
+✔ startup QA isolates its disposable userData away from the real profile (0.884114ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5.432489
+
+== startup-window-guide.test.js ==
+✔ first launch shows its window after navigation, without restoring a hidden runtime window (2.752274ms)
+✔ shown guide survives immediate exit, cache changes and a missing browser marker (2.359712ms)
+✔ intro uses upstream DOM-ready sound and entry timing without a native window wait (0.840919ms)
+✔ background timeline retains upstream real-time speed (0.711174ms)
+✔ native visibility controls throttling without needing focus or redundant native calls (1.940358ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.221511
+
+== system-media-session.test.js ==
+✔ media actions are idempotent and follow the live audio owner through handoff (2.665854ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.62034
+
+== ui-control-accessibility.test.js ==
+✔ visual settings expose their sibling labels and button state without replacing markup (2.912466ms)
+✔ repeat suppression and idempotent initialization keep a toggle to one activation (1.273322ms)
+✔ ordinary toast notifications have a polite, atomic status announcement (0.869612ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.436579
+
+== ui-default-theme-shelf-layer.test.js ==
+✔ first-launch UI accent defaults and missing-field fallback stay white (4.315934ms)
+✔ persistent shelf stays behind lyrics until selection or detail raises it (1.65643ms)
+✔ the removed stage floor reflection cannot regress (0.400354ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.199982
+
+== ui-keyboard-interaction.test.js ==
+✔ Space on a native button remains available for that button (3.410057ms)
+✔ a control-owned arrow event cannot also switch the track (0.917435ms)
+✔ an accessible role-button target does not start playback on Space (0.801369ms)
+✔ a page-owned shortcut still works with body focus (0.957095ms)
+✔ free-camera capture does not intercept Space or R on controls (1.01362ms)
+✔ shelf paging does not steal PageDown from a focused control (0.903093ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.312411
+
+== ui-modal-accessibility.test.js ==
+✔ opening, tab wrapping and closing a dialog keep focus with its workflow (3.08091ms)
+✔ higher-z-index nested dialogs own Escape and restore their caller (1.158178ms)
+✔ Escape in a textarea closes its modal before page shortcuts can run (2.569648ms)
+✔ audio route Escape and playlist-name cancellation use their existing close functions (1.486393ms)
+✔ IME-owned and already consumed Escape events remain owned by the control (0.790613ms)
+✔ hotkey capture keeps Escape and Tab ownership; ordinary Escape closes its dialog (1.569589ms)
+✔ public hotkey open and close reuse modal focus without registering real system keys (2.010274ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.249454
+
+== ui-peek-focus.test.js ==
+✔ pointer-auto-hide does not remove a panel when focus enters before its timer fires (4.347822ms)
+✔ unfocused automatic hide and explicit dismissal retain their current behavior (0.935271ms)
+✔ all pointer-auto-hide callsites opt into focus preservation (0.432593ms)
+✔ leaving focus resumes the pending pointer hide after its original delay (2.054701ms)
+✔ nested focus and a pointer return do not restart an obsolete hide (0.973779ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.973176
+
+== ui-render-cache.test.js ==
+✔ extra UI frames reuse the background and close releases the cached target (2.164697ms)
+✔ a draw failure restores visibility, render target and clear behavior (2.165688ms)
+✔ without skipped background frames the scene draws in a single normal pass (0.66235ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.48865
+
+== ui-sfx-volume.test.js ==
+✔ prompt volume restores silence and saved choices, with a default for missing or invalid data (8.419206ms)
+✔ the prompt slider saves and restores its value without changing music volume (1.773887ms)
+✔ muting prevents new sounds and cancels a tick waiting for the audio context to resume (1.345631ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.6639
+
+== update-download-link-rotation.test.js ==
+✔ the latest Release body supplies two new pages and the announcement without stale visible links (5.819453ms)
+✔ a source build reads only the bold 更新重点 phrases, not the heading or explanations (1.529959ms)
+✔ explicit manifest pages replace legacy URL aliases instead of appending a retired third source (1.03395ms)
+✔ an explicitly empty or unsafe list retires legacy sources while old single-page manifests remain compatible (1.075383ms)
+✔ renderer replaces three old sources with two latest sources and opens only the selected new page (2.685583ms)
+✔ renderer clears retired sources and previous notes when the next payload omits the announcement (0.821891ms)
+✔ renderer preserves the legacy single-page response when no explicit list is supplied (0.679125ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.116759
+
+== update-early-check.test.js ==
+✔ startup begins the update request without a nine-second timer (2.237487ms)
+✔ early result waits for the home screen; late result appears when ready (0.752095ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.099794
+
+== update-external-only.test.js ==
+✔ release update metadata accepts only a bounded HTTPS external page (1.177216ms)
+✔ removed local update routes stay disabled and their workers stay absent (1.210917ms)
+✔ release body preserves all three labelled HTTPS download pages (2.818885ms)
+✔ renderer opens the external page without local installer or patch calls (0.246251ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.956396
+
+== user-fx-archive-compat.test.js ==
+✔ v2 named complete snapshot round trips independently of mutable defaults and preserves Aero (37.45942ms)
+✔ frozen original and Remix v1 full layouts preserve shelf fields after inserted offsets (24.15371ms)
+✔ legacy delta never uses an unidentifiable mutable baseline; unsupported lengths are rejected (5.864942ms)
+✔ JSON migration accepts recognized legacy partial snapshots and rejects unrelated/future/invalid structure (10.622322ms)
+✔ quota failure rolls back imports, new slots, overwrite, rename and removal without success toast (36.479381ms)
+✔ missing and incomplete snapshots never create a saved archive (5.914166ms)
+✔ new share codec fallback and checksum/schema validation preserve integrity (11.750094ms)
+✔ all Aero palettes and panel glass endpoints survive complete snapshot storage/share (43.046337ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183.66487
+
+== viewport-refresh-budget.test.js ==
+✔ resize bursts preserve immediate refresh and the final three stable checks without accumulating timers (3.625502ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.690125
+
+== visual-clarity-and-portrait-fullscreen.test.js ==
+✔ translation lyrics share high clarity sampling and global bright-background avoidance (1.102043ms)
+✔ cover particles share bright-background avoidance (0.430439ms)
+✔ portrait fullscreen targets the display under the window center (1.825555ms)
+✔ Wallpaper Engine controls persist and use the existing DWM surface (1.319181ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.822342
+
+== visual-performance-controls.test.js ==
+✔ visual performance controls are visible and persisted without reordering old MR2 fields (2.482446ms)
+✔ disabled controls bypass the expensive lyric and particle paths (0.66256ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.951671
+
+== wallpaper-background-regression.test.js ==
+✔ switching wallpapers isolates framing and restores each saved project across restarts (15.213781ms)
+✔ saved WE properties are staged, refreshed and applied only to the app window (10.254146ms)
+✔ legacy nested property values cannot import another Windows account or app location (1.710081ms)
+✔ choosing cover background tears down the WE layer without entering desktop mode (1.048593ms)
+﹣ native corners recover after WE clears its region and a maximized start restores (0.121864ms) # SKIP
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 33.03634
+
+== wallpaper-compatibility-messages.test.js ==
+✔ preview labels explain unsupported applications and missing project files (2.960939ms)
+✔ selecting an unsupported preview clearly warns that effects and interaction are unavailable (2.896211ms)
+✔ an unusable project without a preview reports why and leaves the current wallpaper alone (1.616219ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.398702
+
+== wallpaper-engine-idle-dispose.test.js ==
+✔ idle Wallpaper Engine runtime disposes as a verified clean state (2.816812ms)
+✔ single DWM surface accepts bounded visual settings without another native layer (1.156065ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.888915
+
+== wallpaper-engine-minimize-resident.test.js ==
+OK wallpaper-engine-minimize-resident
+
+== wallpaper-engine-win10-yellow-border.test.js ==
+[OK] Wallpaper Engine pak capture avoids Win10 display-capture yellow border fallback.
+
+== wallpaper-interaction.test.js ==
+✔ DWM input validates the exact session and preserves releases under backpressure (1.514626ms)
+✔ background input leaves player controls alone and sends ordered drag/release/reset (1.950934ms)
+✔ optional glass capture failure still activates the rounded native wallpaper (2.505512ms)
+✔ additional media formats are indexed without serving HTML or escaped files (30.864703ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40.899748
+
+== wallpaper-loop-cache.test.js ==
+✔ recording survives restart, exposes only a capability URL and supports seeking (23.231412ms)
+✔ project updates, changed settings and damaged recordings invalidate the cache (25.279213ms)
+✔ switching during upload cancels its partial file and rejects late chunks (5.860375ms)
+✔ the recorded capture size is stored and reported for regeneration hints (9.841012ms)
+✔ release waits for in-flight lookup hashing, then preserves its newly issued playable lease (10.421378ms)
+✔ cancelled queued update cleanup never aborts recording jobs resumed after timeout (0.466624ms)
+✔ cancellable update cleanup owns a snapshot, not jobs created while waiting for the write queue (0.482889ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 86.267715
+
+== wallpaper-loop-mode.test.js ==
+✔ late cached response cannot play after the user switches back to native (3.937593ms)
+✔ changing wallpaper while native teardown waits discards the old cached video (1.53706ms)
+✔ cached playback closes the native instance before loading a looping muted video (1.834789ms)
+✔ desktop visibility pauses and resumes a cached loop despite stale page visibility (0.949373ms)
+✔ failed native recording source falls back without routing into a second loop job (2.039098ms)
+✔ native session restart during recording aborts instead of caching a frozen frame (34.974575ms)
+✔ a small window asks before recording and full-screen choice expands then restores (53.054112ms)
+✔ cancel before the fullscreen IPC reply waits for its token and restores exactly once (4.528725ms)
+✔ a replacement loop waits for old window restoration before looking up its cache (1.142183ms)
+✔ failed native preparation restores the temporary fullscreen window (1.341504ms)
+✔ a cached low-resolution loop plays and offers a full-screen regeneration (0.870023ms)
+✔ the library can sync the mode UI before this module has run (bundle load order) (1.065037ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.788677
+
+== wallpaper-loop-window.test.js ==
+✔ capture waits for native entry, then restores the exact original size and monitor position (3.31914ms)
+✔ maximize state is retained and a stale token cannot restore a newer recording (0.618564ms)
+✔ closing the window during entry rejects without keeping native event listeners (0.705284ms)
+✔ restoration clears logical fullscreen even when Windows has already cleared its native flag (0.326233ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.343371
+
+== wallpaper-native-input.test.js ==
+﹣ native scene input maps coordinates, keeps drag flags, releases buttons and restores focus policy (0.620166ms) # SKIP
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 5.272807
+
+== wallpaper-node-import-boundary.test.js ==
+✔ plain Node wallpaper capability probing does not import or download Electron (2.067861ms)
+✔ Electron main wallpaper capability probing still uses the native capturer (0.839918ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.960318
+
+== wallpaper-quality-properties.test.js ==
+✔ wallpaper edits validate types, persist atomically, reset and leave original project read-only (15.598501ms)
+✔ local edits apply only to the matching live window, mute wins and reset reapplies defaults (7.24399ms)
+✔ video decode failures try the original native target before a clearly labeled thumbnail (2.622617ms)
+✔ Windows PowerShell helpers do not inherit incompatible PowerShell Core module paths (5.456102ms)
+✔ automatic wallpaper FPS avoids a heavy scene rendering at desktop 240 Hz (1.470189ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39.484483
+
+== wallpaper-visual-reset.test.js ==
+✔ four WE resets use real defaults, apply immediately and preserve unrelated selection settings (17.099336ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.865735
+
+== wallpaper-window-follow.test.js ==
+﹣ native wallpaper follows host movement without waiting for its recovery timer (0.723672ms) # SKIP
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 5.365636
+
+== workflow-release-boundary.test.js ==
+✔ CI and release actions are pinned; only the gated publisher has write permission (5.266456ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.711281
+{"passedFiles":229,"failedFiles":0,"blockedFiles":1,"totalFiles":230}

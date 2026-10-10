@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
+const { validateKugouVerificationUrl } = require('./desktop/kugou-verification');
 
 const KUGOU_SEARCH_URL = 'https://songsearch.kugou.com/song_search_v2';
 const KUGOU_PLAY_MOBILE = 'https://m.kugou.com/app/i/getSongInfo.php';
@@ -54,7 +55,7 @@ function createKugouTtlCache(maxEntries, defaultTtlMs) {
       let promise;
       promise = Promise.resolve().then(fn).then((value) => {
         const resolvedTtl = typeof ttlMs === 'function' ? ttlMs(value) : ttlMs;
-        if (startGeneration === generation) this.set(key, value, resolvedTtl);
+        if (startGeneration === generation && resolvedTtl !== false) this.set(key, value, resolvedTtl);
         return value;
       }).finally(() => {
         if (inflight.get(key) === promise) inflight.delete(key);
@@ -80,6 +81,9 @@ const KUGOU_VIP_STALE_POSITIVE_GRACE_MS = 10 * 60 * 1000;
 const KUGOU_H5_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function clearKugouSessionCaches() {
+  kugouFavoriteCacheGeneration += 1;
+  kugouFavoriteListCache = { listId: '', scope: '', at: 0 };
+  kugouLikeFileIdByHash.clear();
   kugouSearchCache.clear();
   kugouSongUrlCache.clear();
   kugouPlaylistTracksCache.clear();
@@ -99,22 +103,62 @@ const KUGOU_QUALITY_CHAIN = [
 function requestText(targetUrl, opts, body) {
   opts = opts || {};
   return new Promise((resolve, reject) => {
-    const u = new URL(targetUrl);
-    const lib = u.protocol === 'https:' ? https : http;
+    // These transports carry JSON and encoded lyric metadata, never audio.
+    const maxBytes = Number.isSafeInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 8 * 1024 * 1024;
+    const signal = opts.signal;
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    let req;
+    let response;
     let deadline;
     const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(deadline);
+      if (signal) signal.removeEventListener('abort', onAbort);
       if (error) reject(error);
       else resolve(value);
     };
-    const req = lib.request(u, {
+    const fail = error => {
+      if (settled) return;
+      finish(error);
+      if (response && typeof response.destroy === 'function') response.destroy();
+      if (req) req.destroy();
+    };
+    const onAbort = () => fail(Object.assign(new Error('Request aborted'), { name: 'AbortError', code: 'ABORT_ERR' }));
+    if (signal && signal.aborted) { onAbort(); return; }
+    const u = new URL(targetUrl);
+    const lib = u.protocol === 'https:' ? https : http;
+    req = lib.request(u, {
       method: opts.method || 'GET',
       headers: opts.headers || {},
-    }, response => {
-      const chunks = [];
-      response.on('data', chunk => chunks.push(chunk));
+    }, incoming => {
+      response = incoming;
+      const tooLarge = () => {
+        const err = Object.assign(new Error('UPSTREAM_RESPONSE_TOO_LARGE'), { code: 'UPSTREAM_RESPONSE_TOO_LARGE', statusCode: response.statusCode });
+        if (response.statusCode >= 400) err.body = Buffer.concat(chunks, size).toString('utf8');
+        fail(err);
+      };
+      response.on('error', fail);
+      response.on('aborted', () => fail(new Error('Response aborted')));
+      response.on('close', () => { if (response.complete === false) fail(new Error('Response incomplete')); });
+      const declared = Number((response.headers || {})['content-length']);
+      if (Number.isFinite(declared) && declared > maxBytes && response.statusCode < 400) { tooLarge(); return; }
+      response.on('data', chunk => {
+        if (settled) return;
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        if (size + bytes.length > maxBytes) {
+          const remaining = maxBytes - size;
+          if (remaining) { chunks.push(bytes.subarray(0, remaining)); size += remaining; }
+          tooLarge(); return;
+        }
+        chunks.push(bytes); size += bytes.length;
+      });
       response.on('end', () => {
-        const text = Buffer.concat(chunks).toString('utf8');
+        if (settled) return;
+        if (response.complete === false) { fail(new Error('Response incomplete')); return; }
+        const text = Buffer.concat(chunks, size).toString('utf8');
         if (response.statusCode >= 400) {
           const err = new Error('HTTP ' + response.statusCode);
           err.statusCode = response.statusCode;
@@ -124,14 +168,14 @@ function requestText(targetUrl, opts, body) {
         }
         finish(null, text);
       });
-      response.on('error', error => finish(error));
-      response.on('aborted', () => finish(new Error('Response aborted')));
     });
     const timeoutMs = Math.max(250, Number(opts.timeoutMs) || 12000);
-    deadline = setTimeout(() => req.destroy(new Error('Request timeout')), timeoutMs);
+    const onTimeout = () => fail(new Error('Request timeout'));
+    deadline = setTimeout(onTimeout, timeoutMs);
     if (typeof deadline.unref === 'function') deadline.unref();
-    req.setTimeout(timeoutMs, () => req.destroy(new Error('Request timeout')));
-    req.on('error', error => finish(error));
+    req.setTimeout(timeoutMs, onTimeout);
+    req.on('error', fail);
+    if (signal) { signal.addEventListener('abort', onAbort, { once: true }); if (signal.aborted) { onAbort(); return; } }
     if (body) req.write(body);
     req.end();
   });
@@ -209,14 +253,55 @@ function kugouPlaybackTrial(json) {
 }
 
 function kugouPlaybackRestriction(json, auth) {
-  const data = json && json.data && typeof json.data === 'object' ? json.data : {};
-  const code = Number(json && (json.err_code || json.error_code || json.errcode || json.errno)) || 0;
-  const rawMessage = String(json && (json.error || json.errmsg || json.msg || json.message || json.show_tips) || data.msg || data.show_tips || '');
+  // Inspect only response/challenge envelopes, not unrelated song/account metadata.
+  const envelopes = [];
+  const pending = [json];
+  const seen = new Set();
+  const challengeEnvelopes = new Set();
+  const wrapperKeys = ['data', 'result', 'error', 'error_data', 'errorData', 'verification', 'verify', 'captcha', 'challenge', 'security', 'safety'];
+  while (pending.length && envelopes.length < 24) {
+    const value = pending.shift();
+    if (!value || typeof value !== 'object' || Array.isArray(value) || seen.has(value)) continue;
+    seen.add(value);
+    envelopes.push(value);
+    wrapperKeys.forEach(key => {
+      if (value[key] && typeof value[key] === 'object') {
+        if (['verification', 'verify', 'captcha', 'challenge', 'security', 'safety'].includes(key)) challengeEnvelopes.add(value[key]);
+        pending.push(value[key]);
+      }
+    });
+  }
+  const codes = envelopes.flatMap(value => ['err_code', 'error_code', 'errcode', 'errCode', 'errorCode', 'errno', 'code', 'upstreamCode']
+    .map(key => Number(value[key])).filter(code => Number.isFinite(code) && code !== 0));
+  const code = codes.includes(30020) ? 30020 : (codes[0] || 0);
+  const messages = envelopes.flatMap(value => ['error', 'errmsg', 'err_msg', 'error_msg', 'error_message', 'msg', 'message', 'show_tips']
+    .map(key => typeof value[key] === 'string' ? value[key] : '').filter(Boolean));
+  const rawMessage = messages.join(' ');
+  const challengeUrlKeys = /^(verification|verify|validation|validate|captcha|challenge|security|safety)(url|uri|link)$/i;
+  const requiredKeys = /^(verificationrequired|verifyrequired|captcharequired|challengerequired|needverify|needcaptcha|needverification|needsecuritycheck)$/i;
+  const explicitChallenge = envelopes.some(value => Object.keys(value).some(key => {
+    const normalizedKey = key.replace(/[_-]/g, '');
+    return ((challengeUrlKeys.test(normalizedKey) || challengeEnvelopes.has(value) && /^(url|uri|link)$/i.test(normalizedKey)) &&
+      typeof value[key] === 'string' && !!value[key].trim()) ||
+      (requiredKeys.test(normalizedKey) && truthyParam(value[key]));
+  }));
   let category = 'url_unavailable';
   let message = '酷狗暂未返回播放地址，请稍后重试';
-  if (code === 30020) {
+  let verificationUrl = '';
+  if (code === 30020 || explicitChallenge ||
+      /安全(?:验证|校验)|人机验证|(?:滑块|滑动|风控)验证|captcha|security[ _-]*(?:verification|check)|verification_required/i.test(rawMessage)) {
     category = 'verification_required';
-    message = '酷狗需要官方安全验证，请打开酷狗官方登录窗口完成验证';
+    message = '酷狗需要官方安全验证，请打开酷狗官方验证窗口完成验证';
+    // Prefer explicitly named challenge links. Generic URLs are accepted only after
+    // the upstream response has clearly required verification; never invent a URL.
+    const explicitUrls = [];
+    const fallbackUrls = [];
+    envelopes.forEach(value => Object.keys(value).forEach(key => {
+      const normalizedKey = key.replace(/[_-]/g, '');
+      if (challengeUrlKeys.test(normalizedKey)) explicitUrls.push(value[key]);
+      else if (/^(url|uri|link|redirecturl|redirecturi|redirectlink)$/i.test(normalizedKey)) fallbackUrls.push(value[key]);
+    }));
+    verificationUrl = (explicitUrls.length ? explicitUrls : fallbackUrls).map(validateKugouVerificationUrl).find(Boolean) || '';
   } else if (code === 30022) {
     category = 'client_only';
     message = '该酷狗歌曲仅支持官方客户端播放';
@@ -227,7 +312,24 @@ function kugouPlaybackRestriction(json, auth) {
     category = auth && auth.playbackReady ? 'vip_required' : 'login_required';
     message = '该酷狗歌曲需要有效会员或已购买权限';
   }
-  return { restricted: true, category, message, upstreamCode: code || undefined };
+  return {
+    restricted: true, category, message, upstreamCode: code || undefined,
+    ...(category === 'verification_required' ? { verificationUrl } : {}),
+  };
+}
+
+function kugouVerificationFromError(error, auth) {
+  if (!error) return null;
+  let body = error.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (_) { body = null; }
+  }
+  const restriction = kugouPlaybackRestriction({
+    data: body && typeof body === 'object' ? body : {},
+    err_code: error.upstreamCode || error.code,
+    message: error.message,
+  }, auth);
+  return restriction.category === 'verification_required' ? restriction : null;
 }
 
 function kugouCoverUrl(raw, size) {
@@ -1045,11 +1147,13 @@ async function kugouPlayViaMobile(hash, albumId, cookie, membership, timeoutMs) 
     timeoutMs,
     headers: { ...KUGOU_HEADERS, Referer: 'https://m.kugou.com/', Cookie: buildKugouRequestCookie(cookie) },
   });
+  const restriction = kugouPlaybackRestriction(json, auth);
+  if (restriction.category === 'verification_required') return restriction;
   const url = pickKugouPlayUrl(json);
   if (json && Number(json.status) === 1 && url) {
     return { url, level: 'standard', quality: '标准', trial: kugouPlaybackTrial(json), source: 'mobile' };
   }
-  return kugouPlaybackRestriction(json, auth);
+  return restriction;
 }
 
 async function kugouPlayViaWeb(hash, albumId, albumAudioId, cookie, timeoutMs, retry) {
@@ -1069,6 +1173,8 @@ async function kugouPlayViaWeb(hash, albumId, albumAudioId, cookie, timeoutMs, r
     headers: { ...KUGOU_HEADERS, Cookie: buildKugouRequestCookie(cookie) },
   });
   const data = json && json.data || {};
+  const restriction = kugouPlaybackRestriction(json, auth);
+  if (restriction.category === 'verification_required') return restriction;
   const url = pickKugouPlayUrl(json);
   if (json && Number(json.status) === 1 && url) {
     const bitrate = Number(data.bitrate) || 0;
@@ -1076,7 +1182,7 @@ async function kugouPlayViaWeb(hash, albumId, albumAudioId, cookie, timeoutMs, r
     const level = kbps >= 900 ? 'lossless' : (kbps >= 300 ? 'exhigh' : 'standard');
     return { url, level, quality: data.quality || level, trial: kugouPlaybackTrial(json), source: 'web' };
   }
-  return kugouPlaybackRestriction(json, auth);
+  return restriction;
 }
 
 async function kugouPlayViaH5(hash, albumId, albumAudioId, cookie, requestedQuality, membership, timeoutMs) {
@@ -1114,12 +1220,14 @@ async function kugouPlayViaH5(hash, albumId, albumAudioId, cookie, requestedQual
       Cookie: buildKugouRequestCookie(cookie),
     },
   });
+  const restriction = kugouPlaybackRestriction(json, auth);
+  if (restriction.category === 'verification_required') return restriction;
   const url = pickKugouPlayUrl(json);
   if (json && Number(json.status) === 1 && url) {
     const level = kugouQualityFromParam(quality, requestedQuality);
     return { url, level, quality: level, trial: kugouPlaybackTrial(json), source: 'h5' };
   }
-  return kugouPlaybackRestriction(json, auth);
+  return restriction;
 }
 
 async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requestedQuality, membership, timeoutMs) {
@@ -1170,12 +1278,14 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
       Cookie: buildKugouRequestCookie(cookie),
     },
   });
+  const restriction = kugouPlaybackRestriction(json, auth);
+  if (restriction.category === 'verification_required') return restriction;
   const url = pickKugouPlayUrl(json);
   if (json && Number(json.status) === 1 && url) {
     const level = kugouQualityFromParam(quality, requestedQuality);
     return { url, level, quality: level, trial: kugouPlaybackTrial(json), source: 'gateway' };
   }
-  return kugouPlaybackRestriction(json, auth);
+  return restriction;
 }
 
 function normalizeQualityPreference(q) {
@@ -1249,6 +1359,15 @@ async function handleKugouSongUrl(params, cookie) {
   }
   const vipProbe = auth.playbackReady ? await fetchKugouVipInfo(cookie, auth).catch(() => null) : null;
   const membership = normalizeKugouVipPayloadV2(vipProbe, auth);
+  if (vipProbe && vipProbe.category === 'verification_required') {
+    const restriction = { category: vipProbe.category, message: vipProbe.message, verificationUrl: vipProbe.verificationUrl || '', upstreamCode: vipProbe.upstreamCode };
+    return attachKugouPlaybackStatus({
+      provider: 'kugou', url: '', playable: false, reason: restriction.category,
+      message: restriction.message, verificationRequired: true, restriction,
+      verificationUrl: restriction.verificationUrl, upstreamCode: restriction.upstreamCode,
+      requestedQuality, hash,
+    }, cookie, Object.assign({}, auth, { playbackReady: false }), membership);
+  }
   const rightsMembership = Object.assign({}, membership, {
     playbackReady: auth.playbackReady,
     playbackKeyReady: auth.playbackReady,
@@ -1319,6 +1438,26 @@ async function handleKugouSongUrl(params, cookie) {
     return attachKugouPlaybackStatus(payload, cookie, auth, membership);
   }
 
+  function restrictedPlayback(restriction) {
+    const details = { category: restriction.category, message: restriction.message };
+    if (restriction.upstreamCode) details.upstreamCode = restriction.upstreamCode;
+    if (restriction.category === 'verification_required') details.verificationUrl = restriction.verificationUrl || '';
+    return attachKugouPlaybackStatus({
+      provider: 'kugou',
+      url: '',
+      playable: false,
+      reason: restriction.category,
+      message: restriction.message,
+      restriction: details,
+      ...(restriction.upstreamCode ? { upstreamCode: restriction.upstreamCode } : {}),
+      ...(restriction.category === 'verification_required' ? { verificationUrl: details.verificationUrl } : {}),
+      requestedQuality,
+      effectiveQuality,
+      qualityDowngraded: requestedQuality !== effectiveQuality,
+      hash,
+    }, cookie, auth, membership);
+  }
+
   let lastRestriction = null;
   let trialCandidate = null;
   const deadline = Date.now() + KUGOU_PLAY_BUDGET_MS;
@@ -1340,11 +1479,17 @@ async function handleKugouSongUrl(params, cookie) {
       let result;
       try {
         result = await run(Math.min(KUGOU_PLAY_ATTEMPT_MS, remaining));
-      } catch (_) {
+      } catch (error) {
+        // HTTP error bodies may still contain an explicit official challenge.
+        const verification = kugouVerificationFromError(error, auth);
+        if (verification) return restrictedPlayback(verification);
         // One unavailable endpoint must not prevent the remaining official routes.
         rememberRestriction({ restricted: true, category: 'url_unavailable', message: '酷狗播放接口暂时不可用，请稍后重试' });
         continue;
       }
+      // A security challenge terminates this request, including quality fallbacks
+      // and any earlier preview. It must not be overwritten or bypassed.
+      if (result && result.category === 'verification_required') return restrictedPlayback(result);
       if (result && result.url) {
         const payload = {
           provider: 'kugou',
@@ -1379,18 +1524,7 @@ async function handleKugouSongUrl(params, cookie) {
     category: 'url_unavailable',
     message: '酷狗暂未返回播放地址，请稍后重试',
   };
-  return attachKugouPlaybackStatus({
-    provider: 'kugou',
-    url: '',
-    playable: false,
-    reason: restriction.category,
-    message: restriction.message,
-    restriction: { category: restriction.category, message: restriction.message },
-    requestedQuality,
-    effectiveQuality,
-    qualityDowngraded: requestedQuality !== effectiveQuality,
-    hash,
-  }, cookie, auth, membership);
+  return restrictedPlayback(restriction);
 }
 
 function decodeKugouLyricContent(content) {
@@ -1476,28 +1610,22 @@ async function fetchKugouWebVipInfo(cookie, auth) {
   if (!auth.loggedIn || !cookie) return kugouUnknownWebMembershipPayload();
   const url = new URL(KUGOU_VIP_ROLEINFO_URL);
   url.searchParams.set('n', String(Date.now()));
-  let timer = null;
-  try {
-    const payload = await Promise.race([
-      requestJson(url.toString(), {
-        timeoutMs: 2500,
-        headers: {
-          Accept: 'application/json, text/javascript, */*; q=0.01',
-          Referer: 'https://vip.kugou.com/',
-          'User-Agent': KUGOU_H5_UA,
-          'X-Requested-With': 'XMLHttpRequest',
-          Cookie: buildKugouRequestCookie(cookie),
-        },
-      }).catch(() => null),
-      new Promise(resolve => {
-        timer = setTimeout(() => resolve(null), 2500);
-        if (typeof timer.unref === 'function') timer.unref();
-      }),
-    ]);
-    return normalizeKugouWebRoleInfoPayload(payload, auth);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  const payload = await requestJson(url.toString(), {
+    // The transport destroys timed-out requests; no raced request is left behind
+    // while the caller proceeds to a different official endpoint.
+    timeoutMs: 2500,
+    headers: {
+      Accept: 'application/json, text/javascript, */*; q=0.01',
+      Referer: 'https://vip.kugou.com/',
+      'User-Agent': KUGOU_H5_UA,
+      'X-Requested-With': 'XMLHttpRequest',
+      Cookie: buildKugouRequestCookie(cookie),
+    },
+  }).catch(error => kugouVerificationFromError(error, auth));
+  if (payload && payload.category === 'verification_required') return payload;
+  const restriction = kugouPlaybackRestriction(payload, auth);
+  if (restriction.category === 'verification_required') return restriction;
+  return normalizeKugouWebRoleInfoPayload(payload, auth);
 }
 
 async function fetchKugouVipInfo(cookie, auth) {
@@ -1505,13 +1633,15 @@ async function fetchKugouVipInfo(cookie, auth) {
   if (!auth.loggedIn) return null;
   const cacheKey = kugouVipCacheKey(auth);
   return kugouVipCache.wrap(cacheKey, (value) => {
+    if (value && value.category === 'verification_required') return false;
     const staleUntil = Number(value && value.__kugouMembershipStaleUntil) || 0;
     if (staleUntil > 0) return Math.max(1000, Math.min(30 * 1000, staleUntil - Date.now()));
     if (value && value.__kugouMembershipUnknown) return 10 * 1000;
     const parsed = normalizeKugouVipPayloadV2(value, { userid: auth.userid });
     return parsed.isVip ? 5 * 60 * 1000 : 60 * 1000;
   }, async () => {
-    const webRoleInfo = await fetchKugouWebVipInfo(cookie, auth).catch(() => kugouUnknownWebMembershipPayload());
+    const webRoleInfo = await fetchKugouWebVipInfo(cookie, auth).catch(error => kugouVerificationFromError(error, auth) || kugouUnknownWebMembershipPayload());
+    if (webRoleInfo && webRoleInfo.category === 'verification_required') return webRoleInfo;
     const webMembership = normalizeKugouVipPayloadV2(webRoleInfo, { userid: auth.userid });
     if (webMembership.membershipKnown) {
       return stabilizeKugouVipProbe(cacheKey, webRoleInfo, auth);
@@ -1521,106 +1651,113 @@ async function fetchKugouVipInfo(cookie, auth) {
     }
 
     const attempts = [
-      () => kugouGatewayRequest('/v1/get_union_vip', {
+      timeoutMs => kugouGatewayRequest('/v1/get_union_vip', {
         method: 'GET',
+        timeoutMs,
         cookie,
         params: { busi_type: 'concept' },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
-      () => kugouGatewayRequest('/v1/vipuser_sub', {
+      timeoutMs => kugouGatewayRequest('/v1/vipuser_sub', {
         method: 'GET',
+        timeoutMs,
         cookie,
         params: { busi_type: 'concept' },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
-      () => kugouGatewayRequest('/kugouvip/v2/batch_union_vipinfo', {
+      timeoutMs => kugouGatewayRequest('/kugouvip/v2/batch_union_vipinfo', {
         method: 'GET',
+        timeoutMs,
         cookie,
         params: { busi_type: 'concept', userids: auth.userid },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
-      () => kugouGatewayRequest('/kugouvip/v1/batch_union_vipinfo', {
+      timeoutMs => kugouGatewayRequest('/kugouvip/v1/batch_union_vipinfo', {
         method: 'GET',
+        timeoutMs,
         cookie,
         params: { busi_type: 'concept', userids: auth.userid },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
-      () => kugouGatewayRequest('/mobile/vipinfo', {
+      timeoutMs => kugouGatewayRequest('/mobile/vipinfo', {
         method: 'GET',
+        timeoutMs,
         cookie,
         params: { plat: 0 },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
-      () => kugouGatewayRequest('/v1/get_union_vip', {
+      timeoutMs => kugouGatewayRequest('/v1/get_union_vip', {
         method: 'GET',
+        timeoutMs,
         cookie,
         baseURL: 'https://kugouvip.kugou.com',
         params: { busi_type: 'concept' },
         headers: { Referer: 'https://vip.kugou.com/' },
       }),
     ];
-    const primary = await Promise.race([
-      Promise.resolve().then(attempts[0]).catch(() => null),
-      new Promise(resolve => {
-        const timer = setTimeout(() => resolve(null), 1500);
-        if (typeof timer.unref === 'function') timer.unref();
-      }),
-    ]);
-    const primaryMembership = normalizeKugouVipPayloadV2(primary, { userid: auth.userid });
-    if (primaryMembership.isVip) return stabilizeKugouVipProbe(cacheKey, primary, auth);
-
-    const result = await new Promise(resolve => {
-      let settled = false;
-      const fallbackAttempts = attempts.slice(1);
-      let pending = fallbackAttempts.length;
-      let knownNonMember = primaryMembership.membershipKnown ? primary : null;
-      let allCompletedAreKnownOrdinary = !!primaryMembership.membershipKnown;
-      const finish = (value) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(value || { __kugouMembershipUnknown: true });
-      };
-      const timer = setTimeout(() => finish(null), 5000);
-      if (typeof timer.unref === 'function') timer.unref();
-      fallbackAttempts.forEach(run => {
-        Promise.resolve().then(run).then(data => {
-          const parsed = normalizeKugouVipPayloadV2(data, { userid: auth.userid });
-          if (parsed.membershipKnown) {
-            if (parsed.isVip) {
-              finish(data);
-              return;
-            }
-            if (!knownNonMember) knownNonMember = data;
-          } else {
-            allCompletedAreKnownOrdinary = false;
-          }
-          pending -= 1;
-          if (pending <= 0) finish(allCompletedAreKnownOrdinary ? knownNonMember : null);
-        }).catch(() => {
-          allCompletedAreKnownOrdinary = false;
-          pending -= 1;
-          if (pending <= 0) finish(null);
-        });
-      });
-    });
+    // Sequential bounded probes let a security challenge stop all remaining routes.
+    // Unknown responses must still prevent a negative result from becoming authoritative.
+    const deadline = Date.now() + 5000;
+    let knownNonMember = null;
+    let allCompletedAreKnownOrdinary = true;
+    let completed = 0;
+    for (const run of attempts) {
+      const remaining = deadline - Date.now();
+      if (remaining < 250) break;
+      let result;
+      try {
+        result = await run(Math.min(1500, remaining));
+      } catch (error) {
+        const verification = kugouVerificationFromError(error, auth);
+        if (verification) return verification;
+        allCompletedAreKnownOrdinary = false;
+        completed += 1;
+        continue;
+      }
+      const restriction = kugouPlaybackRestriction(result, auth);
+      if (restriction.category === 'verification_required') return restriction;
+      const parsed = normalizeKugouVipPayloadV2(result, { userid: auth.userid });
+      if (parsed.isVip) return stabilizeKugouVipProbe(cacheKey, result, auth);
+      if (parsed.membershipKnown) {
+        if (!knownNonMember) knownNonMember = result;
+      } else {
+        allCompletedAreKnownOrdinary = false;
+      }
+      completed += 1;
+    }
+    const result = completed === attempts.length && allCompletedAreKnownOrdinary
+      ? knownNonMember : { __kugouMembershipUnknown: true };
     return stabilizeKugouVipProbe(cacheKey, result, auth);
   });
 }
 
 async function getKugouLoginInfo(cookie) {
   const auth = extractKugouAuth(cookie);
-  const [profile, vipProbe] = await Promise.all([
-    (!auth.nickname || !auth.avatar) ? fetchKugouProfileFromPlaylists(cookie, auth).catch(() => ({})) : {},
-    fetchKugouVipInfo(cookie, auth).catch(() => null),
-  ]);
-  const vip = normalizeKugouVipPayloadV2(vipProbe, auth);
+  const profile = (!auth.nickname || !auth.avatar)
+    ? await fetchKugouProfileFromPlaylists(cookie, auth).catch(error => kugouVerificationFromError(error, auth) || {})
+    : {};
+  const vipProbe = profile.category === 'verification_required' ? null
+    : await fetchKugouVipInfo(cookie, auth).catch(error => kugouVerificationFromError(error, auth));
+  const verification = profile.category === 'verification_required' ? profile
+    : vipProbe && vipProbe.category === 'verification_required' ? vipProbe : null;
+  const playbackReady = auth.playbackReady && !verification;
+  const vip = normalizeKugouVipPayloadV2(verification ? { __kugouMembershipUnknown: true } : vipProbe, auth);
   const nickname = auth.nickname || profile.nickname || (auth.loggedIn ? ('酷狗 ' + (auth.userid || '用户')) : '酷狗音乐');
   return {
     provider: 'kugou',
+    ...(verification ? {
+      verificationRequired: true,
+      error: 'KUGOU_VERIFICATION_REQUIRED',
+      reason: verification.category,
+      message: verification.message,
+      verificationUrl: verification.verificationUrl || '',
+      upstreamCode: verification.upstreamCode,
+      restriction: { category: verification.category, message: verification.message,
+        verificationUrl: verification.verificationUrl || '', upstreamCode: verification.upstreamCode },
+    } : {}),
     loggedIn: auth.loggedIn,
-    playbackReady: auth.playbackReady,
-    playbackKeyReady: auth.playbackReady,
+    playbackReady,
+    playbackKeyReady: playbackReady,
     userId: auth.userid,
     nickname,
     avatar: auth.avatar || profile.avatar || '',
@@ -1640,7 +1777,7 @@ async function getKugouLoginInfo(cookie) {
     vipSyncState: vip.vipSyncState || (vip.membershipKnown ? 'checked' : 'unknown'),
     membershipSource: vip.membershipSource || 'none',
     membershipRights: kugouMembershipRights(Object.assign({}, vip, {
-      playbackReady: auth.playbackReady,
+      playbackReady,
     })),
     expiresAt: Number(vip.expiresAt) || 0,
     hasCookie: !!cookie,
@@ -1708,6 +1845,13 @@ async function fetchKugouProfileFromPlaylists(cookie, auth) {
         pagesize: 20,
       },
     });
+    const restriction = kugouPlaybackRestriction(json, auth);
+    if (restriction.category === 'verification_required') {
+      const error = new Error(restriction.message);
+      error.body = json;
+      error.upstreamCode = restriction.upstreamCode;
+      throw error;
+    }
     const data = (json && json.data) || {};
     return pickKugouProfileFromLists(extractKugouGatewayPlaylistLists(data), auth);
   });
@@ -1998,8 +2142,19 @@ function kugouAudioReferer(audioUrl) {
   return '';
 }
 
-let kugouFavoriteListCache = { listId: '', userId: '', at: 0 };
+let kugouFavoriteCacheGeneration = 0;
+let kugouFavoriteListCache = { listId: '', scope: '', at: 0 };
 const kugouLikeFileIdByHash = new Map();
+
+function kugouFavoriteFileCacheKey(auth, listId, hash) {
+  return kugouVipCacheKey(auth) + '|' + String(listId || '') + '|' + String(hash || '').toLowerCase();
+}
+
+function rememberKugouFavoriteFileId(auth, listId, hash, fileId, generation) {
+  if (generation !== kugouFavoriteCacheGeneration || !hash || !fileId) return;
+  kugouLikeFileIdByHash.set(kugouFavoriteFileCacheKey(auth, listId, hash), String(fileId));
+  while (kugouLikeFileIdByHash.size > 4096) kugouLikeFileIdByHash.delete(kugouLikeFileIdByHash.keys().next().value);
+}
 
 function extractKugouGatewayPlaylistLists(data) {
   data = (data && data.data) || data || {};
@@ -2043,7 +2198,9 @@ function resolveKugouFavoriteListIdFromItem(item) {
 async function resolveKugouFavoriteListId(cookie) {
   const auth = extractKugouAuth(cookie);
   if (!auth.playbackReady) return '';
-  if (kugouFavoriteListCache.listId && kugouFavoriteListCache.userId === auth.userid && Date.now() - kugouFavoriteListCache.at < 300000) {
+  const scope = kugouVipCacheKey(auth);
+  const generation = kugouFavoriteCacheGeneration;
+  if (kugouFavoriteListCache.listId && kugouFavoriteListCache.scope === scope && Date.now() - kugouFavoriteListCache.at < 300000) {
     return kugouFavoriteListCache.listId;
   }
   const json = await kugouGatewayRequest('/v7/get_all_list', {
@@ -2063,7 +2220,7 @@ async function resolveKugouFavoriteListId(cookie) {
   const lists = extractKugouGatewayPlaylistLists(json);
   const fav = pickKugouFavoritePlaylist(lists);
   const listId = resolveKugouFavoriteListIdFromItem(fav);
-  if (listId) kugouFavoriteListCache = { listId, userId: auth.userid, at: Date.now() };
+  if (listId && generation === kugouFavoriteCacheGeneration) kugouFavoriteListCache = { listId, scope, at: Date.now() };
   return listId;
 }
 
@@ -2088,6 +2245,8 @@ function buildKugouSongResource(song) {
 }
 
 async function fetchKugouFavoriteHashSet(cookie, hashSet, maxPages) {
+  const auth = extractKugouAuth(cookie);
+  const generation = kugouFavoriteCacheGeneration;
   const listId = await resolveKugouFavoriteListId(cookie);
   const liked = {};
   if (!listId || !hashSet || !hashSet.size) return { listId, liked };
@@ -2111,7 +2270,7 @@ async function fetchKugouFavoriteHashSet(cookie, hashSet, maxPages) {
       const hash = String(track.hash || track.fileHash || '').toLowerCase();
       if (!hash || !hashSet.has(hash)) return;
       liked[hash] = true;
-      if (track.fileId) kugouLikeFileIdByHash.set(hash, String(track.fileId));
+      rememberKugouFavoriteFileId(auth, listId, hash, track.fileId, generation);
     });
     if (Object.keys(liked).length >= hashSet.size) break;
   }
@@ -2158,16 +2317,19 @@ async function handleKugouAddSongToList(listId, song, cookie) {
     },
     body,
   });
-  if (resource.hash) kugouLikeFileIdByHash.delete(resource.hash);
+  if (resource.hash) kugouLikeFileIdByHash.delete(kugouFavoriteFileCacheKey(auth, targetListId, resource.hash));
   return { provider: 'kugou', success: true, liked: true, listId: targetListId, body: json };
 }
 
 async function findKugouFavoriteFileId(song, cookie, listId) {
   const hash = String((song && (song.hash || song.fileHash || song.id)) || '').trim().toLowerCase();
   if (!hash) return '';
-  if (kugouLikeFileIdByHash.has(hash)) return kugouLikeFileIdByHash.get(hash);
+  const auth = extractKugouAuth(cookie);
+  const generation = kugouFavoriteCacheGeneration;
   listId = String(listId || '').trim() || await resolveKugouFavoriteListId(cookie);
   if (!listId) return '';
+  const cacheKey = kugouFavoriteFileCacheKey(auth, listId, hash);
+  if (kugouLikeFileIdByHash.has(cacheKey)) return kugouLikeFileIdByHash.get(cacheKey);
   for (let page = 1; page <= 6; page += 1) {
     const chunk = await handleKugouPlaylistTracks(listId, cookie, { limit: 50, offset: (page - 1) * 50, paged: true });
     const tracks = chunk.tracks || [];
@@ -2176,7 +2338,7 @@ async function findKugouFavoriteFileId(song, cookie, listId) {
       const trackHash = String(track.hash || track.fileHash || '').toLowerCase();
       if (trackHash !== hash) continue;
       if (track.fileId) {
-        kugouLikeFileIdByHash.set(hash, String(track.fileId));
+        rememberKugouFavoriteFileId(auth, listId, hash, track.fileId, generation);
         return String(track.fileId);
       }
     }
@@ -2207,7 +2369,7 @@ async function handleKugouRemoveSongFromList(listId, song, cookie) {
     body,
   });
   const hash = String((song && (song.hash || song.fileHash || song.id)) || '').trim().toLowerCase();
-  if (hash) kugouLikeFileIdByHash.delete(hash);
+  if (hash) kugouLikeFileIdByHash.delete(kugouFavoriteFileCacheKey(auth, targetListId, hash));
   return { provider: 'kugou', success: true, liked: false, listId: targetListId, body: json };
 }
 
@@ -2304,6 +2466,7 @@ module.exports = {
     kugouPlayViaGateway,
     pickKugouPlayUrl,
     kugouPlaybackTrial,
+    kugouPlaybackRestriction,
     normalizeKugouVipPayloadV2,
     normalizeKugouWebRoleInfoPayload,
     fetchKugouWebVipInfo,

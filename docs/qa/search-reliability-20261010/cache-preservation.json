@@ -1,0 +1,49 @@
+{
+  "baseline": "2b2ca9d18e9e8f6f3664170de667aaeadf123cf1",
+  "checks": [
+    {
+      "file": "public/js/modules/05-playback/07-search.js",
+      "name": "createPlaybackMetadataCache",
+      "unchanged": true,
+      "sha256": "3d4b30199191879c0061d0fc8d84f11c056d3d3136bc61d019da5fee26d7d592"
+    },
+    {
+      "file": "public/js/modules/05-playback/07-search.js",
+      "name": "resetPlaybackMetadataCaches",
+      "unchanged": true,
+      "sha256": "25658fed0da1674780e7ebf01ea893e66e3c4930b32317a2468477301a93d1d5"
+    },
+    {
+      "file": "server.js",
+      "name": "createSearchResultCache",
+      "unchanged": true,
+      "sha256": "494126f3f9e7cfee720540e67b82addbfcea058a78b306e4ec47c8144dd872ac"
+    },
+    {
+      "file": "server.js",
+      "name": "requestText",
+      "unchanged": true,
+      "sha256": "6acb9b2253b4df66f3aad668ebfd49b13e768843c796b21a233892e1f7c2911c"
+    },
+    {
+      "file": "qishui-api.js",
+      "name": "createTtlCache",
+      "unchanged": true,
+      "sha256": "9778b1c8efc36e2acf2d374a28be87da7445244456b5f15f2f660c2af6d98404"
+    },
+    {
+      "file": "qishui-api.js",
+      "name": "requestTextWithMeta",
+      "unchanged": true,
+      "sha256": "38277279b99b71f443efee0ec624676c6d69c37d5bf3768bd16230bd1c46e989"
+    },
+    {
+      "file": "package.json",
+      "unchanged": true
+    },
+    {
+      "file": "package-lock.json",
+      "unchanged": true
+    }
+  ]
+}

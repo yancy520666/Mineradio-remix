@@ -92,6 +92,7 @@ function drawerFixture(overrides) {
     startQrPoll() { calls.push('resume-poll'); },
     loginProviderSupportsCookieMode: p => p !== 'qishui',
     setManualCookieOpenForProvider() {},
+    invalidateLoginAttempt() {}, cancelInlineLoginQr() {},
     showToast() {},
   }, overrides || {}));
   loadFunctions(ctx, 'public/js/modules/08-account/03-login-modal-flows.js', ['selectLoginProviderNode', 'selectLoginMode', 'loginProviderUsesInlineQr', 'ensureLoginInlineQr']);

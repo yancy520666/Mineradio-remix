@@ -174,8 +174,11 @@ function ensureHotkeyModal() {
   modal = document.createElement('div');
   modal.id = 'hotkey-modal';
   modal.className = 'hotkey-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', '热键设置');
   modal.innerHTML =
-    '<div class="hotkey-dialog" role="dialog" aria-modal="true" aria-label="热键设置">' +
+    '<div class="hotkey-dialog">' +
     '<div class="hotkey-head">' +
     '<div><div class="hotkey-title">热键设置</div><div class="hotkey-sub">局内热键只在 Mineradio 窗口内生效；全局热键会向系统注册，并检测是否被占用。</div></div>' +
     '<button class="hotkey-close" type="button" data-hotkey-close aria-label="关闭">×</button>' +
@@ -259,11 +262,15 @@ function openHotkeySettings() {
   modal.setAttribute('data-scope', modal.getAttribute('data-scope') || 'local');
   renderHotkeySettings();
   registerGlobalHotkeys();
+  if (typeof activateModalAccessibility === 'function') activateModalAccessibility(modal);
 }
 function closeHotkeySettings() {
   hotkeyCaptureState = null;
   var modal = document.getElementById('hotkey-modal');
-  if (modal) modal.classList.remove('show', 'capturing');
+  if (modal) {
+    modal.classList.remove('show', 'capturing');
+    if (typeof deactivateModalAccessibility === 'function') deactivateModalAccessibility(modal);
+  }
 }
 function startHotkeyCapture(action, scope) {
   hotkeyCaptureState = { action: action, scope: scope === 'global' ? 'global' : 'local' };

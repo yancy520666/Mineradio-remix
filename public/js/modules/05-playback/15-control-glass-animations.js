@@ -1009,6 +1009,7 @@ function bindAeroWaterSurface(el) {
   startDrift();
 }
 function initAeroWaterEffects() {
+  bindAeroWaterSurface(document.getElementById('playlist-panel'));
   bindAeroWaterSurface(document.getElementById('bottom-bar'));
   bindAeroWaterSurface(document.getElementById('search-box'));
   bindAeroWaterSurface(document.querySelector('#quality-control .quality-popover'));

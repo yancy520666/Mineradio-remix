@@ -77,7 +77,9 @@ test('out-of-order submissions cannot overwrite progress, failed writes preserve
   assert.equal(normalize({ ...snapshot(), currentTime: 200 }).currentTime, 100);
 });
 test('unchanged checkpoints skip fsync but preserve ordering and important state changes', async t => {
-  const directory = fixture(t), now = Date.now();
+  // Keep all ordered fixture timestamps in the past: normalization intentionally
+  // clamps future timestamps, which otherwise makes fast runs share one value.
+  const directory = fixture(t), now = Date.now() - 1000;
   let syncs = 0;
   const io = Object.create(fs.promises);
   io.open = async (...args) => {

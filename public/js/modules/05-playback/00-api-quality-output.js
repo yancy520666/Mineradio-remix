@@ -63,6 +63,7 @@ function normalizePlaybackQualityForProvider(value, provider) {
 }
 function playbackQualityOptions(provider) {
   provider = normalizePlaybackProvider(provider);
+  if (provider === 'spotify') return [];
   return PLAYBACK_QUALITY_OPTIONS[provider] || PLAYBACK_QUALITY_OPTIONS.netease;
 }
 // Local files have no provider quality to pick; songProviderKey would
@@ -93,7 +94,7 @@ function getPlaybackQualityForSong(song) {
 function playbackQualityLabel(value, provider) {
   provider = normalizePlaybackProvider(provider || currentPlaybackQualityProvider());
   value = normalizePlaybackQualityForProvider(value, provider);
-  if (provider === 'spotify') return 'Spotify 匹配源';
+  if (provider === 'spotify') return '平台已移除';
   if (provider === 'qishui') {
     if (value === 'lossless') return '汽水无损';
     if (value === 'exhigh') return '汽水 320k';
@@ -124,7 +125,7 @@ function playbackQualityLabel(value, provider) {
 function playbackQualityShortLabel(value, provider) {
   provider = normalizePlaybackProvider(provider || currentPlaybackQualityProvider());
   value = normalizePlaybackQualityForProvider(value, provider);
-  if (provider === 'spotify') return 'SP';
+  if (provider === 'spotify') return '已移除';
   if (provider === 'qishui') {
     if (value === 'lossless') return 'QS SQ';
     if (value === 'exhigh') return 'QS 320';
@@ -172,10 +173,44 @@ function playbackQualityTrackKey(song, provider) {
   if (!id) id = [song.name || song.title || '', song.artist || '', song.album || ''].join('|');
   return provider + ':' + String(id || '').trim() + ':' + String(media || '').trim();
 }
+// Runtime ceilings belong to an authorization session, never to saved preferences.
+var playbackQualitySessionEpochs = {};
+function playbackQualityAuthorizationKey(provider) {
+  provider = normalizePlaybackProvider(provider);
+  var status = typeof platformStatus === 'function' ? platformStatus(provider) : null;
+  if (!status) {
+    if (provider === 'qq' && typeof qqLoginStatus !== 'undefined') status = qqLoginStatus;
+    else if (provider === 'kugou' && typeof kugouLoginStatus !== 'undefined') status = kugouLoginStatus;
+    else if (provider === 'qishui' && typeof qishuiLoginStatus !== 'undefined') status = qishuiLoginStatus;
+    else if (typeof loginStatus !== 'undefined') status = loginStatus[provider] || (provider === 'netease' ? loginStatus : null);
+  }
+  status = status || {};
+  // Public identity/entitlement fields only; no cookie or playback credential.
+  var epoch = typeof playbackQualitySessionEpochs !== 'undefined' ? playbackQualitySessionEpochs[provider] || 0 : 0;
+  return JSON.stringify([epoch, typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : 0, !!status.loggedIn, String(status.userId || status.uid || status.uin || status.openId || status.id || ''),
+    status.vipLevel || '', Number(status.vipType || 0), Number(status.svipType || 0), !!status.isVip, !!status.isSvip,
+    !!status.playbackKeyReady, !!status.authorizationIncomplete, !!status.membershipStale, !!status.sessionRejected]);
+}
+function invalidatePlaybackQualityRuntimeCaps(provider) {
+  if (typeof playbackQualitySessionEpochs === 'undefined') playbackQualitySessionEpochs = {};
+  var providers = provider ? [normalizePlaybackProvider(provider)] : ['netease', 'qq', 'kugou', 'qishui'];
+  providers.forEach(function (key) { playbackQualitySessionEpochs[key] = (playbackQualitySessionEpochs[key] || 0) + 1; });
+  Object.keys(playbackQualityRuntimeCaps || {}).forEach(function (key) {
+    if (providers.indexOf(playbackQualityRuntimeCaps[key].provider) >= 0) delete playbackQualityRuntimeCaps[key];
+  });
+  if (typeof clearAlbumGaplessPreload === 'function') clearAlbumGaplessPreload('authorization-session-changed');
+  if (typeof updatePlaybackQualityUi === 'function') updatePlaybackQualityUi();
+}
 function playbackQualityRuntimeCapForSong(song, provider) {
   if (!song) return null;
+  provider = normalizePlaybackProvider(provider || songProviderKey(song));
   var key = playbackQualityTrackKey(song, provider);
-  return key && playbackQualityRuntimeCaps ? playbackQualityRuntimeCaps[key] || null : null;
+  var cap = key && playbackQualityRuntimeCaps ? playbackQualityRuntimeCaps[key] || null : null;
+  if (cap && (cap.session !== playbackQualityAuthorizationKey(provider) || Date.now() >= cap.expiresAt || Date.now() < cap.at)) {
+    delete playbackQualityRuntimeCaps[key];
+    return null;
+  }
+  return cap;
 }
 function playbackQualityCapValue(song, provider) {
   var cap = playbackQualityRuntimeCapForSong(song, provider);
@@ -192,19 +227,50 @@ function effectivePlaybackQualityForSong(song, provider, requested) {
   var cap = playbackQualityCapValue(song, provider);
   return playbackQualityAboveCap(q, provider, cap) ? cap : q;
 }
-function markPlaybackQualityRuntimeCap(song, provider, ceiling, reason) {
+function requestPlaybackQualityRuntimeProbe(song, provider, quality) {
+  var cap = playbackQualityRuntimeCapForSong(song, provider);
+  if (!cap || !playbackQualityAboveCap(quality, provider, cap.ceiling)) return true;
+  // One explicit reprobe per minute; ordinary/repeated playback keeps its ceiling.
+  if (cap.probeAt != null && Date.now() - cap.probeAt < 60000 && Date.now() >= cap.probeAt) return false;
+  cap.probeAt = Date.now();
+  cap.probePending = normalizePlaybackQualityForProvider(quality, provider);
+  return true;
+}
+function consumePlaybackQualityRuntimeProbe(song, provider, quality) {
+  var cap = playbackQualityRuntimeCapForSong(song, provider);
+  if (!cap || cap.probePending !== normalizePlaybackQualityForProvider(quality, provider)) return false;
+  cap.probePending = '';
+  return true;
+}
+function prunePlaybackQualityRuntimeCaps() {
+  var now = Date.now();
+  Object.keys(playbackQualityRuntimeCaps || {}).forEach(function (key) {
+    var cap = playbackQualityRuntimeCaps[key];
+    if (!cap || now >= cap.expiresAt || now < cap.at || cap.session !== playbackQualityAuthorizationKey(cap.provider)) delete playbackQualityRuntimeCaps[key];
+  });
+  var keys = Object.keys(playbackQualityRuntimeCaps || {});
+  if (keys.length >= 256) {
+    keys.sort(function (a, b) { return playbackQualityRuntimeCaps[a].at - playbackQualityRuntimeCaps[b].at; });
+    keys.slice(0, keys.length - 255).forEach(function (key) { delete playbackQualityRuntimeCaps[key]; });
+  }
+}
+function markPlaybackQualityRuntimeCap(song, provider, ceiling, reason, allowRaise) {
   provider = normalizePlaybackProvider(provider || songProviderKey(song));
   if (!song || !ceiling) return false;
   ceiling = normalizePlaybackQualityForProvider(ceiling, provider);
   var key = playbackQualityTrackKey(song, provider);
   if (!key) return false;
-  var prev = playbackQualityRuntimeCaps && playbackQualityRuntimeCaps[key];
-  if (prev && playbackQualityRank(prev.ceiling, provider) <= playbackQualityRank(ceiling, provider)) return false;
+  var prev = playbackQualityRuntimeCapForSong(song, provider);
+  if (prev && !allowRaise && playbackQualityRank(prev.ceiling, provider) <= playbackQualityRank(ceiling, provider)) return false;
+  prunePlaybackQualityRuntimeCaps();
+  var why = String(reason || 'resolved-lower');
+  // Missing URLs and network failures are short-lived evidence, not membership verdicts.
+  var ttl = /network|timeout|url[-_]unavailable/i.test(why) ? 60000
+    : (/copyright|vip_required|paid_required|login_required/i.test(why) ? 30 * 60000 : 5 * 60000);
   playbackQualityRuntimeCaps[key] = {
-    provider: provider,
-    ceiling: ceiling,
-    reason: reason || '',
-    at: Date.now()
+    provider: provider, ceiling: ceiling, reason: why, at: Date.now(), expiresAt: Date.now() + ttl,
+    session: playbackQualityAuthorizationKey(provider), probeAt: prev && prev.probeAt != null ? prev.probeAt : null,
+    probePending: ''
   };
   updatePlaybackQualityUi();
   return true;
@@ -230,7 +296,6 @@ function readPlaybackQualityPreference() {
     qq: PLAYBACK_QUALITY_DEFAULTS.qq,
     kugou: PLAYBACK_QUALITY_DEFAULTS.kugou,
     qishui: PLAYBACK_QUALITY_DEFAULTS.qishui,
-    spotify: PLAYBACK_QUALITY_DEFAULTS.spotify
   };
   try {
     var raw = localStorage.getItem(PLAYBACK_QUALITY_STORE_KEY) || '';
@@ -242,7 +307,6 @@ function readPlaybackQualityPreference() {
         qq: normalizePlaybackQualityForProvider(legacy, 'qq'),
         kugou: normalizePlaybackQualityForProvider(legacy, 'kugou'),
         qishui: normalizePlaybackQualityForProvider(fallback.qishui, 'qishui'),
-        spotify: normalizePlaybackQualityForProvider(fallback.spotify, 'spotify')
       };
     }
     var parsed = JSON.parse(raw);
@@ -252,7 +316,6 @@ function readPlaybackQualityPreference() {
       qq: normalizePlaybackQualityForProvider(parsed.qq || fallback.qq, 'qq'),
       kugou: normalizePlaybackQualityForProvider(parsed.kugou || fallback.kugou || 'lossless', 'kugou'),
       qishui: normalizePlaybackQualityForProvider(parsed.qishuiTiers ? (parsed.qishui || fallback.qishui) : fallback.qishui, 'qishui'),
-      spotify: normalizePlaybackQualityForProvider(parsed.spotify || fallback.spotify || 'standard', 'spotify')
     };
   } catch (e) {
     return fallback;
@@ -273,7 +336,7 @@ function updatePlaybackQualityUi() {
   var btn = document.getElementById('quality-btn');
   var list = document.getElementById('quality-option-list');
   var wrap = document.getElementById('quality-control');
-  var localTrack = isLocalQualitySong(currentSong);
+  var localTrack = isLocalQualitySong(currentSong) || provider === 'spotify' || !!(currentSong && currentSong.providerRemoved);
   if (wrap) {
     wrap.classList.toggle('quality-control-local', localTrack);
     if (localTrack) wrap.classList.remove('open');
@@ -281,31 +344,30 @@ function updatePlaybackQualityUi() {
   var canUseSvip = provider === 'netease' && hasProviderSvip('netease', loginStatus);
   var displayQuality = provider === 'netease' && effectiveQuality === 'jymaster' && !canUseSvip ? 'hires' : effectiveQuality;
   if (label) label.textContent = playbackQualityShortLabel(displayQuality, provider);
-  var qualityProviderTitle = provider === 'spotify' ? 'Spotify 匹配源: ' : (provider === 'qishui' ? '汽水音质: ' : (provider === 'qq' ? 'QQ 音质: ' : (provider === 'kugou' ? '酷狗音质: ' : '网易云音质: ')));
+  var qualityProviderTitle = provider === 'spotify' ? '平台已移除: ' : (provider === 'qishui' ? '汽水音质: ' : (provider === 'qq' ? 'QQ 音质: ' : (provider === 'kugou' ? '酷狗音质: ' : '网易云音质: ')));
   if (btn) btn.title = qualityProviderTitle + playbackQualityLabel(displayQuality, provider) +
     (provider === 'netease' && currentQuality === 'jymaster' && !canUseSvip ? ' · 超清母带需网易云 SVIP' : '');
   if (btn && runtimeCapQuality) btn.title += ' | 当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
   if (list) {
     list.innerHTML = playbackQualityOptions(provider).map(function (item) {
       var capLocked = playbackQualityAboveCap(item.key, provider, runtimeCapQuality);
-      var locked = !!(item.svip && !canUseSvip) || capLocked;
-      return '<button class="quality-option' + (item.svip ? ' svip-only' : '') + (capLocked ? ' cap-locked' : '') + (locked ? ' locked' : '') + '" data-quality="' + item.key + '" data-svip="' + (item.svip ? '1' : '0') + '" ' + (locked ? 'disabled ' : '') + 'onclick="setPlaybackQuality(\'' + item.key + '\')"><span>' + escHtml(item.title) + '</span><small>' + escHtml(capLocked ? ('当前最高 ' + playbackQualityLabel(runtimeCapQuality, provider)) : item.sub) + '</small></button>';
+      var locked = !!(item.svip && !canUseSvip);
+      return '<button class="quality-option' + (item.svip ? ' svip-only' : '') + (capLocked ? ' cap-locked' : '') + (locked ? ' locked' : '') + '" data-quality="' + item.key + '" data-svip="' + (item.svip ? '1' : '0') + '" ' + (locked ? 'disabled ' : '') + 'onclick="setPlaybackQuality(\'' + item.key + '\')"><span>' + escHtml(item.title) + '</span><small>' + escHtml(capLocked ? ('点选重试 · 当前 ' + playbackQualityLabel(runtimeCapQuality, provider)) : item.sub) + '</small></button>';
     }).join('');
   }
   document.querySelectorAll('.quality-option').forEach(function (option) {
     var q = normalizePlaybackQualityForProvider(option.dataset.quality, provider);
     var capLocked = playbackQualityAboveCap(q, provider, runtimeCapQuality);
-    var locked = (option.dataset.svip === '1' && !canUseSvip) || capLocked;
+    var locked = option.dataset.svip === '1' && !canUseSvip;
     option.classList.toggle('active', q === displayQuality);
     option.classList.toggle('locked', locked);
     option.classList.toggle('cap-locked', capLocked);
     option.disabled = locked;
-    if (capLocked) option.title = '当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
     option.title = locked ? '需要网易云 SVIP 账号' : playbackQualityLabel(q, provider);
   });
   if (runtimeCapQuality) {
     document.querySelectorAll('.quality-option.cap-locked').forEach(function (option) {
-      option.title = '当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
+      option.title = '点选重新探测（每分钟一次） · 当前最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
     });
   }
   if (typeof syncQualityPresetUi === 'function') syncQualityPresetUi();
@@ -315,14 +377,14 @@ function setPlaybackQuality(value) {
   var currentSong = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
   var next = normalizePlaybackQualityForProvider(value, provider);
   var cap = playbackQualityCapValue(currentSong, provider);
-  if (playbackQualityAboveCap(next, provider, cap)) {
-    showSourceFallbackNotice('音质已锁定上限', '当前歌曲最高可播 ' + playbackQualityLabel(cap, provider) + '，更高档位已禁用。');
-    updatePlaybackQualityUi();
-    return;
-  }
   if (provider === 'netease' && next === 'jymaster' && !hasProviderSvip('netease', loginStatus)) {
     showToast(hasPlatformLogin('netease') ? '超清母带需要网易云 SVIP' : '登录网易云 SVIP 后可用超清母带');
     if (!hasPlatformLogin('netease')) openProviderLogin('netease');
+    return;
+  }
+  if (playbackQualityAboveCap(next, provider, cap) && !requestPlaybackQualityRuntimeProbe(currentSong, provider, next)) {
+    showSourceFallbackNotice('音质重新探测稍后可用', '当前可播 ' + playbackQualityLabel(cap, provider) + '。高音质每分钟可重试一次，请稍后再选。');
+    updatePlaybackQualityUi();
     return;
   }
   setProviderPlaybackQuality(provider, next);
@@ -457,15 +519,21 @@ function syncQualityPresetUi() {
 function applyQualityPresetChanges(changes, label) {
   var provider = currentPlaybackQualityProvider();
   var changedCurrent = '';
+  var song = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
   changes.forEach(function (change) {
-    if (getProviderPlaybackQuality(change.provider) === normalizePlaybackQualityForProvider(change.value, change.provider)) return;
+    var samePreference = getProviderPlaybackQuality(change.provider) === normalizePlaybackQualityForProvider(change.value, change.provider);
+    var capRetry = change.provider === provider && typeof playbackQualityCapValue === 'function' && playbackQualityAboveCap(change.value, provider, playbackQualityCapValue(song, provider));
+    if (samePreference && !capRetry) return;
+    if (capRetry && !requestPlaybackQualityRuntimeProbe(song, provider, change.value)) {
+      showToast('高音质每分钟可重试一次，请稍后再选');
+      return;
+    }
     setProviderPlaybackQuality(change.provider, change.value);
     if (change.provider === provider) changedCurrent = getProviderPlaybackQuality(provider);
   });
   updatePlaybackQualityUi();
-  var song = Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
   if (changedCurrent && canReloadCurrentTrackForQuality()) {
-    applyPlaybackQualityToCurrentTrack(effectivePlaybackQualityForSong(song, provider, changedCurrent), provider);
+    applyPlaybackQualityToCurrentTrack(changedCurrent, provider);
   } else {
     showToast(label + ' · 下次播放生效');
   }
@@ -504,14 +572,15 @@ function audioRoutePointForPort(port, root) {
   var portRect = port.getBoundingClientRect();
   var rootRect = root.getBoundingClientRect();
   return {
-    x: portRect.left + portRect.width / 2 - rootRect.left,
-    y: portRect.top + portRect.height / 2 - rootRect.top
+    x: (portRect.left + portRect.width / 2 - rootRect.left) * root.clientWidth / Math.max(1, rootRect.width),
+    y: (portRect.top + portRect.height / 2 - rootRect.top) * root.clientHeight / Math.max(1, rootRect.height)
   };
 }
 function audioRoutePointFromEvent(e, root) {
   if (!e || !root) return null;
   var rootRect = root.getBoundingClientRect();
-  return { x: e.clientX - rootRect.left, y: e.clientY - rootRect.top };
+  return { x: (e.clientX - rootRect.left) * root.clientWidth / Math.max(1, rootRect.width),
+    y: (e.clientY - rootRect.top) * root.clientHeight / Math.max(1, rootRect.height) };
 }
 function audioRouteBezierPath(a, b) {
   var gap = b.x - a.x;
@@ -550,7 +619,7 @@ function renderAudioRouteWorkflowEdgesForRoot(root, tempPoint) {
   var sourcePoint = audioRoutePointForPort(sourceOut, root);
   var primaryPort = audioRoutePortByAttr(root, 'data-output-primary-target', audioOutputDeviceId || '');
   appendAudioRoutePath(svg, sourcePoint, audioRoutePointForPort(primaryPort, root), 'workflow-link active primary');
-  audioRouteSelectedIds().forEach(function (id) {
+  audioRouteVisibleIds().forEach(function (id) {
     if (!id || id === (audioOutputDeviceId || '')) return;
     appendAudioRoutePath(svg, sourcePoint, audioRoutePointForPort(audioRoutePortByAttr(root, 'data-output-mirror-target', id), root), audioOutputMirrorRouteClass(id));
   });
@@ -564,12 +633,63 @@ function renderAudioRouteWorkflowEdges(tempPoint) {
     renderAudioRouteWorkflowEdgesForRoot(root, tempPoint);
   });
 }
+function audioRouteDropPort(e, root) {
+  if (!root || !root.isConnected) return null;
+  var rect = root.getBoundingClientRect();
+  if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return null;
+  var hit = document.elementFromPoint(e.clientX, e.clientY);
+  if (!hit || !root.contains(hit) || hit.closest('input,select,textarea,output,[data-route-mute]')) return null;
+  var button = hit.closest('[data-output-primary],[data-output-mirror]');
+  if (button) return button.disabled ? null : button.querySelector('.flow-port.in');
+  var best = null, distance = 28;
+  root.querySelectorAll('.flow-port.in').forEach(function (port) {
+    if (port.closest('button:disabled')) return;
+    var portRect = port.getBoundingClientRect();
+    var x = portRect.left + portRect.width / 2, y = portRect.top + portRect.height / 2;
+    var viewport = port.closest('.route-node-grid');
+    if (viewport) {
+      var clip = viewport.getBoundingClientRect();
+      if (x < clip.left || x > clip.right || y < clip.top || y > clip.bottom) return;
+    }
+    var next = Math.hypot(e.clientX - x, e.clientY - y);
+    if (next <= distance) { best = port; distance = next; }
+  });
+  return best;
+}
+function cancelAudioRouteWorkflowDrag() {
+  var drag = audioRouteWorkflowDrag;
+  if (!drag) return;
+  audioRouteWorkflowDrag = null;
+  if (drag.frame) cancelAnimationFrame(drag.frame);
+  if (drag.target) drag.target.closest('.workflow-node').classList.remove('drop-ready');
+  drag.root.classList.remove('dragging-line');
+  try { drag.owner.releasePointerCapture(drag.pointerId); } catch (_) { }
+  renderAudioRouteWorkflowEdges();
+}
+function updateAudioRouteWorkflowDrag(e) {
+  var drag = audioRouteWorkflowDrag;
+  if (!drag) return;
+  if (!drag.root.isConnected) { cancelAudioRouteWorkflowDrag(); return; }
+  drag.event = { clientX: e.clientX, clientY: e.clientY };
+  if (drag.frame) return;
+  drag.frame = requestAnimationFrame(function () {
+    drag.frame = 0;
+    if (audioRouteWorkflowDrag !== drag) return;
+    if (drag.target) drag.target.closest('.workflow-node').classList.remove('drop-ready');
+    drag.target = audioRouteDropPort(drag.event, drag.root);
+    if (drag.target) drag.target.closest('.workflow-node').classList.add('drop-ready');
+    renderAudioRouteWorkflowEdges(drag.target ? audioRoutePointForPort(drag.target, drag.root) : audioRoutePointFromEvent(drag.event, drag.root));
+  });
+}
 function finishAudioRouteWorkflowDrag(e) {
-  if (!audioRouteWorkflowDrag) return;
-  var root = audioRouteWorkflowDrag.root;
-  var target = document.elementFromPoint(e.clientX, e.clientY);
-  var port = target && target.closest ? target.closest('.flow-port.in') : null;
-  if (root && port && root.contains(port)) {
+  var drag = audioRouteWorkflowDrag;
+  if (!drag || e.pointerId !== drag.pointerId || e.currentTarget !== drag.owner) return;
+  var port = audioRouteDropPort(e, drag.root);
+  drag.owner._routeSuppressClickUntil = Date.now() + 250;
+  // Setting an output re-renders this graph. Release capture and clear hover
+  // before invoking it, so a detached graph cannot retain a drag session.
+  cancelAudioRouteWorkflowDrag();
+  if (port) {
     if (port.hasAttribute('data-output-primary-target')) {
       setAudioOutputDevice(port.getAttribute('data-output-primary-target') || '', true);
     } else if (port.hasAttribute('data-output-mirror-target')) {
@@ -578,42 +698,51 @@ function finishAudioRouteWorkflowDrag(e) {
 
     }
   }
-  if (root) root.classList.remove('dragging-line');
-  audioRouteWorkflowDrag = null;
-  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) { }
   requestAnimationFrame(renderAudioRouteWorkflowEdges);
 }
 function bindAudioRouteWorkflowPointerEvents(outputList) {
   if (!outputList || outputList._routeWorkflowBound) return;
   outputList._routeWorkflowBound = true;
+  outputList.addEventListener('click', function (e) {
+    if (Date.now() < (outputList._routeSuppressClickUntil || 0)) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
   outputList.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || e.isPrimary === false || audioRouteWorkflowDrag) return;
     var port = e.target && e.target.closest ? e.target.closest('.flow-port.out[data-audio-route-source]') : null;
     if (!port || !outputList.contains(port)) return;
     var root = port.closest('.audio-route-graph');
-    audioRouteWorkflowDrag = { root: root, port: port };
+    audioRouteWorkflowDrag = { root: root, port: port, owner: outputList, pointerId: e.pointerId };
     if (root) root.classList.add('dragging-line');
     try { outputList.setPointerCapture(e.pointerId); } catch (_) { }
     e.preventDefault();
     e.stopPropagation();
-    renderAudioRouteWorkflowEdges(root ? audioRoutePointFromEvent(e, root) : null);
+    updateAudioRouteWorkflowDrag(e);
   });
   outputList.addEventListener('pointermove', function (e) {
-    if (!audioRouteWorkflowDrag || !audioRouteWorkflowDrag.root) return;
+    if (!audioRouteWorkflowDrag || audioRouteWorkflowDrag.owner !== outputList || audioRouteWorkflowDrag.pointerId !== e.pointerId) return;
     e.preventDefault();
-    renderAudioRouteWorkflowEdges(audioRoutePointFromEvent(e, audioRouteWorkflowDrag.root));
+    updateAudioRouteWorkflowDrag(e);
   });
   outputList.addEventListener('pointerup', finishAudioRouteWorkflowDrag);
-  outputList.addEventListener('scroll', function () { requestAnimationFrame(renderAudioRouteWorkflowEdges); }, true);
-  outputList.addEventListener('pointercancel', function (e) {
-    if (audioRouteWorkflowDrag && audioRouteWorkflowDrag.root) audioRouteWorkflowDrag.root.classList.remove('dragging-line');
-    audioRouteWorkflowDrag = null;
-    try { outputList.releasePointerCapture(e.pointerId); } catch (_) { }
-    renderAudioRouteWorkflowEdges();
-  });
+  outputList.addEventListener('scroll', function () {
+    if (audioRouteWorkflowDrag && audioRouteWorkflowDrag.event) updateAudioRouteWorkflowDrag(audioRouteWorkflowDrag.event);
+    else requestAnimationFrame(renderAudioRouteWorkflowEdges);
+  }, true);
+  function cancelOwnedDrag(e) {
+    if (audioRouteWorkflowDrag && audioRouteWorkflowDrag.owner === outputList && audioRouteWorkflowDrag.pointerId === e.pointerId) cancelAudioRouteWorkflowDrag();
+  }
+  outputList.addEventListener('pointercancel', cancelOwnedDrag);
+  outputList.addEventListener('lostpointercapture', cancelOwnedDrag);
   if (!bindAudioRouteWorkflowPointerEvents._resizeBound) {
     bindAudioRouteWorkflowPointerEvents._resizeBound = true;
-    window.addEventListener('resize', function () { requestAnimationFrame(renderAudioRouteWorkflowEdges); });
-    window.addEventListener('orientationchange', function () { requestAnimationFrame(renderAudioRouteWorkflowEdges); });
+    function refreshGeometry() {
+      if (audioRouteWorkflowDrag && audioRouteWorkflowDrag.event) updateAudioRouteWorkflowDrag(audioRouteWorkflowDrag.event);
+      else requestAnimationFrame(renderAudioRouteWorkflowEdges);
+    }
+    window.addEventListener('resize', refreshGeometry);
+    window.addEventListener('orientationchange', refreshGeometry);
+    window.addEventListener('blur', cancelAudioRouteWorkflowDrag);
+    window.addEventListener('keydown', function (e) { if (e.key === 'Escape') cancelAudioRouteWorkflowDrag(); });
   }
 }
 function bindAudioRouteSelectionEvents(container) {
@@ -727,17 +856,20 @@ function audioOutputMirrorRuntimeFor(id) {
 }
 function audioOutputMirrorConfirmedCount(ids) {
   return normalizeAudioOutputIdList(ids).filter(function (id) {
+    if (typeof microphoneMixerOutputRunning === 'function' && microphoneMixerOutputRunning(id)) return true;
     var rt = audioOutputMirrorRuntimeFor(id);
     return rt && rt.state === 'playing';
   }).length;
 }
 function audioOutputMirrorRouteClass(id) {
+  if (typeof microphoneMixerOutputRunning === 'function' && microphoneMixerOutputRunning(id)) return 'workflow-link active mirror';
   var rt = audioOutputMirrorRuntimeFor(id);
   if (rt && rt.state === 'playing' && !audioRouteSetting(id).muted) return 'workflow-link active mirror';
   return 'workflow-link pending mirror';
 }
 function audioOutputMirrorStatusText(id, active, disabled) {
   if (disabled) return '当前主监听';
+  if (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(id)) return microphoneMixerOutputRunning(id) ? '人声 + 音乐混音输出' : '混音正在开启';
   if (!active) return '点击连接';
   var rt = audioOutputMirrorRuntimeFor(id);
   if (!rt) return '播放时自动连接';
@@ -785,7 +917,14 @@ function audioRouteMuteIcon(muted) {
 function renderAudioOutputDeviceUi() {
   var list = document.getElementById('audio-output-list');
   if (!list) return;
-  var ids = audioRouteSelectedIds();
+  var ids = audioRouteVisibleIds();
+  var count = ids.filter(function (id) { return id !== effectiveAudioPrimaryId(); }).length;
+  var summary = audioOutputDeviceStatusText();
+  list.innerHTML = '<button class="audio-output-summary-card" type="button" onclick="openAudioOutputWorkflowPanel()"><span class="route-node-icon">MR</span><span class="audio-output-summary-copy"><b>' + escHtml(summary) + '</b><small>附加输出 ' + count + ' 路 · 正在输出 ' + audioOutputMirrorConfirmedCount(ids) + ' 路</small></span><span class="audio-output-summary-action">路由</span></button>';
+  var body = document.getElementById('audio-output-workflow-body');
+  var modal = document.getElementById('audio-output-workflow-modal');
+  // Rebuild from live state on open; hidden routing controls need no DOM churn.
+  if (!body || !modal || !modal.classList.contains('show')) return;
   var outputs = (audioOutputDevices || []).slice();
   ids.concat([audioOutputDeviceId]).forEach(function (id) {
     if (id && !outputs.some(function (d) { return d.deviceId === id; })) outputs.push({ deviceId: id, label: audioRouteSetting(id).name || '已保存的离线设备', offline: true });
@@ -802,30 +941,30 @@ function renderAudioOutputDeviceUi() {
     return '<div class="audio-route-row' + (active ? ' connected' : '') + (warning ? ' warning' : '') + '">' +
       '<button type="button" class="audio-route-node mirror workflow-node' + (active ? ' active connected' : '') + '" data-output-mirror="' + escHtml(id) + '" aria-pressed="' + active + '"' + (disabled ? ' disabled' : '') + '>' +
       '<span class="flow-port in" data-output-mirror-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + escHtml(audioOutputMirrorStatusText(id, active, disabled)) + '</small></span><span class="audio-route-toggle">' + (active ? '断开' : disabled ? '主监听' : '连接') + '</span></button>' +
-      (active ? '<div class="audio-route-controls" data-route-id="' + escHtml(id) + '"><label>音量 <input type="range" min="0" max="100" value="' + value.volume + '" data-route-setting="volume" aria-label="' + escHtml(device.label + ' 音量') + '"><output>' + value.volume + '%</output></label>' +
+      (active ? '<div class="audio-route-controls" data-route-id="' + escHtml(id) + '"><label>' + (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(id) ? '混音总音量' : '音乐音量') + ' <input type="range" min="0" max="100" value="' + value.volume + '" data-route-setting="volume" aria-label="' + escHtml(device.label + (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(id) ? ' 混音总音量' : ' 音乐音量')) + '"><output>' + value.volume + '%</output></label>' +
       '<label>延迟 <input type="number" inputmode="numeric" min="0" max="1000" step="10" value="' + value.delay + '" data-route-setting="delay" aria-label="' + escHtml(device.label + ' 延迟毫秒') + '"> ms</label>' +
       '<button type="button" data-route-mute aria-pressed="' + value.muted + '" aria-label="' + (value.muted ? '取消静音' : '静音') + '" title="' + (value.muted ? '取消静音' : '静音') + '">' + audioRouteMuteIcon(value.muted) + '</button></div>' : '') + '</div>';
   }
   var virtual = outputs.filter(isVirtualMicOutputDevice);
   var speakers = outputs.filter(function (d) { return !isVirtualMicOutputDevice(d); });
-  var count = ids.filter(function (id) { return id !== effectiveAudioPrimaryId(); }).length;
-  var summary = audioOutputDeviceStatusText();
-  list.innerHTML = '<button class="audio-output-summary-card" type="button" onclick="openAudioOutputWorkflowPanel()"><span class="route-node-icon">MR</span><span class="audio-output-summary-copy"><b>' + escHtml(summary) + '</b><small>附加输出 ' + count + ' 路 · 正在输出 ' + audioOutputMirrorConfirmedCount(ids) + ' 路</small></span><span class="audio-output-summary-action">路由</span></button>';
-  var body = document.getElementById('audio-output-workflow-body');
   var focused = document.activeElement;
-  if (body && body.contains(focused) && focused.matches('input,[data-route-mute]')) {
+  if (body && body.contains(focused) && focused.matches('input,select,textarea,[data-route-mute],#audio-microphone-mixer button,#virtual-audio-setup-card button')) {
     if (!renderAudioOutputDeviceUi.focusRefreshBound) {
       renderAudioOutputDeviceUi.focusRefreshBound = true;
       body.addEventListener('focusout', function () { requestAnimationFrame(renderAudioOutputDeviceUi); });
     }
+    if (typeof syncVirtualAudioSetupCard === 'function') syncVirtualAudioSetupCard({ routeOpen: true, enumerationComplete: audioOutputDeviceSnapshotKnown && audioOutputDeviceSnapshotObserved, outputs: audioOutputDevices });
     return;
   }
+  if (body && audioRouteWorkflowDrag && body.contains(audioRouteWorkflowDrag.root)) cancelAudioRouteWorkflowDrag();
   if (body) body.innerHTML = '<div class="audio-route-graph"><svg id="audio-route-workflow-svg" class="workflow-link-layer audio-link-layer" aria-hidden="true"></svg>' +
-    '<div class="audio-flow-source workflow-node"><span class="route-node-text"><b>Mineradio 播放音频</b><small>同一音频流 · 跟随暂停、切歌和音效</small></span><span class="flow-port out" data-audio-route-source="player" title="拖到设备连接输出"></span></div>' +
+    '<div class="audio-flow-source workflow-node"><span class="route-node-text"><b>Mineradio 音乐输出</b><small>同一音频流 · 跟随暂停、切歌和音效</small></span><span class="flow-port out" data-audio-route-source="player" title="拖到设备连接输出"></span></div>' +
     '<div class="audio-route-status"><b>已选择 ' + count + ' 路</b><small>点击设备即可连接或断开，也可从音源拖线连接。</small></div>' +
     '<div class="audio-route-board"><section class="route-lane primary"><div class="route-lane-head"><b>主监听</b><small>选择自己听音乐的设备</small></div><div class="route-node-grid">' + primary + '</div></section>' +
     '<section class="route-lane mirror"><div class="route-lane-head"><b>附加输出</b><small>可同时连接多个耳机、音箱或声卡</small></div><div class="route-node-grid">' + (speakers.map(routeRow).join('') || '<div class="audio-route-empty">暂无其他输出设备</div>') + '</div></section>' +
-    '<section class="route-lane bridge"><div class="route-lane-head"><b>虚拟麦克风</b><small>支持同时连接多条虚拟声卡</small></div><div class="route-node-grid">' + (virtual.map(routeRow).join('') || '<div class="audio-route-empty">未检测到虚拟声卡，请安装 VB-Cable 或 Voicemeeter 后刷新。</div>') + '</div><p class="audio-route-note">选择虚拟声卡的播放端（如 CABLE Input），再在语音软件里选择对应录音端（CABLE Output）。普通实体麦克风无法直接接收播放音频。延迟补偿只增加所选输出的延迟，硬件延迟需按听感校准。</p></section></div></div>';
+    '<section class="route-lane bridge"><div class="route-lane-head"><b>虚拟音频输出</b><small>支持同时连接多条虚拟声卡</small></div><div class="route-node-grid">' + (virtual.map(routeRow).join('') || '<div class="audio-route-empty">未检测到虚拟声卡，请安装 VB-Cable 或 Voicemeeter 后刷新。</div>') + '</div><p class="audio-route-note">选择虚拟声卡的播放端（如 CABLE Input），再在语音软件里选择对应录音端（CABLE Output）。普通实体麦克风无法直接接收播放音频。延迟补偿只增加所选输出的延迟，硬件延迟需按听感校准。</p></section></div></div>';
+  if (body && typeof mountMicrophoneMixerPanel === 'function') mountMicrophoneMixerPanel(body);
+  if (typeof syncVirtualAudioSetupCard === 'function') syncVirtualAudioSetupCard({ routeOpen: true, enumerationComplete: audioOutputDeviceSnapshotKnown && audioOutputDeviceSnapshotObserved, outputs: audioOutputDevices });
   var subtitle = document.getElementById('audio-output-workflow-subtitle');
   if (subtitle) subtitle.textContent = summary;
   requestAnimationFrame(renderAudioRouteWorkflowEdges);
@@ -835,6 +974,7 @@ function openAudioOutputWorkflowPanel() {
   var modal = document.getElementById('audio-output-workflow-modal');
   if (!modal) return;
   openGsapModal(modal);
+  if (typeof beginVirtualAudioSetupRoute === 'function') beginVirtualAudioSetupRoute();
   bindAudioOutputControls();
   renderAudioOutputDeviceUi();
   requestAnimationFrame(function () {
@@ -844,9 +984,31 @@ function openAudioOutputWorkflowPanel() {
   refreshAudioOutputDevices(false);
 }
 function closeAudioOutputWorkflowPanel() {
+  if (typeof hideVirtualAudioSetupCard === 'function') hideVirtualAudioSetupCard();
+  cancelAudioRouteWorkflowDrag();
   closeGsapModal(document.getElementById('audio-output-workflow-modal'));
 }
+function updateAudioOutputDeviceSnapshot(devices, authorized) {
+  var outputs = (devices || []).filter(function (device) { return device && device.kind === 'audiooutput'; });
+  var identified = outputs.some(function (device) { return device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications' && String(device.label || '').trim(); });
+  var hiddenOutput = outputs.some(function (device) { return device.deviceId !== 'default' && device.deviceId !== 'communications' && (!device.deviceId || !String(device.label || '').trim()); });
+  var hiddenInput = (devices || []).some(function (device) { return device && device.kind === 'audioinput' && !String(device.label || '').trim(); });
+  audioOutputDeviceSnapshotKnown = (identified && !hiddenOutput) || (!outputs.length && (!!authorized || !hiddenInput));
+  audioOutputDeviceSnapshotObserved = true;
+  outputs.forEach(function (device) { if (device.deviceId && device.label) audioOutputDeviceLabels[device.deviceId] = device.label; });
+  audioOutputDevices = outputs.filter(function (device) { return device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications'; }).map(function (device) {
+    return { kind: device.kind, deviceId: device.deviceId, groupId: device.groupId,
+      label: device.label || audioOutputDeviceLabels[device.deviceId] || '' };
+  });
+  var defaultDevice = outputs.find(function (device) { return device.deviceId === 'default'; });
+  var defaultPhysical = defaultDevice && defaultDevice.groupId && audioOutputDevices.find(function (device) { return device.groupId === defaultDevice.groupId; });
+  audioOutputDefaultDeviceId = defaultPhysical ? defaultPhysical.deviceId : '';
+}
 async function refreshAudioOutputDevices(showNotice) {
+  // A microphone-label refresh owns the shared device snapshot until it ends.
+  // Ordinary output refreshes must neither revoke it nor overwrite it late.
+  if (typeof microphoneMixerDiscovering !== 'undefined' && microphoneMixerDiscovering) return;
+  invalidateAudioOutputSinkApplications();
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
     audioOutputDevices = [];
     audioInputDevices = [];
@@ -859,14 +1021,19 @@ async function refreshAudioOutputDevices(showNotice) {
   try {
     var devices = await navigator.mediaDevices.enumerateDevices();
     if (refreshToken !== refreshAudioOutputDevices.token) return;
-    audioOutputDevices = devices.filter(function (device) { return device && device.kind === 'audiooutput' && device.deviceId !== 'default' && device.deviceId !== 'communications'; });
-    var defaultDevice = devices.find(function (device) { return device.kind === 'audiooutput' && device.deviceId === 'default'; });
-    var defaultPhysical = defaultDevice && defaultDevice.groupId && audioOutputDevices.find(function (device) { return device.groupId === defaultDevice.groupId; });
-    audioOutputDefaultDeviceId = defaultPhysical ? defaultPhysical.deviceId : '';
-    audioInputDevices = devices.filter(function (device) { return device && device.kind === 'audioinput' && device.deviceId !== 'default'; });
-    await applyAudioOutputDevice(audio);
+    if (typeof updateAudioOutputDeviceSnapshot === 'function') updateAudioOutputDeviceSnapshot(devices, false);
+    else {
+      audioOutputDevices = devices.filter(function (device) { return device && device.kind === 'audiooutput' && device.deviceId !== 'default' && device.deviceId !== 'communications'; });
+      var defaultDevice = devices.find(function (device) { return device.kind === 'audiooutput' && device.deviceId === 'default'; });
+      var defaultPhysical = defaultDevice && defaultDevice.groupId && audioOutputDevices.find(function (device) { return device.groupId === defaultDevice.groupId; });
+      audioOutputDefaultDeviceId = defaultPhysical ? defaultPhysical.deviceId : '';
+    }
+    if (typeof updateMicrophoneMixerInputSnapshot === 'function') updateMicrophoneMixerInputSnapshot(devices, false);
+    else audioInputDevices = devices.filter(function (device) { return device && device.kind === 'audioinput' && device.deviceId !== 'default'; });
+    if (typeof checkMicrophoneMixerDevices === 'function') checkMicrophoneMixerDevices();
+    if (typeof audioOutputDeviceSnapshotKnown === 'undefined' || audioOutputDeviceSnapshotKnown) await applyAudioOutputDevice(audio);
     renderAudioOutputDeviceUi();
-    if (showNotice) showToast('输出接口已刷新');
+    if (showNotice) showToast('输出接口已刷新，麦克风可单独刷新');
   } catch (e) {
     if (refreshToken !== refreshAudioOutputDevices.token) return;
     renderAudioOutputDeviceUi();
@@ -880,17 +1047,25 @@ function bindAudioOutputMirrorEvents(media) {
     media.addEventListener(name, function () { syncAudioOutputMirrors(name); });
   });
 }
+function releaseAudioOutputMirrorResources(mirror, route) {
+  if (mirror) { try { mirror.pause(); mirror.srcObject = null; } catch (_) { } }
+  route = route || (mirror && mirror._route);
+  if (!route || route.released) return;
+  route.released = true;
+  // Do not disconnect every branch on the shared player tap.
+  try { if (route.tap && route.delay) route.tap.disconnect(route.delay); } catch (_) { }
+  [route.delay, route.gain, route.destination].forEach(function (node) { try { if (node) node.disconnect(); } catch (_) { } });
+  try {
+    if (route.destination && route.destination.stream) route.destination.stream.getTracks().forEach(function (track) {
+      try { track.stop(); } catch (_) { }
+    });
+  } catch (_) { }
+}
 function removeAudioOutputMirror(id) {
   var mirror = audioOutputMirrorElements[id];
   if (mirror) {
     delete audioOutputMirrorElements[id]; // Invalidate pending sink/play completions first.
-    try { mirror.pause(); mirror.srcObject = null; } catch (_) { }
-    var route = mirror._route;
-    if (route) {
-      try { route.tap.disconnect(route.delay); } catch (_) { }
-      [route.delay, route.gain, route.destination].forEach(function (node) { try { node.disconnect(); } catch (_) { } });
-      route.destination.stream.getTracks().forEach(function (track) { track.stop(); });
-    }
+    releaseAudioOutputMirrorResources(mirror);
   }
   delete audioOutputMirrorRuntime[id];
 }
@@ -917,7 +1092,8 @@ async function applyAudioOutputMirrorSink(mirror, sinkId) {
 }
 
 function syncAudioOutputMirrors(reason) {
-  var ids = audioRouteSelectedIds().filter(function (id) { return id !== effectiveAudioPrimaryId(); });
+  var unknownOutputs = typeof audioOutputDeviceSnapshotKnown !== 'undefined' && !audioOutputDeviceSnapshotKnown;
+  var ids = audioRouteSelectedIds().filter(function (id) { return id !== effectiveAudioPrimaryId() && !(typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(id)); });
   Object.keys(audioOutputMirrorElements).forEach(function (id) {
     if (ids.indexOf(id) < 0) removeAudioOutputMirror(id);
   });
@@ -925,23 +1101,28 @@ function syncAudioOutputMirrors(reason) {
   var tap = audio && audioReady && audioCtx && audioCtx.state !== 'closed' && (gainNode || analyser);
   ids.forEach(function (id) {
     var mirror = audioOutputMirrorElements[id];
-    if (mirror && (!tap || mirror._route.tap !== tap || !audioOutputDeviceById(id) || (!mirror._mineradioSinkReady && !mirror._mineradioSinkBusy && reason === 'apply-device'))) {
+    if (mirror && (!tap || mirror._route.tap !== tap || (!unknownOutputs && !audioOutputDeviceById(id)) || (!unknownOutputs && !mirror._mineradioSinkReady && !mirror._mineradioSinkBusy && reason === 'apply-device'))) {
       removeAudioOutputMirror(id);
       mirror = null;
     }
-    if (!audioOutputDeviceById(id)) { markAudioOutputMirrorRuntime(id, 'disconnected', '设备离线，重连后自动恢复'); return; }
+    if (unknownOutputs && (!mirror || !mirror._mineradioSinkReady || typeof mirror.sinkId !== 'string' || mirror.sinkId !== id)) {
+      if (mirror && mirror._mineradioSinkReady && mirror.sinkId !== id) mirror.pause();
+      markAudioOutputMirrorRuntime(id, 'waiting', '设备列表未完整读取，刷新接口后重连'); return;
+    }
+    if (!unknownOutputs && !audioOutputDeviceById(id)) { markAudioOutputMirrorRuntime(id, 'disconnected', '设备离线，重连后自动恢复'); return; }
     if (!audioOutputMirrorSinkSupported()) { markAudioOutputMirrorRuntime(id, 'unsupported', '当前内核不支持输出选择'); return; }
     if (!tap) { markAudioOutputMirrorRuntime(id, 'waiting', '播放时自动连接'); return; }
     if (!mirror) {
+      var construction = { tap: tap, delay: null, gain: null, destination: null, released: false };
       try {
-        var delay = audioCtx.createDelay(1);
-        var level = audioCtx.createGain();
-        var destination = audioCtx.createMediaStreamDestination();
+        var delay = construction.delay = audioCtx.createDelay(1);
+        var level = construction.gain = audioCtx.createGain();
+        var destination = construction.destination = audioCtx.createMediaStreamDestination();
         mirror = new Audio();
-        mirror._route = { tap: tap, delay: delay, gain: level, destination: destination };
+        mirror._route = construction;
+        audioOutputMirrorElements[id] = mirror;
         tap.connect(delay); delay.connect(level); level.connect(destination);
         mirror.srcObject = destination.stream;
-        audioOutputMirrorElements[id] = mirror;
         mirror._mineradioSinkBusy = true;
         applyAudioOutputMirrorSink(mirror, id).then(function (ok) {
           if (audioOutputMirrorElements[id] !== mirror) return;
@@ -950,7 +1131,8 @@ function syncAudioOutputMirrors(reason) {
           if (ok) syncAudioOutputMirrors('sink-ready');
         });
       } catch (e) {
-        if (mirror) removeAudioOutputMirror(id);
+        if (audioOutputMirrorElements[id] === mirror) delete audioOutputMirrorElements[id];
+        releaseAudioOutputMirrorResources(mirror, construction);
         markAudioOutputMirrorRuntime(id, 'unsupported', '音频分发初始化失败，请重新播放');
         return;
       }
@@ -980,6 +1162,12 @@ function syncAudioOutputMirrors(reason) {
   });
   if (!audioOutputMirrorSyncTimer) audioOutputMirrorSyncTimer = setInterval(function () { syncAudioOutputMirrors('clock'); }, 2200);
 }
+function audioRouteVisibleIds() {
+  var ids = audioRouteSelectedIds();
+  var mixed = typeof microphoneMixerVisibleTarget === 'function' && microphoneMixerVisibleTarget();
+  if (mixed && ids.indexOf(mixed) < 0) ids.push(mixed);
+  return ids;
+}
 function audioRouteSelectedIds() {
   var ids = normalizeAudioOutputIdList(audioOutputMirrorDeviceIds);
   // Keep the old single bridge preference working until the user changes it.
@@ -992,6 +1180,7 @@ function readAudioRouteSettings() {
 var audioRouteSettings = readAudioRouteSettings();
 if (typeof audioRouteSettings !== 'object' || Array.isArray(audioRouteSettings)) audioRouteSettings = {};
 var audioOutputDefaultDeviceId = '';
+var audioOutputDeviceSnapshotKnown = true, audioOutputDeviceSnapshotObserved = false, audioOutputDeviceLabels = Object.create(null);
 var audioOutputPrimaryRuntime = null;
 function effectiveAudioPrimaryId() {
   return audioOutputDeviceById(audioOutputDeviceId) ? audioOutputDeviceId : audioOutputDefaultDeviceId;
@@ -1017,26 +1206,41 @@ function setAudioRouteSetting(id, key, value) {
   Object.defineProperty(audioRouteSettings, id, { value: setting, writable: true, enumerable: true, configurable: true });
   try { localStorage.setItem('mineradio-audio-route-settings-v1', JSON.stringify(audioRouteSettings)); } catch (_) { }
   applyAudioRouteSettings(id);
+  if (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(id)) applyMicrophoneMixerLevels();
 }
 function retryAudioRoutes() {
+  invalidateAudioOutputSinkApplications();
   clearAudioOutputMirrors();
   applyAudioOutputDevice(audio);
 }
 function disconnectAdditionalAudioRoutes() {
+  invalidateAudioOutputSinkApplications();
   audioOutputMirrorDeviceIds = [];
   audioInputBridgeState = { enabled: false, deviceId: '' };
+  if (typeof stopMicrophoneMixer === 'function') stopMicrophoneMixer();
   saveAudioOutputMirrorPreference(); saveAudioInputBridgePreference();
   clearAudioOutputMirrors(); renderAudioOutputDeviceUi();
 }
 
 var audioOutputApplyQueue = Promise.resolve();
+var audioOutputSinkApplications = new WeakMap();
+var audioOutputSinkEpoch = 0;
+function invalidateAudioOutputSinkApplications() {
+  audioOutputSinkEpoch++;
+  audioOutputSinkApplications = new WeakMap();
+}
 function applyAudioOutputDevice(media) {
-  audioOutputApplyQueue = audioOutputApplyQueue.catch(function () {}).then(function () { return applyAudioOutputDeviceNow(media); });
+  var requestedId = audioOutputDeviceId;
+  audioOutputApplyQueue = audioOutputApplyQueue.catch(function () {}).then(function () { return applyAudioOutputDeviceNow(media, requestedId); });
   return audioOutputApplyQueue;
 }
-async function applyAudioOutputDeviceNow(media) {
-  var sinkId = audioOutputDeviceId && audioOutputDeviceById(audioOutputDeviceId) ? audioOutputDeviceId : '';
-  var requestedId = audioOutputDeviceId;
+async function applyAudioOutputDeviceNow(media, requestedId) {
+  if (requestedId == null) requestedId = audioOutputDeviceId;
+  // A privacy-limited list is not evidence that the chosen sink disappeared.
+  // Keep its actual binding; never redirect it to the system default on a guess.
+  if (typeof audioOutputDeviceSnapshotKnown !== 'undefined' && !audioOutputDeviceSnapshotKnown && requestedId && !audioOutputDeviceById(requestedId)) return null;
+  var sinkId = requestedId && audioOutputDeviceById(requestedId) ? requestedId : '';
+  var sinkEpoch = audioOutputSinkEpoch;
   var hasTarget = !!(media || audioCtx || uiSfxCtx);
   var mediaResult = null;
   var contextResult = null;
@@ -1046,9 +1250,17 @@ async function applyAudioOutputDeviceNow(media) {
     if (!target) return null;
     if (typeof target.setSinkId !== 'function') return false;
     try {
+      var applied = audioOutputSinkApplications.get(target);
+      // An identity cache alone cannot detect an externally changed/default
+      // route. Skip only a successful application verified on the actual target.
+      if (applied && applied.epoch === sinkEpoch && applied.sinkId === sinkId
+        && typeof target.sinkId === 'string' && target.sinkId === sinkId
+        && target.state !== 'closed') return true;
       await target.setSinkId(sinkId);
+      if (sinkEpoch === audioOutputSinkEpoch) audioOutputSinkApplications.set(target, { sinkId: sinkId, epoch: sinkEpoch });
       return true;
     } catch (e) {
+      audioOutputSinkApplications.delete(target);
       errors.push({ label: label, error: e });
       return false;
     }
@@ -1057,6 +1269,7 @@ async function applyAudioOutputDeviceNow(media) {
   mediaResult = await applySink(media, 'audio');
   contextResult = await applySink(audioCtx, 'audio-context');
   sfxResult = await applySink(uiSfxCtx, 'ui-sfx');
+  if (typeof checkMicrophoneMixerDevices === 'function') checkMicrophoneMixerDevices();
   var webAudioRouteActive = !!(audioReady && audioCtx && gainNode);
   var ok = webAudioRouteActive ? contextResult === true : (mediaResult === true || contextResult === true);
   if (sfxResult === true && !webAudioRouteActive && !media) ok = true;
@@ -1078,6 +1291,7 @@ async function applyAudioOutputDeviceNow(media) {
 }
 function setAudioOutputDevice(deviceId, showNotice) {
   audioOutputDeviceId = String(deviceId || '');
+  if (typeof checkMicrophoneMixerDevices === 'function') checkMicrophoneMixerDevices();
   var requestedDeviceId = audioOutputDeviceId;
   saveAudioOutputMirrorPreference();
   saveAudioOutputDevicePreference();
@@ -1105,6 +1319,10 @@ function toggleAudioOutputMirrorDevice(deviceId) {
   }
   var ids = audioRouteSelectedIds();
   var pos = ids.indexOf(deviceId);
+  if (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(deviceId)) {
+    stopMicrophoneMixer('');
+    if (pos < 0) { renderAudioOutputDeviceUi(); return; }
+  }
   if (pos >= 0) {
     ids.splice(pos, 1);
     removeAudioOutputMirror(deviceId);

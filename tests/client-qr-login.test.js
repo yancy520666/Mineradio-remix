@@ -52,7 +52,8 @@ test('desktop NetEase uses App QR first while webpage fallback stays explicit',a
 });
 test('late NetEase check cannot modify a newly selected provider',async()=>{
  let release;const ctx=vm.createContext({qrKey:'old',loginProvider:'netease',loginRefreshRequestSeq:1,apiJson:()=>new Promise(r=>release=r),document:{getElementById(){throw Error('stale UI touched');}},console});
- loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['checkQr']);const pending=ctx.checkQr();ctx.loginProvider='qq';release({code:803,loggedIn:true});await pending;
+ ctx.loginAttemptCurrent={provider:'netease',seq:1,id:'fixture'};
+ loadFunctions(ctx,'public/js/modules/08-account/03-login-modal-flows.js',['isLoginAttemptCurrent','checkQr']);const pending=ctx.checkQr();ctx.loginProvider='qq';release({code:803,loggedIn:true});await pending;
 });
 
 test('authorization arriving after cancel is discarded and its SDK token is revoked',async()=>{

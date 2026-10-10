@@ -1,0 +1,22 @@
+[
+  {
+    "file": "desktop-native-icon-layer-runtime.test.js",
+    "skipped": 1
+  },
+  {
+    "file": "dev-launcher.test.js",
+    "skipped": 1
+  },
+  {
+    "file": "wallpaper-background-regression.test.js",
+    "skipped": 1
+  },
+  {
+    "file": "wallpaper-native-input.test.js",
+    "skipped": 1
+  },
+  {
+    "file": "wallpaper-window-follow.test.js",
+    "skipped": 1
+  }
+]

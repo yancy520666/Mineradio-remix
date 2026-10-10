@@ -1,0 +1,7 @@
+Error: self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca
+    at TLSSocket.onConnectSecure (node:internal/tls/wrap:1768:34)
+    at TLSSocket.emit (node:events:509:28)
+    at TLSSocket._finishInit (node:internal/tls/wrap:1203:8)
+    at ssl.onhandshakedone (node:internal/tls/wrap:984:12) {
+  code: 'DEPTH_ZERO_SELF_SIGNED_CERT'
+}

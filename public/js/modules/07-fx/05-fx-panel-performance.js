@@ -149,8 +149,6 @@ function updatePerformanceControls() {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  var liveBackgroundKeepToggle = document.getElementById('t-liveBackgroundKeep');
-  if (liveBackgroundKeepToggle) liveBackgroundKeepToggle.classList.toggle('on', fx.liveBackgroundKeep === true);
 }
 var SONIC_ORIGINAL_FX_CONTROL_IDS = [
   'fx-sonic-ground-section', 'fx-sonicamp', 'fx-sonicspeed', 'fx-sonicdensity', 'fx-sonicrange', 'fx-soniclower', 'fx-sonicdepth', 'fx-sonicautorotate',
@@ -207,6 +205,7 @@ function setPerformanceQualityMode(mode, silent) {
   if (window.MineradioSonicPerformance) MineradioSonicPerformance.qualityChanged();
   updatePerformanceControls();
   applyRendererPowerMode();
+  if (typeof applyCoverParticleQualityBudget === 'function') applyCoverParticleQualityBudget();
   saveLyricLayout({ user: true, reason: 'performanceQuality' });
   if (shelfManager && shelfManager.refreshQuality) shelfManager.refreshQuality();
   if (!silent) {
@@ -397,8 +396,6 @@ function updateFxInputs() {
   if (shelfPodcastsToggle) shelfPodcastsToggle.classList.toggle('on', fx.shelfShowPodcasts !== false);
   var shelfMergeToggle = document.getElementById('t-shelfMergeCollections');
   if (shelfMergeToggle) shelfMergeToggle.classList.toggle('on', fx.shelfMergeCollections === true);
-  var liveBackgroundKeepToggle = document.getElementById('t-liveBackgroundKeep');
-  if (liveBackgroundKeepToggle) liveBackgroundKeepToggle.classList.toggle('on', fx.liveBackgroundKeep === true);
   var sonicFloatingToggle = document.getElementById('t-sonicGroundFloatingEnabled');
   if (sonicFloatingToggle) sonicFloatingToggle.classList.toggle('on', fx.sonicGroundFloatingEnabled !== false);
   var sonicAudioToggle = document.getElementById('t-sonicAudioMonitorEnabled');

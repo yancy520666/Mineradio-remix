@@ -30,7 +30,7 @@
   var TERRAIN_BASE_SIZE = 168;
   var TERRAIN_MIN_GRID_SIZE = 96;
   var TERRAIN_MAX_GRID_SIZE = 224;
-  var QUALITY_GRID_CAP = { eco: 112, balanced: 160, high: 192, ultra: 224 };
+  var QUALITY_GRID_CAP = { eco: 96, balanced: 128, high: 148, ultra: 224 };
   var DEFAULT_FLOATING_BLOCK_INTENSITY = 55;
   var DEFAULT_FLOATING_BLOCK_MIN_SIZE = 9;
   var DEFAULT_FLOATING_BLOCK_MAX_SIZE = 26;
@@ -426,6 +426,7 @@
     return [
       'precision highp float;',
       'uniform float uTime;',
+      'uniform float uLayerOpacity;',
       'uniform float uPresence;',
       'uniform float uBrilliance;',
       'uniform float uAir;',
@@ -501,7 +502,7 @@
       '  float alphaFade=1.0-smoothstep(55.0,78.0,vDistance);',
       '  float alphaBlend=1.0-alphaFade;',
       '  finalColor=mix(finalColor,uFogColor,alphaBlend*0.45);',
-      '  gl_FragColor=vec4(finalColor,alphaFade);',
+      '  gl_FragColor=vec4(finalColor,alphaFade*uLayerOpacity);',
       '}'
     ].join('\n');
   }
@@ -545,6 +546,7 @@
 
   function makeTerrainUniforms() {
     return {
+      uLayerOpacity: { value: 0 },
       uTime: { value: 0 },
       uSubBass: { value: 0 },
       uBass: { value: 0 },
@@ -670,6 +672,7 @@
       mesh.setMatrixAt(i, state.dummyMat4);
     }
     mesh.instanceMatrix.needsUpdate = true;
+    mesh.visible = false;
     return mesh;
   }
 
@@ -973,86 +976,89 @@
 
   function updateMeteorsAndTrails(dt) {
     if (!state.meteors || !state.trails) return;
-    var i;
+    var i, meteorsDirty = false, trailsDirty = false;
+    var activeMeteors = 0, activeTrails = 0;
     for (i = 0; i < METEOR_MAX; i++) {
       var m = state.meteorsData[i];
-      if (!m.active) {
+      // Inactive slots were zeroed at construction or on their final frame.
+      if (!m.active) continue;
+      meteorsDirty = true;
+      m.y -= m.speed * 60 * dt;
+      if (m.y <= 0) {
+        m.active = false;
+        addRipple(m.x, m.z, Math.min(m.strength, 1.2), true);
+        for (var t = 0; t < 10; t++) spawnTrail(m.x, 0.5, m.z, m.speed * 1.5);
         state.dummyPos.set(0, -1000, 0);
         state.dummyScale.set(0, 0, 0);
       } else {
-        m.y -= m.speed * 60 * dt;
-        if (m.y <= 0) {
-          m.active = false;
-          addRipple(m.x, m.z, Math.min(m.strength, 1.2), true);
-          for (var t = 0; t < 10; t++) spawnTrail(m.x, 0.5, m.z, m.speed * 1.5);
-          state.dummyPos.set(0, -1000, 0);
-          state.dummyScale.set(0, 0, 0);
-        } else {
-          if (Math.random() > 0.3) spawnTrail(m.x, m.y, m.z, m.speed * 0.2);
-          state.dummyPos.set(m.x, Math.max(0, m.y), m.z);
-          state.dummyScale.set(1.5, 1.5, 1.5);
-        }
+        if (Math.random() > 0.3) spawnTrail(m.x, m.y, m.z, m.speed * 0.2);
+        state.dummyPos.set(m.x, Math.max(0, m.y), m.z);
+        state.dummyScale.set(1.5, 1.5, 1.5);
       }
+      if (m.active) activeMeteors++;
       state.dummyQuat.identity();
       state.dummyMat4.compose(state.dummyPos, state.dummyQuat, state.dummyScale);
       state.meteors.setMatrixAt(i, state.dummyMat4);
     }
-    state.meteors.instanceMatrix.needsUpdate = true;
+    if (meteorsDirty) state.meteors.instanceMatrix.needsUpdate = true;
+    state.meteors.visible = activeMeteors > 0;
     for (i = 0; i < TRAIL_MAX; i++) {
       var p = state.trailsData[i];
-      if (!p.active) {
+      if (!p.active) continue;
+      trailsDirty = true;
+      p.life += dt;
+      if (p.life >= p.maxLife) {
+        p.active = false;
         state.dummyPos.set(0, -1000, 0);
         state.dummyScale.set(0, 0, 0);
       } else {
-        p.life += dt;
-        if (p.life >= p.maxLife) {
-          p.active = false;
-          state.dummyScale.set(0, 0, 0);
-        } else {
-          p.x += p.vx * dt * 10;
-          p.y += p.vy * dt * 10;
-          p.z += p.vz * dt * 10;
-          var s = p.scale * (1.0 - p.life / p.maxLife);
-          state.dummyPos.set(p.x, p.y, p.z);
-          state.dummyScale.set(s, s, s);
-        }
+        p.x += p.vx * dt * 10;
+        p.y += p.vy * dt * 10;
+        p.z += p.vz * dt * 10;
+        var s = p.scale * (1.0 - p.life / p.maxLife);
+        state.dummyPos.set(p.x, p.y, p.z);
+        state.dummyScale.set(s, s, s);
       }
       state.dummyQuat.identity();
       state.dummyMat4.compose(state.dummyPos, state.dummyQuat, state.dummyScale);
       state.trails.setMatrixAt(i, state.dummyMat4);
+      if (p.active) activeTrails++;
     }
-    state.trails.instanceMatrix.needsUpdate = true;
+    if (trailsDirty) state.trails.instanceMatrix.needsUpdate = true;
+    state.trails.visible = activeTrails > 0;
   }
 
-  function clearLayer() {
+  var retiredMeshes = [], retirementTimer = 0;
+  function disposeMesh(mesh) {
+    mesh.dispose(); mesh.geometry.dispose(); mesh.material.dispose();
+  }
+  function flushRetiredMeshes() {
+    if (retirementTimer && global.clearTimeout) global.clearTimeout(retirementTimer);
+    retirementTimer = 0;
+    while (retiredMeshes.length) disposeMesh(retiredMeshes.shift());
+  }
+  function retireOneMesh() {
+    retirementTimer = 0;
+    if (retiredMeshes.length) disposeMesh(retiredMeshes.shift());
+    if (retiredMeshes.length) retirementTimer = global.setTimeout(retireOneMesh, 16);
+  }
+  function clearLayer(deferDisposal) {
+    flushRetiredMeshes();
     if (state.root && state.scene) state.scene.remove(state.root);
-    if (state.terrain) {
-      state.terrain.dispose();
-      state.terrain.geometry.dispose();
-      state.terrain.material.dispose();
-    }
-    if (state.floatingBlocks) {
-      state.floatingBlocks.dispose();
-      state.floatingBlocks.geometry.dispose();
-      state.floatingBlocks.material.dispose();
-    }
-    if (state.meteors) {
-      state.meteors.dispose();
-      state.meteors.geometry.dispose();
-      state.meteors.material.dispose();
-    }
-    if (state.trails) {
-      state.trails.dispose();
-      state.trails.geometry.dispose();
-      state.trails.material.dispose();
-    }
+    var meshes = [state.terrain, state.floatingBlocks, state.meteors, state.trails].filter(Boolean);
+    if (deferDisposal && global.setTimeout) {
+      retiredMeshes = meshes;
+      retirementTimer = global.setTimeout(retireOneMesh, 0);
+    } else meshes.forEach(disposeMesh);
     state.root = null;
     state.terrain = null;
     state.terrainMat = null;
     state.floatingBlocks = null;
     state.floatingMat = null;
     state.meteors = null;
+    state.meteorMat = null;
     state.trails = null;
+    state.trailMat = null;
     state.initialized = false;
     state.orbitThetaReady = false;
     state.opacity = 0;
@@ -1067,6 +1073,52 @@
     addRipple(worldX, worldZ, strength || 1.2, false);
   }
 
+  var pendingPreparation = null;
+  function prepare(ctx) {
+    if (pendingPreparation) return pendingPreparation;
+    var cancelled = false, capturedRoot = null, frame = 0;
+    var resolvePreparation;
+    var job = { cancel: function () {
+      if (cancelled || pendingPreparation !== job) return;
+      cancelled = true;
+      job.cancelled = true;
+      if (frame) global.cancelAnimationFrame(frame);
+      if (pendingPreparation === job) pendingPreparation = null;
+      // A returning selection can reuse an outgoing layer; cancellation must not destroy it.
+      if (capturedRoot && state.root === capturedRoot && state.opacity < 0.01) clearLayer();
+      if (resolvePreparation) resolvePreparation(false);
+    } };
+    pendingPreparation = job;
+    job.promise = new Promise(function (resolve, reject) {
+      resolvePreparation = resolve;
+      frame = global.requestAnimationFrame(function () {
+        if (cancelled) return;
+        try {
+          ensureLayer(ctx.scene, ctx.fx || {});
+          capturedRoot = state.root;
+          // Keep CPU allocation and driver compilation out of the selection event,
+          // and on separate frames. No screen capture or GPU readback is used.
+          var meshes = capturedRoot.children.slice();
+          function compileNext() {
+            if (cancelled) return;
+            try {
+              if (ctx.renderer && ctx.renderer.compile && ctx.camera && meshes.length) {
+                ctx.renderer.compile(meshes.shift(), ctx.camera);
+                if (meshes.length) { frame = global.requestAnimationFrame(compileNext); return; }
+              }
+              resolve(true);
+            } catch (error) { reject(error); }
+          }
+          frame = global.requestAnimationFrame(compileNext);
+        } catch (error) {
+          capturedRoot = state.root;
+          reject(error);
+        }
+      });
+    });
+    return job;
+  }
+
   function update(dt, ctx) {
     ctx = ctx || {};
     var fx = ctx.fx || {};
@@ -1076,6 +1128,7 @@
     state.opacity += (target - state.opacity) * Math.min(1, dt * (active ? 3.0 : 2.2));
     if (!active && state.opacity < 0.01) {
       if (state.root) state.root.visible = false;
+      if (!pendingPreparation && state.root) clearLayer(true);
       return;
     }
     ensureLayer(scene, fx);
@@ -1090,13 +1143,18 @@
     if (active) updateAudioTriggers(audio);
     updateFloatingBlocks(fx, audio, dt, time);
     updateMeteorsAndTrails(dt);
-    state.root.visible = state.opacity > 0.02;
+    state.terrainMat.uniforms.uLayerOpacity.value = state.opacity;
+    state.floatingMat.uniforms.uLayerOpacity.value = state.opacity;
+    state.meteorMat.opacity = state.opacity;
+    state.trailMat.opacity = 0.6 * state.opacity;
+    // Transparent outgoing terrain must not occlude the incoming visual.
+    state.terrainMat.depthWrite = active && state.opacity > 0.995;
+    state.root.visible = state.opacity > 0.002;
   }
 
   function onPresetChange(prev, next, ctx) {
-    if (prev === INDEX && next !== INDEX) clearLayer();
     if (next === INDEX && ctx && ctx.scene) {
-      if (state.initialized) clearLayer();
+      pendingPreparation = null;
       ensureLayer(ctx.scene, ctx.fx || {});
       applyLayout(ctx.fx || {});
     }
@@ -1104,9 +1162,13 @@
 
   global.MineradioSonicTopography = {
     INDEX: INDEX,
+    prepare: prepare,
     isActive: isActive,
     update: update,
-    clear: clearLayer,
+    clear: function () {
+      if (pendingPreparation) pendingPreparation.cancel();
+      clearLayer();
+    },
     onPresetChange: onPresetChange,
     pointerRipple: pointerRipple
   };

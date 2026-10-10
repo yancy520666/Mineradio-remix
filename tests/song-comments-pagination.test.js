@@ -23,15 +23,15 @@ function renderer() {
   const target = { set innerHTML(value) { hotList.innerHTML = ''; normalList.innerHTML = ''; },
     dataset: {}, addEventListener() {}, querySelector: selector => selectors[selector] };
   const ctx = vm.createContext({
-    document: { getElementById: () => target }, trackDetailSeq: 1, detailCommentsState: null, detailCommentSort: 'latest',
+    AbortController, document: { getElementById: () => target }, trackDetailSeq: 1, detailCommentsState: null, detailCommentSort: 'latest',
     songProviderKey: song => song.provider, escHtml: String, bindTrackDetailScrollers() {},
-    apiJson: url => new Promise((resolve, reject) => requests.push({ url, resolve, reject })),
+    apiJson: (url, opts) => new Promise((resolve, reject) => requests.push({ url, opts, resolve, reject })),
     closeGsapModal(_modal, done) { done(); }, detailCommentSong: null, detailCommentSubmitBusy: false,
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
     ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal',
       'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml', 'bindDetailCommentLikes',
-      'detailCommentsSortable']);
+      'detailCommentsSortable', 'cancelDetailCommentReads', 'detailCommentReadStore', 'invalidateDetailCommentReadCache', 'readDetailComments']);
   return { ctx, requests, list, button, label, hotList, normalList, hotSection, normalSection, empty };
 }
 
@@ -297,4 +297,98 @@ test('Netease emoticon codes become their CDN images; 多多 stickers become chi
   assert(!html.includes('<img src=x'));
   ctx.detailCommentsState = { config: { provider: 'qq' } };
   assert.equal(ctx.commentContentHtml('朋友[爱心]'), '朋友[爱心]', 'other platforms keep their own text');
+});
+
+test('sort reload and close cancel only GET owners, while POST remains independent', async () => {
+  const f = renderer();
+  const song = { id: 'song', provider: 'netease' };
+  const first = f.ctx.loadDetailComments(song, 1);
+  const second = f.ctx.loadDetailComments(song, 1);
+  assert.equal(f.requests[0].opts.timeoutMs, 15000);
+  assert.equal(f.requests[0].opts.signal.aborted, true);
+  assert.equal(f.requests[1].opts.signal.aborted, false);
+  await first;
+  f.ctx.closeTrackDetailModal(); await second;
+  assert.equal(f.requests[1].opts.signal.aborted, true);
+  const input = { value: 'posted' };
+  f.ctx.document.getElementById = id => id === 'detail-comment-input' ? input : {};
+  f.ctx.detailCommentSong = song; f.ctx.ensureLoggedInForAction = () => true; f.ctx.showToast = () => {};
+  loadFunctions(f.ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js', ['submitDetailComment']);
+  const post = f.ctx.submitDetailComment();
+  f.ctx.closeTrackDetailModal();
+  assert.equal(f.requests[2].opts.method, 'POST');
+  assert.equal(f.requests[2].opts.signal, undefined);
+  f.requests[2].resolve({ created: true }); await post;
+  assert.equal(f.requests.length, 3);
+});
+
+test('first-page GET cache merges subscribers, isolates authorization epochs/sorts and skips failed results', async () => {
+  const f = renderer(); let epoch = 1;
+  f.ctx.providerAuthEpoch = () => epoch;
+  const owner = () => ({ config: { provider: 'netease' } });
+  const a = owner(), b = owner();
+  const first = f.ctx.readDetailComments(a, '/comments?sort=latest', true);
+  const second = f.ctx.readDetailComments(b, '/comments?sort=latest', true);
+  assert.equal(f.requests.length, 1);
+  f.ctx.cancelDetailCommentReads(a); await assert.rejects(first, { name: 'AbortError' });
+  assert.equal(f.requests[0].opts.signal.aborted, false, 'another subscriber still needs the GET');
+  f.requests[0].resolve({ comments: [comment('a')], hasMore: true, nextCursor: 'cursor' });
+  await second;
+  const warm = await f.ctx.readDetailComments(owner(), '/comments?sort=latest', true);
+  assert.equal(warm.nextCursor, 'cursor'); assert.equal(f.requests.length, 1);
+  const hot = f.ctx.readDetailComments(owner(), '/comments?sort=hot', true);
+  assert.equal(f.requests.length, 2);
+  f.requests[1].resolve({ error: 'offline', comments: [] }); await hot;
+  const retry = f.ctx.readDetailComments(owner(), '/comments?sort=hot', true);
+  assert.equal(f.requests.length, 3); f.requests[2].resolve({ comments: [] }); await retry;
+  epoch++;
+  const otherAccount = f.ctx.readDetailComments(owner(), '/comments?sort=latest', true);
+  assert.equal(f.requests.length, 4);
+  f.requests[3].resolve({ comments: [comment('account-b')] }); await otherAccount;
+  f.ctx.invalidateDetailCommentReadCache('netease');
+  const invalidated = f.ctx.readDetailComments(owner(), '/comments?sort=latest', true);
+  assert.equal(f.requests.length, 5); f.requests[4].resolve({ comments: [] }); await invalidated;
+});
+
+test('isolated cold/hot comment first-page timings avoid repeat upstream work', async t => {
+  const f = renderer(), { performance } = require('node:perf_hooks'); let calls = 0;
+  f.ctx.providerAuthEpoch = () => 1;
+  f.ctx.apiJson = async () => { calls++; await new Promise(resolve => setTimeout(resolve, 35)); return { comments: batch(0), nextCursor: 'next', hasMore: true }; };
+  const owner = () => ({ config: { provider: 'netease' } });
+  const start = performance.now(); await f.ctx.readDetailComments(owner(), '/timed', true); const cold = performance.now() - start;
+  const warmStart = performance.now(); await f.ctx.readDetailComments(owner(), '/timed', true); const hot = performance.now() - warmStart;
+  assert.equal(calls, 1);
+  t.diagnostic(`local fake upstream delay 35ms: comment cold=${cold.toFixed(2)}ms, hot=${hot.toFixed(2)}ms; not a platform/client benchmark`);
+});
+
+test('expired cache and an auth change between cache lookup and render cannot reuse old-account data', async () => {
+  const f = renderer(); let epoch = 1, clock = 0;
+  f.ctx.providerAuthEpoch = () => epoch; f.ctx.Date = { now: () => clock };
+  const owner = () => ({ config: { provider: 'netease' } });
+  const first = f.ctx.readDetailComments(owner(), '/auth', true);
+  f.requests[0].resolve({ comments: [comment('old-account')] }); await first;
+  const cachedRace = f.ctx.readDetailComments(owner(), '/auth', true); epoch++;
+  await assert.rejects(cachedRace, /AUTH_CHANGED/);
+  const next = f.ctx.readDetailComments(owner(), '/auth', true);
+  f.requests[1].resolve({ comments: [comment('new-account')] }); await next;
+  clock = 15001;
+  const expired = f.ctx.readDetailComments(owner(), '/auth', true);
+  assert.equal(f.requests.length, 3); f.requests[2].resolve({ comments: [] }); await expired;
+  const old = f.ctx.readDetailComments(owner(), '/late', true); epoch++;
+  f.requests[3].resolve({ comments: [comment('late-old')] }); await assert.rejects(old, /AUTH_CHANGED/);
+  const fresh = f.ctx.readDetailComments(owner(), '/late', true);
+  assert.equal(f.requests.length, 5); f.requests[4].resolve({ comments: [comment('fresh')] }); await fresh;
+});
+
+test('late cancelled comment GET cannot cache stale data or delete a replacement task', async () => {
+  const f = renderer(); f.ctx.providerAuthEpoch = () => 1;
+  const a = { config: { provider: 'netease' } }, b = { config: { provider: 'netease' } };
+  const old = f.ctx.readDetailComments(a, '/replaced', true); f.ctx.cancelDetailCommentReads(a);
+  await assert.rejects(old, /CANCELLED/);
+  const replacement = f.ctx.readDetailComments(b, '/replaced', true);
+  f.requests[0].resolve({ comments: [comment('old')] }); await Promise.resolve(); await Promise.resolve();
+  assert.equal(f.ctx.detailCommentReadStore().pending.size, 1);
+  f.requests[1].resolve({ comments: [comment('new')] }); await replacement;
+  const cached = await f.ctx.readDetailComments({ config: { provider: 'netease' } }, '/replaced', true);
+  assert.equal(cached.comments[0].id, 'new'); assert.equal(f.requests.length, 2);
 });

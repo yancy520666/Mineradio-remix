@@ -1,0 +1,3 @@
+Baseline: a3eb0e9b751fa65a08833c8db5e59f133b94027b
+All tests/*.test.js selected except login-logout-race.test.js, whose execution authorization was explicitly cancelled. Each file runs separately with node --test --test-reporter=tap, timeout 60 seconds, maxBuffer 12 MiB. No production runner changes. NODE_PATH=/tmp/mineradio-basic-ftp-deps-20261010/node_modules; ELECTRON_SKIP_BINARY_DOWNLOAD=1. Existing synthetic server-security loopback checks authorized. No external security PoC, real login, live MFA, Electron installation/execution, Windows/GPU or browser visual verification.
+Logs show Node TAP assertions, not process RSS or real-browser memory measurements.

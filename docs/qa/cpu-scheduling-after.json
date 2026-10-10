@@ -1,0 +1,35 @@
+{
+  "variant": "working tree",
+  "note": "Exact production function/excerpt executed with controlled fake data; counts only, no browser/GPU/FPS measurement.",
+  "pointer_normal": {
+    "events": 1000,
+    "layoutReads": 3,
+    "hideSchedulingCalls": 1
+  },
+  "pointer_DIY": {
+    "events": 1000,
+    "layoutReads": 5,
+    "hideSchedulingCalls": 1
+  },
+  "hiddenSparks": {
+    "frames": 60,
+    "points": 132,
+    "visible": false,
+    "trigonometricCalls": 0,
+    "positionNeedsUpdateWrites": 0,
+    "floatComponentWrites": 0
+  },
+  "lyricRows": {
+    "rows": 200,
+    "visibleRows": 3,
+    "scaleSetCalls": 3,
+    "settleFrames": 350,
+    "scope": "Stationary t=0 settled scale only; all rows keep full motion/state calculations"
+  },
+  "wakeBurst": {
+    "calls": 3,
+    "synchronousRenders": 1,
+    "rafRequests": 3,
+    "cancelledRafs": 2
+  }
+}

@@ -71,6 +71,8 @@ test('actual updater rejects damaged/truncated downloads and downgrade, and acce
       const app = { name: 'fixture', version: '2.2.4', isPackaged: true, userDataPath: dir,
         baseCachePath: dir, appUpdateConfigPath: config, whenReady: async () => {}, onQuit() {}, quit() {} };
       const native = new NsisUpdater(null, app);
+      // This exercises the Windows NSIS channel even on a Linux test host.
+      native._testOnlyOptions = { platform: 'win32' };
       native.httpExecutor = new LoopbackExecutor(); native.logger = null;
       native.disableDifferentialDownload = true; native.disableWebInstaller = true;
       let installed = 0;

@@ -1,0 +1,20 @@
+Node runtime:
+v24.19.0
+Baseline:
+VERSION 5.3.1
+PASS get-uri mdtm + stream + cleanup
+PASS get-uri list + stream + cleanup
+PASS ordinary Unix LIST; existing get-uri unknown-date ENOTFOUND preserved
+PASS cache-not-modified
+PASS 550 not found
+PASS basic-ftp interrupted transfer + cleanup
+PASS CommonJS/API surface and all benign consumer compatibility fixtures
+Patched isolated stage:
+VERSION 6.2.1
+PASS get-uri mdtm + stream + cleanup
+PASS get-uri list + stream + cleanup
+PASS ordinary Unix LIST; existing get-uri unknown-date ENOTFOUND preserved
+PASS cache-not-modified
+PASS 550 not found
+PASS basic-ftp interrupted transfer + cleanup
+PASS CommonJS/API surface and all benign consumer compatibility fixtures

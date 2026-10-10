@@ -313,7 +313,8 @@
           propertyReady = true;
           applyDefaultProperties();
           notifyMediaChange();
-          try { parent.postMessage({ type: 'mineradio-sonic-workshop-ready' }, '*'); } catch (e) {}
+          window.__mineradioWorkshopPropertiesReady = true;
+          try { parent.postMessage({ type: 'mineradio-sonic-workshop-ready', generation: Number((String(location.search || '').match(/[?&]generation=(\d+)/) || [0, 0])[1]) }, '*'); } catch (e) {}
         };
 
         window.__mineradioApplyAudio = function (samples) {

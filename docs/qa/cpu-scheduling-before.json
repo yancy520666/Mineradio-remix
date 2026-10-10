@@ -1,0 +1,35 @@
+{
+  "variant": "baseline a746952de73ed3e326d3f5b343a0bafc8e6efca7",
+  "note": "Exact production function/excerpt executed with controlled fake data; counts only, no browser/GPU/FPS measurement.",
+  "pointer_normal": {
+    "events": 1000,
+    "layoutReads": 3000,
+    "hideSchedulingCalls": 1000
+  },
+  "pointer_DIY": {
+    "events": 1000,
+    "layoutReads": 5000,
+    "hideSchedulingCalls": 1000
+  },
+  "hiddenSparks": {
+    "frames": 60,
+    "points": 132,
+    "visible": false,
+    "trigonometricCalls": 39660,
+    "positionNeedsUpdateWrites": 60,
+    "floatComponentWrites": 23760
+  },
+  "lyricRows": {
+    "rows": 200,
+    "visibleRows": 3,
+    "scaleSetCalls": 200,
+    "settleFrames": 350,
+    "scope": "Stationary t=0 settled scale only; all rows keep full motion/state calculations"
+  },
+  "wakeBurst": {
+    "calls": 3,
+    "synchronousRenders": 3,
+    "rafRequests": 3,
+    "cancelledRafs": 2
+  }
+}

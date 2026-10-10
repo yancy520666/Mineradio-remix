@@ -1,0 +1,5 @@
+Clean npm ci --ignore-scripts dependency tree; Electron binary not installed.
+electron 42.10.0
+axios 1.20.0
+music-metadata 11.16.0
+electron-updater 6.8.10

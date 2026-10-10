@@ -54,7 +54,7 @@ var USER_FX_ARCHIVE_STORE_KEY = 'mineradio-user-fx-archives-v1';
 var USER_FX_ARCHIVE_EXPORT_TYPE = 'mineradio-user-fx-archive';
 var USER_FX_ARCHIVE_SCHEMA = 1;
 var USER_FX_SHARE_PREFIX = 'MR2';
-var USER_FX_SHARE_VERSION = 1;
+var USER_FX_SHARE_VERSION = 2;
 var USER_FX_SHARE_PAYLOAD_TYPE = 'ufa';
 var USER_FX_SHARE_CODEC_GZIP = 'G';
 var USER_FX_SHARE_CODEC_JSON = 'J';
@@ -276,7 +276,100 @@ var USER_FX_SHARE_KEYS = [
   'coverBackdropAdapt',
   'gesturePlayerActions',
   'gestureHandOverlay',
-  'gestureSensitivity'
+  'gestureSensitivity',
+  'aeroWaterTheme',
+  'aeroWaterPalette'
+];
+// Frozen MR2 v1 layouts: upstream v2.2.0 (213) and Remix (215).
+var USER_FX_SHARE_V1_ORIGINAL_KEYS = [
+  'visualPresetSchema', 'preset', 'intensity', 'cinemaShake', 'depth',
+  'coverResolution', 'point', 'speed', 'twist', 'color',
+  'scatter', 'bgFade', 'bloomStrength', 'lyricGlowStrength', 'lyricBackgroundAdapt',
+  'lyricScale', 'lyricOffsetX', 'lyricOffsetY', 'lyricOffsetZ', 'lyricTiltX',
+  'lyricTiltY', 'lyricCameraLock', 'lyricColorMode', 'lyricColor', 'lyricHighlightMode',
+  'lyricHighlightColor', 'lyricGlowLinked', 'lyricGlowColor', 'lyricDisplayMode', 'lyricTranslationMode',
+  'lyricMotionStyle', 'lyricCustomLineCount', 'lyricGlitchCameraBind', 'lyricGlitchIntensity', 'lyricGlitchSlice',
+  'lyricGlitchChroma', 'lyricGlitchRate', 'lyricGlitchJitter', 'lyricContextOpacity', 'lyricContextSpread',
+  'lyricTranslationGap', 'lyricTranslationScale', 'lyricTranslationOpacity', 'lyricEdgeFade', 'lyricMotionSoftness',
+  'lyricFont', 'lyricLetterSpacing', 'lyricLineHeight', 'lyricWeight', 'visualTintMode',
+  'visualTintColor', 'uiAccentColor', 'homeAccentColor', 'homeIconColor', 'visualIconColor',
+  'backgroundColorMode', 'backgroundColor', 'backgroundOpacity', 'backgroundAlbumCover', 'backgroundMediaCropX',
+  'backgroundMediaCropY', 'backgroundMediaZoom', 'controlGlassChromaticOffset', 'playlistPanelGlassBlur', 'playlistPanelGlassDensity',
+  'playlistPanelOpenDuration', 'playlistPanelCloseDuration', 'backgroundColorCustom', 'floatLayer', 'cinema',
+  'edge', 'aiDepth', 'bloom', 'lyricGlow', 'lyricGlowBeat',
+  'lyricGlowParticles', 'lyricVerticalFloat', 'lyricPauseHold', 'desktopLyrics', 'desktopLyricsSize',
+  'desktopLyricsOpacity', 'desktopLyricsY', 'desktopLyricsClickThrough', 'desktopLyricsCinema', 'desktopLyricsHighlight',
+  'desktopLyricsFps', 'performanceBackground', 'performanceQuality', 'foregroundFpsMode', 'memoryAutoTrimApp',
+  'memoryAutoTrimOnBackground', 'memoryAutoSystemTrim', 'memorySystemAutoElevate', 'memorySystemIntervalMin', 'memorySystemThresholdPercent',
+  'memorySystemMask', 'memorySafetyRevision', 'liveBackgroundKeep', 'sonicGroundAmplitude', 'sonicGroundMotionSpeed',
+  'sonicGroundDensity', 'sonicGroundRange', 'sonicGroundLower', 'sonicGroundDepth', 'sonicGroundAutoRotate',
+  'sonicGroundColorMode', 'sonicGroundBaseColor', 'sonicGroundCoolColor', 'sonicGroundWarmColor', 'sonicGroundAccentColor',
+  'sonicGroundGlow', 'sonicGroundSubBass', 'sonicGroundBass', 'sonicGroundLowMid', 'sonicGroundMid',
+  'sonicGroundHighMid', 'sonicGroundPresence', 'sonicGroundBrilliance', 'sonicGroundAir', 'sonicGroundFloatingEnabled',
+  'sonicGroundFloatingIntensity', 'sonicGroundFloatingMinSize', 'sonicGroundFloatingMaxSize', 'sonicGroundFloatingSpeed', 'sonicGroundFloatingCount',
+  'sonicAudioMonitorEnabled', 'sonicAudioAutoTrack', 'sonicAudioSensitivity', 'sonicAudioBandStart', 'sonicAudioBandEnd',
+  'sonicAudioThreshold', 'sonicAudioPulseStrength', 'sonicWorkshopInputGain', 'sonicWorkshopAudioIntensity', 'sonicWorkshopResponseRange',
+  'sonicWorkshopPeakIntensity', 'sonicWorkshopColorMode', 'sonicWorkshopTheme', 'sonicWorkshopCustomColor', 'sonicWorkshopBaseColorMode',
+  'sonicWorkshopBaseColor', 'sonicWorkshopWarmColorMode', 'sonicWorkshopWarmColor', 'sonicWorkshopCoolColorMode', 'sonicWorkshopCoolColor',
+  'sonicWorkshopRippleColorMode', 'sonicWorkshopRippleColor', 'sonicWorkshopPeakColorMode', 'sonicWorkshopPeakColor', 'particleLyrics',
+  'backCover', 'shelf', 'shelfPinnedOpen', 'shelfCameraMode', 'shelfPresence',
+  'shelfShowPodcasts', 'shelfMergeCollections', 'shelfSize', 'shelfOffsetX', 'shelfOffsetY',
+  'shelfOffsetZ', 'shelfAngleY', 'shelfAngleYManual', 'shelfOpacity', 'shelfBgOpacity',
+  'shelfAccentColor', 'shelfDetailOffsetX', 'shelfDetailOffsetY', 'shelfDetailOffsetZ', 'shelfDetailScale',
+  'shelfDetailAngleX', 'shelfDetailAngleY', 'shelfDetailRowGap', 'shelfDetailOpenDuration', 'shelfDetailCloseDuration',
+  'shelfDetailRowDuration', 'shelfDetailIntroStrength', 'shelfDetailParallax', 'shelfSummonOpenDuration', 'shelfSummonCloseDuration',
+  'shelfSummonSlide', 'shelfSummonStagger', 'shelfSummonScale', 'shelfSummonParallax', 'shelfCameraEnterSpeed',
+  'shelfCameraExitSpeed', 'cam', 'cameraViewSaved', 'cameraViewMode', 'cameraOrbitTheta',
+  'cameraOrbitPhi', 'cameraOrbitRadius', 'cameraFreePositionX', 'cameraFreePositionY', 'cameraFreePositionZ',
+  'cameraFreeYaw', 'cameraFreePitch', 'cameraFreeRoll', 'cameraFreeFov', 'visualRotationSaved',
+  'visualRotationX', 'visualRotationY', 'windowBackgroundOpacity', 'backgroundGlassOpacity', 'backgroundStarRiver',
+  'lyricTextureClarity', 'lyricLiveViewportFit', 'lyricContextHighQuality', 'lyricBackdropAdapt', 'coverBackdropAdapt',
+  'gesturePlayerActions', 'gestureHandOverlay', 'gestureSensitivity'
+];
+var USER_FX_SHARE_V1_REMIX_KEYS = [
+  'visualPresetSchema', 'preset', 'intensity', 'cinemaShake', 'depth',
+  'coverResolution', 'point', 'speed', 'twist', 'color',
+  'scatter', 'bgFade', 'bloomStrength', 'lyricGlowStrength', 'lyricBackgroundAdapt',
+  'lyricScale', 'lyricOffsetX', 'lyricOffsetY', 'lyricOffsetZ', 'lyricTiltX',
+  'lyricTiltY', 'lyricCameraLock', 'lyricColorMode', 'lyricColor', 'lyricHighlightMode',
+  'lyricHighlightColor', 'lyricGlowLinked', 'lyricGlowColor', 'lyricDisplayMode', 'lyricTranslationMode',
+  'lyricMotionStyle', 'lyricCustomLineCount', 'lyricGlitchCameraBind', 'lyricGlitchIntensity', 'lyricGlitchSlice',
+  'lyricGlitchChroma', 'lyricGlitchRate', 'lyricGlitchJitter', 'lyricContextOpacity', 'lyricContextSpread',
+  'lyricTranslationGap', 'lyricTranslationScale', 'lyricTranslationOpacity', 'lyricEdgeFade', 'lyricMotionSoftness',
+  'lyricFont', 'lyricLetterSpacing', 'lyricLineHeight', 'lyricWeight', 'visualTintMode',
+  'visualTintColor', 'uiAccentColor', 'homeAccentColor', 'homeIconColor', 'visualIconColor',
+  'backgroundColorMode', 'backgroundColor', 'backgroundOpacity', 'backgroundAlbumCover', 'backgroundMediaCropX',
+  'backgroundMediaCropY', 'backgroundMediaZoom', 'controlGlassChromaticOffset', 'playlistPanelGlassBlur', 'playlistPanelGlassDensity',
+  'playlistPanelOpenDuration', 'playlistPanelCloseDuration', 'backgroundColorCustom', 'floatLayer', 'cinema',
+  'edge', 'aiDepth', 'bloom', 'lyricGlow', 'lyricGlowBeat',
+  'lyricGlowParticles', 'lyricVerticalFloat', 'lyricPauseHold', 'desktopLyrics', 'desktopLyricsSize',
+  'desktopLyricsOpacity', 'desktopLyricsY', 'desktopLyricsClickThrough', 'desktopLyricsCinema', 'desktopLyricsHighlight',
+  'desktopLyricsFps', 'performanceBackground', 'performanceQuality', 'foregroundFpsMode', 'memoryAutoTrimApp',
+  'memoryAutoTrimOnBackground', 'memoryAutoSystemTrim', 'memorySystemAutoElevate', 'memorySystemIntervalMin', 'memorySystemThresholdPercent',
+  'memorySystemMask', 'memorySafetyRevision', 'liveBackgroundKeep', 'sonicGroundAmplitude', 'sonicGroundMotionSpeed',
+  'sonicGroundDensity', 'sonicGroundRange', 'sonicGroundLower', 'sonicGroundDepth', 'sonicGroundAutoRotate',
+  'sonicGroundColorMode', 'sonicGroundBaseColor', 'sonicGroundCoolColor', 'sonicGroundWarmColor', 'sonicGroundAccentColor',
+  'sonicGroundGlow', 'sonicGroundSubBass', 'sonicGroundBass', 'sonicGroundLowMid', 'sonicGroundMid',
+  'sonicGroundHighMid', 'sonicGroundPresence', 'sonicGroundBrilliance', 'sonicGroundAir', 'sonicGroundFloatingEnabled',
+  'sonicGroundFloatingIntensity', 'sonicGroundFloatingMinSize', 'sonicGroundFloatingMaxSize', 'sonicGroundFloatingSpeed', 'sonicGroundFloatingCount',
+  'sonicAudioMonitorEnabled', 'sonicAudioAutoTrack', 'sonicAudioSensitivity', 'sonicAudioBandStart', 'sonicAudioBandEnd',
+  'sonicAudioThreshold', 'sonicAudioPulseStrength', 'sonicWorkshopInputGain', 'sonicWorkshopAudioIntensity', 'sonicWorkshopResponseRange',
+  'sonicWorkshopPeakIntensity', 'sonicWorkshopColorMode', 'sonicWorkshopTheme', 'sonicWorkshopCustomColor', 'sonicWorkshopBaseColorMode',
+  'sonicWorkshopBaseColor', 'sonicWorkshopWarmColorMode', 'sonicWorkshopWarmColor', 'sonicWorkshopCoolColorMode', 'sonicWorkshopCoolColor',
+  'sonicWorkshopRippleColorMode', 'sonicWorkshopRippleColor', 'sonicWorkshopPeakColorMode', 'sonicWorkshopPeakColor', 'particleLyrics',
+  'backCover', 'shelf', 'shelfPinnedOpen', 'shelfCameraMode', 'shelfPresence',
+  'shelfShowPodcasts', 'shelfMergeCollections', 'shelfSize', 'shelfOffsetX', 'shelfOffsetY',
+  'shelfOffsetZ', 'shelfAngleY', 'shelfAngleYManual', 'lyricShelfOffsetX', 'lyricShelfOffsetY',
+  'shelfOpacity', 'shelfBgOpacity', 'shelfAccentColor', 'shelfDetailOffsetX', 'shelfDetailOffsetY',
+  'shelfDetailOffsetZ', 'shelfDetailScale', 'shelfDetailAngleX', 'shelfDetailAngleY', 'shelfDetailRowGap',
+  'shelfDetailOpenDuration', 'shelfDetailCloseDuration', 'shelfDetailRowDuration', 'shelfDetailIntroStrength', 'shelfDetailParallax',
+  'shelfSummonOpenDuration', 'shelfSummonCloseDuration', 'shelfSummonSlide', 'shelfSummonStagger', 'shelfSummonScale',
+  'shelfSummonParallax', 'shelfCameraEnterSpeed', 'shelfCameraExitSpeed', 'cam', 'cameraViewSaved',
+  'cameraViewMode', 'cameraOrbitTheta', 'cameraOrbitPhi', 'cameraOrbitRadius', 'cameraFreePositionX',
+  'cameraFreePositionY', 'cameraFreePositionZ', 'cameraFreeYaw', 'cameraFreePitch', 'cameraFreeRoll',
+  'cameraFreeFov', 'visualRotationSaved', 'visualRotationX', 'visualRotationY', 'windowBackgroundOpacity',
+  'backgroundGlassOpacity', 'backgroundStarRiver', 'lyricTextureClarity', 'lyricLiveViewportFit', 'lyricContextHighQuality',
+  'lyricBackdropAdapt', 'coverBackdropAdapt', 'gesturePlayerActions', 'gestureHandOverlay', 'gestureSensitivity'
 ];
 function defaultUserFxArchiveName(index) {
   return '存档 ' + (index + 1);
@@ -297,7 +390,7 @@ function archiveMode(raw, key, pattern, fallback) {
 }
 function archiveHasCameraState(raw) {
   if (!raw || typeof raw !== 'object') return false;
-  if (raw.cameraViewSaved === true) return true;
+  if (Object.prototype.hasOwnProperty.call(raw, 'cameraViewSaved')) return raw.cameraViewSaved === true;
   var keys = [
     'cameraViewMode',
     'cameraOrbitTheta',
@@ -315,13 +408,14 @@ function archiveHasCameraState(raw) {
 }
 function archiveHasVisualRotationState(raw) {
   if (!raw || typeof raw !== 'object') return false;
-  return raw.visualRotationSaved === true || raw.visualRotationX != null || raw.visualRotationY != null;
+  if (Object.prototype.hasOwnProperty.call(raw, 'visualRotationSaved')) return raw.visualRotationSaved === true;
+  return raw.visualRotationX != null || raw.visualRotationY != null;
 }
 function isCameraArchiveKey(key) {
   return /^camera(View|Orbit|Free)/.test(String(key || '')) || /^visualRotation/.test(String(key || ''));
 }
 function normalizeFxArchiveSnapshot(raw) {
-  if (!raw || typeof raw !== 'object') return null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   var savedPreset = clampRange(Number(raw.preset) || 0, 0, presetMeta.length - 1);
   if (savedPreset === 3 && raw.visualPresetSchema !== VISUAL_PRESET_SCHEMA) savedPreset = 5;
   var archiveShelfMode = archiveMode(raw, 'shelf', /^(off|side|stage)$/, fxDefaults.shelf);
@@ -329,7 +423,7 @@ function normalizeFxArchiveSnapshot(raw) {
   var archiveShelfPinnedOpen = archiveShelfMode === 'side' && archiveShelfPresence === 'always' && raw.shelfPinnedOpen === true;
   var archiveCameraSaved = archiveHasCameraState(raw);
   var archiveVisualRotationSaved = archiveHasVisualRotationState(raw);
-  return {
+  var snapshot = {
     visualPresetSchema: VISUAL_PRESET_SCHEMA,
     preset: savedPreset,
     intensity: archiveNumber(raw, 'intensity', fxDefaults.intensity, 0.2, 1.6),
@@ -436,6 +530,8 @@ function normalizeFxArchiveSnapshot(raw) {
     memorySystemMask: archiveNumber(raw, 'memorySystemMask', fxDefaults.memorySystemMask, 1, 29),
     memorySafetyRevision: Number(raw.memorySafetyRevision) || 0,
     liveBackgroundKeep: normalizePerformanceBackgroundMode(raw.performanceBackground, raw.liveBackgroundKeep === true) === 'keep',
+    aeroWaterTheme: raw.aeroWaterTheme === true,
+    aeroWaterPalette: normalizeAeroWaterPalette(raw.aeroWaterPalette),
     sonicGroundAmplitude: archiveNumber(raw, 'sonicGroundAmplitude', fxDefaults.sonicGroundAmplitude, 0, 100),
     sonicGroundMotionSpeed: archiveNumber(raw, 'sonicGroundMotionSpeed', fxDefaults.sonicGroundMotionSpeed, 0, 100),
     sonicGroundDensity: archiveNumber(raw, 'sonicGroundDensity', fxDefaults.sonicGroundDensity, 0, 100),
@@ -546,6 +642,11 @@ function normalizeFxArchiveSnapshot(raw) {
     visualRotationX: archiveNumber(raw, 'visualRotationX', 0, -Math.PI * 8, Math.PI * 8),
     visualRotationY: archiveNumber(raw, 'visualRotationY', 0, -Math.PI * 8, Math.PI * 8)
   };
+  // Older archives never stored Aero: applying them must not reset the live theme.
+  ['aeroWaterTheme', 'aeroWaterPalette'].forEach(function (key) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) delete snapshot[key];
+  });
+  return snapshot;
 }
 function readUserFxArchives() {
   var raw = [];
@@ -557,7 +658,7 @@ function readUserFxArchives() {
   if (!Array.isArray(raw)) raw = [];
   return raw.map(function (slot, index) {
     slot = slot && typeof slot === 'object' ? slot : {};
-    var snapshot = normalizeFxArchiveSnapshot(slot.snapshot);
+    var snapshot = validateImportedFxSnapshot(slot.snapshot, false) ? normalizeFxArchiveSnapshot(slot.snapshot) : null;
     return {
       name: normalizeUserFxArchiveName(slot.name, index),
       createdAt: Number(slot.createdAt) || (snapshot ? (Number(slot.savedAt) || Date.now()) : 0),
@@ -570,9 +671,15 @@ function readUserFxArchives() {
 }
 function saveUserFxArchives() {
   try {
-    localStorage.setItem(USER_FX_ARCHIVE_STORE_KEY, JSON.stringify(userFxArchives));
+    var serialized = JSON.stringify(userFxArchives);
+    localStorage.setItem(USER_FX_ARCHIVE_STORE_KEY, serialized);
+    userFxArchivePersisted = serialized;
+    return true;
   } catch (e) {
+    userFxArchives = JSON.parse(userFxArchivePersisted || '[]');
+    userFxArchiveEditing = -1;
     showToast('用户存档保存失败，本地存储空间可能不足');
+    return false;
   }
 }
 function hasStoredUserFxArchives() {
@@ -717,10 +824,12 @@ function applySavedLyricPaletteState() {
   updateLyricHighlightControls();
   updateLyricGlowControls();
 }
+var fxArchiveApplySequence = 0;
 function applyFxArchiveSnapshot(snapshot) {
   var data = normalizeFxArchiveSnapshot(snapshot);
   if (!data) return false;
   var targetPreset = data.preset;
+  var applySequence = ++fxArchiveApplySequence;
   Object.keys(data).forEach(function (key) {
     if (key === 'visualPresetSchema' || key === 'preset') return;
     if (isCameraArchiveKey(key)) return;
@@ -731,7 +840,7 @@ function applyFxArchiveSnapshot(snapshot) {
     fx.backgroundImage = '';
   }
   normalizeDevelopmentLockedFxState();
-  setPreset(targetPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true, commitPlaybackPreset: true });
+  var presetSelection = setPreset(targetPreset, { silent: true, preserveCamera: true, skipTransition: false, noSave: true, commitPlaybackPreset: true });
   applyCameraArchiveState(data);
   applyVisualRotationArchiveState(data);
   applyCoverParticleResolution(fx.coverResolution, { reload: true });
@@ -748,6 +857,7 @@ function applyFxArchiveSnapshot(snapshot) {
   if (shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
   setCamMode(fx.cam);
   updateFxInputs();
+  if (typeof applyAeroWaterTheme === 'function') applyAeroWaterTheme();
   applySavedLyricPaletteState();
   refreshCurrentLyricStyle();
   applyDesktopLyricsState(true);
@@ -755,10 +865,20 @@ function applyFxArchiveSnapshot(snapshot) {
   updateRenderPowerClasses();
   applyRendererPowerMode();
   saveLyricLayout({ user: true, reason: 'archiveApply' });
+  // Other archive settings are already applied. Persist the prepared preset only
+  // after its latest selection commits, without resetting the archive's camera.
+  if (presetSelection && typeof presetSelection.then === 'function') {
+    presetSelection.then(function (applied) {
+      if (applied && applySequence === fxArchiveApplySequence && fx.preset === targetPreset) {
+        saveLyricLayout({ user: true, reason: 'archiveApply' });
+      }
+    });
+  }
   return true;
 }
 var hadStoredUserFxArchives = hasStoredUserFxArchives();
 var userFxArchives = readUserFxArchives();
+var userFxArchivePersisted = JSON.stringify(userFxArchives);
 if (!hadStoredUserFxArchives) {
   userFxArchives = [createPackagedDefaultUserFxArchiveSlot()];
   saveUserFxArchives();
@@ -803,7 +923,7 @@ function saveUserFxArchive(index) {
   userFxArchives[index].snapshot = captureFxArchiveSnapshot();
   userFxArchives[index].savedAt = Date.now();
   userFxArchives[index].name = normalizeUserFxArchiveName(userFxArchives[index].name, index);
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已保存到 ' + userFxArchives[index].name);
 }
@@ -828,7 +948,7 @@ function commitUserFxArchiveRename(index) {
   var input = document.getElementById('user-archive-input-' + index);
   userFxArchives[index].name = normalizeUserFxArchiveName(input && input.value, index);
   userFxArchiveEditing = -1;
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已命名为 ' + userFxArchives[index].name);
 }
@@ -846,6 +966,9 @@ function handleUserFxArchiveRenameKey(e, index) {
   }
 }
 
+// Frozen MR2 v1 layouts: upstream v2.2.0 (213) and Remix (215).
+var USER_FX_SHARE_V1_ORIGINAL_KEYS = ["visualPresetSchema", "preset", "intensity", "cinemaShake", "depth", "coverResolution", "point", "speed", "twist", "color", "scatter", "bgFade", "bloomStrength", "lyricGlowStrength", "lyricBackgroundAdapt", "lyricScale", "lyricOffsetX", "lyricOffsetY", "lyricOffsetZ", "lyricTiltX", "lyricTiltY", "lyricCameraLock", "lyricColorMode", "lyricColor", "lyricHighlightMode", "lyricHighlightColor", "lyricGlowLinked", "lyricGlowColor", "lyricDisplayMode", "lyricTranslationMode", "lyricMotionStyle", "lyricCustomLineCount", "lyricGlitchCameraBind", "lyricGlitchIntensity", "lyricGlitchSlice", "lyricGlitchChroma", "lyricGlitchRate", "lyricGlitchJitter", "lyricContextOpacity", "lyricContextSpread", "lyricTranslationGap", "lyricTranslationScale", "lyricTranslationOpacity", "lyricEdgeFade", "lyricMotionSoftness", "lyricFont", "lyricLetterSpacing", "lyricLineHeight", "lyricWeight", "visualTintMode", "visualTintColor", "uiAccentColor", "homeAccentColor", "homeIconColor", "visualIconColor", "backgroundColorMode", "backgroundColor", "backgroundOpacity", "backgroundAlbumCover", "backgroundMediaCropX", "backgroundMediaCropY", "backgroundMediaZoom", "controlGlassChromaticOffset", "playlistPanelGlassBlur", "playlistPanelGlassDensity", "playlistPanelOpenDuration", "playlistPanelCloseDuration", "backgroundColorCustom", "floatLayer", "cinema", "edge", "aiDepth", "bloom", "lyricGlow", "lyricGlowBeat", "lyricGlowParticles", "lyricVerticalFloat", "lyricPauseHold", "desktopLyrics", "desktopLyricsSize", "desktopLyricsOpacity", "desktopLyricsY", "desktopLyricsClickThrough", "desktopLyricsCinema", "desktopLyricsHighlight", "desktopLyricsFps", "performanceBackground", "performanceQuality", "foregroundFpsMode", "memoryAutoTrimApp", "memoryAutoTrimOnBackground", "memoryAutoSystemTrim", "memorySystemAutoElevate", "memorySystemIntervalMin", "memorySystemThresholdPercent", "memorySystemMask", "memorySafetyRevision", "liveBackgroundKeep", "sonicGroundAmplitude", "sonicGroundMotionSpeed", "sonicGroundDensity", "sonicGroundRange", "sonicGroundLower", "sonicGroundDepth", "sonicGroundAutoRotate", "sonicGroundColorMode", "sonicGroundBaseColor", "sonicGroundCoolColor", "sonicGroundWarmColor", "sonicGroundAccentColor", "sonicGroundGlow", "sonicGroundSubBass", "sonicGroundBass", "sonicGroundLowMid", "sonicGroundMid", "sonicGroundHighMid", "sonicGroundPresence", "sonicGroundBrilliance", "sonicGroundAir", "sonicGroundFloatingEnabled", "sonicGroundFloatingIntensity", "sonicGroundFloatingMinSize", "sonicGroundFloatingMaxSize", "sonicGroundFloatingSpeed", "sonicGroundFloatingCount", "sonicAudioMonitorEnabled", "sonicAudioAutoTrack", "sonicAudioSensitivity", "sonicAudioBandStart", "sonicAudioBandEnd", "sonicAudioThreshold", "sonicAudioPulseStrength", "sonicWorkshopInputGain", "sonicWorkshopAudioIntensity", "sonicWorkshopResponseRange", "sonicWorkshopPeakIntensity", "sonicWorkshopColorMode", "sonicWorkshopTheme", "sonicWorkshopCustomColor", "sonicWorkshopBaseColorMode", "sonicWorkshopBaseColor", "sonicWorkshopWarmColorMode", "sonicWorkshopWarmColor", "sonicWorkshopCoolColorMode", "sonicWorkshopCoolColor", "sonicWorkshopRippleColorMode", "sonicWorkshopRippleColor", "sonicWorkshopPeakColorMode", "sonicWorkshopPeakColor", "particleLyrics", "backCover", "shelf", "shelfPinnedOpen", "shelfCameraMode", "shelfPresence", "shelfShowPodcasts", "shelfMergeCollections", "shelfSize", "shelfOffsetX", "shelfOffsetY", "shelfOffsetZ", "shelfAngleY", "shelfAngleYManual", "shelfOpacity", "shelfBgOpacity", "shelfAccentColor", "shelfDetailOffsetX", "shelfDetailOffsetY", "shelfDetailOffsetZ", "shelfDetailScale", "shelfDetailAngleX", "shelfDetailAngleY", "shelfDetailRowGap", "shelfDetailOpenDuration", "shelfDetailCloseDuration", "shelfDetailRowDuration", "shelfDetailIntroStrength", "shelfDetailParallax", "shelfSummonOpenDuration", "shelfSummonCloseDuration", "shelfSummonSlide", "shelfSummonStagger", "shelfSummonScale", "shelfSummonParallax", "shelfCameraEnterSpeed", "shelfCameraExitSpeed", "cam", "cameraViewSaved", "cameraViewMode", "cameraOrbitTheta", "cameraOrbitPhi", "cameraOrbitRadius", "cameraFreePositionX", "cameraFreePositionY", "cameraFreePositionZ", "cameraFreeYaw", "cameraFreePitch", "cameraFreeRoll", "cameraFreeFov", "visualRotationSaved", "visualRotationX", "visualRotationY", "windowBackgroundOpacity", "backgroundGlassOpacity", "backgroundStarRiver", "lyricTextureClarity", "lyricLiveViewportFit", "lyricContextHighQuality", "lyricBackdropAdapt", "coverBackdropAdapt", "gesturePlayerActions", "gestureHandOverlay", "gestureSensitivity"];
+var USER_FX_SHARE_V1_REMIX_KEYS = ["visualPresetSchema", "preset", "intensity", "cinemaShake", "depth", "coverResolution", "point", "speed", "twist", "color", "scatter", "bgFade", "bloomStrength", "lyricGlowStrength", "lyricBackgroundAdapt", "lyricScale", "lyricOffsetX", "lyricOffsetY", "lyricOffsetZ", "lyricTiltX", "lyricTiltY", "lyricCameraLock", "lyricColorMode", "lyricColor", "lyricHighlightMode", "lyricHighlightColor", "lyricGlowLinked", "lyricGlowColor", "lyricDisplayMode", "lyricTranslationMode", "lyricMotionStyle", "lyricCustomLineCount", "lyricGlitchCameraBind", "lyricGlitchIntensity", "lyricGlitchSlice", "lyricGlitchChroma", "lyricGlitchRate", "lyricGlitchJitter", "lyricContextOpacity", "lyricContextSpread", "lyricTranslationGap", "lyricTranslationScale", "lyricTranslationOpacity", "lyricEdgeFade", "lyricMotionSoftness", "lyricFont", "lyricLetterSpacing", "lyricLineHeight", "lyricWeight", "visualTintMode", "visualTintColor", "uiAccentColor", "homeAccentColor", "homeIconColor", "visualIconColor", "backgroundColorMode", "backgroundColor", "backgroundOpacity", "backgroundAlbumCover", "backgroundMediaCropX", "backgroundMediaCropY", "backgroundMediaZoom", "controlGlassChromaticOffset", "playlistPanelGlassBlur", "playlistPanelGlassDensity", "playlistPanelOpenDuration", "playlistPanelCloseDuration", "backgroundColorCustom", "floatLayer", "cinema", "edge", "aiDepth", "bloom", "lyricGlow", "lyricGlowBeat", "lyricGlowParticles", "lyricVerticalFloat", "lyricPauseHold", "desktopLyrics", "desktopLyricsSize", "desktopLyricsOpacity", "desktopLyricsY", "desktopLyricsClickThrough", "desktopLyricsCinema", "desktopLyricsHighlight", "desktopLyricsFps", "performanceBackground", "performanceQuality", "foregroundFpsMode", "memoryAutoTrimApp", "memoryAutoTrimOnBackground", "memoryAutoSystemTrim", "memorySystemAutoElevate", "memorySystemIntervalMin", "memorySystemThresholdPercent", "memorySystemMask", "memorySafetyRevision", "liveBackgroundKeep", "sonicGroundAmplitude", "sonicGroundMotionSpeed", "sonicGroundDensity", "sonicGroundRange", "sonicGroundLower", "sonicGroundDepth", "sonicGroundAutoRotate", "sonicGroundColorMode", "sonicGroundBaseColor", "sonicGroundCoolColor", "sonicGroundWarmColor", "sonicGroundAccentColor", "sonicGroundGlow", "sonicGroundSubBass", "sonicGroundBass", "sonicGroundLowMid", "sonicGroundMid", "sonicGroundHighMid", "sonicGroundPresence", "sonicGroundBrilliance", "sonicGroundAir", "sonicGroundFloatingEnabled", "sonicGroundFloatingIntensity", "sonicGroundFloatingMinSize", "sonicGroundFloatingMaxSize", "sonicGroundFloatingSpeed", "sonicGroundFloatingCount", "sonicAudioMonitorEnabled", "sonicAudioAutoTrack", "sonicAudioSensitivity", "sonicAudioBandStart", "sonicAudioBandEnd", "sonicAudioThreshold", "sonicAudioPulseStrength", "sonicWorkshopInputGain", "sonicWorkshopAudioIntensity", "sonicWorkshopResponseRange", "sonicWorkshopPeakIntensity", "sonicWorkshopColorMode", "sonicWorkshopTheme", "sonicWorkshopCustomColor", "sonicWorkshopBaseColorMode", "sonicWorkshopBaseColor", "sonicWorkshopWarmColorMode", "sonicWorkshopWarmColor", "sonicWorkshopCoolColorMode", "sonicWorkshopCoolColor", "sonicWorkshopRippleColorMode", "sonicWorkshopRippleColor", "sonicWorkshopPeakColorMode", "sonicWorkshopPeakColor", "particleLyrics", "backCover", "shelf", "shelfPinnedOpen", "shelfCameraMode", "shelfPresence", "shelfShowPodcasts", "shelfMergeCollections", "shelfSize", "shelfOffsetX", "shelfOffsetY", "shelfOffsetZ", "shelfAngleY", "shelfAngleYManual", "lyricShelfOffsetX", "lyricShelfOffsetY", "shelfOpacity", "shelfBgOpacity", "shelfAccentColor", "shelfDetailOffsetX", "shelfDetailOffsetY", "shelfDetailOffsetZ", "shelfDetailScale", "shelfDetailAngleX", "shelfDetailAngleY", "shelfDetailRowGap", "shelfDetailOpenDuration", "shelfDetailCloseDuration", "shelfDetailRowDuration", "shelfDetailIntroStrength", "shelfDetailParallax", "shelfSummonOpenDuration", "shelfSummonCloseDuration", "shelfSummonSlide", "shelfSummonStagger", "shelfSummonScale", "shelfSummonParallax", "shelfCameraEnterSpeed", "shelfCameraExitSpeed", "cam", "cameraViewSaved", "cameraViewMode", "cameraOrbitTheta", "cameraOrbitPhi", "cameraOrbitRadius", "cameraFreePositionX", "cameraFreePositionY", "cameraFreePositionZ", "cameraFreeYaw", "cameraFreePitch", "cameraFreeRoll", "cameraFreeFov", "visualRotationSaved", "visualRotationX", "visualRotationY", "windowBackgroundOpacity", "backgroundGlassOpacity", "backgroundStarRiver", "lyricTextureClarity", "lyricLiveViewportFit", "lyricContextHighQuality", "lyricBackdropAdapt", "coverBackdropAdapt", "gesturePlayerActions", "gestureHandOverlay", "gestureSensitivity"];
 function defaultUserFxArchiveName(index) {
   return '用户存档 ' + (Number(index) + 1);
 }
@@ -895,55 +1018,47 @@ async function gunzipUserFxShareText(bytes) {
   var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   return await new Response(stream).text();
 }
-function userFxShareBaselineSnapshot() {
-  var raw = null;
-  try {
-    raw = typeof clonePackagedDefaultFxSnapshot === 'function'
-      ? clonePackagedDefaultFxSnapshot()
-      : Object.assign({ visualPresetSchema: VISUAL_PRESET_SCHEMA }, fxDefaults || {});
-  } catch (e) {
-    raw = Object.assign({ visualPresetSchema: VISUAL_PRESET_SCHEMA }, fxDefaults || {});
-  }
-  return normalizeFxArchiveSnapshot(raw) || {};
-}
-function userFxShareValueEqual(a, b) {
-  if (typeof a === 'number' || typeof b === 'number') {
-    var na = Number(a);
-    var nb = Number(b);
-    return isFinite(na) && isFinite(nb) && Math.abs(na - nb) < 0.000001;
-  }
-  return a === b;
+function validateImportedFxSnapshot(raw, requireComplete) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  var keys = Object.keys(raw);
+  var types = normalizeFxArchiveSnapshot(fxDefaults);
+  if (!keys.length || !keys.some(function (key) { return key !== 'visualPresetSchema' && USER_FX_SHARE_KEYS.indexOf(key) >= 0; })) return false;
+  if (!keys.every(function (key) {
+    var value = raw[key];
+    return USER_FX_SHARE_KEYS.indexOf(key) >= 0 && typeof value === typeof types[key] &&
+      (typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && isFinite(value)));
+  })) return false;
+  if (requireComplete && !USER_FX_SHARE_KEYS.every(function (key) { return Object.prototype.hasOwnProperty.call(raw, key); })) return false;
+  return true;
 }
 function compactUserFxArchiveSnapshot(snapshot) {
-  var data = normalizeFxArchiveSnapshot(snapshot);
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) ||
+      !USER_FX_SHARE_KEYS.some(function (key) { return key !== 'visualPresetSchema' && Object.prototype.hasOwnProperty.call(snapshot, key); })) return null;
+  var data = normalizeFxArchiveSnapshot(Object.assign({
+    aeroWaterTheme: fxDefaults.aeroWaterTheme === true,
+    aeroWaterPalette: normalizeAeroWaterPalette(fxDefaults.aeroWaterPalette)
+  }, snapshot));
   if (!data) return null;
-  var full = USER_FX_SHARE_KEYS.map(function (key) { return data[key]; });
-  var base = userFxShareBaselineSnapshot();
-  var delta = [];
-  USER_FX_SHARE_KEYS.forEach(function (key, index) {
-    if (!userFxShareValueEqual(data[key], base[key])) delta.push(index, data[key]);
-  });
-  var compactDelta = [USER_FX_SHARE_COMPACT_DELTA, delta];
-  var compactFull = [USER_FX_SHARE_COMPACT_FULL, full];
-  return JSON.stringify(compactDelta).length <= JSON.stringify(compactFull).length ? compactDelta : compactFull;
+  // Named complete snapshot: independent of future field indexes and defaults.
+  return ['o', data];
 }
-function expandUserFxArchiveSnapshot(compact) {
+function expandUserFxArchiveSnapshot(compact, version) {
   if (!Array.isArray(compact)) return null;
+  if (compact[0] === 'o') {
+    if (version != null && String(version) !== '2') return null;
+    return validateImportedFxSnapshot(compact[1], true) ? normalizeFxArchiveSnapshot(compact[1]) : null;
+  }
+  if (version != null && String(version) !== '1') return null;
   var mode = typeof compact[0] === 'string' ? compact[0] : USER_FX_SHARE_COMPACT_FULL;
   var values = typeof compact[0] === 'string' ? compact[1] : compact;
-  if (!Array.isArray(values)) return null;
-  var raw = mode === USER_FX_SHARE_COMPACT_DELTA ? userFxShareBaselineSnapshot() : {};
-  if (mode === USER_FX_SHARE_COMPACT_DELTA) {
-    for (var i = 0; i < values.length - 1; i += 2) {
-      var deltaIndex = Math.floor(Number(values[i]));
-      if (deltaIndex >= 0 && deltaIndex < USER_FX_SHARE_KEYS.length) raw[USER_FX_SHARE_KEYS[deltaIndex]] = values[i + 1];
-    }
-  } else {
-    USER_FX_SHARE_KEYS.forEach(function (key, index) {
-      if (index < values.length) raw[key] = values[index];
-    });
-  }
-  return normalizeFxArchiveSnapshot(raw);
+  if (mode === USER_FX_SHARE_COMPACT_DELTA) throw new Error('AMBIGUOUS_LEGACY_SHARE_BASELINE');
+  if (mode !== USER_FX_SHARE_COMPACT_FULL || !Array.isArray(values)) return null;
+  var keys = values.length === USER_FX_SHARE_V1_ORIGINAL_KEYS.length ? USER_FX_SHARE_V1_ORIGINAL_KEYS :
+    (values.length === USER_FX_SHARE_V1_REMIX_KEYS.length ? USER_FX_SHARE_V1_REMIX_KEYS : null);
+  if (!keys) return null;
+  var raw = {};
+  keys.forEach(function (key, index) { raw[key] = values[index]; });
+  return validateImportedFxSnapshot(raw, false) ? normalizeFxArchiveSnapshot(raw) : null;
 }
 async function encodeUserFxArchiveShareCode(slot) {
   if (!slot || !slot.snapshot) throw new Error('EMPTY_ARCHIVE');
@@ -982,7 +1097,7 @@ async function decodeUserFxArchiveShareCode(text) {
   var version = parts[0];
   var body = parts[1];
   var checksum = parts[2].toUpperCase();
-  if (version !== String(USER_FX_SHARE_VERSION)) throw new Error('UNSUPPORTED_SHARE_VERSION');
+  if (version !== '1' && version !== String(USER_FX_SHARE_VERSION)) throw new Error('UNSUPPORTED_SHARE_VERSION');
   if (userFxShareChecksum(version + '.' + body) !== checksum) throw new Error('BAD_SHARE_CHECKSUM');
   var codec = body.charAt(0);
   var bytes = base64UrlToBytes(body.slice(1));
@@ -1016,7 +1131,7 @@ async function decodeUserFxArchiveShareCode(text) {
   if (!payload || archiveSchema !== USER_FX_ARCHIVE_SCHEMA) {
     throw new Error('INVALID_SHARE_PAYLOAD');
   }
-  var snapshot = expandUserFxArchiveSnapshot(compactSnapshot);
+  var snapshot = expandUserFxArchiveSnapshot(compactSnapshot, version);
   if (!snapshot) throw new Error('INVALID_SHARE_SNAPSHOT');
   return {
     name: normalizeUserFxArchiveName(archiveName || '短代码存档', userFxArchives.length),
@@ -1028,7 +1143,7 @@ async function decodeUserFxArchiveShareCode(text) {
 function addImportedUserFxArchiveSlot(slot, toastLabel) {
   if (!slot || !slot.snapshot) return false;
   userFxArchives.push(slot);
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast((toastLabel || '已导入 ') + slot.name);
   return true;
@@ -1096,7 +1211,8 @@ async function importUserFxArchiveShareCodeText(text) {
     var slot = await decodeUserFxArchiveShareCode(text);
     return addImportedUserFxArchiveSlot(slot, '已导入短码 ');
   } catch (e) {
-    showToast(e && e.message === 'BAD_SHARE_CHECKSUM' ? '短码校验失败，未导入' : '短码无效，未导入');
+    showToast(e && e.message === 'AMBIGUOUS_LEGACY_SHARE_BASELINE' ? '旧版差量短码缺少来源基线，请从原播放器导出 JSON 后导入' :
+      (e && e.message === 'BAD_SHARE_CHECKSUM' ? '短码校验失败，未导入' : '短码无效，未导入'));
     return false;
   }
 }
@@ -1231,18 +1347,20 @@ function createUserFxArchive() {
     snapshot: null
   });
   userFxArchiveEditing = index;
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已新建空白用户存档');
 }
 function saveUserFxArchive(index) {
   var slot = userFxArchiveAt(index);
   if (!slot) return;
-  slot.snapshot = captureFxArchiveSnapshot();
+  var snapshot = captureFxArchiveSnapshot();
+  if (!snapshot) { showToast('当前视觉配置无效，未保存'); return false; }
+  slot.snapshot = snapshot;
   slot.savedAt = Date.now();
   slot.createdAt = slot.createdAt || slot.savedAt;
   slot.name = normalizeUserFxArchiveName(slot.name, index);
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已保存到 ' + slot.name);
 }
@@ -1266,7 +1384,7 @@ function commitUserFxArchiveRename(index) {
   slot.name = normalizeUserFxArchiveName(input && input.value, index);
   slot.createdAt = slot.createdAt || Date.now();
   userFxArchiveEditing = -1;
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已命名为 ' + slot.name);
 }
@@ -1278,7 +1396,7 @@ function removeUserFxArchive(index) {
   if (!userFxArchiveAt(index)) return;
   userFxArchives.splice(index, 1);
   userFxArchiveEditing = -1;
-  saveUserFxArchives();
+  if (!saveUserFxArchives()) return false;
   renderUserFxArchives();
   showToast('已删除用户存档');
 }
@@ -1320,8 +1438,17 @@ function exportUserFxArchive(index) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 }
 function normalizeImportedFxArchivePayload(payload, fileName) {
-  if (!payload || typeof payload !== 'object') return null;
-  var snapshot = payload.snapshot ? normalizeFxArchiveSnapshot(payload.snapshot) : normalizeFxArchiveSnapshot(payload);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  var wrapped = Object.prototype.hasOwnProperty.call(payload, 'snapshot');
+  if (wrapped) {
+    if (payload.type !== USER_FX_ARCHIVE_EXPORT_TYPE || payload.schema !== USER_FX_ARCHIVE_SCHEMA) return null;
+    if (payload.name != null && typeof payload.name !== 'string') return null;
+    if (['savedAt', 'exportedAt'].some(function (key) { return payload[key] != null && (typeof payload[key] !== 'number' || !isFinite(payload[key]) || payload[key] < 0); })) return null;
+    if (!Object.keys(payload).every(function (key) { return ['type', 'schema', 'exportedAt', 'name', 'savedAt', 'snapshot'].indexOf(key) >= 0; })) return null;
+  } else if (Object.prototype.hasOwnProperty.call(payload, 'type') || Object.prototype.hasOwnProperty.call(payload, 'schema')) return null;
+  var raw = wrapped ? payload.snapshot : payload;
+  if (!validateImportedFxSnapshot(raw, false)) return null;
+  var snapshot = normalizeFxArchiveSnapshot(raw);
   if (!snapshot) return null;
   var baseName = String(fileName || '').split(/[\\/]/).pop().replace(/\.json$/i, '');
   return {

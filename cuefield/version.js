@@ -18,14 +18,14 @@ function identifier(name, value, fallback, maxLength) {
 
 function cuefieldSourceFiles(root) {
   const files = [];
-  const addTree = (directory) => {
+  const addTree = (directory, include = () => true) => {
     if (!fs.existsSync(directory)) return;
     fs.readdirSync(directory, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name))
       .forEach((entry) => {
         const entryPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) addTree(entryPath);
-        else if (entry.isFile() && entry.name.endsWith('.js')) files.push(entryPath);
+        if (entry.isDirectory()) addTree(entryPath, include);
+        else if (entry.isFile() && entry.name.endsWith('.js') && include(entry.name)) files.push(entryPath);
       });
   };
 
@@ -35,6 +35,9 @@ function cuefieldSourceFiles(root) {
   const publicDir = path.join(root, 'public');
   const index = path.join(publicDir, 'index.html');
   if (fs.existsSync(index)) files.push(index);
+  const loader = path.join(publicDir, 'js', 'index-loader.js');
+  if (fs.existsSync(loader)) files.push(loader);
+  addTree(path.join(publicDir, 'js', 'modules'), (name) => name.includes('cuefield-'));
   if (fs.existsSync(publicDir)) {
     fs.readdirSync(publicDir, { withFileTypes: true })
       .filter((entry) => entry.isFile() && /^cuefield-.*\.js$/.test(entry.name))

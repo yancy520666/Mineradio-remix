@@ -1,0 +1,20 @@
+✔ a client that stops reading keeps relay memory capped and receives identical bytes (494.174239ms)
+✔ a reading client never touches the disk at the default 16 MB window (27.933756ms)
+✔ closing the player mid-song removes the spill file (314.939378ms)
+✔ an unusable spill directory applies bounded memory backpressure (317.52261ms)
+✔ startup cleanup removes files of exited processes only (0.918045ms)
+✔ spill retries short writes at the actual offset until every byte is stored (3.882138ms)
+✔ a spill failure after a short prefix queues only the unwritten suffix (1.353752ms)
+✔ a zero-progress spill write stops retrying and safely falls back to memory (1.091737ms)
+✔ failed spill splits an oversized chunk and waits until the reader resumes (21.87528ms)
+✔ failed-spill backpressure releases the waiting producer on abort (23.930146ms)
+✔ failed-spill backpressure releases the waiting producer on close (21.377994ms)
+✔ queued head owns its bounded bytes rather than the upstream backing buffer (0.993158ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1311.557997

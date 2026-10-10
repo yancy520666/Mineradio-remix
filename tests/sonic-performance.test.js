@@ -9,7 +9,7 @@ const policy = require('../public/sonic-performance-policy');
 test('opt-in budgets preserve legacy defaults and stay below the saved quality', () => {
   assert.equal(policy.profile('eco', false, 4), null);
   assert.equal(policy.profile('ultra', true, 0).gridSize, 320);
-  assert.equal(policy.profile('eco', true, 0).gridSize, 112);
+  assert.equal(policy.profile('eco', true, 0).gridSize, 96);
   assert.equal(policy.profile('eco', true, 3).gridSize, 80);
   const p = policy.profile('eco', true, 0);
   const dpr = policy.pixelRatio(p, 3840, 2160, 2);
@@ -202,10 +202,10 @@ function controller(storage = new Map(), bridge) {
 test('adaptive quality is on by default; switching it off is remembered and restores the saved visual', () => {
   const c = controller();
   assert.equal(c.api.snapshot().preferences.enabled, true);
-  assert.equal(c.api.profile().gridSize, 112, 'eco ceiling without any load');
+  assert.equal(c.api.profile().gridSize, 96, 'eco ceiling without any load');
   const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 15, target: 60, duration: 12000 } };
-  c.emit(slow, {}); assert.equal(c.api.profile().gridSize, 112, 'reject old/foreign iframe');
-  c.focus(false); c.emit(slow); assert.equal(c.api.profile().gridSize, 112, 'unfocused reports do not count');
+  c.emit(slow, {}); assert.equal(c.api.profile().gridSize, 96, 'reject old/foreign iframe');
+  c.focus(false); c.emit(slow); assert.equal(c.api.profile().gridSize, 96, 'unfocused reports do not count');
   c.focus(true); c.emit(slow);
   assert.equal(c.api.profile().gridSize, 80);
   assert.equal(c.window.fx.performanceQuality, 'eco', 'the saved quality is never written');
@@ -214,9 +214,9 @@ test('adaptive quality is on by default; switching it off is remembered and rest
   const reopened = controller(c.storage);
   assert.equal(reopened.api.snapshot().preferences.enabled, false, 'switching off survives restart');
   reopened.emit(slow); assert.equal(reopened.api.profile(), null);
-  reopened.api.qualityChanged(); assert.equal(reopened.api.profile().gridSize, 112);
+  reopened.api.qualityChanged(); assert.equal(reopened.api.profile().gridSize, 96);
   assert.equal(reopened.api.stageProfile(), null, 'quality choice alone leaves the topography stage unchanged');
-  assert.equal(controller(c.storage).api.profile().gridSize, 112, 'manual-quality intent survives restart');
+  assert.equal(controller(c.storage).api.profile().gridSize, 96, 'manual-quality intent survives restart');
   reopened.api.setEnabled(true);
   assert.equal(controller(c.storage).api.snapshot().preferences.enabled, true);
 });
@@ -363,12 +363,12 @@ test('guides, background interruptions and target changes keep reports from coun
   const c = controller();
   const slow = { type: 'mineradio-sonic-performance-sample', sample: { fps: 42, target: 60, duration: 12000 } };
   c.flags.add('visual-guide-active'); c.tick(); c.emit(slow);
-  assert.equal(c.api.profile().gridSize, 112, 'a guide is on screen');
+  assert.equal(c.api.profile().gridSize, 96, 'a guide is on screen');
   c.flags.clear(); c.hide(true); c.tick(); c.emit(slow);
-  assert.equal(c.api.profile().gridSize, 112, 'hidden window');
+  assert.equal(c.api.profile().gridSize, 96, 'hidden window');
   c.hide(false); c.window.fx.foregroundFpsMode = '30'; c.tick();
   c.emit(slow);
-  assert.equal(c.api.profile().gridSize, 112, 'a report for the old 60 FPS target');
+  assert.equal(c.api.profile().gridSize, 96, 'a report for the old 60 FPS target');
   c.emit({ ...slow, sample: { fps: 20, target: 30, duration: 12000 } });
   assert.equal(c.api.profile().gridSize, 80, 'the new 30 FPS goal counts');
 });

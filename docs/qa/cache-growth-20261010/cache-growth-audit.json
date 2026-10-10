@@ -1,0 +1,39 @@
+{
+  "at": "2026-10-10T09:09:12.923Z",
+  "scope": "Synthetic isolated actual modules/functions; no account, user files or real GUI RSS",
+  "results": {
+    "coverLRU": {
+      "iterations": 2000,
+      "entries": 8,
+      "bytes": 8192,
+      "pending": 0,
+      "active": 0,
+      "queued": 0,
+      "inflightBytes": 0
+    },
+    "beatLRU": {
+      "iterations": 2000,
+      "remaining": 24,
+      "activePreserved": true
+    },
+    "spillSwitches": {
+      "iterations": 40,
+      "filesAfterEndOrAbort": 0,
+      "deadPidOrphansRemoved": 1
+    },
+    "loopIssuedPin": {
+      "sparseLogicalBytes": 603979776,
+      "before": 200,
+      "after": 404,
+      "issuedOldestEntryDeleted": true,
+      "remainingEntries": 8
+    },
+    "shelfFailedEntries": {
+      "inserted": 1000,
+      "afterTrim": 1000
+    },
+    "orphanTemporary": {
+      "recognizedFinalPatternDoesNotSweepTmp": true
+    }
+  }
+}

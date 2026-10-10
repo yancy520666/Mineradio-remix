@@ -1,4 +1,121 @@
 // ============================================================
+function activeModalMask() {
+  if (!document.querySelectorAll) return null;
+  var masks = Array.prototype.slice.call(document.querySelectorAll('.modal-mask.show,.hotkey-modal.show'));
+  masks.sort(function (a, b) {
+    var za = typeof getComputedStyle === 'function' ? Number(getComputedStyle(a).zIndex) || 0 : 0;
+    var zb = typeof getComputedStyle === 'function' ? Number(getComputedStyle(b).zIndex) || 0 : 0;
+    return za - zb;
+  });
+  return masks[masks.length - 1] || null;
+}
+function modalFocusableElements(mask) {
+  return Array.prototype.slice.call(mask.querySelectorAll('button,a[href],input:not([type="hidden"]),textarea,select,summary,[tabindex]')).filter(function (node) {
+    return !node.disabled && node.tabIndex >= 0 && !node.closest('[hidden],[inert]') && node.getClientRects().length &&
+      (typeof getComputedStyle !== 'function' || getComputedStyle(node).visibility !== 'hidden');
+  });
+}
+function focusActiveModal(mask) {
+  if (!mask || activeModalMask() !== mask || mask.contains(document.activeElement)) return;
+  try { mask.focus({ preventScroll: true }); } catch (_) { mask.focus(); }
+}
+function activateModalAccessibility(mask) {
+  initModalAccessibility();
+  if (!mask || mask.__modalAccessibilityActive) return;
+  var state = initModalAccessibility.state;
+  mask.__modalAccessibilityActive = true;
+  mask.__modalReturnFocus = mask.contains(document.activeElement) ? state.lastOutsideFocus : document.activeElement;
+  mask.setAttribute('role', 'dialog');
+  mask.setAttribute('aria-modal', 'true');
+  mask.setAttribute('aria-hidden', 'false');
+  mask.tabIndex = -1;
+  if (!mask.hasAttribute('aria-labelledby') && !mask.hasAttribute('aria-label')) {
+    var title = mask.querySelector('h2,h3,.login-panel-head b');
+    if (title) {
+      if (!title.id) title.id = mask.id + '-accessible-title';
+      mask.setAttribute('aria-labelledby', title.id);
+    }
+  }
+  var schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (fn) { fn(); };
+  schedule(function () { focusActiveModal(mask); });
+}
+function deactivateModalAccessibility(mask) {
+  if (!mask || !mask.__modalAccessibilityActive) return;
+  mask.__modalAccessibilityActive = false;
+  mask.setAttribute('aria-hidden', 'true');
+  var returnFocus = mask.__modalReturnFocus;
+  mask.__modalReturnFocus = null;
+  var next = activeModalMask();
+  if (next && (!returnFocus || !next.contains(returnFocus))) { focusActiveModal(next); return; }
+  if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === 'function') {
+    try { returnFocus.focus({ preventScroll: true }); } catch (_) { returnFocus.focus(); }
+  }
+}
+function closeModalFromKeyboard(mask) {
+  if (!mask) return false;
+  if (mask.id === 'hotkey-modal' && typeof hotkeyCaptureState !== 'undefined' && hotkeyCaptureState) return false;
+  if (mask.id === 'local-beat-modal' && typeof localBeatAnalysis !== 'undefined' && localBeatAnalysis.active && typeof cancelLocalBeatAnalysis === 'function') {
+    cancelLocalBeatAnalysis(); return true;
+  }
+  if (mask.id === 'wallpaper-engine-modal') {
+    var drawer = document.getElementById('wallpaper-engine-details-drawer');
+    if (drawer && drawer.classList.contains('show') && typeof closeWallpaperEngineProjectDetails === 'function') {
+      closeWallpaperEngineProjectDetails(); return true;
+    }
+  }
+  var names = {
+    'login-modal': 'closeLoginModal', 'user-modal': 'closeUserModal', 'hotkey-modal': 'closeHotkeySettings',
+    'audio-output-workflow-modal': 'closeAudioOutputWorkflowPanel', 'collect-modal': 'closeCollectModal',
+    'custom-lyric-modal': 'closeCustomLyricModal', 'track-detail-modal': 'closeTrackDetailModal',
+    'update-modal': 'closeUpdatePanel', 'local-beat-modal': 'closeLocalBeatModal',
+    'cover-crop-modal': 'closeCoverCropModal', 'background-crop-modal': 'cancelCustomBackgroundCropModal',
+    'wallpaper-engine-modal': 'closeWallpaperEngineLibrary', 'original-profile-modal': 'closeOriginalProfileImport',
+    'home-platform-recommend-mask': 'closeHomePlatformRecommendations',
+    'built-in-playlist-prompt': 'closeBuiltInPlaylistPrompt', 'home-daily-fallback-modal': 'closeHomeDailyFallback'
+  };
+  var close = globalThis[names[mask.id]];
+  if (typeof close !== 'function') return false;
+  close(mask.id === 'built-in-playlist-prompt' ? false : undefined);
+  return true;
+}
+function initModalAccessibility() {
+  if (initModalAccessibility.state) return;
+  var state = initModalAccessibility.state = { lastOutsideFocus: document.activeElement };
+  if (!document.addEventListener || !document.querySelectorAll) return;
+  document.addEventListener('keydown', function (e) {
+    if (e.defaultPrevented || e.isComposing) return;
+    var mask = activeModalMask();
+    if (!mask) return;
+    if (mask.id === 'hotkey-modal' && typeof hotkeyCaptureState !== 'undefined' && hotkeyCaptureState) return;
+    if (e.key === 'Escape' && closeModalFromKeyboard(mask)) {
+      e.preventDefault(); e.stopImmediatePropagation(); return;
+    }
+    if (e.key !== 'Tab') return;
+    var controls = modalFocusableElements(mask), current = document.activeElement;
+    var first = controls[0], last = controls[controls.length - 1];
+    if (!first || !mask.contains(current) || current === mask || (e.shiftKey ? current === first : current === last)) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      var target = e.shiftKey ? last : first;
+      if (target) target.focus(); else mask.focus();
+    }
+  }, true);
+  document.addEventListener('focusin', function (e) {
+    var mask = activeModalMask();
+    if (!mask) { state.lastOutsideFocus = e.target; return; }
+    if (!mask.contains(e.target)) focusActiveModal(mask);
+  });
+  if (typeof MutationObserver === 'function') {
+    var observer = new MutationObserver(function (changes) {
+      changes.forEach(function (change) {
+        var mask = change.target;
+        if (mask.classList.contains('show')) activateModalAccessibility(mask);
+        else deactivateModalAccessibility(mask);
+      });
+    });
+    document.querySelectorAll('.modal-mask').forEach(function (mask) { observer.observe(mask, { attributes: true, attributeFilter: ['class'] }); });
+    state.observer = observer;
+  }
+}
 function openGsapModal(mask) {
   if (!mask) return;
   var panel = mask.querySelector('.modal');
@@ -22,6 +139,7 @@ function openGsapModal(mask) {
     mask.style.visibility = 'visible';
     mask.style.opacity = '1';
   }
+  activateModalAccessibility(mask);
 }
 function closeGsapModal(mask, afterClose) {
   if (!mask || !mask.classList.contains('show')) {
@@ -39,6 +157,7 @@ function closeGsapModal(mask, afterClose) {
       mask.style.visibility = '';
       mask.style.opacity = '';
     }
+    deactivateModalAccessibility(mask);
     if (afterClose) afterClose();
   }
   if (window.gsap) {
@@ -53,6 +172,7 @@ function closeGsapModal(mask, afterClose) {
   }
 }
 function bindModalBackdropClose() {
+  initModalAccessibility();
   [
     ['track-detail-modal', closeTrackDetailModal],
     ['login-modal', closeLoginModal],
@@ -224,11 +344,9 @@ function platformMeta(provider) {
   if (provider === 'qq') return { key: 'qq', short: 'QQ', label: 'QQ 音乐', app: 'QQ 音乐 App', dot: 'qq' };
   if (provider === 'kugou') return { key: 'kugou', short: 'KG', label: '酷狗音乐', app: '酷狗音乐 App', dot: 'kugou' };
   if (provider === 'qishui') return { key: 'qishui', short: 'QS', label: '汽水音乐', app: '汽水音乐 App', dot: 'qishui' };
-  if (provider === 'spotify') return { key: 'spotify', short: 'SP', label: 'Spotify', app: 'Spotify', dot: 'spotify' };
   return { key: 'netease', short: 'NE', label: '网易云音乐', app: '网易云音乐 App', dot: 'netease' };
 }
 function platformStatus(provider) {
-  if (provider === 'spotify') return spotifyLoginStatus;
   if (provider === 'qishui') return qishuiLoginStatus;
   if (provider === 'kugou') return kugouLoginStatus;
   return provider === 'qq' ? qqLoginStatus : loginStatus;
@@ -298,8 +416,8 @@ function providerAvatarSrc(provider, status) {
   // A stable URL keeps decoded avatars cached; recovery adds a version only on failure.
   if (status.avatar) return coverProxySrc(status.avatar);
   var meta = platformMeta(provider);
-  var fill = provider === 'qq' ? '#bfd66b' : (provider === 'kugou' ? '#56e0ff' : (provider === 'qishui' ? '#45d68f' : (provider === 'spotify' ? '#1ed760' : '#d95b67')));
-  var bg = provider === 'qq' ? '#11150b' : (provider === 'kugou' ? '#071722' : (provider === 'qishui' ? '#071a12' : (provider === 'spotify' ? '#06140a' : '#180b0f')));
+  var fill = provider === 'qq' ? '#bfd66b' : (provider === 'kugou' ? '#56e0ff' : (provider === 'qishui' ? '#45d68f' : '#d95b67'));
+  var bg = provider === 'qq' ? '#11150b' : (provider === 'kugou' ? '#071722' : (provider === 'qishui' ? '#071a12' : '#180b0f'));
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="' + bg + '"/><circle cx="48" cy="48" r="34" fill="' + fill + '" opacity=".16"/><text x="48" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="' + fill + '">' + meta.short + '</text></svg>';
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 }
@@ -356,7 +474,7 @@ function providerAccountIdentity(provider, status) {
     profile.public_name,
     profile.name
   ];
-  var syntheticPrefixes = [meta.label, meta.short, provider, 'QQ 音乐', 'QQ', '酷狗音乐', '酷狗', '汽水音乐', '网易云音乐', '网易云', 'Spotify']
+  var syntheticPrefixes = [meta.label, meta.short, provider, 'QQ 音乐', 'QQ', '酷狗音乐', '酷狗', '汽水音乐', '网易云音乐', '网易云']
     .map(function (value) { return String(value || '').replace(/[\s·:_-]+/g, '').toLowerCase(); })
     .filter(Boolean);
   for (var i = 0; i < candidates.length; i += 1) {

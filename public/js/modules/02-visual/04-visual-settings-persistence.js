@@ -43,9 +43,8 @@ function normalizeCoverResolution(v) {
 }
 function normalizePerformanceBackgroundMode(v, liveKeepFallback) {
   var value = String(v || '');
-  if (value === 'keep' || liveKeepFallback === true) return 'keep';
-  if (value === 'release') return 'release';
-  return 'auto';
+  if (value === 'auto' || value === 'keep' || value === 'release') return value;
+  return liveKeepFallback === true ? 'keep' : 'auto';
 }
 function normalizeAeroWaterPalette(v) {
   return v === 'cyan' || v === 'blue' ? v : 'clear';

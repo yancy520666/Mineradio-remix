@@ -45,15 +45,12 @@ test('credential error diagnostics never echo the account value returned by a fa
   assert(!logs.join('\n').includes(value));
 });
 
-test('a damaged Spotify token file cannot expose its contents through a JSON error message', t => {
-  const file = path.join(directory(t), '损坏 token.json'), value = 'fixture-private-token';
-  fs.writeFileSync(file, value);
-  const logs = [], c = vm.createContext({ fs, getSpotifyTokenFile: () => file,
-    console: { warn: (...args) => logs.push(args.join(' ')) } });
-  loadFunctions(c, 'spotify-api.js', ['readStoredSpotifyToken']);
-  assert.equal(c.readStoredSpotifyToken().invalid, true);
-  assert.equal(logs.length, 1); assert(!logs.join('\n').includes('fixture-'), 'even a token prefix must not reach diagnostics');
-  assert.equal(fs.readFileSync(file, 'utf8'), value, 'diagnostics must not delete the source');
+test('removed Spotify provider has no packaged API module or runtime credential importer', () => {
+  const root = path.join(__dirname, '..');
+  assert.equal(fs.existsSync(path.join(root, 'spotify-api.js')), false);
+  for (const file of ['desktop/main.js', 'server.js']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /require\(['"][^'"]*spotify-api|clearSpotifyToken|SPOTIFY_TOKEN_FILE/);
+  }
 });
 
 test('camera grant accepts only the trusted main document and rejects negative media/frame/expiry cases', () => {

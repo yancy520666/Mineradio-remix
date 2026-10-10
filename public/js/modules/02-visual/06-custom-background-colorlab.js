@@ -70,20 +70,49 @@ function openCustomBackgroundDb() {
 async function putCustomBackgroundBlob(id, blob, meta) {
   var db = await openCustomBackgroundDb();
   return new Promise(function (resolve, reject) {
-    var tx = db.transaction(CUSTOM_BG_STORE, 'readwrite');
-    tx.objectStore(CUSTOM_BG_STORE).put(Object.assign({ id: id, blob: blob, savedAt: Date.now() }, meta || {}));
-    tx.oncomplete = function () { db.close(); resolve(); };
-    tx.onerror = function () { db.close(); reject(tx.error || new Error('indexedDB put failed')); };
+    var settled = false;
+    function finish(ok, value) {
+      if (settled) return;
+      settled = true;
+      try { db.close(); } catch (closeError) {}
+      if (ok) resolve(value);
+      else reject(value);
+    }
+    try {
+      var tx = db.transaction(CUSTOM_BG_STORE, 'readwrite');
+      tx.oncomplete = function () { finish(true); };
+      tx.onerror = function () { finish(false, tx.error || new Error('indexedDB put failed')); };
+      tx.onabort = function () { finish(false, tx.error || new Error('indexedDB put aborted')); };
+      var req = tx.objectStore(CUSTOM_BG_STORE).put(Object.assign({ id: id, blob: blob, savedAt: Date.now() }, meta || {}));
+      req.onerror = function () { finish(false, req.error || tx.error || new Error('indexedDB put failed')); };
+    } catch (e) { finish(false, e); }
   });
 }
 async function getCustomBackgroundBlob(id) {
   var db = await openCustomBackgroundDb();
   return new Promise(function (resolve, reject) {
-    var tx = db.transaction(CUSTOM_BG_STORE, 'readonly');
-    var req = tx.objectStore(CUSTOM_BG_STORE).get(id);
-    req.onsuccess = function () { resolve(req.result && req.result.blob ? req.result.blob : null); };
-    req.onerror = function () { reject(req.error || new Error('indexedDB get failed')); };
-    tx.oncomplete = function () { db.close(); };
+    var settled = false, closed = false;
+    function close() {
+      if (closed) return;
+      closed = true;
+      try { db.close(); } catch (closeError) {}
+    }
+    function settle(ok, value) {
+      if (settled) return;
+      settled = true;
+      if (ok) resolve(value);
+      else reject(value);
+    }
+    function fail(error) { close(); settle(false, error); }
+    try {
+      var tx = db.transaction(CUSTOM_BG_STORE, 'readonly');
+      tx.oncomplete = close;
+      tx.onerror = function () { fail(tx.error || new Error('indexedDB get failed')); };
+      tx.onabort = function () { fail(tx.error || new Error('indexedDB get aborted')); };
+      var req = tx.objectStore(CUSTOM_BG_STORE).get(id);
+      req.onsuccess = function () { settle(true, req.result && req.result.blob ? req.result.blob : null); };
+      req.onerror = function () { fail(req.error || tx.error || new Error('indexedDB get failed')); };
+    } catch (e) { fail(e); }
   });
 }
 var colorLabState = { picker: null, id: '', h: 0, s: 1, v: 1, dragging: false };

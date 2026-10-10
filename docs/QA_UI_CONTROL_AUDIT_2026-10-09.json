@@ -1,0 +1,1992 @@
+{
+  "generated_at": "2026-10-09T21:20:00Z",
+  "snapshot": "static markup before accessibility fixes; inventory is not runtime verification",
+  "full_control_inventory": "QA_INVENTORY_2026-10-09.json#html_controls",
+  "fx_toggles": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-aeroWaterTheme",
+        "onclick": "toggleFx('aeroWaterTheme')",
+        "title": "控制条、搜索栏与按钮的水光高光；按下时溅出水星子并弹性回弹"
+      },
+      "line": 470,
+      "text": "\n        Aero 水光\n      "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-sonicAudioMonitorEnabled",
+        "onclick": "toggleFx('sonicAudioMonitorEnabled')"
+      },
+      "line": 519,
+      "text": "\n          实时频谱\n        "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-sonicAudioAutoTrack",
+        "onclick": "toggleFx('sonicAudioAutoTrack')"
+      },
+      "line": 522,
+      "text": "\n          Kick 自动\n        "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-sonicGroundFloatingEnabled",
+        "onclick": "toggleFx('sonicGroundFloatingEnabled')"
+      },
+      "line": 587,
+      "text": "\n          浮空方块\n        "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-float",
+        "onclick": "toggleFx('floatLayer')"
+      },
+      "line": 802,
+      "text": "浮空粒子层"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-cinema",
+        "onclick": "toggleFx('cinema')"
+      },
+      "line": 804,
+      "text": "电影镜头\n            "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricGlow",
+        "onclick": "toggleFx('lyricGlow')"
+      },
+      "line": 806,
+      "text": "歌词溢光"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricGlowBeat",
+        "onclick": "toggleFx('lyricGlowBeat')"
+      },
+      "line": 808,
+      "text": "鼓点溢光"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricGlowParticles",
+        "onclick": "toggleFx('lyricGlowParticles')"
+      },
+      "line": 810,
+      "text": "\n              歌词光粒"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-backgroundStarRiver",
+        "onclick": "toggleFx('backgroundStarRiver')"
+      },
+      "line": 812,
+      "text": "\n              背景星河"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricVerticalFloat",
+        "onclick": "toggleFx('lyricVerticalFloat')"
+      },
+      "line": 814,
+      "text": "\n              歌词上下浮动"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricPauseHold",
+        "onclick": "toggleFx('lyricPauseHold')"
+      },
+      "line": 816,
+      "text": "\n              暂停保留歌词"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricCameraLock",
+        "onclick": "toggleFx('lyricCameraLock')"
+      },
+      "line": 818,
+      "text": "歌词镜头绑定"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-bloom",
+        "onclick": "toggleFx('bloom')"
+      },
+      "line": 820,
+      "text": "粒子溢光\n            "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-edge",
+        "onclick": "toggleFx('edge')"
+      },
+      "line": 822,
+      "text": "轮廓高亮\n            "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-desktopLyrics",
+        "onclick": "toggleFx('desktopLyrics')",
+        "title": "全屏幕置顶歌词"
+      },
+      "line": 824,
+      "text": "\n              桌面歌词"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-desktopLyricsClickThrough",
+        "onclick": "toggleFx('desktopLyricsClickThrough')",
+        "title": "锁定后防误触；鼠标移到桌面歌词上按中键可锁定/解锁"
+      },
+      "line": 826,
+      "text": "桌面歌词锁定"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-desktopLyricsCinema",
+        "onclick": "toggleFx('desktopLyricsCinema')",
+        "title": "桌面歌词绑定鼓点电影震动，基础漂浮始终保留"
+      },
+      "line": 828,
+      "text": "桌面歌词电影震动"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-desktopLyricsHighlight",
+        "onclick": "toggleFx('desktopLyricsHighlight')",
+        "title": "桌面歌词按播放进度高亮"
+      },
+      "line": 830,
+      "text": "桌面歌词高亮跟随"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-wallpaperMode",
+        "onclick": "toggleFx('wallpaperMode')",
+        "title": "把当前完整 Mineradio 放到 Windows 桌面；右上控制器可显示、隐藏桌面图标，Esc 退出"
+      },
+      "line": 832,
+      "text": "\n              完整桌面模式试验"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-shelfShowPodcasts",
+        "onclick": "toggleFx('shelfShowPodcasts')",
+        "title": "关闭后 3D 歌单架不显示播客收藏"
+      },
+      "line": 888,
+      "text": "显示播客歌单"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-shelfMergeCollections",
+        "onclick": "toggleFx('shelfMergeCollections')",
+        "title": "开启后我的歌单与收藏歌单按一条线连续滚动"
+      },
+      "line": 890,
+      "text": "合并收藏歌单"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle on",
+        "id": "t-gesturePlayerActions",
+        "onclick": "toggleGesturePlayerActions()"
+      },
+      "line": 973,
+      "text": "\n                播放器动作\n              "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle on",
+        "id": "t-gestureHandOverlay",
+        "onclick": "toggleGestureHandOverlay()"
+      },
+      "line": 976,
+      "text": "\n                手部光迹\n              "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-startupAutoplay",
+        "onclick": "toggleStartupAutoplay()",
+        "title": "打开软件后从上次保存进度自动继续播放"
+      },
+      "line": 1016,
+      "text": "\n              启动自动播放"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-startupFastSkip",
+        "onclick": "toggleStartupFastSkip()",
+        "title": "打开软件后直接进入主页，不等待启动动画"
+      },
+      "line": 1018,
+      "text": "\n              秒启动跳过启动页"
+    },
+    {
+      "tag": "button",
+      "attrs": {
+        "type": "button",
+        "class": "fx-toggle",
+        "id": "sonic-performance-toggle",
+        "aria-pressed": "false",
+        "aria-describedby": "sonic-performance-status",
+        "onclick": "MineradioSonicPerformance.toggle()"
+      },
+      "line": 1055,
+      "text": "\n              音域回响自适应画质\n            "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricLiveViewportFit",
+        "onclick": "toggleFx('lyricLiveViewportFit')",
+        "title": "逐帧读取歌词在屏幕两侧的真实余量；关闭后停止相机投影计算"
+      },
+      "line": 1074,
+      "text": "歌词实时边界"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricContextHighQuality",
+        "onclick": "toggleFx('lyricContextHighQuality')",
+        "title": "为可见上下句和翻译预热高清纹理；关闭后只保留当前原文和当前翻译高清"
+      },
+      "line": 1076,
+      "text": "上下句高清纹理"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-lyricBackdropAdapt",
+        "onclick": "toggleFx('lyricBackdropAdapt')",
+        "title": "让所有可见歌词根据亮背景实时增强可读性；关闭后保留基础文字层"
+      },
+      "line": 1078,
+      "text": "全局歌词避光"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-coverBackdropAdapt",
+        "onclick": "toggleFx('coverBackdropAdapt')",
+        "title": "在封面粒子着色器中启用亮底避光；关闭后跳过对应片元增强"
+      },
+      "line": 1080,
+      "text": "封面粒子避光"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-memoryAutoTrimApp",
+        "onclick": "toggleFx('memoryAutoTrimApp')",
+        "title": "最小化、托盘后台或深度后台时压缩 Mineradio / Electron 工作集"
+      },
+      "line": 1087,
+      "text": "自动压缩播放器"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-memoryAutoTrimOnBackground",
+        "onclick": "toggleFx('memoryAutoTrimOnBackground')",
+        "title": "只在最小化、隐藏或不可见后台触发自动压缩，前台播放不打断"
+      },
+      "line": 1089,
+      "text": "后台触发压缩"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-memoryAutoSystemTrim",
+        "onclick": "toggleFx('memoryAutoSystemTrim')",
+        "title": "按阈值和间隔启用系统级 Mem Reduct；默认不自动弹管理员权限"
+      },
+      "line": 1091,
+      "text": "系统级定时释放"
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "fx-toggle",
+        "id": "t-memorySystemAutoElevate",
+        "onclick": "toggleFx('memorySystemAutoElevate')",
+        "title": "完整释放工作集/修改页/待机页可能需要 UAC；关闭时只尝试当前权限可完成的部分"
+      },
+      "line": 1093,
+      "text": "需要时请求管理员"
+    }
+  ],
+  "range_controls": [
+    {
+      "tag": "input",
+      "attrs": {
+        "class": "color-lab-hue",
+        "id": "color-lab-hue",
+        "type": "range",
+        "min": "0",
+        "max": "360",
+        "step": "1"
+      },
+      "line": 383,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "wallpaper-engine-opacity",
+        "type": "range",
+        "min": "0.15",
+        "max": "1",
+        "step": "0.01",
+        "oninput": "setWallpaperEngineVisualSetting('opacity', this.value)"
+      },
+      "line": 451,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "wallpaper-engine-position-x",
+        "type": "range",
+        "min": "-50",
+        "max": "50",
+        "step": "1",
+        "oninput": "setWallpaperEngineVisualSetting('positionX', this.value)"
+      },
+      "line": 452,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "wallpaper-engine-position-y",
+        "type": "range",
+        "min": "-50",
+        "max": "50",
+        "step": "1",
+        "oninput": "setWallpaperEngineVisualSetting('positionY', this.value)"
+      },
+      "line": 453,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "wallpaper-engine-scale",
+        "type": "range",
+        "min": "1",
+        "max": "1.6",
+        "step": "0.01",
+        "oninput": "setWallpaperEngineVisualSetting('scale', this.value)"
+      },
+      "line": 454,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgopacity",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 456,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgcropx",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 458,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgcropy",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 460,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgzoom",
+        "type": "range",
+        "min": "1",
+        "max": "2.8",
+        "step": "0.01"
+      },
+      "line": 462,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-windowbgopacity",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 464,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgglassopacity",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 466,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-glassaberration",
+        "type": "range",
+        "min": "30",
+        "max": "140",
+        "step": "1"
+      },
+      "line": 468,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-playlistblur",
+        "type": "range",
+        "min": "14",
+        "max": "60",
+        "step": "1"
+      },
+      "line": 479,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-playlistdensity",
+        "type": "range",
+        "min": "0.55",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 481,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-playlistopen",
+        "type": "range",
+        "min": "0.08",
+        "max": "0.72",
+        "step": "0.01"
+      },
+      "line": 483,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-playlistclose",
+        "type": "range",
+        "min": "0.06",
+        "max": "0.48",
+        "step": "0.01"
+      },
+      "line": 485,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-intensity",
+        "type": "range",
+        "min": "0.2",
+        "max": "1.6",
+        "step": "0.01"
+      },
+      "line": 489,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-depth",
+        "type": "range",
+        "min": "0.2",
+        "max": "1.8",
+        "step": "0.01"
+      },
+      "line": 491,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-coverres",
+        "type": "range",
+        "min": "0.75",
+        "max": "1.55",
+        "step": "0.01"
+      },
+      "line": 493,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-cineshake",
+        "type": "range",
+        "min": "0",
+        "max": "1.8",
+        "step": "0.01"
+      },
+      "line": 495,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglow",
+        "type": "range",
+        "min": "0",
+        "max": "0.85",
+        "step": "0.01"
+      },
+      "line": 497,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricbgadapt",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 499,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicamp",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 503,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicspeed",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 505,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicdensity",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 507,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicrange",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 509,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-soniclower",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 511,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicdepth",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 513,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicautorotate",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 515,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicaudiosensitivity",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 536,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicaudiobandstart",
+        "type": "range",
+        "min": "0",
+        "max": "510",
+        "step": "1"
+      },
+      "line": 538,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicaudiobandend",
+        "type": "range",
+        "min": "2",
+        "max": "512",
+        "step": "1"
+      },
+      "line": 540,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicaudiothreshold",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 542,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicaudiopulse",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 544,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicsubbass",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 546,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicbass",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 548,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-soniclowmid",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 550,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicmid",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 552,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonichighmid",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 554,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicpresence",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 556,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicbrilliance",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 558,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicair",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 560,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicglow",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 583,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicfloatcount",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 591,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicfloatintensity",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 593,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicfloatmin",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 595,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicfloatmax",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 597,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicfloatspeed",
+        "type": "range",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 599,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicwegain",
+        "type": "range",
+        "min": "40",
+        "max": "100",
+        "step": "1"
+      },
+      "line": 603,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicweaudio",
+        "type": "range",
+        "min": "0.3",
+        "max": "2.5",
+        "step": "0.01"
+      },
+      "line": 605,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicwerange",
+        "type": "range",
+        "min": "0.3",
+        "max": "2",
+        "step": "0.01"
+      },
+      "line": 607,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-sonicwepeak",
+        "type": "range",
+        "min": "0",
+        "max": "1.4",
+        "step": "0.01"
+      },
+      "line": 609,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyriccustomlines",
+        "type": "range",
+        "min": "1",
+        "max": "10",
+        "step": "1"
+      },
+      "line": 705,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglitchintensity",
+        "type": "range",
+        "min": "0",
+        "max": "1.5",
+        "step": "0.01"
+      },
+      "line": 725,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglitchslice",
+        "type": "range",
+        "min": "0",
+        "max": "1.4",
+        "step": "0.01"
+      },
+      "line": 727,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglitchchroma",
+        "type": "range",
+        "min": "0",
+        "max": "1.6",
+        "step": "0.01"
+      },
+      "line": 729,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglitchrate",
+        "type": "range",
+        "min": "0.45",
+        "max": "2.2",
+        "step": "0.01"
+      },
+      "line": 731,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricglitchjitter",
+        "type": "range",
+        "min": "0",
+        "max": "1.8",
+        "step": "0.01"
+      },
+      "line": 733,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyriccontextopacity",
+        "type": "range",
+        "min": "0.25",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 736,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyriccontextspread",
+        "type": "range",
+        "min": "0.60",
+        "max": "2.40",
+        "step": "0.01"
+      },
+      "line": 738,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyrictranslationgap",
+        "type": "range",
+        "min": "0.28",
+        "max": "2.20",
+        "step": "0.01"
+      },
+      "line": 740,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricedgefade",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 742,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricmotionsoftness",
+        "type": "range",
+        "min": "0.15",
+        "max": "1.2",
+        "step": "0.01"
+      },
+      "line": 744,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricspacing",
+        "type": "range",
+        "min": "-0.04",
+        "max": "0.18",
+        "step": "0.005"
+      },
+      "line": 773,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyriclineheight",
+        "type": "range",
+        "min": "0.72",
+        "max": "1.80",
+        "step": "0.01"
+      },
+      "line": 775,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricweight",
+        "type": "range",
+        "min": "500",
+        "max": "900",
+        "step": "50"
+      },
+      "line": 777,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricscale",
+        "type": "range",
+        "min": "0.35",
+        "max": "1.65",
+        "step": "0.01"
+      },
+      "line": 780,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricx",
+        "type": "range",
+        "min": "-4.0",
+        "max": "4.0",
+        "step": "0.01"
+      },
+      "line": 782,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricy",
+        "type": "range",
+        "min": "-2.4",
+        "max": "2.7",
+        "step": "0.01"
+      },
+      "line": 784,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricz",
+        "type": "range",
+        "min": "-3.2",
+        "max": "3.2",
+        "step": "0.01"
+      },
+      "line": 786,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyrictiltx",
+        "type": "range",
+        "min": "-84",
+        "max": "84",
+        "step": "1"
+      },
+      "line": 788,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyrictilty",
+        "type": "range",
+        "min": "-84",
+        "max": "84",
+        "step": "1"
+      },
+      "line": 790,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-desktoplyricssize",
+        "type": "range",
+        "min": "0.72",
+        "max": "1.55",
+        "step": "0.01"
+      },
+      "line": 837,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-desktoplyricsopacity",
+        "type": "range",
+        "min": "0.28",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 839,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-desktoplyricsy",
+        "type": "range",
+        "min": "0.08",
+        "max": "0.92",
+        "step": "0.01"
+      },
+      "line": 841,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-wallpaperopacity",
+        "type": "range",
+        "min": "0.35",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 858,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsize",
+        "type": "range",
+        "min": "0.65",
+        "max": "1.45",
+        "step": "0.01"
+      },
+      "line": 899,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfx",
+        "type": "range",
+        "min": "-1.2",
+        "max": "1.2",
+        "step": "0.01"
+      },
+      "line": 901,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfy",
+        "type": "range",
+        "min": "-0.9",
+        "max": "0.9",
+        "step": "0.01"
+      },
+      "line": 903,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfz",
+        "type": "range",
+        "min": "-0.9",
+        "max": "0.9",
+        "step": "0.01"
+      },
+      "line": 905,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfangle",
+        "type": "range",
+        "min": "-30",
+        "max": "30",
+        "step": "1"
+      },
+      "line": 907,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfopacity",
+        "type": "range",
+        "min": "0.25",
+        "max": "1",
+        "step": "0.01"
+      },
+      "line": 909,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfbgalpha",
+        "type": "range",
+        "min": "0.25",
+        "max": "0.98",
+        "step": "0.01"
+      },
+      "line": 911,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricshelfx",
+        "type": "range",
+        "min": "-0.5",
+        "max": "0.5",
+        "step": "0.01"
+      },
+      "line": 914,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-lyricshelfy",
+        "type": "range",
+        "min": "-0.5",
+        "max": "0.5",
+        "step": "0.01"
+      },
+      "line": 916,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailx",
+        "type": "range",
+        "min": "-4.8",
+        "max": "4.8",
+        "step": "0.01"
+      },
+      "line": 919,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetaily",
+        "type": "range",
+        "min": "-3.6",
+        "max": "3.6",
+        "step": "0.01"
+      },
+      "line": 921,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailz",
+        "type": "range",
+        "min": "-3.6",
+        "max": "3.6",
+        "step": "0.01"
+      },
+      "line": 923,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailscale",
+        "type": "range",
+        "min": "0.72",
+        "max": "1.35",
+        "step": "0.01"
+      },
+      "line": 925,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailanglex",
+        "type": "range",
+        "min": "-24",
+        "max": "24",
+        "step": "1"
+      },
+      "line": 927,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailangley",
+        "type": "range",
+        "min": "-28",
+        "max": "28",
+        "step": "1"
+      },
+      "line": 929,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailrowgap",
+        "type": "range",
+        "min": "0.72",
+        "max": "1.32",
+        "step": "0.01"
+      },
+      "line": 931,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailopen",
+        "type": "range",
+        "min": "0.12",
+        "max": "1.2",
+        "step": "0.01"
+      },
+      "line": 934,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailclose",
+        "type": "range",
+        "min": "0.08",
+        "max": "0.8",
+        "step": "0.01"
+      },
+      "line": 936,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailrowtime",
+        "type": "range",
+        "min": "0.16",
+        "max": "1.6",
+        "step": "0.01"
+      },
+      "line": 938,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailintro",
+        "type": "range",
+        "min": "0",
+        "max": "1.8",
+        "step": "0.01"
+      },
+      "line": 940,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfdetailparallax",
+        "type": "range",
+        "min": "0",
+        "max": "1.8",
+        "step": "0.01"
+      },
+      "line": 942,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonopen",
+        "type": "range",
+        "min": "0.08",
+        "max": "2",
+        "step": "0.01"
+      },
+      "line": 945,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonclose",
+        "type": "range",
+        "min": "0.08",
+        "max": "1.6",
+        "step": "0.01"
+      },
+      "line": 947,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonslide",
+        "type": "range",
+        "min": "0",
+        "max": "4",
+        "step": "0.01"
+      },
+      "line": 949,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonstagger",
+        "type": "range",
+        "min": "0",
+        "max": "3",
+        "step": "0.01"
+      },
+      "line": 951,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonscale",
+        "type": "range",
+        "min": "0",
+        "max": "3",
+        "step": "0.01"
+      },
+      "line": 953,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfsummonparallax",
+        "type": "range",
+        "min": "0",
+        "max": "2.5",
+        "step": "0.01"
+      },
+      "line": 955,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfcamenter",
+        "type": "range",
+        "min": "0.2",
+        "max": "1.5",
+        "step": "0.01"
+      },
+      "line": 957,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-shelfcamexit",
+        "type": "range",
+        "min": "0.2",
+        "max": "1.5",
+        "step": "0.01"
+      },
+      "line": 959,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "ui-sfx-volume",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01",
+        "value": "0.70"
+      },
+      "line": 1045,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-memory-interval",
+        "type": "range",
+        "min": "5",
+        "max": "180",
+        "step": "1"
+      },
+      "line": 1102,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-memory-threshold",
+        "type": "range",
+        "min": "50",
+        "max": "98",
+        "step": "1"
+      },
+      "line": 1104,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-point",
+        "type": "range",
+        "min": "0.5",
+        "max": "2.2",
+        "step": "0.01"
+      },
+      "line": 1132,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-speed",
+        "type": "range",
+        "min": "0.2",
+        "max": "2.5",
+        "step": "0.01"
+      },
+      "line": 1134,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-twist",
+        "type": "range",
+        "min": "0",
+        "max": "0.6",
+        "step": "0.01"
+      },
+      "line": 1136,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-color",
+        "type": "range",
+        "min": "0.5",
+        "max": "2.0",
+        "step": "0.01"
+      },
+      "line": 1138,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bloom",
+        "type": "range",
+        "min": "0",
+        "max": "1.6",
+        "step": "0.01"
+      },
+      "line": 1140,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-scatter",
+        "type": "range",
+        "min": "0",
+        "max": "0.5",
+        "step": "0.01"
+      },
+      "line": 1142,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fx-bgfade",
+        "type": "range",
+        "min": "0",
+        "max": "1.2",
+        "step": "0.01"
+      },
+      "line": 1144,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "volume-slider",
+        "type": "range",
+        "min": "0",
+        "max": "1",
+        "step": "0.01",
+        "value": "1",
+        "aria-label": "音量"
+      },
+      "line": 1472,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fade-in-slider",
+        "type": "range",
+        "min": "0",
+        "max": "3",
+        "step": "0.05",
+        "value": "0.45",
+        "aria-label": "音乐淡入秒数"
+      },
+      "line": 1477,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "fade-out-slider",
+        "type": "range",
+        "min": "0",
+        "max": "3",
+        "step": "0.01",
+        "value": "0.12",
+        "aria-label": "音乐淡出秒数"
+      },
+      "line": 1482,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "cover-crop-zoom",
+        "type": "range",
+        "min": "1",
+        "max": "3.2",
+        "step": "0.01",
+        "value": "1"
+      },
+      "line": 1686,
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "attrs": {
+        "id": "background-crop-zoom",
+        "type": "range",
+        "min": "1",
+        "max": "2.8",
+        "step": "0.01",
+        "value": "1"
+      },
+      "line": 1712,
+      "text": ""
+    }
+  ],
+  "modal_masks": [
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "home-platform-recommend-mask",
+        "class": "modal-mask",
+        "role": "dialog",
+        "aria-modal": "true",
+        "aria-hidden": "true",
+        "aria-labelledby": "home-platform-recommend-title"
+      },
+      "line": 280,
+      "text": "\n      \n        \n          \n            平台推荐\n            优先顺序跟随登录面板的左侧拖动排序；可在这里临时切换平台。\n          \n          ×\n        \n        \n          网易云\n          汽水\n          QQ\n          酷狗\n        \n        \n        \n        \n          刷新当前平台\n          完成\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "login-modal",
+        "class": "modal-mask"
+      },
+      "line": 1542,
+      "text": "\n      \n        \n          登录接入拖接口端口到 MR\n          退出登录\n          ×\n        \n        \n          \n          \n            NE网易云官方扫码 / Cookie\n            QQQQ 音乐官方扫码 / Cookie\n            KG酷狗音乐官方窗口 / Cookie\n            QS汽水音乐官方扫码 / 抖音确认\n          \n          \n            \n            MR\n            MR等待接入\n            \n              QR扫码官方窗口\n              CKCookie保存会话\n            \n          \n        \n        \n          \n            扫码登录网易云音乐\n            使用 网易云音乐 App 扫码，可同步歌单、红心与播客。\n            拖动接口到 MR 接入口后开始登录。\n          \n          \n            \n              \n              QQ打开官方扫码窗口\n            \n            \n              \n              \n                从 y.qq.com 的登录会话导入。\n                从浏览器导入\n                保存\n              \n            \n          \n          \n            先搜索一首歌\n            手动导入\n            网页登录\n            开始登录\n          \n        \n        导入本机原版配置与账号\n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "original-profile-modal",
+        "class": "modal-mask",
+        "role": "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "original-profile-title"
+      },
+      "line": 1610,
+      "text": "\n      \n        从原版导入\n        找到本机原版 Mineradio 的配置。导入只补齐 Remix 的默认设置和缺失账号，原版数据不会改动。\n        \n          暂不导入\n          导入并重启\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "audio-output-workflow-modal",
+        "class": "modal-mask"
+      },
+      "line": 1622,
+      "text": "\n      \n        \n          音频路由Patch Bay\n          ×\n        \n        \n          音频路由\n          Patch Bay\n        \n        \n        \n          断开附加输出\n          重试连接\n          刷新接口\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "user-modal",
+        "class": "modal-mask"
+      },
+      "line": 1642,
+      "text": "\n      \n        账号信息\n        网易云音乐\n        \n        \n        \n        \n          网易云\n          QQ 音乐\n          酷狗音乐\n          汽水音乐\n          我两个都要\n        \n        \n          补登网易云\n          补登 QQ 音乐\n          补登酷狗音乐\n          登录汽水音乐\n        \n        QQ 音乐真实登录暂未接入，当前先预览双平台账号交互。\n        \n          关闭\n          退出当前平台\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "cover-crop-modal",
+        "class": "modal-mask"
+      },
+      "line": 1675,
+      "text": "\n      \n        裁剪封面\n        \n          \n            \n          \n          \n            \n            \n              缩放\n              \n            \n          \n        \n        \n          取消\n          使用封面\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "background-crop-modal",
+        "class": "modal-mask"
+      },
+      "line": 1697,
+      "text": "\n      \n        裁切背景媒体\n        \n          \n            \n            \n          \n          \n            \n              \n              \n            \n            \n              缩放\n              \n            \n            拖动预览调整位置\n          \n        \n        \n          取消\n          复位\n          使用裁切\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "wallpaper-engine-modal",
+        "class": "modal-mask",
+        "role": "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "wallpaper-engine-modal-title",
+        "onclick": "if(event.target===this)closeWallpaperEngineLibrary()"
+      },
+      "line": 1725,
+      "text": "\n      \n        \n          \n            LOCAL WALLPAPER LIBRARY\n            Wallpaper Engine 壁纸导入\n            图片 / 视频使用原文件，Scene / Web 由 Wallpaper Engine 原生运行；背景空白处可点击、拖动。应用型壁纸暂不支持运行，只显示项目预览；键盘输入与部分网页滚轮交互尚不支持。点击齿轮调整设置。\n          \n          ×\n        \n        \n          \n          导入项目 / 场景包\n          导入目录\n          刷新识别\n          恢复隐藏\n        \n        等待识别本机 Wallpaper Engine 库\n        \n        \n        \n          \n            \n              \n                PROJECT PROPERTIES\n                项目设置\n              \n              ×\n            \n            \n            \n            \n            \n              保存并应用\n              恢复 WE 设置\n              在 WE 中打开设置（实验）\n              创意工坊详情\n            \n            支持文字、颜色、开关、数值、选项和媒体选择。原项目只读；播放器保存独立配置，音频始终静音。\n          \n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "built-in-playlist-prompt",
+        "class": "modal-mask",
+        "role": "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "built-in-playlist-prompt-title",
+        "onclick": "if(event.target===this)closeBuiltInPlaylistPrompt(false)"
+      },
+      "line": 1775,
+      "text": "\n      \n        内置歌单\n        \n        \n          取消\n          确定\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "home-daily-fallback-modal",
+        "class": "modal-mask",
+        "role": "dialog",
+        "aria-modal": "true",
+        "aria-hidden": "true",
+        "aria-labelledby": "home-daily-fallback-title",
+        "onclick": "if(event.target===this)closeHomeDailyFallback(null)",
+        "onkeydown": "if(event.key==='Escape')closeHomeDailyFallback(null)"
+      },
+      "line": 1786,
+      "text": "\n      \n        每日推荐\n        \n        \n         以后自动改用排在后面的可用平台\n        \n          取消\n          查看原因\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "collect-modal",
+        "class": "modal-mask"
+      },
+      "line": 1799,
+      "text": "\n      \n        收藏到歌单\n        \n        \n          \n          创建内置\n        \n        \n        \n          关闭\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "local-beat-modal",
+        "class": "modal-mask"
+      },
+      "line": 1814,
+      "text": "\n      \n        本地节奏分析\n        \n          本地歌曲\n          选择一种电影视角分析方式\n        \n        \n          \n            MR 分析日常电影视角\n          \n          \n            DJ 分析长混音/强节奏\n          \n        \n        \n        \n        \n          暂不分析\n          取消\n          开始分析\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "custom-lyric-modal",
+        "class": "modal-mask"
+      },
+      "line": 1841,
+      "text": "\n      \n        自定义歌词\n        \n          当前歌曲\n          支持 LRC 时间轴，也可以直接输入纯文本歌词\n        \n        \n        \n        \n          删除\n          关闭\n          保存使用\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "track-detail-modal",
+        "class": "modal-mask"
+      },
+      "line": 1859,
+      "text": "\n      \n        歌曲详情\n        \n        \n          关闭\n        \n      \n    "
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "id": "update-modal",
+        "class": "modal-mask"
+      },
+      "line": 1869,
+      "text": "\n      \n        \n          \n            \n              MINERADIO\n              New release\n              v2.4.2\n            \n          \n          \n            请以本次发布公告中的最新网盘链接为准。\n            \n          \n          更新重点\n          \n          查看完整更新说明›\n          \n          \n            \n              \n              查看更新页面\n            \n            稍后\n          \n          将在浏览器打开下载页面，软件不会在本地下载或应用补丁。\n        \n      \n    "
+    }
+  ]
+}

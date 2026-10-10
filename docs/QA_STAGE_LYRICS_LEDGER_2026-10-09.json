@@ -1,0 +1,4453 @@
+{
+  "capturedAt": "2026-10-09T22:05:45.033Z",
+  "methodology": "Every listed source file was read in full in numbered chunks and reviewed by function/callback. This AST ledger records completed source-level semantic review by the AI reviewer; AST enumeration alone is not a passing test or complete runtime coverage. Listed test links are direct or adjacent-chain evidence, not an assertion that every callback executed. This is not human visual acceptance.",
+  "runtimeLimits": "Node VM tests use isolated fake clocks/canvas metrics; browser companion uses real original scripts, temporary generated WAV and SwiftShader. No Windows GPU/performance, native desktop IPC, real accounts, platform rights or subjective visual acceptance is established.",
+  "files": [
+    {
+      "path": "public/js/modules/02-visual/05-lyrics-fonts-texture.js",
+      "lines": 355,
+      "sha256": "520f09f89669b967309ea974bd9adb82d7fd3962e74b2f2daef8b267359af1f8",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 32,
+      "nestedAndTopLevelFunctions": 39,
+      "functions": [
+        {
+          "name": "builtinLyricFontKeyPattern",
+          "owner": null,
+          "lineStart": 1,
+          "lineEnd": 3,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "customLyricFontKey",
+          "owner": null,
+          "lineStart": 4,
+          "lineEnd": 7,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "customLyricFontIdFromKey",
+          "owner": null,
+          "lineStart": 8,
+          "lineEnd": 11,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "customLyricFontRecordForKey",
+          "owner": null,
+          "lineStart": 12,
+          "lineEnd": 19,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "normalizeCustomLyricFontName",
+          "owner": null,
+          "lineStart": 20,
+          "lineEnd": 23,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "normalizeCustomLyricFontRecord",
+          "owner": null,
+          "lineStart": 24,
+          "lineEnd": 37,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "readCustomLyricFonts",
+          "owner": null,
+          "lineStart": 38,
+          "lineEnd": 46,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "saveCustomLyricFonts",
+          "owner": null,
+          "lineStart": 47,
+          "lineEnd": 55,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "quotedCssFontFamily",
+          "owner": null,
+          "lineStart": 56,
+          "lineEnd": 58,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "releaseCustomLyricFontFace",
+          "owner": null,
+          "lineStart": 61,
+          "lineEnd": 67,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "reconcileCustomLyricFontFaces",
+          "owner": null,
+          "lineStart": 68,
+          "lineEnd": 73,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@69",
+          "owner": "reconcileCustomLyricFontFaces",
+          "lineStart": 69,
+          "lineEnd": 69,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@70",
+          "owner": "reconcileCustomLyricFontFaces",
+          "lineStart": 70,
+          "lineEnd": 72,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "registerCustomLyricFont",
+          "owner": null,
+          "lineStart": 74,
+          "lineEnd": 115,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@88",
+          "owner": "registerCustomLyricFont",
+          "lineStart": 88,
+          "lineEnd": 104,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@104",
+          "owner": "registerCustomLyricFont",
+          "lineStart": 104,
+          "lineEnd": 108,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font ownership, late ready, removed/superseded source, selected-font refresh",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "registerSavedCustomLyricFonts",
+          "owner": null,
+          "lineStart": 116,
+          "lineEnd": 119,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@118",
+          "owner": "registerSavedCustomLyricFonts",
+          "lineStart": 118,
+          "lineEnd": 118,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "normalizeLyricFontKey",
+          "owner": null,
+          "lineStart": 120,
+          "lineEnd": 125,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricFontStackForKey",
+          "owner": null,
+          "lineStart": 126,
+          "lineEnd": 143,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricFontWeightValue",
+          "owner": null,
+          "lineStart": 144,
+          "lineEnd": 147,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricFontCss",
+          "owner": null,
+          "lineStart": 148,
+          "lineEnd": 151,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricLetterSpacingPx",
+          "owner": null,
+          "lineStart": 152,
+          "lineEnd": 154,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricLineHeightFactor",
+          "owner": null,
+          "lineStart": 155,
+          "lineEnd": 157,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearLyricTextMeasureCache",
+          "owner": null,
+          "lineStart": 160,
+          "lineEnd": 163,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricTextMeasureFontCache",
+          "owner": null,
+          "lineStart": 164,
+          "lineEnd": 175,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMeasuredCharacterWidth",
+          "owner": null,
+          "lineStart": 176,
+          "lineEnd": 185,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "warmLyricTextMeasureCache",
+          "owner": null,
+          "lineStart": 187,
+          "lineEnd": 195,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleLyricTextMeasureWarmup",
+          "owner": null,
+          "lineStart": 196,
+          "lineEnd": 205,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@200",
+          "owner": "scheduleLyricTextMeasureWarmup",
+          "lineStart": 200,
+          "lineEnd": 204,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@207",
+          "owner": null,
+          "lineStart": 207,
+          "lineEnd": 210,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "measureTextWithLetterSpacing",
+          "owner": null,
+          "lineStart": 213,
+          "lineEnd": 238,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMeasureText",
+          "owner": null,
+          "lineStart": 239,
+          "lineEnd": 241,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMeasureTextAtSize",
+          "owner": null,
+          "lineStart": 242,
+          "lineEnd": 248,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "drawTextWithLetterSpacing",
+          "owner": null,
+          "lineStart": 249,
+          "lineEnd": 271,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricFillText",
+          "owner": null,
+          "lineStart": 272,
+          "lineEnd": 274,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricStrokeText",
+          "owner": null,
+          "lineStart": 275,
+          "lineEnd": 277,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "applyStonePrintTexture",
+          "owner": null,
+          "lineStart": 278,
+          "lineEnd": 347,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "hexToRgb",
+          "owner": null,
+          "lineStart": 348,
+          "lineEnd": 355,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    },
+    {
+      "path": "public/js/modules/02-visual/10-lyrics-mask-textures.js",
+      "lines": 951,
+      "sha256": "e4d6f73120ef64aafb256582417c3169d53f70911146fd21fed968485ebf1377",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 42,
+      "nestedAndTopLevelFunctions": 47,
+      "functions": [
+        {
+          "name": "applyLyricVerticalEdgeFade",
+          "owner": null,
+          "lineStart": 1,
+          "lineEnd": 19,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "configureLyricTextureSampling",
+          "owner": null,
+          "lineStart": 21,
+          "lineEnd": 42,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "isPowerOfTwo",
+          "owner": "configureLyricTextureSampling",
+          "lineStart": 26,
+          "lineEnd": 26,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "beginLyricMaskLayoutBuild",
+          "owner": null,
+          "lineStart": 44,
+          "lineEnd": 92,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@58",
+          "owner": "beginLyricMaskLayoutBuild",
+          "lineStart": 58,
+          "lineEnd": 58,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricMaskLayoutCacheKey",
+          "owner": null,
+          "lineStart": 94,
+          "lineEnd": 96,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "measureLyricMaskLayoutBaseEntry",
+          "owner": null,
+          "lineStart": 98,
+          "lineEnd": 109,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "scaledLyricMaskLayoutWidth",
+          "owner": null,
+          "lineStart": 111,
+          "lineEnd": 117,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "finishLyricMaskLayoutBuild",
+          "owner": null,
+          "lineStart": 119,
+          "lineEnd": 122,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "finalizeLyricMaskLayoutBuild",
+          "owner": null,
+          "lineStart": 124,
+          "lineEnd": 233,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "measureWidestAtSize",
+          "owner": "finalizeLyricMaskLayoutBuild",
+          "lineStart": 138,
+          "lineEnd": 144,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricMaskLayoutFits",
+          "owner": "finalizeLyricMaskLayoutBuild",
+          "lineStart": 145,
+          "lineEnd": 149,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stepLyricMaskLayoutBuild",
+          "owner": null,
+          "lineStart": 235,
+          "lineEnd": 249,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "measureLyricMaskLayout",
+          "owner": null,
+          "lineStart": 251,
+          "lineEnd": 255,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricMaskLayoutMetricsFromLayout",
+          "owner": null,
+          "lineStart": 257,
+          "lineEnd": 279,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "beginLyricMaskLayoutMetricsBuild",
+          "owner": null,
+          "lineStart": 281,
+          "lineEnd": 283,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stepLyricMaskLayoutMetricsBuild",
+          "owner": null,
+          "lineStart": 285,
+          "lineEnd": 287,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "finishLyricMaskLayoutMetricsBuild",
+          "owner": null,
+          "lineStart": 289,
+          "lineEnd": 292,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "makeLyricMaskLayoutMetrics",
+          "owner": null,
+          "lineStart": 294,
+          "lineEnd": 298,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "empty input, active line mapping, cooperative measurements, fit and finite logical layout",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricStableHash",
+          "owner": null,
+          "lineStart": 300,
+          "lineEnd": 308,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricSeededRandom",
+          "owner": null,
+          "lineStart": 310,
+          "lineEnd": 319,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@312",
+          "owner": "lyricSeededRandom",
+          "lineStart": 312,
+          "lineEnd": 318,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMaskStoneSeed",
+          "owner": null,
+          "lineStart": 321,
+          "lineEnd": 328,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "makeLyricMask",
+          "owner": null,
+          "lineStart": 330,
+          "lineEnd": 404,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricRunwayRowPixelBudget",
+          "owner": null,
+          "lineStart": 405,
+          "lineEnd": 411,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricTextureClarityScale",
+          "owner": null,
+          "lineStart": 413,
+          "lineEnd": 420,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricRowTextureWidthBudget",
+          "owner": null,
+          "lineStart": 422,
+          "lineEnd": 435,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricQualityPoolBudgetBytes",
+          "owner": null,
+          "lineStart": 437,
+          "lineEnd": 445,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricQualityMaxResidentRows",
+          "owner": null,
+          "lineStart": 447,
+          "lineEnd": 450,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricQualityTargetMetrics",
+          "owner": null,
+          "lineStart": 452,
+          "lineEnd": 477,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "makeLyricQualityTexture",
+          "owner": null,
+          "lineStart": 479,
+          "lineEnd": 532,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricGlowTextureWidthBudget",
+          "owner": null,
+          "lineStart": 534,
+          "lineEnd": 548,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricGlowRasterMetrics",
+          "owner": null,
+          "lineStart": 550,
+          "lineEnd": 576,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "compactLyricLineMaskTexture",
+          "owner": null,
+          "lineStart": 578,
+          "lineEnd": 626,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "compaction transfers texture, releases old canvas and preserves logical/world dimensions",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "beginLyricReadabilityTextureBuild",
+          "owner": null,
+          "lineStart": 631,
+          "lineEnd": 671,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "drawLyricReadabilityStrokeLines",
+          "owner": null,
+          "lineStart": 673,
+          "lineEnd": 697,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stepLyricReadabilityTextureBuild",
+          "owner": null,
+          "lineStart": 699,
+          "lineEnd": 758,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishLyricReadabilityTextureBuild",
+          "owner": null,
+          "lineStart": 760,
+          "lineEnd": 764,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "makeLyricReadabilityTexture",
+          "owner": null,
+          "lineStart": 766,
+          "lineEnd": 768,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "beginLyricGlowTextureBuild",
+          "owner": null,
+          "lineStart": 770,
+          "lineEnd": 822,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "drawLyricGlowText",
+          "owner": null,
+          "lineStart": 824,
+          "lineEnd": 851,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "drawLyricGlowBlurPass",
+          "owner": null,
+          "lineStart": 853,
+          "lineEnd": 863,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "drawLyricGlowRadialPass",
+          "owner": null,
+          "lineStart": 865,
+          "lineEnd": 878,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishLyricGlowTexturePixels",
+          "owner": null,
+          "lineStart": 880,
+          "lineEnd": 914,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stepLyricGlowTextureBuild",
+          "owner": null,
+          "lineStart": 916,
+          "lineEnd": 941,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishLyricGlowTextureBuild",
+          "owner": null,
+          "lineStart": 943,
+          "lineEnd": 947,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "makeLyricGlowTexture",
+          "owner": null,
+          "lineStart": 949,
+          "lineEnd": 951,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    },
+    {
+      "path": "public/js/modules/02-visual/12a-lyrics-edit-preview.js",
+      "lines": 222,
+      "sha256": "2fb051d964dfb05baf1a4aafde8c2465dcd724d3f2c35f9c925fe76177bfb1dc",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 12,
+      "nestedAndTopLevelFunctions": 22,
+      "functions": [
+        {
+          "name": "lyricFxEditActive",
+          "owner": null,
+          "lineStart": 2,
+          "lineEnd": 4,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricFxPausedCommitActive",
+          "owner": null,
+          "lineStart": 7,
+          "lineEnd": 14,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [
+            "tests/paused-lyric-effects-owner.test.js",
+            "tests/paused-lyric-quality-ownership.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "finishLyricFxPausedCommit",
+          "owner": null,
+          "lineStart": 15,
+          "lineEnd": 39,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [
+            "tests/paused-lyric-effects-owner.test.js",
+            "tests/paused-lyric-quality-ownership.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "suspendLyricFxEditWork",
+          "owner": null,
+          "lineStart": 40,
+          "lineEnd": 62,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishLyricFxEditWork",
+          "owner": null,
+          "lineStart": 63,
+          "lineEnd": 90,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@79",
+          "owner": "finishLyricFxEditWork",
+          "lineStart": 79,
+          "lineEnd": 79,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@79",
+          "owner": "finishLyricFxEditWork",
+          "lineStart": 79,
+          "lineEnd": 79,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricFxRasterKey",
+          "owner": null,
+          "lineStart": 91,
+          "lineEnd": 93,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "syncLyricFxLiveRows",
+          "owner": null,
+          "lineStart": 94,
+          "lineEnd": 148,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@97",
+          "owner": "syncLyricFxLiveRows",
+          "lineStart": 97,
+          "lineEnd": 147,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@101",
+          "owner": "syncLyricFxLiveRows",
+          "lineStart": 101,
+          "lineEnd": 101,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@106",
+          "owner": "syncLyricFxLiveRows",
+          "lineStart": 106,
+          "lineEnd": 108,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@119",
+          "owner": "syncLyricFxLiveRows",
+          "lineStart": 119,
+          "lineEnd": 146,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@141",
+          "owner": "syncLyricFxLiveRows",
+          "lineStart": 141,
+          "lineEnd": 144,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "updateLyricFxTextPreview",
+          "owner": null,
+          "lineStart": 149,
+          "lineEnd": 181,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@151",
+          "owner": "updateLyricFxTextPreview",
+          "lineStart": 151,
+          "lineEnd": 153,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMaskInkBounds",
+          "owner": null,
+          "lineStart": 184,
+          "lineEnd": 189,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTranslationTightDistance",
+          "owner": null,
+          "lineStart": 190,
+          "lineEnd": 197,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTranslationDistanceForRow",
+          "owner": null,
+          "lineStart": 198,
+          "lineEnd": 206,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "prepareLyricTranslationParents",
+          "owner": null,
+          "lineStart": 207,
+          "lineEnd": 222,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@211",
+          "owner": "prepareLyricTranslationParents",
+          "lineStart": 211,
+          "lineEnd": 216,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@217",
+          "owner": "prepareLyricTranslationParents",
+          "lineStart": 217,
+          "lineEnd": 219,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    },
+    {
+      "path": "public/js/modules/02-visual/13-lyrics-mesh-build.js",
+      "lines": 503,
+      "sha256": "ee6b6ca2cc377c5ca8d3344e55937a9e4d94feee97f8d5a9879682b520f30082",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 15,
+      "nestedAndTopLevelFunctions": 16,
+      "functions": [
+        {
+          "name": "primeLyricMeshOpacity",
+          "owner": null,
+          "lineStart": 1,
+          "lineEnd": 18,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@8",
+          "owner": "primeLyricMeshOpacity",
+          "lineStart": 8,
+          "lineEnd": 16,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stableStageLyricRowMaskLayout",
+          "owner": null,
+          "lineStart": 20,
+          "lineEnd": 24,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricRowLayerBundleActiveMask",
+          "owner": null,
+          "lineStart": 26,
+          "lineEnd": 32,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "buildLyricMesh",
+          "owner": null,
+          "lineStart": 34,
+          "lineEnd": 223,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "disposeCooperativeLyricBuildMask",
+          "owner": null,
+          "lineStart": 225,
+          "lineEnd": 231,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "beginCooperativeLyricMeshBuild",
+          "owner": null,
+          "lineStart": 233,
+          "lineEnd": 261,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative phase state, finish ownership transfer, cancel idempotence and failure release",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stepCooperativeLyricMeshBuild",
+          "owner": null,
+          "lineStart": 263,
+          "lineEnd": 294,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative phase state, finish ownership transfer, cancel idempotence and failure release",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishCooperativeLyricMeshBuild",
+          "owner": null,
+          "lineStart": 296,
+          "lineEnd": 328,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative phase state, finish ownership transfer, cancel idempotence and failure release",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "cancelCooperativeLyricMeshBuild",
+          "owner": null,
+          "lineStart": 330,
+          "lineEnd": 342,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative phase state, finish ownership transfer, cancel idempotence and failure release",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "scheduleLyricTrackBoundaryPrewarm",
+          "owner": null,
+          "lineStart": 344,
+          "lineEnd": 369,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "shouldSnapLyricTrackScroll",
+          "owner": null,
+          "lineStart": 371,
+          "lineEnd": 384,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTrackScrollWindowKey",
+          "owner": null,
+          "lineStart": 386,
+          "lineEnd": 392,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "snapLyricTrackScroll",
+          "owner": null,
+          "lineStart": 394,
+          "lineEnd": 400,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "updateLyricMeshProgress",
+          "owner": null,
+          "lineStart": 402,
+          "lineEnd": 417,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "setLyricTrackTarget",
+          "owner": null,
+          "lineStart": 419,
+          "lineEnd": 503,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "same-track targeting, pending progress, restore snaps, continuous seek and boundary demands",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    },
+    {
+      "path": "public/js/modules/02-visual/14-stage-lyrics-rendering.js",
+      "lines": 4129,
+      "sha256": "d794c103dd3b543eb47217c3898826cd0241cf0d33793857245c30afca4deb87",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 169,
+      "nestedAndTopLevelFunctions": 206,
+      "functions": [
+        {
+          "name": "stageLyricColorSignature",
+          "owner": null,
+          "lineStart": 22,
+          "lineEnd": 26,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPrewarmStyleKey",
+          "owner": null,
+          "lineStart": 28,
+          "lineEnd": 59,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPrewarmBuildGuardKey",
+          "owner": null,
+          "lineStart": 61,
+          "lineEnd": 63,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPreparedKey",
+          "owner": null,
+          "lineStart": 65,
+          "lineEnd": 77,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricRenderSignatureForCurrentState",
+          "owner": null,
+          "lineStart": 79,
+          "lineEnd": 83,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricCanPreserveSameRender",
+          "owner": null,
+          "lineStart": 85,
+          "lineEnd": 89,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPrewarmPayload",
+          "owner": null,
+          "lineStart": 91,
+          "lineEnd": 95,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricLightPrewarmReason",
+          "owner": null,
+          "lineStart": 97,
+          "lineEnd": 100,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricFullTrackWarmup",
+          "owner": null,
+          "lineStart": 102,
+          "lineEnd": 113,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "cancelStageLyricPrewarmBuildOnly",
+          "owner": null,
+          "lineStart": 115,
+          "lineEnd": 132,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "disposeStageLyricPrewarmMesh",
+          "owner": null,
+          "lineStart": 134,
+          "lineEnd": 149,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricSingleLinePrewarmItem",
+          "owner": null,
+          "lineStart": 151,
+          "lineEnd": 160,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@159",
+          "owner": "clearStageLyricSingleLinePrewarmItem",
+          "lineStart": 159,
+          "lineEnd": 159,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricSingleLinePrewarmCache",
+          "owner": null,
+          "lineStart": 162,
+          "lineEnd": 166,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "trimStageLyricSingleLinePrewarmCache",
+          "owner": null,
+          "lineStart": 168,
+          "lineEnd": 174,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricNowMs",
+          "owner": null,
+          "lineStart": 176,
+          "lineEnd": 178,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricTextLoadInfo",
+          "owner": null,
+          "lineStart": 180,
+          "lineEnd": 220,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPreferLightweightTrack",
+          "owner": null,
+          "lineStart": 222,
+          "lineEnd": 225,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricShouldSkipFullTrackWarmup",
+          "owner": null,
+          "lineStart": 227,
+          "lineEnd": 230,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricRestoreWarmup",
+          "owner": null,
+          "lineStart": 232,
+          "lineEnd": 238,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricRestoreWarmupSeconds",
+          "owner": null,
+          "lineStart": 240,
+          "lineEnd": 265,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricIndexForSeconds",
+          "owner": null,
+          "lineStart": 267,
+          "lineEnd": 273,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricRestorePrewarm",
+          "owner": null,
+          "lineStart": 275,
+          "lineEnd": 282,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "requestStageLyricRestoreWarmup",
+          "owner": null,
+          "lineStart": 284,
+          "lineEnd": 296,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "requestStageLyricWarmup",
+          "owner": null,
+          "lineStart": 298,
+          "lineEnd": 302,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricWarmup",
+          "owner": null,
+          "lineStart": 304,
+          "lineEnd": 307,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "invalidateStageLyricPayloadForNewLyrics",
+          "owner": null,
+          "lineStart": 309,
+          "lineEnd": 331,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricWarmupPending",
+          "owner": null,
+          "lineStart": 333,
+          "lineEnd": 341,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPayloadIsSingleLine",
+          "owner": null,
+          "lineStart": 343,
+          "lineEnd": 346,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricVerticalFloatEnabled",
+          "owner": null,
+          "lineStart": 348,
+          "lineEnd": 350,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineTrackStub",
+          "owner": null,
+          "lineStart": 352,
+          "lineEnd": 355,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineNextIndex",
+          "owner": null,
+          "lineStart": 357,
+          "lineEnd": 364,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineNextPrewarmReady",
+          "owner": null,
+          "lineStart": 366,
+          "lineEnd": 369,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineIndexPrewarmReady",
+          "owner": null,
+          "lineStart": 371,
+          "lineEnd": 378,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineUpcomingIndexes",
+          "owner": null,
+          "lineStart": 380,
+          "lineEnd": 390,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLinePrewarmDelay",
+          "owner": null,
+          "lineStart": 392,
+          "lineEnd": 403,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLinePrewarmCanServePayload",
+          "owner": null,
+          "lineStart": 405,
+          "lineEnd": 412,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "takeStageLyricSingleLinePrewarmMesh",
+          "owner": null,
+          "lineStart": 414,
+          "lineEnd": 427,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@425",
+          "owner": "takeStageLyricSingleLinePrewarmMesh",
+          "lineStart": 425,
+          "lineEnd": 425,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricSingleLineCachePrewarm",
+          "owner": null,
+          "lineStart": 429,
+          "lineEnd": 479,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@447",
+          "owner": "scheduleStageLyricSingleLineCachePrewarm",
+          "lineStart": 447,
+          "lineEnd": 447,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "runSingleLinePrewarm",
+          "owner": "scheduleStageLyricSingleLineCachePrewarm",
+          "lineStart": 452,
+          "lineEnd": 471,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricSingleLineNextPrewarm",
+          "owner": null,
+          "lineStart": 481,
+          "lineEnd": 495,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricSingleLineBootstrapPrewarm",
+          "owner": null,
+          "lineStart": 497,
+          "lineEnd": 517,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "resetPreparedStageLyricMesh",
+          "owner": null,
+          "lineStart": 519,
+          "lineEnd": 568,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "takeStageLyricPrewarmMesh",
+          "owner": null,
+          "lineStart": 570,
+          "lineEnd": 602,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricMeshCanServePayload",
+          "owner": null,
+          "lineStart": 604,
+          "lineEnd": 615,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPrewarmCanServePayload",
+          "owner": null,
+          "lineStart": 617,
+          "lineEnd": 622,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricCurrentMeshAlreadyPreparedForPayload",
+          "owner": null,
+          "lineStart": 624,
+          "lineEnd": 630,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPreparedFullPayloadForIndex",
+          "owner": null,
+          "lineStart": 632,
+          "lineEnd": 640,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPrewarmFullCanServeIndex",
+          "owner": null,
+          "lineStart": 642,
+          "lineEnd": 644,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "shouldDeferStageLyricSyncBuild",
+          "owner": null,
+          "lineStart": 646,
+          "lineEnd": 656,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "requestStageLyricDemandPrewarm",
+          "owner": null,
+          "lineStart": 658,
+          "lineEnd": 673,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "ensureStageLyricPlaybackWarmup",
+          "owner": null,
+          "lineStart": 675,
+          "lineEnd": 693,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "requestStageLyricLightweightUpgrade",
+          "owner": null,
+          "lineStart": 695,
+          "lineEnd": 710,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricCurrentUsesPersistentTrack",
+          "owner": null,
+          "lineStart": 712,
+          "lineEnd": 715,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricResidentRowKey",
+          "owner": null,
+          "lineStart": 717,
+          "lineEnd": 724,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "updateStageLyricPersistentResidentBounds",
+          "owner": null,
+          "lineStart": 726,
+          "lineEnd": 742,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "cancelStageLyricResidentBuild",
+          "owner": null,
+          "lineStart": 744,
+          "lineEnd": 761,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "cancelStageLyricResidentDemand",
+          "owner": null,
+          "lineStart": 763,
+          "lineEnd": 769,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "scheduleStageLyricResidentDemand",
+          "owner": null,
+          "lineStart": 771,
+          "lineEnd": 789,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@777",
+          "owner": "scheduleStageLyricResidentDemand",
+          "lineStart": 777,
+          "lineEnd": 787,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "buildStageLyricResidentPayload",
+          "owner": null,
+          "lineStart": 791,
+          "lineEnd": 823,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js",
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "disposeStageLyricResidentRow",
+          "owner": null,
+          "lineStart": 825,
+          "lineEnd": 832,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "alignStageLyricResidentEffectToRow",
+          "owner": null,
+          "lineStart": 834,
+          "lineEnd": 839,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricResidentDisplayedScrollOffset",
+          "owner": null,
+          "lineStart": 841,
+          "lineEnd": 855,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@852",
+          "owner": "stageLyricResidentDisplayedScrollOffset",
+          "lineStart": 852,
+          "lineEnd": 852,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricResidentTransformSnapshot",
+          "owner": null,
+          "lineStart": 857,
+          "lineEnd": 880,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "primeStageLyricResidentRowTransform",
+          "owner": null,
+          "lineStart": 882,
+          "lineEnd": 915,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "mergeStageLyricResidentBundle",
+          "owner": null,
+          "lineStart": 917,
+          "lineEnd": 1001,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@993",
+          "owner": "mergeStageLyricResidentBundle",
+          "lineStart": 993,
+          "lineEnd": 997,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricResidentMeshIsCurrent",
+          "owner": null,
+          "lineStart": 1003,
+          "lineEnd": 1005,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricResidentJobIsCurrent",
+          "owner": null,
+          "lineStart": 1006,
+          "lineEnd": 1009,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "finishStageLyricResidentBuild",
+          "owner": null,
+          "lineStart": 1011,
+          "lineEnd": 1063,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1025",
+          "owner": "finishStageLyricResidentBuild",
+          "lineStart": 1025,
+          "lineEnd": 1025,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "runStageLyricResidentBuild",
+          "owner": null,
+          "lineStart": 1065,
+          "lineEnd": 1089,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "scheduleStageLyricResidentBuildWork",
+          "owner": null,
+          "lineStart": 1091,
+          "lineEnd": 1114,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1095",
+          "owner": "scheduleStageLyricResidentBuildWork",
+          "lineStart": 1095,
+          "lineEnd": 1095,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "queue",
+          "owner": "scheduleStageLyricResidentBuildWork",
+          "lineStart": 1100,
+          "lineEnd": 1111,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1104",
+          "owner": "scheduleStageLyricResidentBuildWork",
+          "lineStart": 1104,
+          "lineEnd": 1107,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1109",
+          "owner": "scheduleStageLyricResidentBuildWork",
+          "lineStart": 1109,
+          "lineEnd": 1109,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "startStageLyricResidentBuild",
+          "owner": null,
+          "lineStart": 1116,
+          "lineEnd": 1167,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentPrimaryMap",
+          "owner": null,
+          "lineStart": 1169,
+          "lineEnd": 1177,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentResidentRowMap",
+          "owner": null,
+          "lineStart": 1179,
+          "lineEnd": 1188,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentLineRowsResident",
+          "owner": null,
+          "lineStart": 1190,
+          "lineEnd": 1203,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentLineEffectsResident",
+          "owner": null,
+          "lineStart": 1205,
+          "lineEnd": 1218,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentTargetRowsReady",
+          "owner": null,
+          "lineStart": 1220,
+          "lineEnd": 1249,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentTargetEffectsReady",
+          "owner": null,
+          "lineStart": 1251,
+          "lineEnd": 1253,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricPersistentNextTextRunwayRange",
+          "owner": null,
+          "lineStart": 1255,
+          "lineEnd": 1295,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "commitStageLyricPersistentPendingTarget",
+          "owner": null,
+          "lineStart": 1297,
+          "lineEnd": 1302,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "ensureStageLyricPersistentTrackRows",
+          "owner": null,
+          "lineStart": 1304,
+          "lineEnd": 1477,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/paused-lyric-effects-owner.test.js",
+            "tests/paused-lyric-quality-ownership.test.js",
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1359",
+          "owner": "ensureStageLyricPersistentTrackRows",
+          "lineStart": 1359,
+          "lineEnd": 1364,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/paused-lyric-effects-owner.test.js",
+            "tests/paused-lyric-quality-ownership.test.js",
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "trimStageLyricPersistentTrackRows",
+          "owner": null,
+          "lineStart": 1479,
+          "lineEnd": 1544,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "initializeStageLyricPersistentTrack",
+          "owner": null,
+          "lineStart": 1546,
+          "lineEnd": 1584,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming",
+          "evidence": [
+            "tests/lyric-runway-preparation.test.js",
+            "tests/lyric-spacing-stability.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricCurrentUsesLightweightTrack",
+          "owner": null,
+          "lineStart": 1586,
+          "lineEnd": 1589,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricTrackRevealReady",
+          "owner": null,
+          "lineStart": 1591,
+          "lineEnd": 1597,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShouldHoldOutgoingForReveal",
+          "owner": null,
+          "lineStart": 1599,
+          "lineEnd": 1607,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "releaseStageLyricRevealHoldsForSuccessor",
+          "owner": null,
+          "lineStart": 1609,
+          "lineEnd": 1617,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricLightweightPrewarmAwaitingTakeover",
+          "owner": null,
+          "lineStart": 1619,
+          "lineEnd": 1631,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricCurrentCanResumeWithoutWarmup",
+          "owner": null,
+          "lineStart": 1633,
+          "lineEnd": 1641,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "upgradeCurrentStageLyricFromPreparedTrack",
+          "owner": null,
+          "lineStart": 1643,
+          "lineEnd": 1666,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricsMotionSettling",
+          "owner": null,
+          "lineStart": 1672,
+          "lineEnd": 1685,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricProgressPreviewActive",
+          "owner": null,
+          "lineStart": 1687,
+          "lineEnd": 1689,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricPlaybackSeconds",
+          "owner": null,
+          "lineStart": 1690,
+          "lineEnd": 1696,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyricSeekHold",
+          "owner": null,
+          "lineStart": 1699,
+          "lineEnd": 1702,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "beginStageLyricSeekHold",
+          "owner": null,
+          "lineStart": 1703,
+          "lineEnd": 1712,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1707",
+          "owner": "beginStageLyricSeekHold",
+          "lineStart": 1707,
+          "lineEnd": 1707,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "applyStageLyricSeekHold",
+          "owner": null,
+          "lineStart": 1713,
+          "lineEnd": 1755,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1723",
+          "owner": "applyStageLyricSeekHold",
+          "lineStart": 1723,
+          "lineEnd": 1730,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1738",
+          "owner": "applyStageLyricSeekHold",
+          "lineStart": 1738,
+          "lineEnd": 1738,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1750",
+          "owner": "applyStageLyricSeekHold",
+          "lineStart": 1750,
+          "lineEnd": 1750,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricProgressSeekVisualReady",
+          "owner": null,
+          "lineStart": 1756,
+          "lineEnd": 1768,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [
+            "tests/lyric-seek-visibility.test.js",
+            "tests/lyric-track-seek-glide.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "chooseStageLyricPrewarmIndex",
+          "owner": null,
+          "lineStart": 1769,
+          "lineEnd": 1789,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricSingleLineBootstrapIndex",
+          "owner": null,
+          "lineStart": 1791,
+          "lineEnd": 1796,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "reveal/resume lifetime, seek fallback arming/release and shared preview/media clock",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricShouldBuildCooperatively",
+          "owner": null,
+          "lineStart": 1798,
+          "lineEnd": 1806,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "updateStageLyricBuildStats",
+          "owner": null,
+          "lineStart": 1808,
+          "lineEnd": 1829,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "finishStageLyricCooperativePrewarm",
+          "owner": null,
+          "lineStart": 1831,
+          "lineEnd": 1900,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@1885",
+          "owner": "finishStageLyricCooperativePrewarm",
+          "lineStart": 1885,
+          "lineEnd": 1885,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricShouldYieldToPendingInput",
+          "owner": null,
+          "lineStart": 1902,
+          "lineEnd": 1912,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricCooperativeNextDelay",
+          "owner": null,
+          "lineStart": 1914,
+          "lineEnd": 1920,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricCooperativeWork",
+          "owner": null,
+          "lineStart": 1922,
+          "lineEnd": 1953,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1926",
+          "owner": "scheduleStageLyricCooperativeWork",
+          "lineStart": 1926,
+          "lineEnd": 1926,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "runAfterPaint",
+          "owner": "scheduleStageLyricCooperativeWork",
+          "lineStart": 1931,
+          "lineEnd": 1950,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1936",
+          "owner": "scheduleStageLyricCooperativeWork",
+          "lineStart": 1936,
+          "lineEnd": 1939,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1942",
+          "owner": "scheduleStageLyricCooperativeWork",
+          "lineStart": 1942,
+          "lineEnd": 1949,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@1945",
+          "owner": "scheduleStageLyricCooperativeWork",
+          "lineStart": 1945,
+          "lineEnd": 1948,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "runStageLyricCooperativePrewarm",
+          "owner": null,
+          "lineStart": 1955,
+          "lineEnd": 1996,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "startStageLyricCooperativePrewarm",
+          "owner": null,
+          "lineStart": 1998,
+          "lineEnd": 2032,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "scheduleStageLyricPrewarmForIndex",
+          "owner": null,
+          "lineStart": 2034,
+          "lineEnd": 2138,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "runPrewarm",
+          "owner": "scheduleStageLyricPrewarmForIndex",
+          "lineStart": 2083,
+          "lineEnd": 2132,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricPrewarm",
+          "owner": null,
+          "lineStart": 2139,
+          "lineEnd": 2142,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricMultiLineWarmupLoad",
+          "owner": null,
+          "lineStart": 2143,
+          "lineEnd": 2146,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricFullTrackWarmupDelay",
+          "owner": null,
+          "lineStart": 2147,
+          "lineEnd": 2160,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "queueStageLyricFullTrackWarmupRetry",
+          "owner": null,
+          "lineStart": 2162,
+          "lineEnd": 2177,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@2171",
+          "owner": "queueStageLyricFullTrackWarmupRetry",
+          "lineStart": 2171,
+          "lineEnd": 2175,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "runStageLyricFullTrackWarmup",
+          "owner": null,
+          "lineStart": 2179,
+          "lineEnd": 2204,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "run",
+          "owner": "runStageLyricFullTrackWarmup",
+          "lineStart": 2188,
+          "lineEnd": 2194,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@2198",
+          "owner": "runStageLyricFullTrackWarmup",
+          "lineStart": 2198,
+          "lineEnd": 2201,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "scheduleStageLyricFullTrackWarmup",
+          "owner": null,
+          "lineStart": 2206,
+          "lineEnd": 2236,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@2211",
+          "owner": "scheduleStageLyricFullTrackWarmup",
+          "lineStart": 2211,
+          "lineEnd": 2215,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@2230",
+          "owner": "scheduleStageLyricFullTrackWarmup",
+          "lineStart": 2230,
+          "lineEnd": 2234,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "beginStageLyricIntro",
+          "owner": null,
+          "lineStart": 2240,
+          "lineEnd": 2246,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@2243",
+          "owner": "beginStageLyricIntro",
+          "lineStart": 2243,
+          "lineEnd": 2243,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricIntroActive",
+          "owner": null,
+          "lineStart": 2247,
+          "lineEnd": 2249,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "tickStageLyricIntro",
+          "owner": null,
+          "lineStart": 2250,
+          "lineEnd": 2292,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@2272",
+          "owner": "tickStageLyricIntro",
+          "lineStart": 2272,
+          "lineEnd": 2272,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricOutgoingStillVisible",
+          "owner": null,
+          "lineStart": 2297,
+          "lineEnd": 2306,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricEntranceWaitsForOutgoing",
+          "owner": null,
+          "lineStart": 2308,
+          "lineEnd": 2315,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "showStageLine",
+          "owner": null,
+          "lineStart": 2317,
+          "lineEnd": 2401,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "applyCurrentLyricStyleRefresh",
+          "owner": null,
+          "lineStart": 2403,
+          "lineEnd": 2426,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "refreshCurrentLyricStyle",
+          "owner": null,
+          "lineStart": 2427,
+          "lineEnd": 2433,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@2429",
+          "owner": "refreshCurrentLyricStyle",
+          "lineStart": 2429,
+          "lineEnd": 2432,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearStageLyrics",
+          "owner": null,
+          "lineStart": 2435,
+          "lineEnd": 2454,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricUsesSingleLineSwap",
+          "owner": null,
+          "lineStart": 2456,
+          "lineEnd": 2462,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricShelfActiveCamera",
+          "owner": null,
+          "lineStart": 2488,
+          "lineEnd": 2488,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfHalfWidthNdc",
+          "owner": null,
+          "lineStart": 2489,
+          "lineEnd": 2499,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfCaptionMetrics",
+          "owner": null,
+          "lineStart": 2500,
+          "lineEnd": 2532,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfAnchor",
+          "owner": null,
+          "lineStart": 2536,
+          "lineEnd": 2551,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfFlipEase",
+          "owner": null,
+          "lineStart": 2559,
+          "lineEnd": 2562,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfFlipSeconds",
+          "owner": null,
+          "lineStart": 2564,
+          "lineEnd": 2568,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfIntendedFocus",
+          "owner": null,
+          "lineStart": 2571,
+          "lineEnd": 2576,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfReferenceCamera",
+          "owner": null,
+          "lineStart": 2580,
+          "lineEnd": 2611,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricStableShelfAnchor",
+          "owner": null,
+          "lineStart": 2615,
+          "lineEnd": 2631,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfBasePosition",
+          "owner": null,
+          "lineStart": 2634,
+          "lineEnd": 2645,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfFlipTarget",
+          "owner": null,
+          "lineStart": 2648,
+          "lineEnd": 2659,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfFit",
+          "owner": null,
+          "lineStart": 2663,
+          "lineEnd": 2676,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfSourcePose",
+          "owner": null,
+          "lineStart": 2680,
+          "lineEnd": 2686,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "blendStageLyricShelfFlip",
+          "owner": null,
+          "lineStart": 2689,
+          "lineEnd": 2697,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricShelfProjectedCaption",
+          "owner": null,
+          "lineStart": 2698,
+          "lineEnd": 2711,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "clampStageLyricTargetForShelf",
+          "owner": null,
+          "lineStart": 2712,
+          "lineEnd": 2731,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "updateStageLyricLayout",
+          "owner": null,
+          "lineStart": 2734,
+          "lineEnd": 2959,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout",
+          "evidence": [
+            "tests/shelf-lyric-flip.test.js",
+            "tests/paused-lyric-layout.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "updateStageLyrics3D",
+          "owner": null,
+          "lineStart": 2961,
+          "lineEnd": 3396,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "entrance/outgoing/reveal timing, progress smoothing, preview lock, glow/particle/breathing numeric inputs and exit release",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "tickMesh",
+          "owner": "updateStageLyrics3D",
+          "lineStart": 3013,
+          "lineEnd": 3384,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "entrance/outgoing/reveal timing, progress smoothing, preview lock, glow/particle/breathing numeric inputs and exit release",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricKaraokeMeasureContext",
+          "owner": null,
+          "lineStart": 3399,
+          "lineEnd": 3402,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricKaraokeMetricsKey",
+          "owner": null,
+          "lineStart": 3403,
+          "lineEnd": 3412,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricKaraokeWordRanges",
+          "owner": null,
+          "lineStart": 3413,
+          "lineEnd": 3441,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@3418",
+          "owner": "lyricKaraokeWordRanges",
+          "lineStart": 3418,
+          "lineEnd": 3418,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "callback@3426",
+          "owner": "lyricKaraokeWordRanges",
+          "lineStart": 3426,
+          "lineEnd": 3437,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [
+            "tests/lyric-font-ready-refresh.test.js",
+            "tests/custom-font-lifecycle.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "lyricLineHasNativeKaraoke",
+          "owner": null,
+          "lineStart": 3442,
+          "lineEnd": 3444,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "getLyricLineProgress",
+          "owner": null,
+          "lineStart": 3445,
+          "lineEnd": 3474,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "native word proportional measurements/cache generation and line progress boundaries",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricLineDisplayTextAt",
+          "owner": null,
+          "lineStart": 3476,
+          "lineEnd": 3479,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricLineTranslationTextAt",
+          "owner": null,
+          "lineStart": 3480,
+          "lineEnd": 3483,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricContextEntry",
+          "owner": null,
+          "lineStart": 3484,
+          "lineEnd": 3507,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "makeStageLyricTranslationEntry",
+          "owner": null,
+          "lineStart": 3508,
+          "lineEnd": 3532,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "applyLyricTranslationModeToEntries",
+          "owner": null,
+          "lineStart": 3533,
+          "lineEnd": 3573,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "applyLyricTranslationModeToTrackEntries",
+          "owner": null,
+          "lineStart": 3574,
+          "lineEnd": 3597,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricTrackKeyForMode",
+          "owner": null,
+          "lineStart": 3598,
+          "lineEnd": 3624,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "stageLyricTrackBaseEntry",
+          "owner": null,
+          "lineStart": 3626,
+          "lineEnd": 3639,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricMeshTrackWindow",
+          "owner": null,
+          "lineStart": 3640,
+          "lineEnd": 3685,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "buildStageLyricMeshTrackEntries",
+          "owner": null,
+          "lineStart": 3686,
+          "lineEnd": 3714,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricBufferedTrackWindow",
+          "owner": null,
+          "lineStart": 3715,
+          "lineEnd": 3723,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "buildStageLyricTrackEntries",
+          "owner": null,
+          "lineStart": 3724,
+          "lineEnd": 3764,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "buildStageLyricDisplayPayload",
+          "owner": null,
+          "lineStart": 3765,
+          "lineEnd": 3823,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@3775",
+          "owner": "buildStageLyricDisplayPayload",
+          "lineStart": 3775,
+          "lineEnd": 3775,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@3813",
+          "owner": "buildStageLyricDisplayPayload",
+          "lineStart": 3813,
+          "lineEnd": 3813,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "buildStageLyricPlaybackPayload",
+          "owner": null,
+          "lineStart": 3824,
+          "lineEnd": 3839,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "findStageLyricIndexAtTime",
+          "owner": null,
+          "lineStart": 3841,
+          "lineEnd": 3858,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/stage-lyric-mesh-boundaries.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "retireCurrentStageLyricForIdle",
+          "owner": null,
+          "lineStart": 3860,
+          "lineEnd": 3871,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "resetStageLyricResumeFrameGates",
+          "owner": null,
+          "lineStart": 3873,
+          "lineEnd": 3879,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "markStageLyricsPlaybackResume",
+          "owner": null,
+          "lineStart": 3881,
+          "lineEnd": 3927,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "restoreCurrentStageLyrics",
+          "owner": null,
+          "lineStart": 3929,
+          "lineEnd": 3978,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js",
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "restorePausedStageLyrics",
+          "owner": null,
+          "lineStart": 3980,
+          "lineEnd": 3983,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js",
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "restoreStageLyricsAfterBackground",
+          "owner": null,
+          "lineStart": 3985,
+          "lineEnd": 3989,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/stage-lyric-background-restore.test.js",
+            "tests/lyric-work-scheduler.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "stageLyricCanKeepIntroTitle",
+          "owner": null,
+          "lineStart": 3993,
+          "lineEnd": 3999,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/lyric-title-handoff.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "tickLyricsParticles",
+          "owner": null,
+          "lineStart": 4000,
+          "lineEnd": 4112,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "disposeLyricsParticles",
+          "owner": null,
+          "lineStart": 4114,
+          "lineEnd": 4126,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    },
+    {
+      "path": "public/js/modules/06-lyrics/06-lyric-timing-offset.js",
+      "lines": 266,
+      "sha256": "9f48d7232fe1152e30ab3d91f83b56073a733644ee0423af33fe714c488e8545",
+      "fullSourceReviewed": true,
+      "topLevelDeclarations": 23,
+      "nestedAndTopLevelFunctions": 35,
+      "functions": [
+        {
+          "name": "normalizeLyricTimingOffsetSeconds",
+          "owner": null,
+          "lineStart": 6,
+          "lineEnd": 10,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTimingOffsetEntryValue",
+          "owner": null,
+          "lineStart": 12,
+          "lineEnd": 15,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "readLyricTimingOffsetMap",
+          "owner": null,
+          "lineStart": 17,
+          "lineEnd": 38,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@22",
+          "owner": "readLyricTimingOffsetMap",
+          "lineStart": 22,
+          "lineEnd": 33,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "writeLyricTimingOffsetMap",
+          "owner": null,
+          "lineStart": 40,
+          "lineEnd": 54,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@42",
+          "owner": "writeLyricTimingOffsetMap",
+          "lineStart": 42,
+          "lineEnd": 44,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@46",
+          "owner": "writeLyricTimingOffsetMap",
+          "lineStart": 46,
+          "lineEnd": 46,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTimingCurrentSong",
+          "owner": null,
+          "lineStart": 56,
+          "lineEnd": 60,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTimingSongKey",
+          "owner": null,
+          "lineStart": 62,
+          "lineEnd": 73,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "getLyricTimingOffsetForSong",
+          "owner": null,
+          "lineStart": 75,
+          "lineEnd": 78,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "getActiveLyricTimingOffsetSeconds",
+          "owner": null,
+          "lineStart": 80,
+          "lineEnd": 82,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "getAdjustedLyricPlaybackTime",
+          "owner": null,
+          "lineStart": 84,
+          "lineEnd": 88,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "bounded per-song offset map, song identity and finite adjusted media time",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "formatLyricTimingOffset",
+          "owner": null,
+          "lineStart": 90,
+          "lineEnd": 94,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTimingToastText",
+          "owner": null,
+          "lineStart": 96,
+          "lineEnd": 100,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "releaseLyricTimingPopoverFocus",
+          "owner": null,
+          "lineStart": 102,
+          "lineEnd": 107,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "clearLyricTimingPopoverClose",
+          "owner": null,
+          "lineStart": 109,
+          "lineEnd": 116,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "suppressLyricTimingSiblingPanels",
+          "owner": null,
+          "lineStart": 118,
+          "lineEnd": 120,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "lyricTimingControlIsActive",
+          "owner": null,
+          "lineStart": 122,
+          "lineEnd": 127,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "releaseLyricTimingSiblingPanelsSoon",
+          "owner": null,
+          "lineStart": 129,
+          "lineEnd": 133,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@130",
+          "owner": "releaseLyricTimingSiblingPanelsSoon",
+          "lineStart": 130,
+          "lineEnd": 132,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "closeLyricTimingPopover",
+          "owner": null,
+          "lineStart": 135,
+          "lineEnd": 149,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@144",
+          "owner": "closeLyricTimingPopover",
+          "lineStart": 144,
+          "lineEnd": 147,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "updateLyricTimingOffsetUi",
+          "owner": null,
+          "lineStart": 151,
+          "lineEnd": 164,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@161",
+          "owner": "updateLyricTimingOffsetUi",
+          "lineStart": 161,
+          "lineEnd": 163,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "refreshLyricTimingAfterOffsetChange",
+          "owner": null,
+          "lineStart": 166,
+          "lineEnd": 177,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [
+            "tests/paused-lyric-edit-commit.test.js"
+          ],
+          "runtimeCoverage": "targeted or owning-chain regression; not exhaustive runtime"
+        },
+        {
+          "name": "setCurrentLyricTimingOffset",
+          "owner": null,
+          "lineStart": 179,
+          "lineEnd": 217,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "adjustCurrentLyricTimingOffset",
+          "owner": null,
+          "lineStart": 219,
+          "lineEnd": 222,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "handleLyricTimingOffsetClick",
+          "owner": null,
+          "lineStart": 224,
+          "lineEnd": 237,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "bindLyricTimingOffsetControls",
+          "owner": null,
+          "lineStart": 239,
+          "lineEnd": 263,
+          "kind": "FunctionDeclaration",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@243",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 243,
+          "lineEnd": 247,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@248",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 248,
+          "lineEnd": 252,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@253",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 253,
+          "lineEnd": 253,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@254",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 254,
+          "lineEnd": 254,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@256",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 256,
+          "lineEnd": 258,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        },
+        {
+          "name": "callback@259",
+          "owner": "bindLyricTimingOffsetControls",
+          "lineStart": 259,
+          "lineEnd": 261,
+          "kind": "FunctionExpression",
+          "fullSourceReviewed": true,
+          "reviewFocus": "offset UI/debounce/focus, duplicate event guards and explicit paused restore",
+          "evidence": [],
+          "runtimeCoverage": "source and call-chain review; no dedicated dynamic assertion"
+        }
+      ]
+    }
+  ]
+}

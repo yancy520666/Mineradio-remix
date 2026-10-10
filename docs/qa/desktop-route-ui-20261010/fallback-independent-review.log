@@ -1,0 +1,22 @@
+✔ desktop pointer dragging scrolls without any wheel input, then suppresses only its release click (3.230321ms)
+✔ short clicks, horizontal drags, non-mouse input, other buttons and modifiers remain untouched (6.210134ms)
+✔ controls, sortable song/card rows, workflow wires, text selection and crop/color stages keep their gestures (11.786129ms)
+✔ fallback is limited to unlocked interactive full desktop panels, without affecting canvas or normal windows (3.739901ms)
+✔ the nearest real nested scroller owns the gesture, stays at its boundaries and does not jump to the outer panel (1.904718ms)
+✔ layout scaling is accounted for and native scrollbar lanes are never claimed (1.969085ms)
+✔ release, cancellation, lost capture, blur, pagehide, visibility and mode exit clean up ownership (6.403846ms)
+✔ new pointerdown and keyboard clicks do not inherit stale drag-click suppression (1.074694ms)
+✔ a tween moving before drag activation is rebased, and delivered wheels or external scrolls regain ownership (1.810135ms)
+✔ releasing only the left button and hiding a nested container ancestor both cancel the drag (1.879811ms)
+✔ continuous blank inner edges preserve ordinary-mode padding and outer panel dimensions (2.592447ms)
+✔ provider fallback follows the reordered live entry (6.214499ms)
+✔ Qishui trial upgrade follows the reordered live entry (2.310101ms)
+✔ left-panel sliders and resets update the complete panel without changing other panel scopes or storage fields (2.57468ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 131.48279

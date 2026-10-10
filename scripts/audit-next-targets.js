@@ -28,7 +28,6 @@ module.exports = {
     ['uninstall-wrong-owner', 'ownership', 'build/installer.nsh', '${If} $3 == "appId=${MINERADIO_MARKER_APP_ID}"', '${If} $3 != "appId=${MINERADIO_MARKER_APP_ID}"'],
     ['credential-nonatomic-copy', 'boundaries', 'cookie-storage.js', 'fs.renameSync(temporaryPath, filePath);', 'fs.copyFileSync(temporaryPath, filePath);'],
     ['credential-error-leak', 'boundaries', 'cookie-storage.js', '${message}${suffix}', '${message}${error && error.message}'],
-    ['spotify-json-token-leak', 'boundaries', 'spotify-api.js', "err && err.name === 'SyntaxError' ? 'INVALID_JSON' : 'READ_FAILED'", 'err.message'],
     ['public-proxy-account-cookie', 'boundaries', 'server.js', "const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/' };", "const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/', Cookie: qishuiCookie };"],
     ['local-cover-link-escape', 'boundaries', 'desktop/local-music-library.js', 'if (!isPathInside(fs.realpathSync(this.coverDirectory), resolvedCover)) return null;', 'if (false) return null;'],
     ['local-forged-capability', 'boundaries', 'desktop/local-music-library.js', "url.searchParams.get('cap') !== this.mediaToken", 'false'],

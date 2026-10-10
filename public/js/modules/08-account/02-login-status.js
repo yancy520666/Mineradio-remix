@@ -1,3 +1,12 @@
+// Saved account state remains usable during outages; this is presentation evidence,
+// never a replacement for per-track rights or an audio playback check.
+function providerSessionNeedsValidation(info) {
+  return !!(info && (info.unverified || info.pendingProfile || info.statusPending || info.sessionRejected));
+}
+function providerSessionPendingText(provider, info) {
+  return '暂时无法确认登录，请刷新状态';
+}
+
 function readProviderVipAuditState() {
   try {
     var raw = localStorage.getItem(PROVIDER_VIP_AUDIT_STORE_KEY) || '{}';
@@ -87,7 +96,7 @@ function auditProviderVipState(provider, status) {
   var sameUser = providerVipAuditSameUser(previous, current);
   if (previous && sameUser && previous.loggedIn && previous.isVip && current.loggedIn && !current.isVip) {
     var title = providerVipAuditLabel(provider, previous) + ' 状态掉了';
-    var body = '本次启动复验时已变为普通账号，会员曲目可能只能试听或需要换源。';
+    var body = '当前显示为普通账号，部分歌曲可能只能试听。';
     if (typeof showSourceFallbackNotice === 'function') showSourceFallbackNotice(title, body);
     else showToast(title);
   }
@@ -108,7 +117,7 @@ function forgetProviderLiveSession(provider) {
 }
 function clearNeteaseSessionState() {
   neteasePlaylists = [];
-  userPlaylists = (builtInPlaylists || []).concat(qqPlaylists || [], kugouPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
+  userPlaylists = (builtInPlaylists || []).concat(qqPlaylists || [], kugouPlaylists || [], qishuiPlaylists || []);
   playlistCatalogRevision += 1;
   myPodcastCollections = [];
   myPodcastItems = {};
@@ -116,11 +125,16 @@ function clearNeteaseSessionState() {
   updateLikeButtons();
 }
 async function refreshLoginStatus(force) {
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('netease') : 0;
   try {
-    var info = await apiJson('/api/login/status?t=' + Date.now());
+    var info = await apiJson('/api/login/status?t=' + Date.now() + (force === true ? '&fresh=1' : ''));
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('netease') !== authEpoch) return loginStatus;
     var neteaseWasLoggedIn = !!(loginStatus && loginStatus.loggedIn);
     loginStatusChecked = true;
     loginStatusCheckFailed = false;
+    if (info && info.unverified && loginStatus && loginStatus.loggedIn) {
+      info = Object.assign({}, loginStatus, { unverified: true, pendingProfile: true });
+    }
     loginStatus = info || { loggedIn: false };
     loginPresenceState.netease.rejected = 0;
     auditProviderVipState('netease', loginStatus);
@@ -138,6 +152,7 @@ async function refreshLoginStatus(force) {
     }
     return info;
   } catch (e) {
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('netease') !== authEpoch) return loginStatus;
     console.warn(e);
     loginStatusChecked = true;
     loginStatusCheckFailed = true;
@@ -206,25 +221,28 @@ function qqMembershipNeedsSync(status) {
   ));
 }
 function qqMembershipLabel(status) {
-  if (qqMembershipNeedsSync(status)) return '会员待同步';
+  if (qqMembershipNeedsSync(status)) return '会员状态待确认';
   var level = providerVipLevel('qq', status);
   return level === 'svip' ? 'SVIP 会员' : (level === 'vip' ? 'VIP 会员' : '普通账号');
 }
 function qqLoginStatusText(info) {
   info = normalizeQQLoginStatus(info || qqLoginStatus);
+  if (providerSessionNeedsValidation(info)) return providerSessionPendingText('qq', info);
   if (!info.loggedIn) return '点击“扫码登录”打开 QQ 音乐官方窗口';
-  if (qqLoginNeedsAuthorizationRefresh(info)) return 'QQ 网页会话已连接 · 播放授权尚未完成';
-  if (qqMembershipNeedsSync(info)) return '已保存 QQ 音乐播放授权 · 会员状态待同步';
-  var syncText = info.vipCheckedAt ? ' · 会员已复验' : '';
-  return '已保存 QQ 音乐会话 · ' + (info.nickname || 'QQ 音乐') + ' · ' + qqMembershipLabel(info) + syncText;
+  if (qqLoginNeedsAuthorizationRefresh(info)) return '已登录，还需完成 QQ 音乐播放授权';
+  if (qqMembershipNeedsSync(info)) return '请刷新 QQ 音乐会员状态';
+  var syncText = info.vipCheckedAt ? ' · 会员状态已更新' : '';
+  return 'QQ 音乐登录信息已保存 · ' + (info.nickname || 'QQ 音乐') + ' · ' + qqMembershipLabel(info) + syncText;
 }
 
 async function refreshQQLoginStatus(options) {
   if (options === true) options = { forceVip: true };
   options = options || {};
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('qq') : 0;
   try {
     var query = '/api/qq/login/status?t=' + Date.now() + (options.forceVip ? '&forceVip=1' : '');
     var info = await apiJson(query);
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('qq') !== authEpoch) return qqLoginStatus;
     var prevLogged = !!qqLoginStatus.loggedIn;
     info = applyQQSessionRejection(info);
     qqLoginStatus = normalizeQQLoginStatus(info);
@@ -232,7 +250,7 @@ async function refreshQQLoginStatus(options) {
     if (!qqLoginStatus.loggedIn) {
       if (prevLogged || qqLoginWasLoggedIn) {
         forgetProviderLiveSession('qq');
-        showToast(qqLoginStatus.reauthRequired ? 'QQ 音乐账号已在别处退出，已断开连线，请重新连线登录' : (qqLoginStatus.stale ? 'QQ 音乐登录已失效' : 'QQ 音乐已掉登录'));
+        showToast(qqLoginStatus.reauthRequired ? 'QQ 音乐账号已在别处退出，请重新登录' : (qqLoginStatus.stale ? '暂时无法确认 QQ 音乐登录，请刷新状态' : '请重新登录 QQ 音乐'));
       }
       qqPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'qq'; });
@@ -244,17 +262,19 @@ async function refreshQQLoginStatus(options) {
       loadHomeDiscover(true);
       refreshUserPlaylists(true);
     } else if (qqLoginStatus.stale) {
-      showToast('QQ 音乐登录状态可能已失效');
+      showToast('暂时无法确认 QQ 音乐登录，请刷新状态');
     }
     qqLoginWasLoggedIn = !!qqLoginStatus.loggedIn;
     if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
     return qqLoginStatus;
   } catch (e) {
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('qq') !== authEpoch) return qqLoginStatus;
     console.warn('QQ login status failed:', e);
     if (qqLoginStatus && qqLoginStatus.loggedIn) {
       qqLoginStatus = normalizeQQLoginStatus(Object.assign({}, qqLoginStatus, {
         loggedIn: true,
+        unverified: true,
         stale: true,
         membershipStale: true,
         vipProbeAvailable: false,
@@ -324,6 +344,7 @@ function normalizeKugouLoginStatus(info) {
 function applyKugouPlaybackStatusEvidence(info) {
   if (!info || info.provider !== 'kugou' || !info.loggedIn) return false;
   var existing = kugouLoginStatus || {};
+  var requiresVerification = !!(info.verificationRequired || info.reason === 'verification_required' || info.restriction && info.restriction.category === 'verification_required');
   var verifiedMembership = info.membershipVerified === true &&
     (info.membershipSource === 'kugou-vip-api' ||
       info.membershipSource === 'kugou-web-roleinfo' ||
@@ -331,7 +352,9 @@ function applyKugouPlaybackStatusEvidence(info) {
   var safeUpdate = {
     provider: 'kugou',
     loggedIn: true,
-    playbackKeyReady: !!(info.playbackReady || info.playbackKeyReady || existing.playbackKeyReady)
+    verificationRequired: requiresVerification,
+    playbackReady: !requiresVerification && !!(info.playbackReady || info.playbackKeyReady || existing.playbackKeyReady),
+    playbackKeyReady: !requiresVerification && !!(info.playbackReady || info.playbackKeyReady || existing.playbackKeyReady)
   };
   if (verifiedMembership) {
     safeUpdate.vipType = Number(info.vipType || 0) || 0;
@@ -355,17 +378,31 @@ function qqPlaybackShowsMemberAccess(info, song) {
 function applyQQPlaybackStatusEvidence(info, song) {
   return false;
 }
+var kugouStatusVerificationPrompted = false;
 async function refreshKugouLoginStatus() {
+  var statusAtStart = kugouLoginStatus;
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('kugou') : 0;
   try {
     var info = await apiJson('/api/kugou/login/status?t=' + Date.now());
-    if (info && info.error && !info.reauthRequired) throw new Error(info.error);
+    if (kugouLoginStatus !== statusAtStart) return kugouLoginStatus;
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('kugou') !== authEpoch) return kugouLoginStatus;
+    if (info && info.error && !info.reauthRequired && !info.verificationRequired) throw new Error(info.error);
     var prevLogged = !!kugouLoginStatus.loggedIn;
     kugouLoginStatus = normalizeKugouLoginStatus(info);
     auditProviderVipState('kugou', kugouLoginStatus);
+    if (info && info.verificationRequired) {
+      if (!kugouStatusVerificationPrompted && typeof openKugouSecurityVerification === 'function') {
+        kugouStatusVerificationPrompted = true;
+        openKugouSecurityVerification(info);
+      }
+      renderUserBtn();
+      return kugouLoginStatus;
+    }
+    kugouStatusVerificationPrompted = false;
     if (!kugouLoginStatus.loggedIn) {
       if (prevLogged || kugouLoginWasLoggedIn) {
         forgetProviderLiveSession('kugou');
-        showToast(kugouLoginStatus.stale ? '酷狗音乐登录已失效' : '酷狗音乐已掉登录');
+        showToast(kugouLoginStatus.stale ? '暂时无法确认酷狗音乐登录，请刷新状态' : '请重新登录酷狗音乐');
       }
       kugouPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'kugou'; });
@@ -383,6 +420,8 @@ async function refreshKugouLoginStatus() {
     renderUserBtn();
     return kugouLoginStatus;
   } catch (e) {
+    if (kugouLoginStatus !== statusAtStart) return kugouLoginStatus;
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('kugou') !== authEpoch) return kugouLoginStatus;
     console.warn('Kugou login status failed:', e);
     kugouLoginStatus = normalizeKugouLoginStatus(kugouLoginStatus && kugouLoginStatus.loggedIn
       ? Object.assign({}, kugouLoginStatus, {
@@ -431,8 +470,10 @@ function normalizeQishuiLoginStatus(info) {
   });
 }
 async function refreshQishuiLoginStatus() {
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('qishui') : 0;
   try {
     var info = await apiJson('/api/qishui/status?t=' + Date.now());
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('qishui') !== authEpoch) return qishuiLoginStatus;
     if (info && info.error && !info.reauthRequired) throw new Error(info.error);
     var prevLogged = !!qishuiLoginStatus.loggedIn;
     qishuiLoginStatus = normalizeQishuiLoginStatus(info);
@@ -440,7 +481,7 @@ async function refreshQishuiLoginStatus() {
     if (!qishuiLoginStatus.loggedIn) {
       if (prevLogged || qishuiLoginWasLoggedIn) {
         forgetProviderLiveSession('qishui');
-        showToast(qishuiLoginStatus.reauthRequired ? '汽水音乐登录已失效，请重新扫码' : '汽水音乐授权已清除');
+        showToast(qishuiLoginStatus.reauthRequired ? '汽水音乐登录已过期，请重新扫码' : '已退出汽水音乐');
       }
       qishuiPlaylists = [];
       userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'qishui'; });
@@ -457,6 +498,7 @@ async function refreshQishuiLoginStatus() {
     renderUserBtn();
     return qishuiLoginStatus;
   } catch (e) {
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('qishui') !== authEpoch) return qishuiLoginStatus;
     console.warn('Qishui login status failed:', e);
     qishuiLoginStatus = normalizeQishuiLoginStatus(qishuiLoginStatus && qishuiLoginStatus.loggedIn
       ? Object.assign({}, qishuiLoginStatus, {
@@ -470,78 +512,6 @@ function startQishuiLoginStatusAutoRefresh() {
   if (qishuiLoginAutoRefreshTimer) clearInterval(qishuiLoginAutoRefreshTimer);
   qishuiLoginAutoRefreshTimer = setInterval(function () {
     refreshQishuiLoginStatus().catch(function (e) { console.warn('Qishui login auto refresh failed:', e); });
-  }, 45000);
-}
-
-function normalizeSpotifyLoginStatus(info) {
-  var fallback = { provider: 'spotify', loggedIn: false, configured: false, oauthConfigured: false, oauthMissing: [], preview: false, nickname: 'Spotify', userId: '', accountId: '', avatar: '', product: '', membershipKnown: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, stale: false, reauthRequired: false, playbackKeyReady: false, playbackMode: 'recommend-match', tokenConfigured: false, tokenFileExists: false, credentialsFileExists: false, localConfigMissing: false, searchReady: false };
-  var loggedIn = !!(info && info.loggedIn);
-  var product = String(info && info.product || '').toLowerCase();
-  var isPremium = loggedIn && product === 'premium';
-  var capabilities = info && info.capabilities || {};
-  return Object.assign({}, fallback, info || {}, {
-    provider: 'spotify',
-    loggedIn: loggedIn,
-    configured: !!(info && (info.configured || loggedIn)),
-    oauthConfigured: !!(info && info.oauthConfigured),
-    oauthMissing: info && Array.isArray(info.oauthMissing) ? info.oauthMissing : [],
-    nickname: info && (info.nickname || info.displayName || info.display_name) || fallback.nickname,
-    userId: info && (info.userId || info.id) || '',
-    accountId: info && (info.accountId || info.account_id) || '',
-    avatar: info && info.avatar || '',
-    product: product,
-    membershipKnown: !!(info && (info.membershipKnown || product)),
-    vipType: isPremium ? 1 : 0,
-    vipLevel: isPremium ? 'vip' : 'none',
-    isVip: isPremium,
-    isSvip: false,
-    tokenConfigured: !!(info && info.tokenConfigured),
-    tokenFileExists: !!(info && info.tokenFileExists),
-    credentialsFileExists: !!(info && info.credentialsFileExists),
-    localConfigMissing: !!(info && info.localConfigMissing),
-    playbackKeyReady: loggedIn,
-    playbackMode: 'recommend-match',
-    searchReady: !!(capabilities.search || info && info.searchReady),
-    stale: !!(info && info.stale),
-    reauthRequired: !!(info && info.reauthRequired)
-  });
-}
-async function refreshSpotifyLoginStatus() {
-  try {
-    var info = await apiJson('/api/spotify/status?t=' + Date.now());
-    var prevLogged = !!spotifyLoginStatus.loggedIn;
-    spotifyLoginStatus = normalizeSpotifyLoginStatus(info);
-    auditProviderVipState('spotify', spotifyLoginStatus);
-    if (!spotifyLoginStatus.loggedIn) {
-      if (prevLogged || spotifyLoginWasLoggedIn) {
-        forgetProviderLiveSession('spotify');
-        showToast(spotifyLoginStatus.stale ? 'Spotify 登录已失效' : 'Spotify 已退出');
-      }
-      spotifyPlaylists = [];
-      userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'spotify'; });
-      playlistCatalogRevision += 1;
-      homeDiscoverState.loaded = false;
-    } else if (!userPlaylists.some(function (pl) { return pl && pl.provider === 'spotify'; })) {
-      homeDiscoverState.loaded = false;
-      homeDiscoverState.loggedIn = true;
-      refreshUserPlaylists(true);
-      loadHomeDiscover(true);
-    }
-    spotifyLoginWasLoggedIn = !!spotifyLoginStatus.loggedIn;
-    if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
-    renderUserBtn();
-    return spotifyLoginStatus;
-  } catch (e) {
-    console.warn('Spotify login status failed:', e);
-    spotifyLoginStatus = normalizeSpotifyLoginStatus(null);
-    renderUserBtn();
-    return spotifyLoginStatus;
-  }
-}
-function startSpotifyLoginStatusAutoRefresh() {
-  if (spotifyLoginAutoRefreshTimer) clearInterval(spotifyLoginAutoRefreshTimer);
-  spotifyLoginAutoRefreshTimer = setInterval(function () {
-    refreshSpotifyLoginStatus().catch(function (e) { console.warn('Spotify login auto refresh failed:', e); });
   }, 45000);
 }
 
@@ -582,17 +552,19 @@ function disconnectNeteaseAfterRemoteLogout() {
   if (typeof safeRenderQueuePanel === 'function') safeRenderQueuePanel('netease-session-lost', { scrollCurrent: miniQueueOpen });
   renderUserBtn();
   if (typeof safeShelfRebuild === 'function') safeShelfRebuild('netease-session-lost');
-  showToast('网易云音乐账号已在别处退出，已断开连线，请重新连线登录');
+  showToast('网易云音乐账号已在别处退出，请重新登录');
 }
 async function checkNeteaseLoginPresence(reason) {
   var state = loginPresenceState.netease;
   if (state.checking || !loginStatus || !loginStatus.loggedIn) return;
   if (document.hidden && reason !== 'presence-confirm') return;
   var userId = String(loginStatus.userId || '');
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('netease') : 0;
   state.checking = true;
   state.lastAt = Date.now();
   try {
     var info = await apiJson('/api/login/status?fresh=1&t=' + Date.now());
+    if (typeof providerAuthEpoch === 'function' && providerAuthEpoch('netease') !== authEpoch) return;
     // The user logged out or switched account while this check was in flight.
     if (!loginStatus || !loginStatus.loggedIn || String(loginStatus.userId || '') !== userId) return;
     if (info && info.loggedIn) {

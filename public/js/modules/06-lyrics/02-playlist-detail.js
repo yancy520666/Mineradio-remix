@@ -122,12 +122,12 @@ function normalizePlaylistProvider(provider) {
 function playlistProviderLabel(provider) {
   provider = normalizePlaylistProvider(provider);
   if (provider === 'mineradio') return 'MR';
-  return provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : (provider === 'qishui' ? 'QS' : (provider === 'spotify' ? 'SP' : 'NE')));
+  return provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : (provider === 'qishui' ? 'QS' : (provider === 'spotify' ? '已停止支持' : 'NE')));
 }
 function playlistProviderName(provider) {
   provider = normalizePlaylistProvider(provider);
   if (provider === 'mineradio') return 'Mineradio 内置歌单';
-  if (provider === 'spotify') return 'Spotify';
+  if (provider === 'spotify') return 'Spotify（已停止支持）';
   return provider === 'qq' ? 'QQ 音乐' : (provider === 'kugou' ? '酷狗音乐' : (provider === 'qishui' ? '汽水音乐' : '网易云音乐'));
 }
 function playlistPanelKey(provider, id) {
@@ -145,7 +145,7 @@ function playlistPanelProviderId(provider, id) {
 }
 function playlistCardPriority(pl) {
   if (!pl) return 10;
-  if (pl.virtual || String(pl.id || '') === 'spotify-liked' || Number(pl.specialType || 0) === 5) return 0;
+  if (pl.virtual || Number(pl.specialType || 0) === 5) return 0;
   return 1;
 }
 function prioritizePlaylistGroupItems(items) {
@@ -186,7 +186,7 @@ function playlistPanelDetailRowsHtml(options) {
       : '';
     return '<div class="pl-detail-row" data-pl-detail-row="' + i + '">' +
       imgTag +
-      '<div style="flex:1;min-width:0"><div class="pl-detail-row-title">' + escHtml(song.name || '') + '</div>' +
+      '<div style="flex:1;min-width:0"><button type="button" class="pl-detail-row-title queue-play-name" aria-label="播放 ' + escHtml(song.name || '') + '">' + escHtml(song.name || '') + '</button>' +
       '<button type="button" class="pl-detail-row-artist" data-pl-detail-artist="' + i + '">' + escHtml(song.artist || '未知歌手') + '</button></div>' + removeButton +
       '</div>';
   }).join('');
@@ -231,7 +231,7 @@ function applyUserPlaylistOrder() {
   var providerRanks = null;
   if (typeof contentProviderOrder === 'function') {
     var providerOrder = contentProviderOrder();
-    var savedProviderOrder = 'netease,qq,kugou,qishui,spotify';
+    var savedProviderOrder = 'netease,qq,kugou,qishui';
     try { savedProviderOrder = localStorage.getItem(PLAYLIST_REORDER_PROVIDER_ORDER_STORE_KEY) || savedProviderOrder; } catch (e) { }
     // A new account ordering overrides the old cross-platform placement,
     // preserving hand-sorted rows within each platform. A later manual drag
@@ -279,6 +279,7 @@ function moveUserPlaylistIndex(fromIdx, toIdx, opts) {
   return true;
 }
 function playlistTracksEndpoint(provider, id, params) {
+  if (provider === 'spotify' || /^spotify:/i.test(String(id || ''))) throw new Error('SPOTIFY_UNSUPPORTED');
   provider = normalizePlaylistProvider(provider);
   var query = 'id=' + encodeURIComponent(id);
   if (params) {
@@ -290,11 +291,11 @@ function playlistTracksEndpoint(provider, id, params) {
   if (provider === 'qq') return '/api/qq/playlist/tracks?' + query;
   if (provider === 'kugou') return '/api/kugou/playlist/tracks?' + query;
   if (provider === 'qishui') return '/api/qishui/playlist/tracks?' + query;
-  if (provider === 'spotify') return '/api/spotify/playlist/tracks?' + query;
   return '/api/playlist/tracks?' + query;
 }
 function fetchPlaylistTracksPage(provider, id, params, requestOptions) {
   provider = normalizePlaylistProvider(provider);
+  if (provider === 'spotify' || /^spotify:/i.test(String(id || ''))) return Promise.resolve({ error: 'SPOTIFY_UNSUPPORTED', message: 'Spotify 已停止支持，历史记录已保留', tracks: [], hasMore: false });
   if (provider === 'mineradio') return builtInPlaylistTracksPage(id, params || {});
   return apiJson(playlistTracksEndpoint(provider, id, params), requestOptions || {});
 }
@@ -308,7 +309,7 @@ function playlistPanelDetailHtml(pl, provider, detailWindow) {
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
   var expectedTotal = Math.max(tracks.length, Number(playlistPanelDetailState.total) || Number(pl.trackCount) || 0);
   var rows = playlistPanelDetailRowsHtml(detailWindow);
-  var canUncollect = !!(pl && pl.subscribed && !pl.virtual && (provider === 'netease' || provider === 'qishui' || provider === 'spotify'));
+  var canUncollect = !!(pl && pl.subscribed && !pl.virtual && (provider === 'netease' || provider === 'qishui'));
   var collectionButton = canUncollect
     ? '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-collection="0">取消收藏</button>'
     : '';
@@ -430,6 +431,7 @@ async function loadMorePlaylistPanelDetailTracks(reason) {
 }
 async function openPlaylistPanelDetail(provider, pid, title) {
   if (!pid) return;
+  if (provider === 'spotify' || /^spotify:/i.test(String(pid))) { showToast('Spotify 已停止支持，历史记录已保留'); return false; }
   provider = normalizePlaylistProvider(provider);
   var key = playlistPanelKey(provider, pid);
   var pl = userPlaylists.find(function (item) { return playlistPanelKey(normalizePlaylistProvider(item.provider), item.id) === key; }) || { id: pid, provider: provider, name: title || '歌单详情' };
@@ -462,14 +464,16 @@ function playPlaylistPanelDetail() {
 async function togglePlaylistPanelCollection(collected) {
   var state = playlistPanelDetailState;
   if (!state || !state.key || !state.playlist) return;
+  var requestKey = state.key, requestToken = state.token;
   var parts = state.key.split(':');
   var provider = normalizePlaylistProvider(parts[0]);
   var id = parts.slice(1).join(':');
+  if (provider === 'spotify' || /^spotify:/i.test(id)) { showToast('Spotify 已停止支持，历史记录已保留'); return false; }
   var endpoint = provider === 'netease'
     ? '/api/playlist/subscribe'
     : (provider === 'qishui'
       ? '/api/qishui/playlist/collect'
-      : (provider === 'spotify' ? '/api/spotify/playlist/collect' : ''));
+      : '');
   if (!endpoint) {
     showToast(playlistProviderName(provider) + '暂不支持写回歌单收藏');
     return;
@@ -483,11 +487,16 @@ async function togglePlaylistPanelCollection(collected) {
         playlistId: id,
         subscribed: !!collected,
         collected: !!collected,
-        spotifyUri: state.playlist.spotifyUri || '',
       })
     });
     if (!result || result.error || result.success === false) throw new Error(result && (result.message || result.error) || 'PLAYLIST_COLLECTION_FAILED');
     showToast(collected ? '歌单已收藏' : '已取消收藏歌单');
+    // The write belongs to the requested playlist even if the user has since
+    // opened another detail. Refresh the catalog without clearing that view.
+    if (playlistPanelDetailState !== state || state.key !== requestKey || state.token !== requestToken) {
+      await refreshUserPlaylists(true);
+      return;
+    }
     cancelPlaylistPanelDetailRequest();
     playlistPanelDetailState.key = '';
     playlistPanelDetailState.tracks = [];
@@ -557,7 +566,7 @@ function playlistPanelBuildVirtualEntries() {
   if (playlistPanelVirtualCache.revision === playlistCatalogRevision &&
       playlistPanelVirtualCache.detailKey === playlistPanelDetailState.key &&
       playlistPanelVirtualCache.detailSig === detailSig) return playlistPanelVirtualCache;
-  var labels = { mineradio: 'Mineradio 内置歌单', netease: '网易云歌单', qq: 'QQ 音乐歌单', kugou: '酷狗音乐歌单', qishui: '汽水音乐歌单', spotify: 'Spotify 歌单' };
+  var labels = { mineradio: 'Mineradio 内置歌单', netease: '网易云歌单', qq: 'QQ 音乐歌单', kugou: '酷狗音乐歌单', qishui: '汽水音乐歌单', spotify: 'Spotify 历史歌单（已停止支持）' };
   var order = ['mineradio', 'netease', 'qq', 'kugou', 'qishui', 'spotify'];
   var groups = { mineradio: [], netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
   userPlaylists.forEach(function (pl, sourceIndex) {

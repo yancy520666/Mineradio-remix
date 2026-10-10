@@ -1,0 +1,1021 @@
+{
+  "baseline": "a746952de73ed3e326d3f5b343a0bafc8e6efca7",
+  "files": [
+    {
+      "path": "public/js/modules/01-scene/04-bottom-controls-cursor.js",
+      "sha256": "1c1e3c03dc702ca621de9fad6c798d7adaedd6292d6d48aaf64bf96f3e233b9c"
+    },
+    {
+      "path": "public/js/modules/02-visual/00-pointer-cover-particles.js",
+      "sha256": "055a90a760bd191480d69ad25bba2e3e98c7ea48fb382768c725aff6a75d76fe"
+    },
+    {
+      "path": "public/js/modules/02-visual/12-lyrics-row-layers.js",
+      "sha256": "0493e5c789055f31066386853fde5ce26dcae260594dbbeedd9d85a643ec2576"
+    },
+    {
+      "path": "public/js/modules/02-visual/14-stage-lyrics-rendering.js",
+      "sha256": "1d147d6021d8efeb525c2de49f62d31b778a3a6108effdb3d187c573b93861c4"
+    },
+    {
+      "path": "public/js/modules/07-fx/05-fx-panel-performance.js",
+      "sha256": "ec82b17f999ddb64fda056c2d90f098d224399348eb081e5e110846944dd603d"
+    },
+    {
+      "path": "public/js/modules/11-main-loop.js",
+      "sha256": "c1e56d5edf4448708e92d40e6dcee6d8df508a3238f2fadf9c29c9d3a5f8957a"
+    },
+    {
+      "path": "public/sonic-topography-preset.js",
+      "sha256": "7f00e05b41e2e3bb9450b100798a6621540bd5859eaaa2ed10394a2e89564e92"
+    },
+    {
+      "path": "tests/account-action-epoch.test.js",
+      "sha256": "80079d9a26b55a5184a1b42a80e3b65793b3c4e4675ffc18db108d266c1046d5"
+    },
+    {
+      "path": "tests/adjacent-preparation.test.js",
+      "sha256": "ef527fc2358f1c16e41d5c13a66657dcef98cb1c776a8c5e27becbc5c033e121"
+    },
+    {
+      "path": "tests/album-cover-background.test.js",
+      "sha256": "16eff422a75500503f77e9eb15f17630b75e17b6beada8e2260c00b9bda65b7c"
+    },
+    {
+      "path": "tests/artist-albums-more.test.js",
+      "sha256": "14f3d5451210731dee002020886c63c1b13dd954dda75dade522eb3bb12a2c48"
+    },
+    {
+      "path": "tests/audio-output-routing.test.js",
+      "sha256": "da32ecaaf5d2f2d73ed2ef09591cc627efb400ac6a0cea32c22b09f5b75fca5d"
+    },
+    {
+      "path": "tests/audio-proxy-lifecycle.test.js",
+      "sha256": "ea4b7637c108ee4f7a365dbe4d4e1d82e234a656e91b4963776d366c86bdabea"
+    },
+    {
+      "path": "tests/audio-route-construction-lifecycle.test.js",
+      "sha256": "08877cb426abd828fdf7ebf901e746d4e0e323356c5e225b2dcd2af41d01d01c"
+    },
+    {
+      "path": "tests/audio-route-drag.test.js",
+      "sha256": "a00c1f5339aa981de13c0057b216af61572c8ec2a96017f433dddef09fdbf9ae"
+    },
+    {
+      "path": "tests/audio-spill-relay.test.js",
+      "sha256": "8a127d831669fd29b91bad9c09bc2ed0026a90a4a61dac357109f6f27375dd9a"
+    },
+    {
+      "path": "tests/background-idb-lifecycle.test.js",
+      "sha256": "ebb95210d6958c4d6e9a9ee910912f998141d4c7a3bef4fb6f990a4f385e85fe"
+    },
+    {
+      "path": "tests/background-memory-policy.test.js",
+      "sha256": "e74ce3cb9ec0de12eab7fbde4595d7460191d98bb08c24b256b4b61f459212cd"
+    },
+    {
+      "path": "tests/background-window-state-recovery.test.js",
+      "sha256": "7535726b72d802bd70fa50b37cdab17516f82791ac301a23971e2e782b70c8d6"
+    },
+    {
+      "path": "tests/beat-analysis-memory.test.js",
+      "sha256": "4345c4d96a4cd2479c29ab9fac4cb059757df51ee0bf420c2a5d3c643b176880"
+    },
+    {
+      "path": "tests/beat-analysis-request-lifecycle.test.js",
+      "sha256": "9673620aacb35b94b627283fb3d05e6d9677aa0673dcf39b770efb71a8e66e94"
+    },
+    {
+      "path": "tests/bottom-controls-hover.test.js",
+      "sha256": "aba81dffbb15f7ca0a2859ff37a37accdfbd5c0edd17cef89503da877329d73d"
+    },
+    {
+      "path": "tests/browser-cookie-import.test.js",
+      "sha256": "5e2e2b313d5adc51ad6b88d67942ebe65b1369217be2cf8957d0f17988406e69"
+    },
+    {
+      "path": "tests/built-in-playlist-library.test.js",
+      "sha256": "f97974ba23c8d2f273d9ebd78640acc714348a2116ed94b4f19f4ed00902206a"
+    },
+    {
+      "path": "tests/cache-lifecycle.test.js",
+      "sha256": "79a7b031d3e72e16b708059a45c11383130c7006ef301dc611bb5497359e2d38"
+    },
+    {
+      "path": "tests/cache-release-ui.test.js",
+      "sha256": "fbbe08497977b2aa1fc884d0d447126af4ce6d23f701edd9019183c6122acb0b"
+    },
+    {
+      "path": "tests/cache-release.test.js",
+      "sha256": "38237d40151d1f5d1a6fd2d423e116ea5108cbb66a139bd94bc72ff32a2903af"
+    },
+    {
+      "path": "tests/cache-root-fallback.test.js",
+      "sha256": "4bf6d4aeeab7a6498d375c845f77674a9d2ef15d538ad6378aadec82f656a630"
+    },
+    {
+      "path": "tests/client-qr-login.test.js",
+      "sha256": "66f57eaf886797c0f6a39d92e597bd8b92ec4a76ccc5456674836bc36c3b821f"
+    },
+    {
+      "path": "tests/comment-avatar-loader.test.js",
+      "sha256": "e272e51bd28388f1aa149bac8d48e419d70cd16946366d945c656763364eed02"
+    },
+    {
+      "path": "tests/comment-replies.test.js",
+      "sha256": "acee03785ef8a61fe498c3af64195cf8c03dc52269c0466d273004e06b1e748c"
+    },
+    {
+      "path": "tests/content-provider-priority.test.js",
+      "sha256": "960767f1e4e49b6b9fd0995c108e54c8df08769dcd1c1f9cde5a4b1c9beb5145"
+    },
+    {
+      "path": "tests/cookie-storage.test.js",
+      "sha256": "84cfb0a9d9e70019f1c5d880c9ab8103f296a01243b6183b709efa1241b4c69c"
+    },
+    {
+      "path": "tests/cover-cache.test.js",
+      "sha256": "e93f4827b615b0bdff4457762ef966c69ffe377cfc8e9ddc48ded8f24274627d"
+    },
+    {
+      "path": "tests/cover-load-retry.test.js",
+      "sha256": "4dbccbbe76868116b7768e96f8a42aeaec633d0ab2b4d95b8505a231f2c63f1a"
+    },
+    {
+      "path": "tests/cover-proxy-lifecycle.test.js",
+      "sha256": "5c42bb4a3ed3ccd3e47d3367bd71262c854b139dcad6b1accabee6cbfac4ef2c"
+    },
+    {
+      "path": "tests/cpu-visual-scheduling.test.js",
+      "sha256": "2e522e994ad2f2494cdb804d997c725eb3b53441c9cd63dc17ed52b0380b57d2"
+    },
+    {
+      "path": "tests/credential-migration-lifecycle.test.js",
+      "sha256": "7308bab2192fc3a0f6075c6b239e04acd5ccf19d5c814fe43d6c3bba9e407010"
+    },
+    {
+      "path": "tests/cuefield-crossfade-envelope.test.js",
+      "sha256": "121783905d2400b27c141845dbe8b4fc6cdb2f726b4aead67267a5f5b136c1b6"
+    },
+    {
+      "path": "tests/cuefield-execution-ownership.test.js",
+      "sha256": "c1c9d4d9cd194074e20be09065a8ab78ee0dd2a86a68ab68c097dd4efc7b716b"
+    },
+    {
+      "path": "tests/cuefield-listening-safety.test.js",
+      "sha256": "9a3363d76b1afdca1edeb48d3802bf4fd6da15b04c2d2b7e8095ac0e9e41d207"
+    },
+    {
+      "path": "tests/cuefield-mineradio-integration.test.js",
+      "sha256": "1d7df2684a36e1240e578823b7ddeadf715f2787ad945e9a0c6c7e661c5bf385"
+    },
+    {
+      "path": "tests/cuefield-planner-boundaries.test.js",
+      "sha256": "02916fe761ce4fa8ad23180bac75be1042d5caf566794019ffa678044f7f5baa"
+    },
+    {
+      "path": "tests/cuefield-transition-runtime.test.js",
+      "sha256": "bb0e173bf5340a4933f36ee920437c39da17923e8d1d5293912ec57107f6e573"
+    },
+    {
+      "path": "tests/curated-visual-presets.test.js",
+      "sha256": "7c0410d8801234c3ee031055917ace5c74a5a47fee78f117fa9c10208b23e583"
+    },
+    {
+      "path": "tests/custom-background-handoff.test.js",
+      "sha256": "e1450719b43802ffc10a239f548094dd4a245bc591d1cdd7fad105f80472ad6a"
+    },
+    {
+      "path": "tests/custom-cover-home-sync.test.js",
+      "sha256": "859b6f84d53c44a6a3ed62302f6f0cef15eea5a6a92cfdbe035cdf887d5ed7e4"
+    },
+    {
+      "path": "tests/custom-font-classic-startup.test.js",
+      "sha256": "198640dac203a169c649e8672540868426cf33936518377c20822f386244f83d"
+    },
+    {
+      "path": "tests/custom-font-lifecycle.test.js",
+      "sha256": "740c8b61fb92e063fe225b50511abe1136e0de032bd72ee98349728f111252d3"
+    },
+    {
+      "path": "tests/desktop-icon-shape-runtime.test.js",
+      "sha256": "0edb1590407b8cb6e61d1171e4df3401afb74b273b0ae8313dccbe4ce6a4ce6d"
+    },
+    {
+      "path": "tests/desktop-native-icon-layer-runtime.test.js",
+      "sha256": "617caf39c1519afed3bd96a6b51ae0b19fe27e9e4796f82424474a327675da3d"
+    },
+    {
+      "path": "tests/dev-launcher.test.js",
+      "sha256": "0c187f755c6192714b8ce5d40a416e9ef80f360c73453157d239b347ce15c8b0"
+    },
+    {
+      "path": "tests/external-update-page-bridge.test.js",
+      "sha256": "94da37c8624970f0859d5dad1db105366a56845a7ff76b5faa1d11b167f69f62"
+    },
+    {
+      "path": "tests/fallback-reorder-ownership.test.js",
+      "sha256": "c8a3f8d3c9aef05cd1aa60759539f73751f4f1ab2ebd08e67260427f31085d2a"
+    },
+    {
+      "path": "tests/fallback-rollback-ownership.test.js",
+      "sha256": "f0f5ac1549a8bfaa8f8a6481988aca3fec742c8eefaa4bf1d844bb0f8ea7e00e"
+    },
+    {
+      "path": "tests/first-run-quality.test.js",
+      "sha256": "8854ebcc5e916762bef958f63c8899924a248b84599304d316f9afd5a317e1ce"
+    },
+    {
+      "path": "tests/foreground-recovery-work.test.js",
+      "sha256": "612ec849815293e6005415673453516ca9b1ef9eb7b86cfeaff6ab3e2f2e0b44"
+    },
+    {
+      "path": "tests/full-desktop-mode-runtime.test.js",
+      "sha256": "e83b00f2b33ca01a259d7b4e9b21505f136203369b6fc017026baa2994181fe4"
+    },
+    {
+      "path": "tests/gesture-camera-permission.test.js",
+      "sha256": "60a568373b2adb6ad4273b013930fd2fe489a5ac45543135a8d12429c2becf22"
+    },
+    {
+      "path": "tests/gesture-player-actions.test.js",
+      "sha256": "a9e1c158f2301b20b18e1e5f3c025c34f72120f7bf2eeab6c75ade873c8d2dc8"
+    },
+    {
+      "path": "tests/gesture-runtime-lifecycle.test.js",
+      "sha256": "5b5ec7c0d969aecc5f0bc75dc47687402eb7a44306dcdd90b19c0e104b4c64a2"
+    },
+    {
+      "path": "tests/home-background-image-lifecycle.test.js",
+      "sha256": "d50428891932a1162fd06e2561c296e4739fe803084426fa23e06f5a5bd255dd"
+    },
+    {
+      "path": "tests/home-daily-recommendation-virtualization.test.js",
+      "sha256": "b96bf4fa7858797dd59c4bc179a2e8c954601b0ab5b206708dbbe64c03985302"
+    },
+    {
+      "path": "tests/home-daily-recommendations-backend.test.js",
+      "sha256": "77e78ad990b3b0f5ec7ff03076a23ee036e5d515a3d6a49b14975a94a3590149"
+    },
+    {
+      "path": "tests/home-dashboard-update.test.js",
+      "sha256": "576c2bc40d7ab900458bdd5a4aaab6111a9c092605e0c92c80d262dea55ddb4f"
+    },
+    {
+      "path": "tests/home-discover-ownership.test.js",
+      "sha256": "70c316e44004bd9e3da3fb66865db2e7f20b6befe7ca30ab2a0f7a3d7bca1a58"
+    },
+    {
+      "path": "tests/home-hero-mp4-platform-recommend.test.js",
+      "sha256": "937051cae3bad7e5758638e6d14ff10506e9e98bd184cd5d09501a9a2e42a0b9"
+    },
+    {
+      "path": "tests/home-video-ui-lifecycle.test.js",
+      "sha256": "e13b665bdb1a3bb5f3684d2fdcec55559b255518ecee8db1575d36720992f71b"
+    },
+    {
+      "path": "tests/inline-login-lifecycle.test.js",
+      "sha256": "37d26f082f919eab19aefa41ff8de2fb66403df665cd3ec649c6ce01b65327b3"
+    },
+    {
+      "path": "tests/installer-cleanup.test.js",
+      "sha256": "847bc265d6a3c9be2d0ee2e358dc5a26152bf92f210f101dd51600c5b36bc6d9"
+    },
+    {
+      "path": "tests/integrated-gpu-render-budget.test.js",
+      "sha256": "8c86af8643e9e104c779c1b0965774a0b11f7e578484d26e01556e8386612879"
+    },
+    {
+      "path": "tests/kugou-account-cache-isolation.test.js",
+      "sha256": "10a08a11b52caa64c2f81bff2ad296ff6febcb87eb7ced8e6638235ce38d73ad"
+    },
+    {
+      "path": "tests/kugou-api-resilience.test.js",
+      "sha256": "d5712b294b7e25be2256776c2720a10e8f2b8da67830a8ae506712e014c4f106"
+    },
+    {
+      "path": "tests/kugou-community.test.js",
+      "sha256": "c064aea7b3741570c5b511fe740f8e841a21f6d4792501f32574d72e8d6f84fe"
+    },
+    {
+      "path": "tests/kugou-login-bridge.test.js",
+      "sha256": "57b8473925ca969d3d7be861c24f81d4c16ed05b648b177b0316bf9863c7c78f"
+    },
+    {
+      "path": "tests/kugou-native-qr.test.js",
+      "sha256": "9a6e52052a12f3d095d0bf6cf3a3eecfade6cb65c05dcbd6721f914540e8c44b"
+    },
+    {
+      "path": "tests/kugou-verification-flow.test.js",
+      "sha256": "ee6f4ed35c4b1c37f1d575646b4f375703ebb66befa69a1abb957649a1eaeb5d"
+    },
+    {
+      "path": "tests/kugou-verification.test.js",
+      "sha256": "d7c47ab152cfdb57facef24f764b01dceb7b447fb4b4c97e238b7bc71962d25e"
+    },
+    {
+      "path": "tests/kugou-vip-hardening.test.js",
+      "sha256": "8f96784956ea1fb114e300fb2f7dcf31966f806d964962c1c2dbfa9d184206d7"
+    },
+    {
+      "path": "tests/listen-report-session-isolation.test.js",
+      "sha256": "597dac25810a72386716a504d904fed5a4697facda32939e61185c0b52710771"
+    },
+    {
+      "path": "tests/local-alternate-fingerprint-cache.test.js",
+      "sha256": "86a9246426a9a341c8d4e679272c85f7c3990d0ac22c3f04790ce9e3e6acc3f2"
+    },
+    {
+      "path": "tests/local-analysis-ownership.test.js",
+      "sha256": "9ac708159df3cefa8508724919b50eee47e77f9e0820f9ec7234887fb9a54765"
+    },
+    {
+      "path": "tests/local-audio-resource-lifecycle.test.js",
+      "sha256": "1f382248a4acd2ae2275d6ff5c7c739236911928877feb6d1cfb73ff65c66b28"
+    },
+    {
+      "path": "tests/local-import-ownership.test.js",
+      "sha256": "ce09c7113360fb2999cf5611d95e1588d61ae237d6c87f20ec477f2cf69d2b60"
+    },
+    {
+      "path": "tests/local-library-offline-relink.test.js",
+      "sha256": "3f2a8085598d864737d0118a259c08632508c99c1fff934c57583ebb6c981868"
+    },
+    {
+      "path": "tests/local-music-library-persistence.test.js",
+      "sha256": "369d2dfcbef031b12a980e4eb1af76024f7517117ba0863642eab95a19691e8a"
+    },
+    {
+      "path": "tests/local-playback-skip-notice.test.js",
+      "sha256": "8a4e79096d455f8a009aca7091a9139533ccc99b79a7653eefec5cc2cd8a019d"
+    },
+    {
+      "path": "tests/login-attempt-contract.test.js",
+      "sha256": "0ac1418532786a8cf26be0e987460196f25645065ea69ce876e1b4f3c92e845b"
+    },
+    {
+      "path": "tests/login-commit-ownership.test.js",
+      "sha256": "85d9e4299e1ff0807f25b3394a5d23e03be5a32fdb3d353642e4f287958c289f"
+    },
+    {
+      "path": "tests/login-entry-direct.test.js",
+      "sha256": "e29f1c858f5db630963bfea1dbd2c851bb068ba88ae64108fd4033d8c6058a22"
+    },
+    {
+      "path": "tests/login-logout-race.test.js",
+      "sha256": "1f70b3628dd142b69c30e14d51ab9170640f95db2cc2c997d36e8b8529391912"
+    },
+    {
+      "path": "tests/login-presence-check.test.js",
+      "sha256": "d7babfa777e835fe5ca7647dd74af0e045d053174f5fa145cb3a474d57cec42d"
+    },
+    {
+      "path": "tests/login-qr-loading.test.js",
+      "sha256": "d203889ec5b2dab29bc4b75dc00e24387aa9c104733d9a950dac639799f7df18"
+    },
+    {
+      "path": "tests/login-status-refresh-epoch.test.js",
+      "sha256": "7103b70849750c58f58c49ec8fc83b2c761887fd84938a250b1fe9ab8a2af438"
+    },
+    {
+      "path": "tests/login-validation-presentation.test.js",
+      "sha256": "f9760e26c46bfa907052d301f9e637dc6c82f3162e7e15bba79e3c2b00b2fd0d"
+    },
+    {
+      "path": "tests/lyric-active-line-viewport-fit.test.js",
+      "sha256": "9d1d443ddd1bf9ce70d6e3faa0ecf127da4f38da0fef89954053f1527ddb5fe8"
+    },
+    {
+      "path": "tests/lyric-drag-quality.test.js",
+      "sha256": "f4e7a05e246fc86c6179a51dd569f1b7c603f21334cd7c8e4895d9fa5ca2a48b"
+    },
+    {
+      "path": "tests/lyric-edit-preview.test.js",
+      "sha256": "d17ed0db84cf8adc512fe79f5b4d90aa5372efe8eb9d43b6fef008b70d28a12b"
+    },
+    {
+      "path": "tests/lyric-fallback-availability.test.js",
+      "sha256": "518afea429060a758cf69a16500ed6ab11052da9cc95d732838a08bc968d436f"
+    },
+    {
+      "path": "tests/lyric-font-ready-refresh.test.js",
+      "sha256": "d96f4a7f41b7045ef2f5d6c0caddae78ac308dbca66ef650bdf9da45a8921a1d"
+    },
+    {
+      "path": "tests/lyric-motion-profiles.test.js",
+      "sha256": "1c086ac9bcd832d29cf6dc8bd6067ee0b85bd08e91e16162309e195fdb29de7b"
+    },
+    {
+      "path": "tests/lyric-runway-preparation.test.js",
+      "sha256": "066b187a28272696b6944be78159b2b2241a34901568f06fedb62322788e671b"
+    },
+    {
+      "path": "tests/lyric-seek-visibility.test.js",
+      "sha256": "d1a0e337a5ffbd1cc718255c9dc7a813675803a25f75620ae0d84221d8d78813"
+    },
+    {
+      "path": "tests/lyric-spacing-stability.test.js",
+      "sha256": "33a52a8165684603e6cf370b8c46e8d0b7b1900aefe8d784061acf2e9e7d475b"
+    },
+    {
+      "path": "tests/lyric-style-refresh.test.js",
+      "sha256": "6e9b0033833eee24011a6997ae2d47a103f989cc2de65cff194b1e35985a0ff9"
+    },
+    {
+      "path": "tests/lyric-title-handoff.test.js",
+      "sha256": "46b53311baf4c657258daafa55698c94d53638afc936f33149953a7ded6e26d2"
+    },
+    {
+      "path": "tests/lyric-track-seek-glide.test.js",
+      "sha256": "e698c84784c48332bf70a839996027f4f7c38aa4f2617ae0dc99ecc768d0241a"
+    },
+    {
+      "path": "tests/lyric-translation-cache-bounds.test.js",
+      "sha256": "02b76254b16d9eedc3ff469d69f2a9005677f5e6e1424d17f73dfd8ed57cf7fd"
+    },
+    {
+      "path": "tests/lyric-work-scheduler.test.js",
+      "sha256": "6d0da4fac77e6470855efc0073417dbaec21ff4b486389117fac71a497f2079a"
+    },
+    {
+      "path": "tests/main-window-runtime-recovery.test.js",
+      "sha256": "accdc83fb7b5e678b6102c7952a1b8df85c467e3a6d7a8fbe36b48d33014ebcf"
+    },
+    {
+      "path": "tests/membership-badge-consistency.test.js",
+      "sha256": "dbc1a0e7d0e5856d3bf56abebe783bb7a766e36d5d62dc7979e78edbf03c9c41"
+    },
+    {
+      "path": "tests/microphone-mixer-ui.test.js",
+      "sha256": "f8075d4314bbc50e6911941d6487e25004697a6ec19286bcc6de4522e0f26bf3"
+    },
+    {
+      "path": "tests/microphone-mixer.test.js",
+      "sha256": "e2a64efc3699a09d3e0db6fb7f600f2fc9716fba7cf2f909ec5abfc389308c14"
+    },
+    {
+      "path": "tests/microphone-permission.test.js",
+      "sha256": "03585f8e7ea480d11d5e96f4847df5f137a065bbcadd2bbca90d8275042682a7"
+    },
+    {
+      "path": "tests/music-dns.test.js",
+      "sha256": "b758f46e98fd11539ec0a036019008131cf9cc13af7f04be46436050c13d9673"
+    },
+    {
+      "path": "tests/netease-like-cache.test.js",
+      "sha256": "1c0df5d920dceb5496539ca0b008a2c7925d7063d42710f28ddcd98cce4402eb"
+    },
+    {
+      "path": "tests/netease-login-navigation.test.js",
+      "sha256": "5ffcc545d6af36479de24865bf20f92d03113b182012c02ae4ffe6b2d1768a8b"
+    },
+    {
+      "path": "tests/netease-playlist-index-session.test.js",
+      "sha256": "0d72a9fd1ae25c3a67c737db385f92277a66817e6feed7452f8cf95d0b92108c"
+    },
+    {
+      "path": "tests/netease-write-session-isolation.test.js",
+      "sha256": "915e7366d869d6d7247e51f8b8e4f0eb231742421ba0fbb997c0b3633434eb43"
+    },
+    {
+      "path": "tests/network-compatibility.test.js",
+      "sha256": "3ba38aff8bc3cf17d5e4cf530b6bb0798a7fcd1f07be9e114df5da0d761e1ea4"
+    },
+    {
+      "path": "tests/next-critical-boundaries.test.js",
+      "sha256": "6af5620df14b1663a8ab8fad76dab3c74a001d93e78c37e6eb23e63d628a7fa5"
+    },
+    {
+      "path": "tests/onboarding-guide.test.js",
+      "sha256": "b505beac8aff786c64dbbfd196ffd93bfe7b5a717639a595e010b69d3f846049"
+    },
+    {
+      "path": "tests/original-profile-import.test.js",
+      "sha256": "2128fc9189ebfb57a07b7877cda3d759c30ae12a73dff04e0ad9fb67767fff03"
+    },
+    {
+      "path": "tests/original-render-quality.test.js",
+      "sha256": "1515b38af644b8d1124251704df5e596a2ee41415f5c1454e29d81463fe7cdda"
+    },
+    {
+      "path": "tests/packaging-runtime-files.test.js",
+      "sha256": "72ec0f1a38a643143d50de574f849bbd3869739c059552929a9c5c1727bafadb"
+    },
+    {
+      "path": "tests/panel-view-recenter.test.js",
+      "sha256": "ac251c6593cd636eb795f261d927588486cc5c96e2fdde9f035edbc864127563"
+    },
+    {
+      "path": "tests/paused-lyric-edit-commit.test.js",
+      "sha256": "0221c218891d056293e406ecc5723581524e1782a0cae86a2e84430a82fda0ef"
+    },
+    {
+      "path": "tests/paused-lyric-effects-owner.test.js",
+      "sha256": "6786148e07f10b435df475d60fbd5670acd0894716463da7e78181ba89dce67d"
+    },
+    {
+      "path": "tests/paused-lyric-layout.test.js",
+      "sha256": "0f483f7df6ba996e49bbf3582f7dbfbd0fb713b908d9d3d9c55ee81be6908929"
+    },
+    {
+      "path": "tests/paused-lyric-quality-ownership.test.js",
+      "sha256": "72e0b8d8198e22fdbc2f774173b7c5f6d1741430ba38ad51908f0cf7adc74301"
+    },
+    {
+      "path": "tests/paused-render-cadence.test.js",
+      "sha256": "40f8b3ac7635fe42975548f67b07d32c357547958aad87e4409322fad399461c"
+    },
+    {
+      "path": "tests/platform-account-sync-guard.test.js",
+      "sha256": "0ea8075148861c317e0a0c0f02e404b909b5aedf7bcc80ce94bca97819178ba1"
+    },
+    {
+      "path": "tests/playback-audio-graph-recovery.test.js",
+      "sha256": "36480da662921b434fa6934b8e74516c51d38052d496888e7c7fd94afe2c83da"
+    },
+    {
+      "path": "tests/playback-background-resume.test.js",
+      "sha256": "878b3387d97da36e2753fbb7f445d5a9d2a94db646b6cee176a287f110a5b14f"
+    },
+    {
+      "path": "tests/playback-checkpoint.test.js",
+      "sha256": "46995c7df39261ffe3dc002756b2105a91f3bd72c5d5a893cd5412fdafbb4abe"
+    },
+    {
+      "path": "tests/playback-duration-units.test.js",
+      "sha256": "56c49723eb9c647c5c397c69e0e3a1eaaf915e8aeb32def90c2034a718d9ede2"
+    },
+    {
+      "path": "tests/playback-ended-ownership.test.js",
+      "sha256": "209b6643cc90462f6ea294874d16681e3945de8fa4bc63371c0a1324f40da6cd"
+    },
+    {
+      "path": "tests/playback-load-recovery.test.js",
+      "sha256": "c7adcd42caf163a79e01bcca9188ba0d949afb94b9664b9e517ec85fe61edb87"
+    },
+    {
+      "path": "tests/playback-local-restore-lifecycle.test.js",
+      "sha256": "5d1a1cb2ec29943a28303f051c2f406da52746792bb4c3af6e8960f88f7e2289"
+    },
+    {
+      "path": "tests/playback-metadata-cache-bounds.test.js",
+      "sha256": "d1975e34de2a0bb3f96afe30cbadd549a4073506af7b429236580f639e7dd8b3"
+    },
+    {
+      "path": "tests/playback-network-ownership.test.js",
+      "sha256": "e6d357e9bf7fe7135f40772e2ab7028f5317caad6f405a3277608047fa1bce40"
+    },
+    {
+      "path": "tests/playback-pause-cancellation.test.js",
+      "sha256": "7732b1bab8fecdf938f5e8c75aeb43ec6f008773ba095cd040a6db7cf6035567"
+    },
+    {
+      "path": "tests/playback-single-repeat-loop.test.js",
+      "sha256": "da42e35cc0c71b6d4f0a9fee1a65d9eee199eb969db64a9dc133f8261889da84"
+    },
+    {
+      "path": "tests/playback-source-fallback-transaction.test.js",
+      "sha256": "c8cc90c63e52666d3375ef62f3663d4d619d670c38a70acbb8700d0bb1400cab"
+    },
+    {
+      "path": "tests/playback-start-critical-path.test.js",
+      "sha256": "11e932ff5b530308fad38a46372c7c9c9e89392db5a7a7173fc70a77d67e9370"
+    },
+    {
+      "path": "tests/playback-start-stall.test.js",
+      "sha256": "2edde2cc647e5c8f15eb6fa2e5a35b1718a20371c54c4e49a85650a982b579f3"
+    },
+    {
+      "path": "tests/playlist-catalog-epoch.test.js",
+      "sha256": "44b87158c0183f04e6125db72f14e121949da712123f7c48009c0ad1b136f0e3"
+    },
+    {
+      "path": "tests/playlist-catalog-page-owner.test.js",
+      "sha256": "eb8b8e1064b8bf90c80ed5d938d73f92e45772bf2ee3fd8ea9859eab267f61f9"
+    },
+    {
+      "path": "tests/playlist-catalog-recovery.test.js",
+      "sha256": "61c4f552530543470f029281ba485998c3d74b6f6a2ceef7e32dcf2903f8c611"
+    },
+    {
+      "path": "tests/playlist-collection-ui-race.test.js",
+      "sha256": "430b8b00d43906e7edaf26cd76d703fbfaa9447fae1c0414f7f3c4b0157c45c1"
+    },
+    {
+      "path": "tests/playlist-cover-cache-budget.test.js",
+      "sha256": "4a1ca1eb95ab6aa31822c00f874b79d8ac46ecdc24b4f255b4c87bb0bddf46c3"
+    },
+    {
+      "path": "tests/playlist-cover-loader.test.js",
+      "sha256": "2e50ee28b94887d78970209851e858c7daa5688cd845c7bef93ec49030081e81"
+    },
+    {
+      "path": "tests/playlist-mutation-lifecycle.test.js",
+      "sha256": "58c35d22fea4346560b6ea664e6cad95610105a4cdacdfd57bddea898818cf8d"
+    },
+    {
+      "path": "tests/playlist-paging.test.js",
+      "sha256": "fc459341dd64011b93afccd5f887a88492376dd97e743e497e15bf11b3871600"
+    },
+    {
+      "path": "tests/playlist-panel-material.test.js",
+      "sha256": "f8c83a3a958ec4c67d75a097f4e4983b7f0e0fa1e973dd08e2c5a4aed2dd3cb5"
+    },
+    {
+      "path": "tests/pre-release-startup-memory.test.js",
+      "sha256": "07109ac64586ee305ae84df67bfc8aca78200846f5cc688ece780777926ea236"
+    },
+    {
+      "path": "tests/preset-background-handoff.test.js",
+      "sha256": "c693a5a806893eb855d73fe6fab191514dd788b5e485210c7c361797963eb5cf"
+    },
+    {
+      "path": "tests/progress-seek-gesture.test.js",
+      "sha256": "613ef3f98ccf4d29ff3f57beb1733b2007baa9b14b4d695779f732b98745b574"
+    },
+    {
+      "path": "tests/provider-entitlement-boundary.test.js",
+      "sha256": "7d0c3e839120ce271f0b6dd024c5bb0c588dfc03b1d55ded05c3a95b841c9cda"
+    },
+    {
+      "path": "tests/provider-login-state-recovery.test.js",
+      "sha256": "f2cece6a9cd2e1691d77a35acd2bcfdffc956304ae44b55e213a995ebec7d744"
+    },
+    {
+      "path": "tests/provider-network-bounds.test.js",
+      "sha256": "78b1a6faf17e55d008931234292c18114ac1c4156a7b713dd827a998b6a336aa"
+    },
+    {
+      "path": "tests/provider-removal-diy-cinema-preload.test.js",
+      "sha256": "46b57051795690109f379019220f58756ade55bbd3333b604b46a7ff379adde5"
+    },
+    {
+      "path": "tests/provider-write-session-isolation.test.js",
+      "sha256": "defb40b39a47373a24e4f09c5579cf97f63874d5a58f71f5e9a9abf154f833e1"
+    },
+    {
+      "path": "tests/qa-css-property.test.js",
+      "sha256": "89815869c1c393614cf52be82fbdca34eb1ebaf35eea47a9e33d70105d39ab0d"
+    },
+    {
+      "path": "tests/qishui-auth-url-policy.test.js",
+      "sha256": "85a8b0f6a3e5cf6652af54837b13659551c062b47c5072f9beb9f6c2a0823dab"
+    },
+    {
+      "path": "tests/qishui-cache-generation.test.js",
+      "sha256": "f3cdf1dba28ad74e76c9ad375b414b09f1b98a53b0f17df32084e4123836fd65"
+    },
+    {
+      "path": "tests/qishui-decrypt-cache-bounds.test.js",
+      "sha256": "41963bcbc8ae31f6ffdd55aa395926ab77f845c38cf122d1de62d19c67c5d514"
+    },
+    {
+      "path": "tests/qishui-entitlement-cache.test.js",
+      "sha256": "108e9253ac07628686a20ab00015f5660d5f00f798c85b158560840122cd2f1e"
+    },
+    {
+      "path": "tests/qishui-local-official-merge.test.js",
+      "sha256": "f3278e15e789fb831bfd79660fad0b232adf3252fc1216103b1d17fd13c56ab3"
+    },
+    {
+      "path": "tests/qishui-mfa-lifecycle.test.js",
+      "sha256": "a841232326e99d0e19d2b435d91639efc8a9e56a8a4cace2e19c893bf457873d"
+    },
+    {
+      "path": "tests/qishui-native-signing.test.js",
+      "sha256": "17d8de60107b59fdf89503f534b17332ac22df9377f0cd062b4566290176c49a"
+    },
+    {
+      "path": "tests/qishui-node-import-boundary.test.js",
+      "sha256": "2710e729b4bf28f51813d623a38d53e741deedd468fd38a1caab24821a226fa2"
+    },
+    {
+      "path": "tests/qishui-passport-qr-login.test.js",
+      "sha256": "7e791d1bb88a81e99237e93e9a9b1090393b57262e1d1609de4c2401f60b180c"
+    },
+    {
+      "path": "tests/qishui-playback-extent.test.js",
+      "sha256": "4d8346797fde913158a9235dbf59338eac68968f11e2b7eeff2cf05ec15d8586"
+    },
+    {
+      "path": "tests/qishui-player-info-boundary.test.js",
+      "sha256": "afb83eca969c66959574a6c4f43eb7213e9e6dc84eb51aa39a5fb4e37df132b6"
+    },
+    {
+      "path": "tests/qishui-provider-distribution.test.js",
+      "sha256": "42515fa45b816da24081434ed1f6c086169329009763c9602326ae1b555997b4"
+    },
+    {
+      "path": "tests/qishui-quality-tier.test.js",
+      "sha256": "5b04a48807fef044bc24465850bacc64355decab426f21b92ca44a0ea12a4880"
+    },
+    {
+      "path": "tests/qishui-seo-playback.test.js",
+      "sha256": "be7690e5ac3edb467ee3fb19c5e89e8acc734a600c8b73e1919ca658aa31202f"
+    },
+    {
+      "path": "tests/qishui-session-recovery.test.js",
+      "sha256": "076fa8eaa2c9bfc3030980c9361435c0183b7a1a30b4f7e17e179fe7d435bd52"
+    },
+    {
+      "path": "tests/qishui-tier-rights.test.js",
+      "sha256": "e33c77a71405a007a21445cc9090491702c77020700de72411a31fe71da141c6"
+    },
+    {
+      "path": "tests/qishui-trial-full-source.test.js",
+      "sha256": "39ad3a44c9f0059dfba85106cbf0f62e7475fffe139acd4843a14f2af066044e"
+    },
+    {
+      "path": "tests/qishui-window-isolation.test.js",
+      "sha256": "058d2b27b8ca4fbd87143e30961829d65246b5160c14a33c74928cd1fbd1614b"
+    },
+    {
+      "path": "tests/qq-login-navigation.test.js",
+      "sha256": "c33496b0252843e64bc1574015d2c38cd1a487022eaa1aafdd9366265d29f81d"
+    },
+    {
+      "path": "tests/qq-login-page.test.js",
+      "sha256": "93c501a9aa74bab3f73f32fcd928f48e9afbcd00fd3be910bf61fdd4835a4491"
+    },
+    {
+      "path": "tests/qq-native-protocol.test.js",
+      "sha256": "3e394f47db56da5af17a0fd66bafcd0219a7196ac0b6af9b380f87170bfceb37"
+    },
+    {
+      "path": "tests/qq-scan-presentation.test.js",
+      "sha256": "e94b6676a448d74c015c8f3a173b2006bd2dbddb6778efb10c1d5f36e4c53c4f"
+    },
+    {
+      "path": "tests/qq-vip-entitlement.test.js",
+      "sha256": "d5d5127d3a237b8a371d2ce932dadb610feaa0cab37be44ebd2b704faac81abe"
+    },
+    {
+      "path": "tests/quality-chip-local-track.test.js",
+      "sha256": "c29744757901fe6335fa7cee56ee5fa14135991ba5c9fe22c645a51928f9b1e3"
+    },
+    {
+      "path": "tests/quality-preset.test.js",
+      "sha256": "52d5d59d51e97b8588e058df4897f7f04aed9a23c9b85bba20ed0e5e49770e29"
+    },
+    {
+      "path": "tests/queue-logical-order.test.js",
+      "sha256": "b832caad4eed736357b122014d3554316923dae2c72fb8c63019ef865fa4429c"
+    },
+    {
+      "path": "tests/queue-removal.test.js",
+      "sha256": "c556c09857a44f4c2307121f8ef8c397f27c27b44672be6562b656912381120b"
+    },
+    {
+      "path": "tests/remix-updater-download.test.js",
+      "sha256": "a40c9eda5d43584c25da9d1d2147ac0374becbf793ae08f43baf3c9fc8b0d642"
+    },
+    {
+      "path": "tests/remix-updater-install.test.js",
+      "sha256": "e1e01e3b56a6ffbab6703ea5c6b6d2c35c07d988f86cbd6716f946deefec0857"
+    },
+    {
+      "path": "tests/remix-updater.test.js",
+      "sha256": "4af6c6a24cafb242fbce243fa7890e2cc456c139f63ed137ea50cdc416c60f5a"
+    },
+    {
+      "path": "tests/removed-provider-backend.test.js",
+      "sha256": "a788736605a18cb78c160a6680db5a5f55d341aa18937660c448659c2377ffbe"
+    },
+    {
+      "path": "tests/request-body-lifecycle.test.js",
+      "sha256": "426e6eb20aa749182766cf3d3c0789ff01491877fd9126bc21cfc27eb19d9ba7"
+    },
+    {
+      "path": "tests/request-lifecycle.test.js",
+      "sha256": "1723289e25a8589808dcc303ba7ca9d0032422e30bb20d9ff62ac149a5ecdf80"
+    },
+    {
+      "path": "tests/script-loader-lifecycle.test.js",
+      "sha256": "89b27125a6c0ad026f58b1180bea04bb503e207d52d814333b9096b2c13ac9ba"
+    },
+    {
+      "path": "tests/search-backend-latency.test.js",
+      "sha256": "1e7a4a66c20735936a740c95da55dd96832b4a31e26bdadfb4dc375d09dbab15"
+    },
+    {
+      "path": "tests/search-frontend-pagination.test.js",
+      "sha256": "d555815711795a53330961570abdcd3fb221af62ff41dfd2e20db9505cfee746"
+    },
+    {
+      "path": "tests/search-pinyin.test.js",
+      "sha256": "cce49157453f4e1188de9e65e5bf64bb1282c3c80b5787b47d86ce433d52d1df"
+    },
+    {
+      "path": "tests/server-security.test.js",
+      "sha256": "2a9004c70bb3c82ac6a6f696efc53b56fa94e91388ab7d2786face14e37b1778"
+    },
+    {
+      "path": "tests/shelf-cover-close-lifecycle.test.js",
+      "sha256": "9c2fe5009fbaf608a471e9c4224f2919667f1c6d94e032662aadbd22b3f2992b"
+    },
+    {
+      "path": "tests/shelf-lyric-flip.test.js",
+      "sha256": "920924d884836f0ffca068177e41fbebbbf39882c3d56557d460f129b3365a7e"
+    },
+    {
+      "path": "tests/shelf-panel-interaction.test.js",
+      "sha256": "763c4f0b2a716733279104dd8b7f44e6058371ede32f25b553cb72889fe0201f"
+    },
+    {
+      "path": "tests/shelf-texture-quality.test.js",
+      "sha256": "8f267a1c6d3183120b8029fb2b4d3550543a97ca6b7f2ada6f73365015fb5c59"
+    },
+    {
+      "path": "tests/song-comments-pagination.test.js",
+      "sha256": "47e389d6d832b93d71cb88d4d4243e029202370e8fb9de5f93dfb2e76d88cb02"
+    },
+    {
+      "path": "tests/sonic-cover-palette-timing.test.js",
+      "sha256": "116f03ee4d5d5ca59835f860ef8d236e1f213f5dd82982161d437882e3beb030"
+    },
+    {
+      "path": "tests/sonic-performance.test.js",
+      "sha256": "b5a6fcaa1acd6b8b6dbf533c6282c281fb0d7bc97ea21a8b361d7c4578563d6d"
+    },
+    {
+      "path": "tests/sonic-preferences-store.test.js",
+      "sha256": "6f678b15e891a4b79a86007b977c31437ae44b8cbef5965363fd38630684a879"
+    },
+    {
+      "path": "tests/sonic-topography-quality-continuity.test.js",
+      "sha256": "319b13aca4cf40e5f98522dcab57948a72e113f505167e9d2c6a5ef69c7feca8"
+    },
+    {
+      "path": "tests/sonic-workshop-audio.test.js",
+      "sha256": "a98c1840fd9d881cf914279e91c16f6da8c799fe6291e7b2b45708c14ba9faa9"
+    },
+    {
+      "path": "tests/sonic-workshop-cadence.test.js",
+      "sha256": "40a27983b131a17a9ff99e2b477d3692d1844f6423e964bc0333c51dd1727551"
+    },
+    {
+      "path": "tests/sonic-workshop-ripples.test.js",
+      "sha256": "f5fefc55b51a452d80d4a80f943f9e5b2da2650bbd7e6065f4bfcb4a9ca0c130"
+    },
+    {
+      "path": "tests/source-switch-playability.test.js",
+      "sha256": "a652e7bc03f157788f7346f48756f431b0059d5640702eb72da3a9c323782948"
+    },
+    {
+      "path": "tests/spotify-frontend-removal.test.js",
+      "sha256": "0bdae82bdf44f93f04f94090051a452543f6f1b6de5f75aac0e9f36d9695e1ce"
+    },
+    {
+      "path": "tests/spotify-playlist-removal.test.js",
+      "sha256": "eeabf7ec3162bd909f395074ccf3f234a6f2b8fda9e5e65cebca323eb678acf4"
+    },
+    {
+      "path": "tests/stage-lyric-background-restore.test.js",
+      "sha256": "a12502b240707e12bda4eddc0b6af7419c1e9414e3d56ac4e38bf124ff5f6d49"
+    },
+    {
+      "path": "tests/stage-lyric-mesh-boundaries.test.js",
+      "sha256": "a20a7e2c4d85ea0aa0b6f4d48c182b0c27d145d5d74a1024c799db8962f471ab"
+    },
+    {
+      "path": "tests/startup-navigation-readiness.test.js",
+      "sha256": "68645c5ac98fffc166599e573c7403d5ebb434756980be0de5cc360e4d1b8666"
+    },
+    {
+      "path": "tests/startup-qa-userdata-isolation.test.js",
+      "sha256": "c12c0cd7ce8a4233b7baaf0d61b0c01046d90df61a4a5759460f75e315e4d4df"
+    },
+    {
+      "path": "tests/startup-window-guide.test.js",
+      "sha256": "8195a798004f37db2696aaa5ffddb09795ce0a2cadcc883eada2a6ffe6b0dd98"
+    },
+    {
+      "path": "tests/system-media-session.test.js",
+      "sha256": "9c85764a9d1087161b515100ce60b6de198ee8f8832e6b38e29f13ae322ffc31"
+    },
+    {
+      "path": "tests/ui-control-accessibility.test.js",
+      "sha256": "c59c554cf1f0145a22dbaeee7448c0c0168985a135bef34bca50e3600493619b"
+    },
+    {
+      "path": "tests/ui-default-theme-shelf-layer.test.js",
+      "sha256": "1e7c53a8caea880723090720ab8082c5309cc52d2d10cced6539597f4ab5ba2e"
+    },
+    {
+      "path": "tests/ui-keyboard-interaction.test.js",
+      "sha256": "265cfa3cb41c13ed6be4eec89e50cbba5e266881f1f4119d3857feb5ce3986b6"
+    },
+    {
+      "path": "tests/ui-modal-accessibility.test.js",
+      "sha256": "d886e1ef27eb3cd623e859d32f18b9ca83caffe484518dafe15a2cfec95ccb71"
+    },
+    {
+      "path": "tests/ui-peek-focus.test.js",
+      "sha256": "9cc17a9788b72b872299947c151a3a3093e0258f4a23ac071d3088dbfd0631a6"
+    },
+    {
+      "path": "tests/ui-render-cache.test.js",
+      "sha256": "41c727f5bc9136baf927b56a7e7cbf69ae0c89c55626c37e8cfc7351ce79517c"
+    },
+    {
+      "path": "tests/ui-sfx-volume.test.js",
+      "sha256": "1c0f79c4c2f7774cf735f0f7f64b7224033ee3e240587adceae1dabeec6daac3"
+    },
+    {
+      "path": "tests/update-download-link-rotation.test.js",
+      "sha256": "1616ca3fd30cf3b0218a4c7a94264f25060abb6fefe20e409d3037c79d305ea5"
+    },
+    {
+      "path": "tests/update-early-check.test.js",
+      "sha256": "8fc2694692422147a177301fa0a5658d03e1f15d11454d4190a63e55ed9a6c28"
+    },
+    {
+      "path": "tests/update-external-only.test.js",
+      "sha256": "015ba0cb0bea51cf0de075552b9ff7bb5250977924d65c6dc2e11c7c917c8d2f"
+    },
+    {
+      "path": "tests/user-fx-archive-compat.test.js",
+      "sha256": "72ee215e265625e51b0d814a803ea194c5c8295d1979c1936fd9dbb5a3ae854f"
+    },
+    {
+      "path": "tests/viewport-refresh-budget.test.js",
+      "sha256": "ff200c7a24e3d123404041bdad7d419c248b8e28e2513331f2970f3bf33af1da"
+    },
+    {
+      "path": "tests/visual-clarity-and-portrait-fullscreen.test.js",
+      "sha256": "3e17924e968e0ab020f8e83b894e0e346b0d102acb99f7eff9478afe4d8a4ba5"
+    },
+    {
+      "path": "tests/visual-performance-controls.test.js",
+      "sha256": "94840fb126e926fb3b64cbc0de2773c7932947c848b03c40d95f166083bca7a2"
+    },
+    {
+      "path": "tests/wallpaper-background-regression.test.js",
+      "sha256": "72e37d5225a9b39f5779dcb3200ecd56cb64dc420594eeb988fb4acc25bfa25f"
+    },
+    {
+      "path": "tests/wallpaper-compatibility-messages.test.js",
+      "sha256": "ae94f26798883706d639147fee0ffccf118cb16a9d20f554743a985ba674f108"
+    },
+    {
+      "path": "tests/wallpaper-engine-idle-dispose.test.js",
+      "sha256": "c519eb1a6bd7827b5fbd4c259a67e90488ce699ca4d820d8517bc97165755a99"
+    },
+    {
+      "path": "tests/wallpaper-engine-minimize-resident.test.js",
+      "sha256": "4a470e9c074151b15791160864a140fed4722523d3e066e470cc317dcf73f9c8"
+    },
+    {
+      "path": "tests/wallpaper-engine-win10-yellow-border.test.js",
+      "sha256": "59a4af4eb2bf84c4a7cab47d93752e5afccf4fbfbb7a2b3dc43969659c4e8be1"
+    },
+    {
+      "path": "tests/wallpaper-interaction.test.js",
+      "sha256": "ae0a1b2e0f4457ca2eb83cad54529ed12f23a9f9e777e49f00a59b1e6c211b61"
+    },
+    {
+      "path": "tests/wallpaper-loop-cache.test.js",
+      "sha256": "bb0056f1f58e3f84b0dc6d3c0726720ec4bc8154ad22a761a829dc842f625eae"
+    },
+    {
+      "path": "tests/wallpaper-loop-leases.test.js",
+      "sha256": "b74671e19862756059bc80f6fedfc4b62328636c866908eb65d9544f71182ca6"
+    },
+    {
+      "path": "tests/wallpaper-loop-mode.test.js",
+      "sha256": "b021b0dc72bc22d507a25d836a8df9bfa5653ed9b4f7dcbad4595136107a62b5"
+    },
+    {
+      "path": "tests/wallpaper-loop-prune.test.js",
+      "sha256": "7ee53ac83b4ab6008f79c925e7c7a290d0cfe3e02831e859b43c9aacdfb59f4a"
+    },
+    {
+      "path": "tests/wallpaper-loop-window.test.js",
+      "sha256": "cbdfe3e8467394329700e7efc8fa3ca0b5c77fdeaca073e44a52627d21f8f618"
+    },
+    {
+      "path": "tests/wallpaper-native-input.test.js",
+      "sha256": "4e1bec9bf22e81c113cf07fd9e058c5a7c85d668869735e1d987b6c28d478c9f"
+    },
+    {
+      "path": "tests/wallpaper-node-import-boundary.test.js",
+      "sha256": "e51ef41fbe0717a7e994d59e0864fcbfdb471068100e4045400effe280919432"
+    },
+    {
+      "path": "tests/wallpaper-quality-properties.test.js",
+      "sha256": "f09038306d7292cd9143a179fa5646b85b982e21c1f9c07bc04b221156053e80"
+    },
+    {
+      "path": "tests/wallpaper-visual-reset.test.js",
+      "sha256": "ab849d18c23a75520f56823c88c22f102e1c30046fd75a8ecdfc7d3a0ed00d5a"
+    },
+    {
+      "path": "tests/wallpaper-window-follow.test.js",
+      "sha256": "39984ecc8669e06bd48b2ae5226126f68e6383a091a447d9441b1780f3e10aed"
+    },
+    {
+      "path": "tests/workflow-release-boundary.test.js",
+      "sha256": "96fec97c48d8746ea3d9f14d49e42f9190c348ffc90426bc0ed794036752067f"
+    }
+  ]
+}

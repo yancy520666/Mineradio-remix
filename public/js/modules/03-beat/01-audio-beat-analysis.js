@@ -1,39 +1,60 @@
+var beatAnalysisRequestOwners = { mr: new Set(), dj: new Set() };
+function beginBeatAnalysisRequest(mode, busy) {
+  var owner = { mode: mode, busy: busy, cancelled: false, controller: typeof AbortController === 'function' ? new AbortController() : null };
+  beatAnalysisRequestOwners[mode].add(owner);
+  return owner;
+}
+function cancelActiveBeatAnalysisRequests(mode) {
+  if (!beatAnalysisRequestOwners) return;
+  beatAnalysisRequestOwners[mode].forEach(function (owner) { owner.cancelled = true; if (owner.controller) owner.controller.abort(); });
+}
+function beatAnalysisRequestCancelled(owner) { return owner.cancelled || !!(owner.controller && owner.controller.signal.aborted); }
+function finishBeatAnalysisRequest(owner) {
+  beatAnalysisRequestOwners[owner.mode].delete(owner);
+  if (owner.controller) owner.controller.abort();
+}
+function fetchBeatAnalysisResource(url, owner) {
+  return fetch(url, owner.controller ? { signal: owner.controller.signal } : undefined);
+}
 async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
   options = options || {};
-  var analysisProfile = cinemaAnalysisProfileForSong(options.song);
-  var softGrooveAnalysis = !!(analysisProfile && analysisProfile.softGroove);
+  var requestOwner = beginBeatAnalysisRequest('mr', true);
+  function clearOwnedBeatChip() { if (token === beatMapToken) hideBeatChip(); }
   try {
+    var analysisProfile = cinemaAnalysisProfileForSong(options.song);
+    var softGrooveAnalysis = !!(analysisProfile && analysisProfile.softGroove);
     beatMapBusy = true;
     if (options.prefetch) showBeatChip('预热下一首节奏…');
     else if (options.background) showBeatChip('后台缓冲节奏…');
     await yieldToIdle(beatAnalysisYieldMs(options, 140, 760));
-    if (token !== beatMapToken) { hideBeatChip(); beatMapBusy = false; return null; }
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
     showBeatChip('正在分析节奏…');
-    var resp = await fetch(audioUrl);
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    var resp = await fetchBeatAnalysisResource(audioUrl, requestOwner);
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
     var ab = await resp.arrayBuffer();
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
 
     // 用临时 AudioContext 解码 (我们不能复用 audioCtx 因为它可能 closed)
     var TmpCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    if (!TmpCtx) { hideBeatChip(); return null; }
+    if (!TmpCtx) { clearOwnedBeatChip(); return null; }
     var DecodeCtx = window.AudioContext || window.webkitAudioContext;
     var dc = new DecodeCtx();
     var buffer = await new Promise(function (resolve, reject) {
       dc.decodeAudioData(ab.slice(0), resolve, reject);
     }).catch(function (e) { console.warn('decode failed:', e); return null; });
-    dc.close && dc.close();
-    if (!buffer) { hideBeatChip(); return null; }
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    ab = null;
+    try { var closing = dc.close && dc.close(); if (closing && closing.catch) closing.catch(function () {}); } catch (_) {}
+    if (!buffer) { clearOwnedBeatChip(); return null; }
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
 
     var musicTempoBeats = [];
     var musicTempoGridStep = 0;
-    var musicTempoTask = options.skipMusicTempo ? Promise.resolve(null) : analyzeMusicTempoInWorker(buffer, token);
+    var musicTempoTask = options.skipMusicTempo ? Promise.resolve(null) : analyzeMusicTempoInWorker(buffer, token, requestOwner.controller && requestOwner.controller.signal);
 
     // 用 OfflineAudioContext 分离低频重鼓 / 中频鼓身 / 高频敲击感.
     var sr = buffer.sampleRate;
     async function renderBand(hpFreq, lpFreq) {
-      if (token !== beatMapToken) return null;
+      if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) return null;
       var off = new TmpCtx(1, buffer.length, sr);
       var src = off.createBufferSource(); src.buffer = buffer;
       var node = src;
@@ -57,9 +78,9 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       src.start(0);
       try {
         var renderedBand = await off.startRendering();
-        if (token !== beatMapToken) return null;
+        if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) return null;
         await yieldToIdle(beatAnalysisYieldMs(options, 110, 620));
-        if (token !== beatMapToken) return null;
+        if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) return null;
         // Reduce this band before rendering the next one. Keeping all four
         // full-song PCM arrays alive multiplies peak memory during playback.
         return await makeFrameEnergy(renderedBand.getChannelData(0));
@@ -85,23 +106,23 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
         out[f] = Math.sqrt(s / winSize);
         if (f > 0 && f % 520 === 0) {
           await yieldToPaint();
-          if (token !== beatMapToken) return null;
+          if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) return null;
         }
       }
       return out;
     }
     var frameBands = [];
     frameBands.push(await renderBand(38, 155));
-    if (token !== beatMapToken || !frameBands[0]) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || !frameBands[0]) { clearOwnedBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
     frameBands.push(await renderBand(130, 420));
-    if (token !== beatMapToken || !frameBands[1]) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || !frameBands[1]) { clearOwnedBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
     frameBands.push(await renderBand(420, 2600));
-    if (token !== beatMapToken || !frameBands[2]) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || !frameBands[2]) { clearOwnedBeatChip(); return null; }
     await yieldToIdle(beatAnalysisYieldMs(options, 90, 520));
     frameBands.push(await renderBand(1800, 9000));
-    if (token !== beatMapToken || !frameBands[0] || !frameBands[1] || !frameBands[2] || !frameBands[3]) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || !frameBands[0] || !frameBands[1] || !frameBands[2] || !frameBands[3]) { clearOwnedBeatChip(); return null; }
     var energy = frameBands[0];
     var bodyEnergy = frameBands[1];
     var vocalEnergy = frameBands[2];
@@ -455,7 +476,7 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       }
       if (f > winN && f % 900 === 0) {
         await yieldToPaint();
-        if (token !== beatMapToken) { hideBeatChip(); return null; }
+        if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
       }
     }
 
@@ -559,7 +580,7 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
     }
 
     var musicTempoResult = await musicTempoTask;
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
     if (musicTempoResult && musicTempoResult.beats && musicTempoResult.beats.length) {
       musicTempoBeats = normalizeMusicTempoBeats(musicTempoResult.beats || [], buffer.duration);
       musicTempoGridStep = medianGap(musicTempoBeats, 0.36, 1.00);
@@ -746,16 +767,17 @@ async function analyzeAudioBeats(audioUrl, durationSec, token, options) {
       };
     });
     await yieldToPaint();
-    if (token !== beatMapToken) { hideBeatChip(); return null; }
-    if (options.prefetch) hideBeatChip();
+    if (token !== beatMapToken || beatAnalysisRequestCancelled(requestOwner)) { clearOwnedBeatChip(); return null; }
+    if (options.prefetch) clearOwnedBeatChip();
     else showBeatChip('节奏缓冲中…');
     return { kicks: kicks, beats: beats, pulseBeats: pulseBeats, cameraBeats: cameraBeats, gridStep: gridStep, tempoSource: musicTempoBeats.length >= 4 ? 'music-tempo' : 'local', analysisProfile: analysisProfile.id || 'default', duration: buffer.duration, visualBeatCount: visualBeatCount, analyzedAt: Date.now() };
   } catch (e) {
-    console.warn('beat analysis failed:', e);
-    hideBeatChip();
+    if (!e || e.name !== 'AbortError') console.warn('beat analysis failed:', e);
+    if (token === beatMapToken) clearOwnedBeatChip();
     return null;
   } finally {
-    beatMapBusy = false;
+    finishBeatAnalysisRequest(requestOwner);
+    beatMapBusy = beatAnalysisRequestOwners.mr.size > 0;
   }
 }
 

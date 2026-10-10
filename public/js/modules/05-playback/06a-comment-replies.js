@@ -88,7 +88,7 @@ function loadMoreDetailReplies(key) {
   var url = '/api/song/comment/replies?provider=' + encodeURIComponent(owner.config.provider) +
     '&id=' + encodeURIComponent(songId) + '&parentId=' + encodeURIComponent(thread.parentId) +
     '&resource=' + encodeURIComponent(thread.resource) + '&limit=20&offset=' + thread.offset + '&cursor=' + encodeURIComponent(thread.cursor);
-  return apiJson(url).then(function (result) {
+  return readDetailComments(owner, url, false).then(function (result) {
     if (owner !== detailCommentsState || owner.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error(result && result.error || 'REPLIES_UNAVAILABLE');
     var fresh = result.comments.filter(function (comment) {
@@ -102,7 +102,8 @@ function loadMoreDetailReplies(key) {
     thread.count += fresh.length;
     thread.total = Math.max(thread.total, Number(result.total) || 0, thread.count);
     thread.loaded = true;
-    thread.hasMore = result.hasMore === true && fresh.length > 0;
+    thread.emptyPages = fresh.length ? 0 : (thread.emptyPages || 0) + 1;
+    thread.hasMore = result.hasMore === true && thread.emptyPages < 3;
     if (owner.config.provider === 'kugou') {
       var offset = Number(result.nextOffset);
       thread.hasMore = thread.hasMore && Number.isFinite(offset) && offset > thread.offset;
@@ -114,6 +115,7 @@ function loadMoreDetailReplies(key) {
     }
   }).catch(function (error) {
     if (owner === detailCommentsState && owner.seq === trackDetailSeq) {
+      if (error && error.name === 'AbortError') return;
       thread.error = true;
       thread.errorMessage = error.message === 'QISHUI_COOKIE_REQUIRED' ? '请先登录汽水音乐后重试' : '回复加载失败';
     }

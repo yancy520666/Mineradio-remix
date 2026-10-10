@@ -16,7 +16,8 @@ function repository(seed) {
 }
 function runtimeFixture(rejectExchange = false) {
   const requests = [], store = repository(createAndroidDevice());
-  let emit;
+  let emit, ready;
+  const listening = new Promise(resolve => { ready = resolve; });
   const runtime = createQQNativeRuntime({ deviceRepository: store,
     http: { getCookieHeader: () => '', request: async config => {
       if (typeof config.data === 'string') config = { ...config, data: JSON.parse(config.data) };
@@ -30,8 +31,8 @@ function runtimeFixture(rejectExchange = false) {
       if (req.method === 'GetLoginUserInfo') code = 1000;
       return { status: 200, data: { code: 0, req_0: { code, data } } };
     } },
-    listen: (_id, onEvent) => { emit = onEvent; return { ready: Promise.resolve(), done: new Promise(() => {}), close() {} }; } });
-  return { runtime, requests, store, confirm: () => emit({ type: 'cookies', payload: { cookies: {
+    listen: (_id, onEvent) => { emit = onEvent; ready(); return { ready: Promise.resolve(), done: new Promise(() => {}), close() {} }; } });
+  return { runtime, requests, store, listening, confirm: () => emit({ type: 'cookies', payload: { cookies: {
     qqmusic_uin: { value: '123' }, qqmusic_key: { value: 'interim-fixture-token' } } } }) };
 }
 test('new protocol refreshes derived bootstrap cache once without replacing device identity', () => {
@@ -91,7 +92,7 @@ test('exchange rejection keeps 50006 and validation 1000; UI never claims expiry
   const session = createQQNativeQrSession({ ...f.runtime, confirmationGraceMs: 0, timeoutMs: 1000,
     notify: notice => notices.push(notice), finish: value => results.push(value) });
   try {
-    await settle(); f.confirm(); await settle(); await session.poll();
+    await f.listening; f.confirm(); await settle(); await session.poll();
     const notice = notices.at(-1);
     assert.equal(notice.stage, 'failed'); assert.equal(notice.expired, false);
     assert.equal(notice.upstreamCode, 1000); assert.equal(notice.exchangeUpstreamCode, 50006);
@@ -117,7 +118,7 @@ test('server sends the same native profile for playback while web requests retai
     const context = vm.createContext({ nativeCommForCookie: () => native ? { cv: PROFILE.version, os_ver: '15' } : null,
       qqCookieObject: () => ({}), qqNativeUserAgent, QQ_HEADERS: { 'User-Agent': 'web-original' }, Buffer, qqCookie: 'fixture-cookie',
       requestText: async (url, options, body) => { request = options; request.body = body; return '{}'; }, parseJSONText: JSON.parse, QQ_MUSICU_URL: 'https://u.y.qq.com/cgi-bin/musicu.fcg' });
-    loadFunctions(context, 'server.js', ['qqMusicRequest']);
+    loadFunctions(context, 'server.js', ['parseCookieString', 'qqMusicRequest']);
     await context.qqMusicRequest({ comm: { cv: 14090008 }, req_0: {} }, { cookie: true });
     assert.equal(request.headers['User-Agent'], native ? qqNativeUserAgent('15') : 'web-original');
     assert.equal(JSON.parse(request.body).comm.cv, native ? PROFILE.version : 14090008);
@@ -125,7 +126,8 @@ test('server sends the same native profile for playback while web requests retai
 });
 test('19-digit WeChat/phone account ids reach the exchange and the saved cookie without rounding', async () => {
   const uin = '1152921504838201234', requests = [], store = repository(createAndroidDevice());
-  let emit;
+  let emit, ready;
+  const listening = new Promise(resolve => { ready = resolve; });
   const runtime = createQQNativeRuntime({ deviceRepository: store,
     http: { getCookieHeader: () => '', request: async config => {
       requests.push(config);
@@ -142,11 +144,11 @@ test('19-digit WeChat/phone account ids reach the exchange and the saved cookie 
       if (req.method === 'Login') throw new Error('exchange must not be sent as a rounded object');
       return { status: 200, data: { code: 0, req_0: { code: 0, data } } };
     } },
-    listen: (_id, onEvent) => { emit = onEvent; return { ready: Promise.resolve(), done: new Promise(() => {}), close() {} }; } });
+    listen: (_id, onEvent) => { emit = onEvent; ready(); return { ready: Promise.resolve(), done: new Promise(() => {}), close() {} }; } });
   const results = [];
   const session = createQQNativeQrSession({ ...runtime, timeoutMs: 1000, notify: () => {}, finish: value => results.push(value) });
   try {
-    await settle(); await settle();
+    await listening;
     emit({ type: 'cookies', payload: { cookies: { qqmusic_uin: { value: uin }, qqmusic_key: { value: 'interim' } } } });
     await settle(); await session.poll();
     assert.equal(results.length, 1);

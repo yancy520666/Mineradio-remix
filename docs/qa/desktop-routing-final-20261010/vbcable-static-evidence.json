@@ -1,0 +1,1123 @@
+{
+  "source_product_page": "https://vb-audio.com/Cable/",
+  "source_download_url": "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip",
+  "downloaded_at_utc": "2026-10-10T11:50:33Z",
+  "http_status": 200,
+  "http_last_modified": "Fri, 05 Dec 2025 10:44:38 GMT",
+  "archive_size": 1318877,
+  "archive_sha256": "b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb",
+  "file_count": 31,
+  "uncompressed_size": 3467579,
+  "layout": "31 files at archive root; no directories, absolute paths, traversal, backslash paths, symlinks or duplicate names detected",
+  "readme_zip_entry_datetime_local_unspecified_timezone": [
+    2024,
+    10,
+    8,
+    15,
+    19,
+    2
+  ],
+  "setup_x64_required_system_dll_imports": [
+    "SETUPAPI.dll",
+    "KERNEL32.dll",
+    "USER32.dll",
+    "GDI32.dll",
+    "ADVAPI32.dll",
+    "SHELL32.dll"
+  ],
+  "setup_x64_filename": "VBCABLE_Setup_x64.exe",
+  "setup_x64_machine": "AMD64 0x8664",
+  "setup_x86_filename": "VBCABLE_Setup.exe",
+  "setup_x86_machine": "I386 0x14c",
+  "windows10_x64_inf": "vbMmeCable64_win10.inf",
+  "windows10_x64_catalog": "vbaudio_cable64_win10.cat",
+  "windows10_x64_driver": "vbaudio_cable64_win10.sys",
+  "windows10_arm64_driver": "vbaudio_cable64arm_win10.sys",
+  "dependency_policy": "Keep the entire original official package. The official readme requires full extraction; no minimal subset has been installation-tested.",
+  "silent_switches": "No switches documented in official product page, reference manual or package readme. Do not infer flags from other VB-Audio products.",
+  "license_risk": "Package readme requires Author agreement for integration into another software installation procedure. Website supplies a conditional bundling grant subject to end-user VB-Audio attribution and applicable donationware. Coverage of this project is not legally established.",
+  "allowed_conservative_runtime_flow": "Download unchanged official ZIP, verify fixed size/hash, reveal ZIP in its folder for the user to extract and start official setup manually; do not auto-run until license coverage is established.",
+  "execution_performed": false,
+  "system_changes_performed": false,
+  "signatures": {
+    "VBCABLE_Setup.exe": {
+      "publisher_subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+      "publisher_issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+      "publisher_der_sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794",
+      "publisher_serial": "0x52e140c4041a07b95a124e22",
+      "publisher_not_before": "2023-04-03 15:47:18+00:00",
+      "publisher_not_after": "2025-06-21 14:59:01+00:00",
+      "publisher_rsa_signed_attrs_verified": true,
+      "spc_content_digest_verified": true,
+      "authenticode_image_sha256": "14064021c535c41d690ec0f643a46b904dc03edf53b3ef21549ee89f96a8827c",
+      "authenticode_image_digest_verified": true,
+      "rfc3161_timestamp_utc": "20240722084230Z",
+      "timestamp_signature_verified": true,
+      "timestamp_imprint_of_publisher_signature_verified": true,
+      "timestamp_subject": "CN=Globalsign TSA for CodeSign1 - R6 - 202311,O=GlobalSign nv-sa,C=BE",
+      "timestamp_issuer": "CN=GlobalSign Timestamping CA - SHA384 - G4,O=GlobalSign nv-sa,C=BE",
+      "timestamp_der_sha256": "3a887a951b5eb92a5ee14f6cbb768237a545d0105bf04511bde25f82a916d1e8",
+      "timestamp_not_before": "2023-11-07 17:13:40+00:00",
+      "timestamp_not_after": "2034-12-09 17:13:40+00:00",
+      "windows_trust_revocation_kernel_policy_validation": "NOT RUN; requires Windows Get-AuthenticodeSignature and Windows driver policy"
+    },
+    "VBCABLE_Setup_x64.exe": {
+      "publisher_subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+      "publisher_issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+      "publisher_der_sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794",
+      "publisher_serial": "0x52e140c4041a07b95a124e22",
+      "publisher_not_before": "2023-04-03 15:47:18+00:00",
+      "publisher_not_after": "2025-06-21 14:59:01+00:00",
+      "publisher_rsa_signed_attrs_verified": true,
+      "spc_content_digest_verified": true,
+      "authenticode_image_sha256": "6812032f0353e113dd7b7b6d585c2da51259b3798b367bdc0e3381442ac0db37",
+      "authenticode_image_digest_verified": true,
+      "rfc3161_timestamp_utc": "20240930145109Z",
+      "timestamp_signature_verified": true,
+      "timestamp_imprint_of_publisher_signature_verified": true,
+      "timestamp_subject": "CN=Globalsign TSA for CodeSign1 - R6 - 202311,O=GlobalSign nv-sa,C=BE",
+      "timestamp_issuer": "CN=GlobalSign Timestamping CA - SHA384 - G4,O=GlobalSign nv-sa,C=BE",
+      "timestamp_der_sha256": "3a887a951b5eb92a5ee14f6cbb768237a545d0105bf04511bde25f82a916d1e8",
+      "timestamp_not_before": "2023-11-07 17:13:40+00:00",
+      "timestamp_not_after": "2034-12-09 17:13:40+00:00",
+      "windows_trust_revocation_kernel_policy_validation": "NOT RUN; requires Windows Get-AuthenticodeSignature and Windows driver policy"
+    }
+  },
+  "files": [
+    {
+      "name": "vbMmeCable64_win10.inf",
+      "size": 11361,
+      "sha256": "61c857be74831cc299d9be62f8d49d137f14063454fc54f859d5bc9b4b813daf",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "pin_in.ico",
+      "size": 7358,
+      "sha256": "934865449455103c1c5997d8220acd160c3891f8a870f8e745b743d12681ac42",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "pin_out.ico",
+      "size": 7358,
+      "sha256": "e8728a811e1f1af7d2ba31f77e47d449d5bba091e3e89a0df325ac7a3e67652c",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "readme.txt",
+      "size": 3846,
+      "sha256": "f865f3e78e37006d48e56c93f51eff4ca79acda9969854400d79bfa3db38a8d5",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbaudio_cable_2003.cat",
+      "size": 8868,
+      "sha256": "23a10e3bcd6ffe0de6d3d67830be4c447724b3299e13e954dd6bd2257cf55da1",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_2003.sys",
+      "size": 34024,
+      "sha256": "9650e20c38429d4680a7e603ecbe6601914ec4c94f8473112f21515bf53b84cf",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 26112,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_vista.cat",
+      "size": 8872,
+      "sha256": "810b30193a400b1559302c23f81ef8aaadf038b3caf3aff9bf200b59688a2def",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_vista.sys",
+      "size": 34024,
+      "sha256": "8b02c26313b75ceb8fb9bd16b6b167cf70d7f3bc977dfc1986c0859f8c72b49f",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 26112,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_win7.cat",
+      "size": 8868,
+      "sha256": "1c38afacf115818c925bc26faf216e3563e85bbc4d6d793e5f76f2aa670d08e7",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_win7.sys",
+      "size": 34024,
+      "sha256": "d047e3ee66e3ee023e598232ea22aa28dbb39adeabe818adfb2a72ab738df0b9",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 26112,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_xp.cat",
+      "size": 8860,
+      "sha256": "51434ebbda13caf3c7617ef3035126baacca3e523feaf6828b398d52503d70d2",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable_xp.sys",
+      "size": 34024,
+      "sha256": "9f9bc80a96cc94c761887749e51d9b4fb7ee6741ce624b8b2f9f85cd2e3fb02e",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 26112,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_2003.cat",
+      "size": 8876,
+      "sha256": "70f88e34c857c999367eb5b0303e23f5676b15a79ed4054f374749232baa0e3a",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_2003.sys",
+      "size": 41192,
+      "sha256": "5a726f3f1616f587c9f118bf337fd359df3f7cb9fc967a14229d59a31f2a9720",
+      "signature": "present",
+      "machine": "0x8664",
+      "pe_magic": "0x20b",
+      "certificate_offset": 33280,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_vista.cat",
+      "size": 8880,
+      "sha256": "cc17731e91f2f071e4a108bba34a2b8dcb69ea5975f4b9c39fcbc670e5cf15fb",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_vista.sys",
+      "size": 41192,
+      "sha256": "703572fa9e8aa1616e6b2abd36b91a4718de77eadc02ae05ed2c8f304d058afc",
+      "signature": "present",
+      "machine": "0x8664",
+      "pe_magic": "0x20b",
+      "certificate_offset": 33280,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_win7.cat",
+      "size": 8876,
+      "sha256": "800b541f06bba3925ba058e7cc7ca837cfd4d845e073309eb2a9d36a2626403a",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_win7.sys",
+      "size": 41192,
+      "sha256": "c7f3be383c81ab9aa642479f95872e40e19a4cfd72d4c8d7de80abc11b713e21",
+      "signature": "present",
+      "machine": "0x8664",
+      "pe_magic": "0x20b",
+      "certificate_offset": 33280,
+      "certificate_size": 7912,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "issuer": "CN=Thawte Timestamping CA,OU=Thawte Certification,O=Thawte,L=Durbanville,ST=Western Cape,C=ZA",
+          "serial": "0x7e93ebfb7cc64e59ea4b9a77d406fc3b",
+          "not_before": "2012-12-21 00:00:00+00:00",
+          "not_after": "2020-12-30 23:59:59+00:00",
+          "sha256": "0625fee1a80d7b897a9712249c2f55ff391d6661dbd8b87f9be6f252d88ced95"
+        },
+        {
+          "subject": "CN=Symantec Time Stamping Services Signer - G4,O=Symantec Corporation,C=US",
+          "issuer": "CN=Symantec Time Stamping Services CA - G2,O=Symantec Corporation,C=US",
+          "serial": "0xecff438c8febf356e04d86a981b1a50",
+          "not_before": "2012-10-18 00:00:00+00:00",
+          "not_after": "2020-12-29 23:59:59+00:00",
+          "sha256": "0374881c9b74d31f28dc580b0f2b9d2b14a97ce31cbec2a05aeb377dcddcc2b0"
+        },
+        {
+          "subject": "CN=Vincent Burel,OU=Individual Developer,OU=Digital ID Class 3 - Microsoft Software Validation v2,O=No Organization Affiliation,L=Eymet,ST=Dordogne,C=FR",
+          "issuer": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x7acf5c5a754daaf4cd6bd1d74791d59",
+          "not_before": "2013-11-02 00:00:00+00:00",
+          "not_after": "2015-01-01 23:59:59+00:00",
+          "sha256": "db9f6f54a13ef2ede5a8a7ba69dc841dc0711ba77ae7b173dd093e8455a4ed7e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=Microsoft Code Verification Root,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x611993e400000000001c",
+          "not_before": "2011-02-22 19:25:17+00:00",
+          "not_after": "2021-02-22 19:35:17+00:00",
+          "sha256": "468720148020cf74baae2a3a70b5b77f7d969e3a63069aae382aa77813c75b2e"
+        },
+        {
+          "subject": "CN=VeriSign Class 3 Code Signing 2010 CA,OU=Terms of use at https://www.verisign.com/rpa (c)10,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "issuer": "CN=VeriSign Class 3 Public Primary Certification Authority - G5,OU=(c) 2006 VeriSign\\, Inc. - For authorized use only,OU=VeriSign Trust Network,O=VeriSign\\, Inc.,C=US",
+          "serial": "0x5200e5aa2556fc1a86ed96c9d44b33c7",
+          "not_before": "2010-02-08 00:00:00+00:00",
+          "not_after": "2020-02-07 23:59:59+00:00",
+          "sha256": "0cfc19db681b014bfe3f23cb3a78b67208b4e3d8d7b6a7b1807f7cd6ecb2a54e"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_win10.cat",
+      "size": 12862,
+      "sha256": "0a921ebadbe39cf3fa7c14ff37d1ca22565a9651244bd3ac177dc810bc99072e",
+      "signature": "catalog-pkcs7",
+      "certificates": [
+        {
+          "subject": "CN=Microsoft Windows Hardware Compatibility Publisher,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "issuer": "CN=Microsoft Windows Third Party Component CA 2014,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x33000000686482c2f9111ac876000000000068",
+          "not_before": "2024-01-11 20:09:14+00:00",
+          "not_after": "2025-01-10 20:09:14+00:00",
+          "sha256": "775267a223109cc801087b884a6f6c26779ccc4eb76545dd69b8dff6cbe7972b"
+        },
+        {
+          "subject": "CN=Microsoft Windows Third Party Component CA 2014,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "issuer": "CN=Microsoft Root Certificate Authority 2010,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US",
+          "serial": "0x330000000d690d5d7893d076df00000000000d",
+          "not_before": "2014-10-15 20:31:27+00:00",
+          "not_after": "2029-10-15 20:41:27+00:00",
+          "sha256": "a0f259a07039908eeb943e223fdf996e5e1e131d9aa6a602ff4672f7b9298aee"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64_win10.sys",
+      "size": 140760,
+      "sha256": "f01344602472f1b527de5ee98f18987c03db48fea444e457d061e937f1d531d5",
+      "signature": "present",
+      "machine": "0x8664",
+      "pe_magic": "0x20b",
+      "certificate_offset": 117248,
+      "certificate_size": 23512,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x1ee5f169dff97352b6465d66a",
+          "not_before": "2018-09-19 00:00:00+00:00",
+          "not_after": "2028-01-28 12:00:00+00:00",
+          "sha256": "445eec78bc61215044a0379656aa2d5db5e42f76cb70b8d14c2077aa943d4ebb"
+        },
+        {
+          "subject": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "serial": "0x7803184245708a41cf6f01b8eeb4a954",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2029-03-18 00:00:00+00:00",
+          "sha256": "05e0634b1feb98ae6b4cf101728cf9d5a1793ceace301506ff332b22d4cf08eb"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x77bd0e05b7590bb61d4761531e3f75ed",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2030-07-28 00:00:00+00:00",
+          "sha256": "cd0e144dd10bac221fe2fb901058d16450a0578b3c47c770908f2e9ada28ef12"
+        },
+        {
+          "subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x52e140c4041a07b95a124e22",
+          "not_before": "2023-04-03 15:47:18+00:00",
+          "not_after": "2025-06-21 14:59:01+00:00",
+          "sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794"
+        }
+      ]
+    },
+    {
+      "name": "vbaudio_cable64arm_win10.sys",
+      "size": 149976,
+      "sha256": "2dc35db3dfad0f25771a3e59af38e8b1268878ebe127476ea75fee109f2927dd",
+      "signature": "present",
+      "machine": "0xaa64",
+      "pe_magic": "0x20b",
+      "certificate_offset": 126464,
+      "certificate_size": 23512,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x1ee5f169dff97352b6465d66a",
+          "not_before": "2018-09-19 00:00:00+00:00",
+          "not_after": "2028-01-28 12:00:00+00:00",
+          "sha256": "445eec78bc61215044a0379656aa2d5db5e42f76cb70b8d14c2077aa943d4ebb"
+        },
+        {
+          "subject": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "serial": "0x7803184245708a41cf6f01b8eeb4a954",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2029-03-18 00:00:00+00:00",
+          "sha256": "05e0634b1feb98ae6b4cf101728cf9d5a1793ceace301506ff332b22d4cf08eb"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x77bd0e05b7590bb61d4761531e3f75ed",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2030-07-28 00:00:00+00:00",
+          "sha256": "cd0e144dd10bac221fe2fb901058d16450a0578b3c47c770908f2e9ada28ef12"
+        },
+        {
+          "subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x52e140c4041a07b95a124e22",
+          "not_before": "2023-04-03 15:47:18+00:00",
+          "not_after": "2025-06-21 14:59:01+00:00",
+          "sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794"
+        }
+      ]
+    },
+    {
+      "name": "VBCABLE_ControlPanel.exe",
+      "size": 930048,
+      "sha256": "f5b44706fe7ba2eed0516dee791f826dc7a9891e997f6ce9704e2899300b14ff",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 916992,
+      "certificate_size": 13056,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x1ee5f169dff97352b6465d66a",
+          "not_before": "2018-09-19 00:00:00+00:00",
+          "not_after": "2028-01-28 12:00:00+00:00",
+          "sha256": "445eec78bc61215044a0379656aa2d5db5e42f76cb70b8d14c2077aa943d4ebb"
+        },
+        {
+          "subject": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "serial": "0x7803184245708a41cf6f01b8eeb4a954",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2029-03-18 00:00:00+00:00",
+          "sha256": "05e0634b1feb98ae6b4cf101728cf9d5a1793ceace301506ff332b22d4cf08eb"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x77bd0e05b7590bb61d4761531e3f75ed",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2030-07-28 00:00:00+00:00",
+          "sha256": "cd0e144dd10bac221fe2fb901058d16450a0578b3c47c770908f2e9ada28ef12"
+        },
+        {
+          "subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x52e140c4041a07b95a124e22",
+          "not_before": "2023-04-03 15:47:18+00:00",
+          "not_after": "2025-06-21 14:59:01+00:00",
+          "sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794"
+        }
+      ]
+    },
+    {
+      "name": "VBCABLE_Setup.exe",
+      "size": 914176,
+      "sha256": "01ffc86b623ff3c75a883aa900c0215a89482988e1c8e55988fc0a9fb513dbed",
+      "signature": "present",
+      "machine": "0x14c",
+      "pe_magic": "0x10b",
+      "certificate_offset": 901120,
+      "certificate_size": 13056,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x1ee5f169dff97352b6465d66a",
+          "not_before": "2018-09-19 00:00:00+00:00",
+          "not_after": "2028-01-28 12:00:00+00:00",
+          "sha256": "445eec78bc61215044a0379656aa2d5db5e42f76cb70b8d14c2077aa943d4ebb"
+        },
+        {
+          "subject": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "serial": "0x7803184245708a41cf6f01b8eeb4a954",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2029-03-18 00:00:00+00:00",
+          "sha256": "05e0634b1feb98ae6b4cf101728cf9d5a1793ceace301506ff332b22d4cf08eb"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x77bd0e05b7590bb61d4761531e3f75ed",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2030-07-28 00:00:00+00:00",
+          "sha256": "cd0e144dd10bac221fe2fb901058d16450a0578b3c47c770908f2e9ada28ef12"
+        },
+        {
+          "subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x52e140c4041a07b95a124e22",
+          "not_before": "2023-04-03 15:47:18+00:00",
+          "not_after": "2025-06-21 14:59:01+00:00",
+          "sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794"
+        }
+      ]
+    },
+    {
+      "name": "VBCABLE_Setup_x64.exe",
+      "size": 937728,
+      "sha256": "734c35dfa6d98f48782a451633ceb471166ec70d60482fd89a1123d0ee3c4f41",
+      "signature": "present",
+      "machine": "0x8664",
+      "pe_magic": "0x20b",
+      "certificate_offset": 924672,
+      "certificate_size": 13056,
+      "win_cert_revision": "0x200",
+      "win_cert_type": 2,
+      "certificates": [
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x1ee5f169dff97352b6465d66a",
+          "not_before": "2018-09-19 00:00:00+00:00",
+          "not_after": "2028-01-28 12:00:00+00:00",
+          "sha256": "445eec78bc61215044a0379656aa2d5db5e42f76cb70b8d14c2077aa943d4ebb"
+        },
+        {
+          "subject": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R3",
+          "serial": "0x7803184245708a41cf6f01b8eeb4a954",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2029-03-18 00:00:00+00:00",
+          "sha256": "05e0634b1feb98ae6b4cf101728cf9d5a1793ceace301506ff332b22d4cf08eb"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Code Signing Root R45,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x77bd0e05b7590bb61d4761531e3f75ed",
+          "not_before": "2020-07-28 00:00:00+00:00",
+          "not_after": "2030-07-28 00:00:00+00:00",
+          "sha256": "cd0e144dd10bac221fe2fb901058d16450a0578b3c47c770908f2e9ada28ef12"
+        },
+        {
+          "subject": "CN=BUREL VINCENT Entrepreneur individuel,O=BUREL VINCENT Entrepreneur individuel,STREET=21 avenue des Marguerites,L=Eymet,ST=Dordogne,C=FR,1.3.6.1.4.1.311.60.2.1.3=FR,2.5.4.5=423 734 177,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R45 EV CodeSigning CA 2020,O=GlobalSign nv-sa,C=BE",
+          "serial": "0x52e140c4041a07b95a124e22",
+          "not_before": "2023-04-03 15:47:18+00:00",
+          "not_after": "2025-06-21 14:59:01+00:00",
+          "sha256": "6c37d5dda6b7e880b38339e233689c302e7d26ccfdac019b3c3f4bd16330a794"
+        }
+      ]
+    },
+    {
+      "name": "vbMmeCable_2003.inf",
+      "size": 4586,
+      "sha256": "64b67f80535d92a1a8625b4c9b9f7302ed959cb375947ca993b8cbaf205d3569",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable_vista.inf",
+      "size": 4142,
+      "sha256": "50761a7e817b3a5e96a4eb8e3d31fbc249b0601343dcb732dd3cbe0b0a70f232",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable_win7.inf",
+      "size": 4138,
+      "sha256": "5664f33116c1021f4280cfde1c571554fbb70b5480bd58a4fd53b281cd4f515c",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable_xp.inf",
+      "size": 4576,
+      "sha256": "58d9737fa732c11c8cc52839a3f61ecf2cb2a98a7dfffe423e3e591de7f56d46",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable64_2003.inf",
+      "size": 4596,
+      "sha256": "73aa40eef245da221c6fc6ea3299983421c9a9051df8da7414652304f01bb835",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable64_vista.inf",
+      "size": 4150,
+      "sha256": "340feb0ce66ffb7922595a763bf23d2fec07bed9e50b6cb6327e559174c515d4",
+      "signature": "not-applicable"
+    },
+    {
+      "name": "vbMmeCable64_win7.inf",
+      "size": 4146,
+      "sha256": "da35387ccfe813f5c553bb7e0caf4e67adbb4429e742c2bd3c2014f80e6ec516",
+      "signature": "not-applicable"
+    }
+  ],
+  "parent_implementation_direction": "Use current public conditional bundling grant with visible VB-Audio origin, Donationware and donation route; user-confirmed download plus visible official setup launch may be implemented as code only. Do not claim individual written authorization; preserve package-readme/website difference and verify future commercial distribution. This audit executed no installer."
+}

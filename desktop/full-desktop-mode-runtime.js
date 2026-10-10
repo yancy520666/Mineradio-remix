@@ -463,7 +463,6 @@ class FullDesktopModeRuntime {
     // starts as a normal taskbar window; embedders can supply their own policy.
     this.normalSkipTaskbar = options.normalSkipTaskbar === true;
     this.windowIcon = options.windowIcon || null;
-    this.beforeReveal = typeof options.beforeReveal === 'function' ? options.beforeReveal : null;
     this.transitionTimings = {};
     this.execFileImpl = options.execFileImpl || execFile;
     this.nativeTempPath = String(options.nativeTempPath || '');
@@ -1648,7 +1647,7 @@ class FullDesktopModeRuntime {
     safeCall(win, 'showInactive', null);
   }
 
-  applyInteractive(win, bounds, options = {}) {
+  applyInteractive(win, bounds) {
     if (!this.attachment || this.attachment.kind !== 'icon-host') {
       safeCall(win, 'setBounds', null, bounds, false);
     }
@@ -1658,7 +1657,7 @@ class FullDesktopModeRuntime {
     safeCall(win, 'setResizable', null, false);
     safeCall(win, 'setMovable', null, false);
     this.applyInteractivePointerRoute(win, { force: true });
-    if (options.show !== false) safeCall(win, 'showInactive', null);
+    safeCall(win, 'showInactive', null);
   }
 
   async transitionStage(name, operation) {
@@ -1667,26 +1666,19 @@ class FullDesktopModeRuntime {
     finally { this.transitionTimings[name] = Math.round(performance.now() - started); }
   }
 
-  async revealInteractiveWindow(win, display, reason) {
-    this.applyInteractive(win, display.bounds, { show: false });
-    if (this.beforeReveal) {
-      await this.transitionStage('rendererMs', () => this.beforeReveal({ win, status: this.getStatus(reason) }));
-    }
+  async revealInteractiveWindow(win, display) {
     const watcher = this.iconShapeWatcher;
     if (!this.isWindowAlive(win) || this.disposeRequested || this.window !== win
       || (watcher && this.iconShapeStopRequested.has(watcher))) {
       throw new Error('FULL_DESKTOP_REVEAL_SUPERSEDED');
     }
     await this.transitionStage('revealMs', async () => {
-      if (watcher && typeof watcher.reveal === 'function') {
-        // One native operation places and shows the child below the icon view.
-        // BrowserWindow.showInactive() can first expose cached top-level bounds.
-        const layout = await watcher.reveal();
-        this.applyIconShapeLayout(win, display, layout, reason + '-revealed', true);
-      } else {
-        safeCall(win, 'showInactive', null);
-        await this.ensureIconLayerOrder();
-      }
+      // Keep Electron's visibility/compositor lifecycle authoritative. A native
+      // HWND show alone does not update Chromium's cached widget state.
+      this.applyInteractive(win, display.bounds);
+      // Electron may reuse pre-SetParent bounds. The existing guard then
+      // acknowledges the display's physical bounds below Explorer icons.
+      await this.ensureIconLayerOrder();
     });
   }
 

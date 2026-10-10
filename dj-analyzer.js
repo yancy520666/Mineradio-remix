@@ -1,6 +1,67 @@
 const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const FULL_STREAM_QUALITY_LIMIT_SEC = 7200;
 
+function analysisAbortError() {
+  return Object.assign(new Error('Podcast analysis cancelled'), { name: 'AbortError', code: 'ANALYSIS_ABORTED' });
+}
+function checkAnalysisSignal(signal) { if (signal && signal.aborted) throw analysisAbortError(); }
+function readPodcastAnalysisChunk(reader, signal) {
+  checkAnalysisSignal(signal);
+  if (!signal) return reader.read();
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (error, value) => {
+      if (done) return;
+      done = true; signal.removeEventListener('abort', abort);
+      if (error) reject(error); else resolve(value);
+    };
+    const abort = () => {
+      try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {}
+      finish(analysisAbortError());
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) { abort(); return; }
+    Promise.resolve().then(() => reader.read()).then(value => finish(null, value), error => finish(error));
+  });
+}
+// Two slots preserve the ordinary intro + full-map pair. A second pair may
+// wait, but departed requests cannot accumulate decoders or queued work.
+function createPodcastAnalysisLimiter(maxActive = 2, maxQueued = 2) {
+  const queue = [];
+  let active = 0;
+  function pump() {
+    while (active < maxActive && queue.length) {
+      const job = queue.shift();
+      if (job.signal && job.signal.aborted) { job.abort(); continue; }
+      job.started = true; active += 1;
+      Promise.resolve().then(() => { checkAnalysisSignal(job.signal); return job.run(); }).then(job.resolve, job.reject).finally(() => {
+        active -= 1;
+        if (job.signal) job.signal.removeEventListener('abort', job.abort);
+        pump();
+      });
+    }
+  }
+  return {
+    run(run, signal) {
+      if (signal && signal.aborted) return Promise.reject(analysisAbortError());
+      if (active >= maxActive && queue.length >= maxQueued) return Promise.reject(Object.assign(new Error('Podcast analysis busy'), { code: 'ANALYSIS_QUEUE_FULL' }));
+      return new Promise((resolve, reject) => {
+        const job = { run, signal, resolve, reject, started: false };
+        job.abort = () => {
+          if (!job.started) {
+            const index = queue.indexOf(job); if (index >= 0) queue.splice(index, 1);
+            if (signal) signal.removeEventListener('abort', job.abort);
+          }
+          reject(analysisAbortError());
+        };
+        if (signal) signal.addEventListener('abort', job.abort, { once: true });
+        queue.push(job); pump();
+      });
+    },
+    snapshot: () => ({ active, queued: queue.length, maxActive, maxQueued }),
+  };
+}
+
 function clamp01(v) {
   return Math.max(0, Math.min(1, Number(v) || 0));
 }
@@ -383,9 +444,10 @@ function buildBeatMapFromLowEnergy(lowEnergy, hitEnergy, hopSec, durationSec) {
 
 async function decodePodcastDjEnergyRange(audioUrl, opts) {
   opts = opts || {};
+  checkAnalysisSignal(opts.signal);
   const { MPEGDecoder } = await import('mpg123-decoder');
   const decoder = new MPEGDecoder({ enableGapless: false });
-  await decoder.ready;
+  try { await decoder.ready; } catch (error) { decoder.free(); throw error; }
 
   const durationHint = Math.max(0, Number(opts.durationSec) || 0);
   const hopSec = durationHint > 4200 ? 0.0125 : 0.010;
@@ -442,18 +504,21 @@ async function decodePodcastDjEnergyRange(audioUrl, opts) {
     }
   }
 
+  let reader;
   try {
+    checkAnalysisSignal(opts.signal);
     const headers = {
       'User-Agent': opts.userAgent || DEFAULT_UA,
       'Referer': 'https://music.163.com/',
     };
     if (opts.range) headers.Range = opts.range;
-    const resp = await require('./server-security').fetchPublicResource(audioUrl, { headers });
+    const resp = await require('./server-security').fetchPublicResource(audioUrl, { headers, signal: opts.signal });
     if (!resp.ok && resp.status !== 206) throw new Error('Audio fetch failed: ' + resp.status);
     if (!resp.body) throw new Error('Audio response has no body');
-    const reader = resp.body.getReader();
+    reader = resp.body.getReader();
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readPodcastAnalysisChunk(reader, opts.signal);
+      checkAnalysisSignal(opts.signal);
       if (done) break;
       if (!value || !value.length) continue;
       chunks++;
@@ -467,6 +532,7 @@ async function decodePodcastDjEnergyRange(audioUrl, opts) {
     processDecoded(decoder.decode(new Uint8Array(0)));
     if (frameCount > 0) pushFrame();
   } finally {
+    if (reader) { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} }
     decoder.free();
   }
 
@@ -494,6 +560,7 @@ async function analyzePodcastDjIntro(audioUrl, opts) {
     durationSec: introSec,
     userAgent: opts.userAgent,
     limitSec: introSec + 8,
+    signal: opts.signal,
   });
   const frameLimit = Math.max(1, Math.min(decoded.lowEnergy.length, Math.ceil((introSec + 2) / Math.max(0.001, decoded.hopSec || 0.010))));
   const lowEnergy = decoded.lowEnergy.slice(0, frameLimit);
@@ -526,6 +593,7 @@ async function analyzePodcastDjRangeSamples(audioUrl, opts) {
   try {
     const head = await require('./server-security').fetchPublicResource(audioUrl, {
       method: 'HEAD',
+      signal: opts.signal,
       headers: {
         'User-Agent': opts.userAgent || DEFAULT_UA,
         'Referer': 'https://music.163.com/',
@@ -533,6 +601,7 @@ async function analyzePodcastDjRangeSamples(audioUrl, opts) {
     });
     contentLength = Number(head.headers.get('content-length') || 0) || 0;
   } catch (err) {
+    checkAnalysisSignal(opts.signal);
     contentLength = 0;
   }
   if (!contentLength) {
@@ -552,6 +621,7 @@ async function analyzePodcastDjRangeSamples(audioUrl, opts) {
   let totalDecoded = 0;
 
   for (let i = 0; i < sampleStarts.length; i++) {
+    checkAnalysisSignal(opts.signal);
     const targetTime = Math.max(0, Math.min(duration - sampleWindow, sampleStarts[i]));
     const bytePerSec = contentLength / Math.max(1, duration);
     const prerollBytes = i === 0 ? 0 : Math.min(384 * 1024, Math.floor(bytePerSec * 4));
@@ -563,6 +633,7 @@ async function analyzePodcastDjRangeSamples(audioUrl, opts) {
       durationSec: sampleWindow,
       userAgent: opts.userAgent,
       range: 'bytes=' + startByte + '-' + endByte,
+      signal: opts.signal,
     });
     totalChunks += decoded.decode.chunks || 0;
     totalDecoded += decoded.decode.decodedSamples || 0;
@@ -747,6 +818,7 @@ async function analyzePodcastDjStream(audioUrl, opts) {
       map.debug = Object.assign({}, map.debug || {}, { fullStreamQuality: true, requestedDurationSec: durationSec });
       return map;
     } catch (err) {
+      checkAnalysisSignal(opts.signal);
       console.warn('[PodcastDjBeatmap] full-stream quality path failed, falling back to range:', err && err.message ? err.message : err);
       return analyzePodcastDjRangeSamples(audioUrl, opts);
     }
@@ -759,9 +831,10 @@ async function analyzePodcastDjStream(audioUrl, opts) {
 
 async function analyzePodcastDjStreamFull(audioUrl, opts) {
   opts = opts || {};
+  checkAnalysisSignal(opts.signal);
   const { MPEGDecoder } = await import('mpg123-decoder');
   const decoder = new MPEGDecoder({ enableGapless: false });
-  await decoder.ready;
+  try { await decoder.ready; } catch (error) { decoder.free(); throw error; }
 
   const durationHint = Math.max(0, Number(opts.durationSec) || 0);
   const hopSec = durationHint > 9000 ? 0.0125 : 0.010;
@@ -817,17 +890,21 @@ async function analyzePodcastDjStreamFull(audioUrl, opts) {
     }
   }
 
+  let reader;
   try {
+    checkAnalysisSignal(opts.signal);
     const resp = await require('./server-security').fetchPublicResource(audioUrl, {
+      signal: opts.signal,
       headers: {
         'User-Agent': opts.userAgent || DEFAULT_UA,
         'Referer': 'https://music.163.com/',
       },
     });
     if (!resp.ok || !resp.body) throw new Error('Audio fetch failed: ' + resp.status);
-    const reader = resp.body.getReader();
+    reader = resp.body.getReader();
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readPodcastAnalysisChunk(reader, opts.signal);
+      checkAnalysisSignal(opts.signal);
       if (done) break;
       if (!value || !value.length) continue;
       chunks++;
@@ -838,6 +915,7 @@ async function analyzePodcastDjStreamFull(audioUrl, opts) {
     processDecoded(tail);
     if (frameCount > 0) pushFrame();
   } finally {
+    if (reader) { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (_) {} }
     decoder.free();
   }
 
@@ -858,6 +936,7 @@ async function analyzePodcastDjStreamFull(audioUrl, opts) {
 }
 
 module.exports = {
+  createPodcastAnalysisLimiter,
   analyzePodcastDjStream,
   analyzePodcastDjIntro,
   buildBeatMapFromLowEnergy,

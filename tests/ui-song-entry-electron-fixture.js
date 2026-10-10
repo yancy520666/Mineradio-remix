@@ -1,0 +1,68 @@
+'use strict';
+// Real DOM/native input + production row renderers, with inert fake songs/actions.
+// Partial fixture only: no main.js, server, media, accounts or renderer scene.
+const {app,BrowserWindow,session}=require('electron');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
+const {execFileSync}=require('node:child_process');
+const {pathToFileURL}=require('node:url');
+const root=path.resolve(__dirname,'..'),baseline='git:451b6cf';
+const profile=fs.mkdtempSync(path.join(os.tmpdir(),'mineradio-ui-song-'));
+app.setPath('userData',profile);app.on('window-all-closed',()=>{});
+const read=(file,dir=root)=>String(dir).startsWith('git:')?execFileSync('git',['show',dir.slice(4)+':'+file],{cwd:root,encoding:'utf8'}):fs.readFileSync(path.join(dir,file),'utf8');
+function fn(file,name,dir=root){const s=read(file,dir),start=s.indexOf('function '+name+'('),end=s.indexOf('\n}\n',start);assert(start>=0&&end>start,name);return s.slice(start,end+3)}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+let html=read('public/index.html').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link\b[^>]*>/gi,'');
+html=html.replace('</head>',`<link rel="stylesheet" href="${pathToFileURL(path.join(root,'public/css/index.css'))}"></head>`);
+const file=path.join(profile,'fixture.html');fs.writeFileSync(file,html);
+const search='public/js/modules/05-playback/07-search.js',shell='public/js/modules/06-lyrics/01-playlist-panel-shell.js',detail='public/js/modules/06-lyrics/02-playlist-detail.js',collect='public/js/modules/05-playback/06-track-detail-lyrics-actions.js';
+const globals=`
+var calls=[],freeCamera={active:false,keys:{}},desktopRuntimeState={fullscreen:false},desktopFullscreenActive=false,immersiveMode=false,diyPlayerMode=true,miniQueueOpen=true;
+var shelfManager={hasOpenContent:()=>false,next(){},prev(){}},currentIdx=0,queueRenderSeq=0,queueViewTab='queue',playQueue=[{id:1,name:'很长的歌曲标题'.repeat(15),artist:'Fixture artist'}];
+var playlistPanelDetailState={key:'mineradio:fixture',tracks:playQueue,loading:false,hasMore:false},PLAYLIST_DETAIL_ROW_STEP=58,PLAYLIST_DETAIL_VIRTUAL_OVERSCAN=2,PLAYLIST_DETAIL_INITIAL_RENDER=30;
+var collectTargetSong=playQueue[0],builtInPlaylists=[{id:'fixture-local',name:'隔离收藏歌单',trackCount:1}],userPlaylists=[];
+function escHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function songCoverSrc(){return ''} function songVipTagHtml(){return ''} function songSourceTagHtml(){return ''}function songProviderKey(){return 'netease'} function searchSongRowKey(s){return String(s.id)}function searchResultMetaHtml(s){return s.artist}function isSongLiked(){return false}function heartIconSvg(){return ''}function playlistPlusIconSvg(){return ''}function queueNextIconSvg(){return ''}function queueRemoveIconSvg(){return ''}
+function queuePanelVirtualWindow(){return {start:0,end:playQueue.length,top:0,bottom:0}}function queueVirtualSpacerHtml(){return ''}function queueHydrationFooterHtml(){return ''}function queueHydrationExpectedTotal(){return playQueue.length}function animateListItems(){}function smoothScrollToItem(){}
+function normalizePlaylistProvider(p){return p}function playlistPanelNoticeHtml(){return ''}function songAccountProvider(){return 'netease'}function songAccountAdapter(){return {collect:false}}function isSongAccountLoggedIn(){return false}
+function playSearchResult(i){calls.push('search:'+i)}function playQueueAt(i){calls.push('queue:'+i)}function playPlaylistPanelDetailTrack(i){calls.push('detail:'+i)}function addCollectTargetToBuiltInPlaylist(id){calls.push('collect:'+id)}
+function handleConfiguredLocalHotkey(){return false}function shouldSuppressDefaultConfiguredHotkey(){return false}function markRenderInteraction(){}function togglePlay(){calls.push('togglePlay')}function nextTrack(){calls.push('nextTrack')}function prevTrack(){calls.push('prevTrack')}function adjustVolumeByKeyboard(){}function goHome(){}
+`;
+app.whenReady().then(async()=>{
+ session.defaultSession.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(_r,cb)=>cb({cancel:true}));
+ const win=new BrowserWindow({width:960,height:540,show:true,frame:false,webPreferences:{nodeIntegration:false,contextIsolation:true,backgroundThrottling:false}});await win.loadFile(file);win.setSize(961,540);win.setSize(960,540);await wait(100);
+ const evaluate=s=>win.webContents.mainFrame.executeJavaScript(s);
+ await evaluate(globals+fn('public/js/modules/05-playback/01-cover-custom-map.js','isTypingTarget')+fn('public/js/modules/05-playback/01-cover-custom-map.js','isKeyboardUiTarget')+read('public/js/modules/10-shell/01-viewport-resize-shortcuts.js')+fn(search,'searchSongResultHtml')+fn(search,'searchSongResultHtml',baseline).replace('function searchSongResultHtml(','function baselineSearchSongResultHtml(')+fn(shell,'renderQueuePanel')+fn(shell,'renderMiniQueuePanel')+fn(detail,'playlistPanelDetailRowsHtml')+fn(shell,'renderQueuePanel',baseline).replace('function renderQueuePanel(','function baselineRenderQueuePanel(')+fn(shell,'renderMiniQueuePanel',baseline).replace('function renderMiniQueuePanel(','function baselineRenderMiniQueuePanel(')+fn(detail,'playlistPanelDetailRowsHtml',baseline).replace('function playlistPanelDetailRowsHtml(','function baselinePlaylistPanelDetailRowsHtml(')+fn(collect,'renderCollectModal'));
+ const detailSource=read(detail),bindStart=detailSource.indexOf("document.getElementById('pl-list').addEventListener('click'");await evaluate(detailSource.slice(bindStart,detailSource.indexOf('\n});',bindStart)+4));
+ await evaluate(`document.getElementById('splash').style.display='none';document.body.classList.remove('splash-active');document.getElementById('loading-overlay').style.display='none';document.body.classList.add('desktop-shell');document.getElementById('search-area').classList.add('peek');document.getElementById('search-results').classList.add('show');document.getElementById('search-results').style.cssText='width:500px!important;max-width:500px!important;display:block!important;position:relative!important';document.getElementById('search-results').innerHTML=searchSongResultHtml(playQueue[0],0)+baselineSearchSongResultHtml(playQueue[0],0);`);
+ async function key(code){win.webContents.sendInputEvent({type:'keyDown',keyCode:code});if(code==='Space'||code==='Enter')win.webContents.sendInputEvent({type:'char',keyCode:code==='Space'?' ':'\r'});win.webContents.sendInputEvent({type:'keyUp',keyCode:code});await wait(50)}
+ const geometry=await evaluate(`Array.from(document.querySelectorAll('#search-results .search-result-title')).map(n=>{var r=n.getBoundingClientRect(),c=getComputedStyle(n);return {tag:n.tagName,width:r.width,height:r.height,font:c.font,lineHeight:c.lineHeight,scroll:n.scrollWidth,client:n.clientWidth,parents:[n.parentElement,n.parentElement.parentElement,n.parentElement.parentElement.parentElement].map(p=>({tag:p.tagName,id:p.id,class:p.className,width:p.getBoundingClientRect().width,display:getComputedStyle(p).display}))}})`);
+ assert(geometry[0].width>100,JSON.stringify(geometry));assert(Math.abs(geometry[0].width-geometry[1].width)<1,JSON.stringify(geometry));assert(Math.abs(geometry[0].height-geometry[1].height)<1,JSON.stringify(geometry));assert.equal(geometry[0].font,geometry[1].font);
+ async function activate(selector,expected){await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus();calls=[]`);await key('Enter');const afterEnter=await evaluate('calls.slice()');assert.deepEqual(afterEnter,[expected],selector+' Enter');await key('Space');const calls=await evaluate('calls.slice()');assert.deepEqual(calls,[expected,expected],selector);return calls}
+ async function compareRowGeometry(current,original,selector){
+  const measure=`(()=>{var n=document.querySelector(${JSON.stringify(selector)}),r=n.getBoundingClientRect(),c=getComputedStyle(n);return {tag:n.tagName,width:r.width,height:r.height,font:c.font,lineHeight:c.lineHeight,scroll:n.scrollWidth,client:n.clientWidth}})()`;
+  await evaluate(current);const after=await evaluate(measure);await evaluate(original);const before=await evaluate(measure);await evaluate(current);
+  assert(after.width>0,selector);assert(Math.abs(after.width-before.width)<1,JSON.stringify({selector,before,after}));assert(Math.abs(after.height-before.height)<1,JSON.stringify({selector,before,after}));assert.equal(after.font,before.font,selector);return {before,after};
+ }
+ const searchKeys=await activate('#search-results button.search-result-title','search:0');
+ await evaluate(`document.getElementById('playlist-panel').style.cssText='display:block!important;opacity:1!important;visibility:visible!important;transform:none!important;position:fixed!important;top:150px!important;left:20px!important;width:340px!important;height:370px!important';document.getElementById('playlist-panel').classList.add('show');renderQueuePanel();`);
+ const queueGeometry=await compareRowGeometry('renderQueuePanel({animate:false})','baselineRenderQueuePanel({animate:false})','#queue-list .qi-name');
+ const queueKeys=await activate('#queue-list .queue-play-name','queue:0');
+ await evaluate(`var panelReorderState={timer:0,active:false,pointerId:null,suppressClickUntil:0},reorderLongPressMs=520,reorderMoveCancelPx=9;`+['clearPanelReorderClasses','markPanelReorderSuppressed','panelReorderClickSuppressed','cancelPanelReorder','panelReorderBlockedTarget','panelReorderHitFromTarget','panelReorderHitAtPoint','markPanelReorderItem','bindLongPressPanelReorder'].map(name=>fn(shell,name)).join('\n')+`;bindLongPressPanelReorder();calls=[];document.getElementById('playlist-panel').scrollTop=0;document.getElementById('queue-pane').scrollTop=0;document.getElementById('queue-list').scrollTop=0;window.scrollTo(0,0);`);
+ const dragPoint=await evaluate(`(()=>{var n=document.querySelector('#queue-list .queue-play-name'),r=n.getBoundingClientRect(),x=Math.round(r.left+r.width/2),y=Math.round(r.top+r.height/2);return {x,y,hit:document.elementFromPoint(x,y)===n,hitTag:document.elementFromPoint(x,y)?.outerHTML.slice(0,160),rect:{x:r.x,y:r.y,width:r.width,height:r.height},blocked:panelReorderBlockedTarget(n)}})()`);console.log('DRAG_POINT '+JSON.stringify(dragPoint));assert.equal(dragPoint.blocked,false);assert.equal(dragPoint.hit,true);
+ win.webContents.sendInputEvent({type:'mouseDown',x:dragPoint.x,y:dragPoint.y,button:'left',clickCount:1});await wait(570);
+ const titleLongPress=await evaluate(`({active:panelReorderState.active,kind:panelReorderState.kind,calls:calls.slice()})`);assert.equal(titleLongPress.active,true);assert.equal(titleLongPress.kind,'queue');
+ win.webContents.sendInputEvent({type:'mouseMove',x:dragPoint.x+10,y:dragPoint.y});win.webContents.sendInputEvent({type:'mouseUp',x:dragPoint.x+10,y:dragPoint.y,button:'left',clickCount:1});await wait(80);
+ const titleDragCalls=await evaluate('calls.slice()');assert.deepEqual(titleDragCalls,[]);await wait(550);
+ const dragGuard=await evaluate(`calls=[];window.__mineradioSuppressReorderClick=true;document.querySelector('#queue-list .queue-play-name').click();window.__mineradioSuppressReorderClick=false;calls.slice()`);assert.deepEqual(dragGuard,[]);
+ await evaluate(`document.getElementById('bottom-bar').style.cssText='display:block!important;width:900px!important;opacity:1!important;visibility:visible!important;transform:none!important';document.getElementById('mini-queue-popover').style.cssText='display:block!important;opacity:1!important;visibility:visible!important;transform:none!important;position:fixed!important;left:20px!important;top:150px!important;bottom:auto!important;width:420px!important;height:300px!important;pointer-events:auto!important';renderMiniQueuePanel({scrollCurrent:true});`);
+ const miniGeometry=await compareRowGeometry('renderMiniQueuePanel({scrollCurrent:false})','baselineRenderMiniQueuePanel({scrollCurrent:false})','#mini-queue-list .mini-queue-name');
+ const miniKeys=await activate('#mini-queue-list .queue-play-name','queue:0');
+ await evaluate(`document.getElementById('bottom-bar').style.display='none';document.getElementById('queue-pane').style.display='none';document.getElementById('pl-pane').style.display='block';document.getElementById('pl-list').innerHTML=playlistPanelDetailRowsHtml({viewport:300});`);
+ const detailGeometry=await compareRowGeometry("document.getElementById('pl-list').innerHTML=playlistPanelDetailRowsHtml({viewport:300})","document.getElementById('pl-list').innerHTML=baselinePlaylistPanelDetailRowsHtml({viewport:300})",'#pl-list .pl-detail-row-title');
+ const detailKeys=await activate('#pl-list .queue-play-name','detail:0');
+ await evaluate(`document.getElementById('collect-modal').classList.add('show');renderCollectModal();`);
+ const collectKeys=await activate('#collect-list .collect-item','collect:fixture-local');
+ win.setSize(961,540);win.setSize(960,540);await wait(100);const screenshot=path.join(profile,'collect-fixture.png');fs.writeFileSync(screenshot,(await win.webContents.capturePage()).toPNG());
+ const result={fixture:'partial real production row functions + CSS + native keyboard/pointer, inert fake actions',baseline,geometry,queueGeometry,miniGeometry,detailGeometry,searchKeys,queueKeys,miniKeys,detailKeys,collectKeys,dragPoint,titleLongPress,titleDragCalls,dragGuard,screenshot};fs.writeFileSync(path.join(profile,'result.json'),JSON.stringify(result,null,2));console.log('QA_RESULT '+JSON.stringify(result));win.close();app.exit(0);
+}).catch(e=>{console.error(e);app.exit(1)});
+setTimeout(()=>{console.error('song fixture timed out');app.exit(2)},15000).unref();

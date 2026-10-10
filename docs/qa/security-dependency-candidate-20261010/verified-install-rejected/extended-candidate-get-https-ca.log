@@ -1,0 +1,1 @@
+{"mode":"get-https-ca","passed":false,"proxyHits":0,"connectHits":1,"tlsOptionsEvidence":{"hasCA":true,"secureEndpoint":"absent","protocol":"https:","rejectUnauthorized":true},"error":{"code":"DEPTH_ZERO_SELF_SIGNED_CERT","message":"self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca"}}

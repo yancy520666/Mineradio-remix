@@ -30,7 +30,8 @@ function cleanText(value, fallback = '', maxLength = 1000) {
 
 function normalizeProvider(song) {
   const source = cleanText(song && (song.provider || song.source || song.type), '', 32).toLowerCase();
-  if (source === 'spotify' || song && (song.spotifyId || song.spotifyUri)) return 'unsupported';
+  if (source === 'spotify' || song && (song.spotifyId || song.spotifyUri
+    || /^spotify:/i.test(String(song.id || '')) || /^spotify:/i.test(String(song.uri || '')))) return 'unsupported';
   if (source === 'local' || song && (song.localFileId || song.localKey || song.localUrl)) return 'local';
   if (source === 'qq') return 'qq';
   if (source === 'kugou' || song && (song.hash || song.fileHash || song.audioHash)) return 'kugou';
@@ -70,18 +71,30 @@ function trackIdentity(track) {
   return value ? `${provider}:${provider === 'kugou' ? value.toLowerCase() : value}` : '';
 }
 
-function sanitizeTrack(source) {
+function sanitizeTrack(source, preserveArchived = false) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
   const provider = normalizeProvider(source);
-  if (!ALLOWED_PROVIDERS.has(provider)) return null;
+  // Read historical records without reviving their removed online provider.
+  // New additions remain unsupported; editing another playlist entry must not
+  // silently erase the user's archived track identifiers.
+  const archived = preserveArchived === true && provider === 'unsupported';
+  if (!ALLOWED_PROVIDERS.has(provider) && !archived) return null;
   const track = {};
   TRACK_FIELDS.forEach((key) => {
     if (source[key] == null || source[key] === '') return;
     const cleaned = cleanValue(source[key]);
     if (cleaned !== undefined && cleaned !== '') track[key] = cleaned;
   });
-  track.provider = provider;
-  track.source = provider;
+  track.provider = archived ? 'spotify' : provider;
+  track.source = archived ? 'spotify' : provider;
+  if (archived) {
+    for (const key of ['spotifyId', 'spotifyUri', 'spotifyUrl', 'uri']) {
+      if (source[key] != null) track[key] = cleanValue(source[key]);
+    }
+    if (!track.id) track.id = cleanText(source.spotifyId || source.spotifyUri || source.uri, '', 512);
+    track.playable = false;
+    track.providerRemoved = true;
+  }
   if (!track.type) track.type = provider === 'local' ? 'local' : (provider === 'qq' ? 'qq' : 'song');
   track.name = cleanText(track.name || track.title, '未知歌曲', 1000);
   track.title = cleanText(track.title || track.name, track.name, 1000);
@@ -101,7 +114,7 @@ function sanitizePlaylist(source) {
   const tracks = [];
   const seen = new Set();
   for (const item of Array.isArray(source.tracks) ? source.tracks.slice(0, MAX_TRACKS_PER_PLAYLIST) : []) {
-    const track = sanitizeTrack(item);
+    const track = sanitizeTrack(item, true);
     if (!track || seen.has(track.builtInIdentity)) continue;
     seen.add(track.builtInIdentity);
     tracks.push(track);

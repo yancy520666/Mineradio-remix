@@ -1,0 +1,112 @@
+{
+  "dateUTC": "2026-10-10",
+  "node": "v24.19.0",
+  "npm": "11.9.0",
+  "cleanInstall": {
+    "command": "npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org",
+    "exitCode": 0,
+    "installedPackages": 482,
+    "installedTreeLockExists": true
+  },
+  "candidateManifestSHA256": "0698a28f4f7e325ea1eb041f5305a54dadbc68504b7f407d466a01787fde58ed",
+  "candidateLockSHA256": "aa5ccfc470e4354b884bccdfe295a12b763873d86e63cee2e3b43a3dac6e2465",
+  "candidateInstalledAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 3,
+    "critical": 0,
+    "total": 3
+  },
+  "unchangedApplicationLockAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 8,
+    "high": 3,
+    "critical": 0,
+    "total": 11
+  },
+  "changedPackageNodes": [
+    {
+      "path": "node_modules/boolean",
+      "from": "3.2.0",
+      "to": null
+    },
+    {
+      "path": "node_modules/detect-node",
+      "from": "2.1.0",
+      "to": null
+    },
+    {
+      "path": "node_modules/es6-error",
+      "from": "4.1.1",
+      "to": null
+    },
+    {
+      "path": "node_modules/global-agent",
+      "from": "3.0.0",
+      "to": "4.1.3"
+    },
+    {
+      "path": "node_modules/json-stringify-safe",
+      "from": "5.0.1",
+      "to": null
+    },
+    {
+      "path": "node_modules/matcher",
+      "from": "3.0.0",
+      "to": "4.0.0"
+    },
+    {
+      "path": "node_modules/roarr",
+      "from": "2.15.4",
+      "to": null
+    },
+    {
+      "path": "node_modules/semver-compare",
+      "from": "1.0.0",
+      "to": null
+    },
+    {
+      "path": "node_modules/serialize-error",
+      "from": "7.0.1",
+      "to": "8.1.0"
+    },
+    {
+      "path": "node_modules/sprintf-js",
+      "from": "1.1.3",
+      "to": null
+    },
+    {
+      "path": "node_modules/type-fest",
+      "from": "0.13.1",
+      "to": "0.20.2"
+    }
+  ],
+  "contractResults": {
+    "candidate": {
+      "httpProxyAndNoProxy": "pass",
+      "bootstrap": "pass",
+      "tlsRequestCustomCA": "fail: DEPTH_ZERO_SELF_SIGNED_CERT",
+      "getHTTPDownloadSHA256": "pass",
+      "getHTTPSDownloadCustomCA": "fail: DEPTH_ZERO_SELF_SIGNED_CERT",
+      "untrustedCertificateRejected": "pass",
+      "connect407Rejected": "pass",
+      "wrongSHA256RejectedAndCacheEmpty": "pass"
+    },
+    "baselineGlobalAgent3": {
+      "tlsRequestCustomCA": "pass",
+      "getHTTPSDownloadCustomCA": "pass",
+      "untrustedCertificateRejected": "pass",
+      "wrongSHA256RejectedAndCacheEmpty": "pass"
+    }
+  },
+  "acceptance": "REJECTED: explicit HTTPS CA contract regresses; no shared package/lock/symlink modifications",
+  "notRun": [
+    "Electron download or install scripts",
+    "Windows installer build",
+    "application tests or login-logout-race.test.js",
+    "security proof of concept",
+    "real credentials or external proxy"
+  ]
+}

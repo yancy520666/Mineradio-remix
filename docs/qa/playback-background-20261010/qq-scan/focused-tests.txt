@@ -1,0 +1,35 @@
+✔ unusable paint and a hung frame both reach the independent QR deadline once (83.190406ms)
+✔ a usable QR satisfies the deadline and stopping removes its paint listener (40.775247ms)
+✔ late cancellation cannot reset a newer platform or replay its QR events (4.282991ms)
+✔ explicit window fallback remains owned by the request that asked for it (1.488489ms)
+✔ logout consumes undo state before awaiting the backend and commits only once (1.309869ms)
+✔ closing the drawer revokes a pending request to open the official window (1.084158ms)
+✔ clearing the QR removes src instead of setting an empty URL (3.709234ms)
+✔ the spinner stays until the new QR decodes; a stale load is ignored (1.519446ms)
+✔ a QR that fails to decode leaves a clean card, not a broken image (1.101194ms)
+✔ the login markup does not start with an empty src (0.943636ms)
+✔ selecting a Qishui node still waiting for its scan generates the QR instead of leaving an empty card (1.938769ms)
+✔ selecting a logged-in node only selects it and does not open the scan drawer (1.251501ms)
+✔ reopening with the same provider QR on screen resumes polling instead of regenerating (1.196518ms)
+✔ an expired or other-provider QR is regenerated (1.607298ms)
+✔ desktop NetEase generates App QR; cookie mode and an unconnected node do not (3.229118ms)
+✔ the MR scan-mode button also generates the QR for a connected Qishui node (0.977818ms)
+✔ pending evidence changes copy, not saved identity, membership or logged-in gating (2.578877ms)
+✔ retry uses only existing status refresh flows and stays on the selected provider (1.546647ms)
+✔ pending completion paths return before strong success/automatic modal close (0.420435ms)
+✔ NetEase explicit retry bypasses cache while preserving account and library on unverified reply (1.114104ms)
+✔ login instructions use plain next steps and keep network uncertainty separate from expiry (1.249017ms)
+✔ QQ login policy preserves existing official hosts and rejects unsafe destinations (1.154624ms)
+✔ QQ navigation guards handle modern/legacy main-frame events while preserving challenge subframes (0.301366ms)
+✔ QQ root, child and warmup windows share the guarded installation and deny untrusted popups (0.305482ms)
+✔ QQ ready scan has one persistent instruction; active states remain distinct (3.021355ms)
+✔ other providers retain scan instructions and stale events cannot alter visible state (1.938449ms)
+✔ QQ-only layout and accessible status retain concise copy with no slash (3.998321ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 226.310701

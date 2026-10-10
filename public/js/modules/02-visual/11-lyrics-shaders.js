@@ -79,6 +79,7 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
       uSolar: { value: 0 },
       uSweep: { value: motionProfile.sweep || 0 },
       uShimmer: { value: motionProfile.shimmer || 0 },
+      uGlass: { value: motionProfile.glass || 0 },
       uGlitch: { value: motionProfile.glitch || 0 },
       uGlitchSlice: { value: motionProfile.glitchSlice || 0 },
       uGlitchChroma: { value: motionProfile.glitchChroma || 0 },
@@ -94,7 +95,7 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
       'precision highp float;',
       'uniform sampler2D uMap;',
       'uniform float uEditPreview;',
-      'uniform float uTime,uProgress,uTextMin,uTextMax,uOpacity,uFeather,uSolar,uSweep,uShimmer,uGlitch,uGlitchSlice,uGlitchChroma,uGlitchRate,uGlitchSeed,uGlitchBurst,uEdgeBoost,uActiveMix;',
+      'uniform float uTime,uProgress,uTextMin,uTextMax,uOpacity,uFeather,uSolar,uSweep,uShimmer,uGlitch,uGlitchSlice,uGlitchChroma,uGlitchRate,uGlitchSeed,uGlitchBurst,uEdgeBoost,uActiveMix,uGlass;',
       'uniform vec3 uBaseColor,uHiColor,uGlowColor,uSolarColor;',
       'varying vec2 vUv;',
       'float hash(float n){ return fract(sin(n) * 43758.5453123); }',
@@ -135,6 +136,15 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
       '  color += uGlowColor * edge * 0.14 * uEdgeBoost;',
       '  color += uSolarColor * sweepLine * uSweep * (0.12 + filled * 0.30);',
       '  color += uGlowColor * fineLine * (0.08 + filled * 0.18);',
+      // A glass reflection lives inside the existing glyph mask. No extra
+      // texture, blur layer or alpha expansion is needed; edit preview above
+      // remains flat and every other motion style has uGlass == 0.
+      '  if (uGlass > 0.001 && activeMix > 0.001) {',
+      '  float glassPlane = uv.y + uv.x * 0.16;',
+      '  float glassReflection = exp(-pow((glassPlane - (0.66 + sin(uTime * 0.38) * 0.065)) * 17.0, 2.0));',
+      '  float glassRim = 4.0 * mask * (1.0 - mask);',
+      '  color = mix(color, color * 0.94 + vec3(0.22) * glassReflection + vec3(0.10) * glassRim, uGlass * activeMix);',
+      '  }',
       '  color += vec3(chromaR, mask * 0.18, chromaB) * glitchGate * uGlitch * uGlitchChroma * activeMix * (0.20 + uGlitchBurst * 0.22);',
       '  vec3 solar = uSolarColor;',
       '  color = mix(color, color + solar * 0.34, uSolar * activeMix * (0.25 + filled * 0.45));',

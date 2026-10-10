@@ -1,0 +1,30 @@
+✔ FLAC tags, embedded cover and same-name LRC survive a full library reload (74.061252ms)
+✔ subsequent imports append to the persistent library by default (4.263813ms)
+✔ GB18030 sidecar lyrics and synchronized embedded lyrics normalize to readable LRC (0.571192ms)
+✔ metadata and manifest failures preserve the last committed cover and index (7.743564ms)
+✔ embedded cover budget rejects oversized pixel dimensions on low-spec devices (0.273112ms)
+✔ renderer and Electron wiring restore persistent tracks instead of blob-only missing records (1.957944ms)
+✔ actual updater rejects damaged/truncated downloads and downgrade, and accepts matching bytes (1042.845107ms)
+✔ installer waits for shutdown preparation; duplicate clicks/checks/stale events cannot replace installing state (2.622331ms)
+✔ synchronous throw, emitted failure and asynchronous spawn failure preserve verified download and allow one retry (4.666351ms)
+✔ failed preparation never launches, and an inconclusive restart timeout never unlocks a duplicate installer (15.629211ms)
+✔ verified completion event does not make a still-pending or rejected download installable (0.690372ms)
+✔ renderer disables repeated install, shows errors and restores restart action after failed launch (2.906355ms)
+✔ real main quit handlers block shutdown during preparation and preserve server/tray until successful quit (2.558731ms)
+✔ failed installer leaves reversible desktop and wallpaper runtimes usable for subsequent enable/load (2.544489ms)
+✔ no release and slow network keep update checks nonblocking (1.782359ms)
+✔ download waits for user action, tracks progress and installs only when ready (1.08005ms)
+✔ checksum or network failure is reported without claiming a downloaded update (0.65001ms)
+✔ late progress and downloaded events cannot revive a failed download or bypass user confirmation (0.729611ms)
+✔ an empty download result without a verified completion event is not an installable update (0.465803ms)
+✔ duplicate checks and confirmations use one native operation, and wrong-version events cannot mark readiness (0.736191ms)
+✔ an installed update download is removed; a newer pending one and the differential base are kept (2.788638ms)
+✔ the update dialog gets only the release highlights as short plain text (1.486423ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1176.069653

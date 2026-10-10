@@ -168,6 +168,11 @@ function refreshLyricTimingAfterOffsetChange() {
     stageLyrics.currentIdx = -999;
     stageLyrics.currentDisplayKey = '';
   }
+  // A paused attached mesh is held by the normal tick, so apply this explicit
+  // calibration through the existing restore path without resuming the audio.
+  if (typeof audio !== 'undefined' && audio && audio.paused && typeof restorePausedStageLyrics === 'function') {
+    restorePausedStageLyrics('timing-offset', false);
+  }
   if (typeof pushDesktopLyricsState === 'function') pushDesktopLyricsState(true);
 }
 

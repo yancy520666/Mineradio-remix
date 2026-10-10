@@ -111,12 +111,13 @@ function applyRemixUpdateState(state) {
   updatePreviewState.version = state.version || updatePreviewState.currentVersion;
   updatePreviewState.progress = Math.max(0, Math.min(100, Number(state.percent) || 0));
   updatePreviewState.errorReason = state.error || '';
-  updatePreviewState.updateAvailable = ['available', 'downloading', 'downloaded'].indexOf(state.status) >= 0
+  updatePreviewState.updateAvailable = ['available', 'downloading', 'downloaded', 'installing'].indexOf(state.status) >= 0
     || (state.status === 'error' && !!state.version);
   updatePreviewState.releaseUrl = state.version
     ? 'https://github.com/yancy520666/Mineradio-remix/releases/tag/v' + encodeURIComponent(state.version)
     : '';
-  updatePreviewState.hero = state.status === 'downloaded' ? '已下载完成，重启即可安装。'
+  updatePreviewState.hero = state.status === 'installing' ? (state.error ? '重启尚未完成，请查看安装窗口或退出后手动安装。' : '正在保存播放进度并准备重启…')
+    : state.status === 'downloaded' ? (state.error ? '未能启动安装，请重试；仍失败可从发布页手动安装。' : '已下载完成，重启即可安装。')
     : state.status === 'downloading' ? '正在下载新版本…'
     : state.status === 'error' ? '更新没有完成，可以重试。'
     : updatePreviewState.updateAvailable ? '' : '当前版本已是最新。';
@@ -290,7 +291,8 @@ function syncUpdatePreviewStateClass() {
   var label = document.getElementById('update-btn-label');
   if (label) {
     if (updatePreviewState.autoMode) {
-      if (updatePreviewState.status === 'downloading') label.textContent = '下载中 ' + Math.round(updatePreviewState.progress) + '%';
+      if (updatePreviewState.status === 'installing') label.textContent = '正在重启…';
+      else if (updatePreviewState.status === 'downloading') label.textContent = '下载中 ' + Math.round(updatePreviewState.progress) + '%';
       else if (updatePreviewState.status === 'downloaded') label.textContent = '重启并安装';
       else if (updatePreviewState.status === 'error') label.textContent = '重试';
       else label.textContent = '下载更新';
@@ -305,7 +307,7 @@ function syncUpdatePreviewStateClass() {
   var btn = document.getElementById('update-primary-btn');
   if (btn) {
     btn.disabled = updatePreviewState.autoMode
-      ? !updatePreviewState.updateAvailable || updatePreviewState.status === 'downloading'
+      ? !updatePreviewState.updateAvailable || ['downloading', 'installing'].indexOf(updatePreviewState.status) >= 0
       : isOpening || !updatePreviewState.updateAvailable || !updateUrl;
   }
   var sourceButtons = document.querySelectorAll('#update-download-sources .update-download-source');
@@ -316,7 +318,7 @@ function syncUpdatePreviewStateClass() {
   });
   var foot = document.getElementById('update-footnote');
   if (foot) {
-    if (updatePreviewState.autoMode) foot.textContent = updatePreviewState.status === 'error'
+    if (updatePreviewState.autoMode) foot.textContent = !!updatePreviewState.errorReason
       ? '更新失败：' + (updatePreviewState.errorReason || '请稍后重试')
       : '设置和登录会保留';
     else if (isOpening) foot.textContent = '正在调用系统浏览器。';
@@ -409,9 +411,12 @@ function openUpdateDownloadSource(index) {
 
 async function startUpdatePreviewDownload(preferredIndex) {
   if (updatePreviewState.autoMode) {
-    if (!window.desktopWindow) return;
+    if (!window.desktopWindow || ['downloading', 'installing'].indexOf(updatePreviewState.status) >= 0) return;
+    var wasDownloaded = updatePreviewState.status === 'downloaded';
     try {
-      if (updatePreviewState.status === 'downloaded') {
+      if (wasDownloaded) {
+        applyRemixUpdateState({ supported: true, status: 'installing', version: updatePreviewState.version,
+          currentVersion: updatePreviewState.currentVersion, percent: 100 });
         var installed = await window.desktopWindow.installRemixUpdate();
         if (!installed || installed.ok !== true) throw new Error(installed && installed.error || 'UPDATE_INSTALL_FAILED');
       } else {
@@ -420,7 +425,7 @@ async function startUpdatePreviewDownload(preferredIndex) {
         applyRemixUpdateState(await window.desktopWindow.downloadRemixUpdate());
       }
     } catch (error) {
-      applyRemixUpdateState({ supported: true, status: 'error', version: updatePreviewState.version,
+      applyRemixUpdateState({ supported: true, status: wasDownloaded ? 'downloaded' : 'error', version: updatePreviewState.version,
         currentVersion: updatePreviewState.currentVersion, error: error && error.message || 'UPDATE_FAILED' });
     }
     return;

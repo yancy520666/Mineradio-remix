@@ -1,0 +1,17 @@
+{
+  "discoveredFiles": 244,
+  "selectedFiles": 243,
+  "passedFiles": 243,
+  "failedFiles": 0,
+  "excluded": {
+    "login-logout-race.test.js": "blocked: execution explicitly cancelled; not run"
+  },
+  "totals": {
+    "tests": 1296,
+    "pass": 1291,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 5,
+    "todo": 0
+  }
+}

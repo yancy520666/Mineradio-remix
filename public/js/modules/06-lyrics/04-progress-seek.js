@@ -153,7 +153,16 @@ function normalizePlaybackDurationSeconds(value) {
 }
 function playbackDurationFromSong(song) {
   if (!song) return 0;
-  return normalizePlaybackDurationSeconds(song.duration || song.durationMs || song.dt || 0);
+  var duration = Number(song.duration);
+  if (isFinite(duration) && duration > 0) {
+    // Local metadata and Qishui's normalized tracks use seconds, including
+    // long mixes. Magnitude alone cannot distinguish them from milliseconds.
+    if (song.type === 'local' || song.source === 'local' || song.provider === 'local' || song.localKey || song.localFileId
+      || song.type === 'qishui' || song.source === 'qishui' || song.provider === 'qishui') return duration;
+    return normalizePlaybackDurationSeconds(duration);
+  }
+  var milliseconds = Number(song.durationMs) || Number(song.dt) || 0;
+  return isFinite(milliseconds) && milliseconds > 0 ? milliseconds / 1000 : 0;
 }
 function getPlaybackDurationSeconds() {
   if (audio && isFinite(audio.duration) && audio.duration > 0) return audio.duration;
@@ -500,6 +509,7 @@ function endProgressDrag(e, commit) {
   var resumeAfterSeek = progressDragState.resumeAfterSeek;
   var dragMedia = progressDragState.media;
   var dragMediaSrc = progressDragState.mediaSrc;
+  var dragToken = progressDragState.seekTrackToken;
   progressDragState.active = false;
   progressDragState.barRect = null;
   progressBar.classList.remove('is-dragging');
@@ -508,7 +518,15 @@ function endProgressDrag(e, commit) {
   else {
     clearProgressPreviewHold();
     progressDragState.resumePlaySerial = 0;
-    if (progressSeekMediaStillCurrent(dragMedia, dragMediaSrc) && typeof restorePlaybackGain === 'function') restorePlaybackGain();
+    if (dragToken === trackSwitchToken && progressSeekMediaStillCurrent(dragMedia, dragMediaSrc)) {
+      if (typeof restorePlaybackGain === 'function') restorePlaybackGain();
+      if (resumeAfterSeek && dragMedia && dragMedia.paused && !dragMedia.ended) {
+        if (typeof attemptAudioPlay === 'function') attemptAudioPlay({ manual: true, silent: true, expectedMedia: dragMedia, expectedToken: dragToken });
+        else {
+          try { Promise.resolve(dragMedia.play()).catch(function () {}); } catch (playErr) { }
+        }
+      }
+    }
   }
   progressDragState.media = null;
   progressDragState.mediaSrc = '';

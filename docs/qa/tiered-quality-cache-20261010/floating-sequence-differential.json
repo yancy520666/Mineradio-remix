@@ -1,0 +1,8 @@
+{
+  "baseline": "703448ffdfc12f13aecc198e2cb8e2ace810dc6b",
+  "kind": "same-sequence-real-THREE-VM-not-rendered-FPS",
+  "steps": 90,
+  "managedAndUnmanaged": true,
+  "ultraPriorAdaptiveLadderPreserved": true,
+  "floatingSlotsEquivalent": true
+}

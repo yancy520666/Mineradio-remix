@@ -2,7 +2,19 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
 const { loadFunctions } = require('./helpers/classic-functions');
+
+test('default quality settings retain their controls without a footer explanation', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '../public/css/index.css'), 'utf8');
+  const panel = html.slice(html.indexOf('id="playback-quality-preset-panel"'), html.indexOf('<div class="fx-section-label">输出接口</div>'));
+  assert.match(panel, /id="quality-preset-providers"/);
+  assert.deepEqual(Array.from(panel.matchAll(/data-quality-preset="([^"]+)"/g), match => match[1]), ['saver', 'balanced', 'lossless', 'best']);
+  assert.doesNotMatch(panel, /quality-preset-note|新歌按这里的档位请求|汽水音频需整首下载解密/);
+  assert.doesNotMatch(css, /quality-preset-note/);
+});
 
 function fixture({ svip = false, provider = 'qq', reloadable = false } = {}) {
   const prefs = { netease: 'hires', qq: 'lossless', kugou: 'lossless' };

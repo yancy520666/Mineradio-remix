@@ -1,0 +1,1 @@
+{"version":"4.1.3","mode":"connect-refused","passed":true,"proxyHits":0,"connectHits":1,"tlsOptionsEvidence":{"hasCA":true,"secureEndpoint":"absent","protocol":"https:","rejectUnauthorized":"default"},"errorEvidence":{"message":"Proxy server refused connecting to 'localhost:45413' (HTTP/1.1 407 Proxy Authentication Required)"}}

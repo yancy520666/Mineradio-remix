@@ -17,14 +17,14 @@ function setup(storage = new Map()) {
     document: { getElementById: () => null },
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     loginStatus: { loggedIn: true }, qqLoginStatus: { loggedIn: true },
-    kugouLoginStatus: { loggedIn: true }, qishuiLoginStatus: { loggedIn: true }, spotifyLoginStatus: {},
+    kugouLoginStatus: { loggedIn: true }, qishuiLoginStatus: { loggedIn: true },
     homeDiscoverState: { loaded: true, loading: false, loggedIn: true, songs: [{ id: 'ne', provider: 'netease' }] },
     homePlatformRecommendationState: { open: false, feeds: { qishui: { songs: [] }, kugou: { songs: [] }, qq: { songs: [] } } },
     builtInPlaylists: [{ id: 'builtin', provider: 'mineradio' }],
     neteasePlaylists: [{ id: 'ne', provider: 'netease' }], qqPlaylists: [{ id: 'qq', provider: 'qq' }],
     kugouPlaylists: [{ id: 'kg', provider: 'kugou' }],
     qishuiPlaylists: [{ id: 'qs1', provider: 'qishui' }, { id: 'qs2', provider: 'qishui' }],
-    spotifyPlaylists: [], userPlaylists: [], playlistCatalogRevision: 0, emptyHomeActive: true,
+    userPlaylists: [], playlistCatalogRevision: 0, emptyHomeActive: true,
     renderUserPlaylistsList() {}, scheduleShelfRebuild() {}, renderHomeDiscover() {},
     renderHomeDashboardQuickCards() { renders.push('home'); },
     loadHomePlatformRecommendations(source) { openings.push(source); c.homePlatformRecommendationState.source = source; },
@@ -72,7 +72,7 @@ test('hoisted content functions can render home before account constants are ini
   const { c } = setup();
   c.ACCOUNT_PROVIDER_KEYS = undefined;
   c.accountProviderOrder = () => { throw new Error('account state has not initialized'); };
-  assert.deepEqual(Array.from(c.contentProviderOrder()), ['netease', 'qq', 'kugou', 'qishui', 'spotify']);
+  assert.deepEqual(Array.from(c.contentProviderOrder()), ['netease', 'qq', 'kugou', 'qishui']);
 });
 
 test('changing platform priority preserves per-platform manual order and groups newly paged rows', () => {

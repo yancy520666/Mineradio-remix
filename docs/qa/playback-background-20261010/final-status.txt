@@ -1,0 +1,41 @@
+ M desktop/main.js
+ M docs/qa/independent-integration-fixtures.cjs
+ M docs/qa/login-success-order-audit-fixtures.cjs
+ M public/css/index.css
+ M public/index.html
+ M public/js/modules/00-state/03-beat-dj-state.js
+ M public/js/modules/02-visual/00-pointer-cover-particles.js
+ M public/js/modules/02-visual/01-float-skull-backcover.js
+ M public/js/modules/03-beat/00-tempo-worker-cache-prefetch.js
+ M public/js/modules/05-playback/00-api-quality-output.js
+ M public/js/modules/05-playback/11-provider-fallback.js
+ M public/js/modules/05-playback/13-playback-start-audio.js
+ M public/js/modules/07-fx/00-preset-archive-data.js
+ M public/js/modules/07-fx/02-accent-background-controls.js
+ M public/js/modules/07-fx/03-wallpaper-engine-library.js
+ M public/js/modules/07-fx/04-preset-grid-uniforms.js
+ M public/js/modules/08-account/02-login-status.js
+ M public/js/modules/08-account/03-login-modal-flows.js
+ M public/js/modules/11-main-loop.js
+ M public/sonic-performance.js
+ M public/sonic-topography-preset.js
+ M public/sonic-workshop-preset.js
+ M public/vendor/sonic-workshop/mineradio-bridge.html
+ M public/vendor/sonic-workshop/mineradio-performance.js
+ M qishui-api.js
+ M scripts/quick-check.js
+ M tests/audio-route-construction-lifecycle.test.js
+ M tests/qishui-trial-full-source.test.js
+ M tests/sonic-workshop-audio.test.js
+ M tests/wallpaper-background-regression.test.js
+?? Mineradio/
+?? docs/QA_PLAYBACK_BACKGROUND_2026-10-10.md
+?? docs/qa/playback-background-20261010/
+?? node_modules
+?? tests/custom-background-handoff.test.js
+?? tests/login-validation-presentation.test.js
+?? tests/playback-start-critical-path.test.js
+?? tests/preset-background-handoff.test.js
+?? tests/qishui-playback-extent.test.js
+?? tests/qq-login-navigation.test.js
+?? tests/qq-scan-presentation.test.js

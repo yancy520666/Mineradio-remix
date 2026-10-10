@@ -1,0 +1,6 @@
+'use strict';
+const fs=require('fs'),path=require('path'),vm=require('vm'),cp=require('child_process');const root=path.resolve(__dirname,'../../..'),THREE=require(path.join(root,'public/vendor/three.r128.min.js')),rel='public/sonic-topography-preset.js';
+function fixture(source,start){const window={},c=vm.createContext({window,THREE});vm.runInContext(source.replace('global.MineradioSonicTopography = {','global.probe={state:state,ensure:ensureLayer}; global.MineradioSonicTopography = {'),c);const scene=new THREE.Scene(),fx={preset:7,performanceQuality:start,sonicGroundFloatingCount:80};window.probe.ensure(scene,fx);return{p:window.probe,scene,fx}}
+const baseline=fixture(cp.execFileSync('git',['show','703448f:'+rel],{cwd:root,encoding:'utf8'}),'ultra'),source=fs.readFileSync(path.join(root,rel),'utf8'),results=[];
+for(const quality of ['eco','balanced','high']){const next=fixture(source,quality);next.fx.performanceQuality='ultra';next.p.ensure(next.scene,next.fx);const differences=[];next.p.state.floatingData.forEach((v,i)=>{if(JSON.stringify(v)!==JSON.stringify(baseline.p.state.floatingData[i]))differences.push(i)});results.push({initialQuality:quality,ultraCount:next.p.state.floatingData.length,differentSlots:differences.length,firstDifferent:differences[0]??null});}
+console.log(JSON.stringify(results,null,2));

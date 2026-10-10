@@ -1,0 +1,11 @@
+{
+  "status": "blocked-unconfirmed-terminal-result",
+  "command": "timeout 180s npm run check",
+  "lastCompletedSection": "Direct account binding entry regression",
+  "lastStartedSection": "Qishui provider distribution, entitlement, and signed Passport QR regression",
+  "sessionId": 77467,
+  "firstPollError": "Unified exec process failed: automatic approval review was cancelled",
+  "authorizedSamePollRetryError": "Unknown process id 77467",
+  "exitCode": null,
+  "handling": "No new npm check process or alternate execution route was started. Partial log preserved. Not counted as passed."
+}

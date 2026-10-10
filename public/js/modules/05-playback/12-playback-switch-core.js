@@ -121,23 +121,46 @@ function playbackLoadIsNetworkError(err) {
   if (/AbortError/i.test(text) && !/timeout|超时/i.test(text)) return false;
   return /network|failed to fetch|timeout|超时|连接失败|econnreset|etimedout|err_connection|http 5\d\d|upstream.*(error|unavailable)/i.test(text);
 }
+var pendingPlaybackSourceRequest = null;
+function cancelPlaybackSourceRequest(token) {
+  var owner = typeof pendingPlaybackSourceRequest !== 'undefined' ? pendingPlaybackSourceRequest : null;
+  if (!owner || (token != null && owner.token !== token)) return false;
+  pendingPlaybackSourceRequest = null;
+  if (owner.controller) owner.controller.abort();
+  return true;
+}
 async function requestPlaybackSourceUrl(url, options, token) {
-  for (var attempt = 0; attempt < 2; attempt++) {
-    if (token !== trackSwitchToken) throw new DOMException('Track replaced', 'AbortError');
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('NETWORK_OFFLINE');
-    try {
-      var data = await apiJson(url, options);
-      if (token !== trackSwitchToken) throw new DOMException('Track replaced', 'AbortError');
-      if (data && !data.url && ((Number(data.code) >= 500 && Number(data.code) <= 599) || playbackLoadIsNetworkError(data.error || data.reason || data.message))) {
-        throw new Error('NETWORK_UPSTREAM_UNAVAILABLE');
+  // A stale invocation must never cancel the newer track's controller.
+  if (token !== trackSwitchToken) throw new DOMException('Track replaced', 'AbortError');
+  cancelPlaybackSourceRequest();
+  var owner = { token: token, controller: typeof AbortController === 'function' ? new AbortController() : null };
+  pendingPlaybackSourceRequest = owner;
+  var requestOptions = Object.assign({}, options || {});
+  if (owner.controller) requestOptions.signal = owner.controller.signal;
+  function stillCurrent() {
+    return token === trackSwitchToken && pendingPlaybackSourceRequest === owner && !(owner.controller && owner.controller.signal.aborted);
+  }
+  try {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (!stillCurrent()) throw new DOMException('Track replaced', 'AbortError');
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('NETWORK_OFFLINE');
+      try {
+        var data = await apiJson(url, requestOptions);
+        if (!stillCurrent()) throw new DOMException('Track replaced', 'AbortError');
+        if (data && !data.url && ((Number(data.code) >= 500 && Number(data.code) <= 599) || playbackLoadIsNetworkError(data.error || data.reason || data.message))) {
+          throw new Error('NETWORK_UPSTREAM_UNAVAILABLE');
+        }
+        return data;
+      } catch (err) {
+        if (!stillCurrent() || !playbackLoadIsNetworkError(err) || attempt > 0
+          || (typeof navigator !== 'undefined' && navigator.onLine === false)) throw err;
+        if (typeof showSourceFallbackNotice === 'function') showSourceFallbackNotice('连接有点慢，正在重试', '保留当前歌曲和音质，再刷新一次播放地址。', { coalesceKey: 'playback-load', persist: true });
+        await new Promise(function (resolve) { setTimeout(resolve, 350); });
+        if (!stillCurrent()) throw new DOMException('Track replaced', 'AbortError');
       }
-      return data;
-    } catch (err) {
-      if (token !== trackSwitchToken || !playbackLoadIsNetworkError(err) || attempt > 0
-        || (typeof navigator !== 'undefined' && navigator.onLine === false)) throw err;
-      if (typeof showSourceFallbackNotice === 'function') showSourceFallbackNotice('连接有点慢，正在重试', '保留当前歌曲和音质，再刷新一次播放地址。', { coalesceKey: 'playback-load', persist: true });
-      await new Promise(function (resolve) { setTimeout(resolve, 350); });
     }
+  } finally {
+    if (pendingPlaybackSourceRequest === owner) pendingPlaybackSourceRequest = null;
   }
 }
 function showPlaybackLoadFailure(song, idx, token, err, opts) {

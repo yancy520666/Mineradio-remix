@@ -1,0 +1,12 @@
+'use strict';
+const path = require('node:path');
+const source = path.join(__dirname, 'before-source');
+const { chooseTransitionWindow } = require(path.join(source, 'transition-window-planner'));
+const { buildTransitionArtifact } = require(path.join(source, 'transition-artifact'));
+const { evaluateCadenceBoundary } = require(path.join(source, 'boundary-evidence'));
+const from = { cueProfile: { duration: 180, windows: { energy: [{ start: 0, end: 160, value: .25 }, {start: 160, end: 180, value: 0 }] } }, structureMap: { protectedUntil: 150, vocalWindows: [{ start: 153, end: 165 }] } };
+const rescued = chooseTransitionWindow(from, { cueProfile: { duration: 30 } });
+const bridgeArtifact = template => buildTransitionArtifact({ chosen: { transitionRecipe: 'synthetic-bridge', timeline: [{ t: 0, deck: 'A', op: 'bridge', duration: 8000, bridge: { template, bars: 4, bpmFrom: 120, bpmTo: 120, stageDurations: [2,4,2] } }] } });
+const first = bridgeArtifact('drum-build'); const second = bridgeArtifact('echo-break');
+const impossibleBoundary = evaluateCadenceBoundary({ sources: ['audio-envelope', 'beat-grid'], audioBoundaryDistance: -1, barBoundaryDistance: -1, confidence: .9, vocalState: 'inactive', levelBeforeDb: -10, levelAfterDb: -14 });
+console.log(JSON.stringify({ terminalAfterAudibleEnd: { mixStart: rescued.chosen.mixStart, handoffAt: rescued.chosen.handoffAt, effectiveSourceEnd: rescued.chosen.effectiveSourceEnd, audibleOverlap: rescued.chosen.audibleOverlap }, bridgePayload: first.timeline[0], bridgeArtifactsIdentical: first.artifactId === second.artifactId, impossibleBoundary }, null, 2));

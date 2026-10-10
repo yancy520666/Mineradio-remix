@@ -1,0 +1,55 @@
+{
+  "baseline": "703448ffdfc12f13aecc198e2cb8e2ace810dc6b",
+  "results": [
+    {
+      "file": "public/js/modules/01-scene/00-renderer-quality.js",
+      "unchanged": true,
+      "sha256": "728ea5eb3069246597a7b36f8b609847b5aaf98ddbf7f62d4b3847e45f3c4505"
+    },
+    {
+      "file": "public/js/modules/02-visual/13-lyrics-mesh-build.js",
+      "unchanged": true,
+      "sha256": "ee6b6ca2cc377c5ca8d3344e55937a9e4d94feee97f8d5a9879682b520f30082"
+    },
+    {
+      "file": "public/js/modules/02-visual/14-stage-lyrics-rendering.js",
+      "unchanged": true,
+      "sha256": "1d147d6021d8efeb525c2de49f62d31b778a3a6108effdb3d187c573b93861c4"
+    },
+    {
+      "file": "public/css/index.css",
+      "unchanged": true,
+      "sha256": "ae4f83194104724d753e2e3587e90234bc2a3b15da5bd2732463e9e1a76fc6c6"
+    },
+    {
+      "file": "public/js/modules/07-fx/02-accent-background-controls.js",
+      "unchanged": true,
+      "sha256": "19ce5a2a57bfa109698b078e071fec984f8b2b17ef3d867b8bccadfa759b9f20"
+    },
+    {
+      "file": "public/sonic-performance.js",
+      "unchanged": true,
+      "sha256": "f4afc9681c996f4b3409c71fd5bc9c42fbe9f5cc6a9e7e008363f36ce56d90b1"
+    },
+    {
+      "file": "package.json",
+      "unchanged": true,
+      "sha256": "d2199a980510d01456f4a1cbef31ee4b9b00be80ec888df9daec0e8307e350e3"
+    },
+    {
+      "file": "package-lock.json",
+      "unchanged": true,
+      "sha256": "dbbdd6b0ffff9120c5063d5f4e5c65ce61a44601ff35c04132e40858effa65c5"
+    },
+    {
+      "file": "scripts/run-tests.js",
+      "unchanged": true,
+      "sha256": "1ed75bce44a28cddb7a5bd5fe6e90a51d854f02712c18cfcecc33d4775b161cc"
+    },
+    {
+      "file": "public/js/modules/02-visual/00-pointer-cover-particles.js",
+      "section": "shader-programs-and-materials",
+      "unchanged": true
+    }
+  ]
+}

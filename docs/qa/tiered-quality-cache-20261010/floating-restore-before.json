@@ -1,0 +1,20 @@
+[
+  {
+    "initialQuality": "eco",
+    "ultraCount": 80,
+    "differentSlots": 15,
+    "firstDifferent": 1
+  },
+  {
+    "initialQuality": "balanced",
+    "ultraCount": 80,
+    "differentSlots": 31,
+    "firstDifferent": 1
+  },
+  {
+    "initialQuality": "high",
+    "ultraCount": 80,
+    "differentSlots": 59,
+    "firstDifferent": 1
+  }
+]

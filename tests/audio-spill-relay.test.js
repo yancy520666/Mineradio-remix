@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
+const { EventEmitter } = require('node:events');
 const { test } = require('node:test');
 const { createSpillRelay, cleanupStaleSpillFiles } = require('../audio-spill-relay');
 
@@ -108,7 +110,7 @@ test('closing the player mid-song removes the spill file', async () => {
   }
 });
 
-test('an unusable spill directory falls back to the previous in-memory behaviour', async () => {
+test('an unusable spill directory applies bounded memory backpressure', async () => {
   const directory = tempDir();
   const blocked = path.join(directory, 'not-a-directory');
   fs.writeFileSync(blocked, 'x');
@@ -117,6 +119,7 @@ test('an unusable spill directory falls back to the previous in-memory behaviour
     const { received, stats } = await scenario({ data, memoryLimit: 256 * 1024, directory: blocked, client: slowClient(300) });
     assert.ok(received.body.equals(data), 'playback data still complete and ordered');
     assert.equal(stats.spillFailed, true);
+    assert.ok(stats.peakMemoryBytes <= 256 * 1024);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
@@ -134,4 +137,124 @@ test('startup cleanup removes files of exited processes only', () => {
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
+});
+
+async function shortWriteScenario(writePlan) {
+  let disk = Buffer.alloc(256 * 1024);
+  let diskSize = 0;
+  let writes = 0;
+  const handle = {
+    close: async () => {},
+    write: async (buf, offset, length, position) => {
+      const accepted = writePlan(++writes, length);
+      if (accepted instanceof Error) throw accepted;
+      buf.copy(disk, position, offset, offset + accepted);
+      diskSize = Math.max(diskSize, position + accepted);
+      return { bytesWritten: accepted };
+    },
+    read: async (buf, offset, length, position) => {
+      const bytesRead = Math.min(length, diskSize - position);
+      disk.copy(buf, offset, position, position + bytesRead);
+      return { bytesRead };
+    },
+  };
+  const fakeFs = { promises: { mkdir: async () => {}, open: async () => handle, unlink: async () => {} }, unlinkSync: () => {} };
+  const context = vm.createContext({ Buffer, setImmediate, module: { exports: {} }, process: { pid: 123, once: () => {}, env: {} }, require: name => name === 'fs' ? fakeFs : require(name) });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'audio-spill-relay.js'), 'utf8'), context);
+  const res = new EventEmitter();
+  res.writableNeedDrain = true;
+  const received = [];
+  res.write = buf => { received.push(Buffer.from(buf)); return true; };
+  res.end = () => res.emit('close');
+  res.destroy = () => { res.destroyed = true; res.emit('close'); };
+  const relay = context.module.exports.createSpillRelay(res, { memoryLimit: CHUNK, directory: '/isolated-fake' });
+  const chunks = [Buffer.alloc(CHUNK, 1), Buffer.alloc(CHUNK, 2), Buffer.alloc(CHUNK, 3)];
+  const producer = (async () => { for (const chunk of chunks) await relay.push(chunk); })();
+  await new Promise(resolve => setImmediate(resolve));
+  res.writableNeedDrain = false;
+  res.emit('drain');
+  await producer;
+  const stats = await relay.end();
+  assert(stats.peakMemoryBytes <= CHUNK, 'failed spill also respects the queue budget');
+  assert(Buffer.concat(received).equals(Buffer.concat(chunks)), 'no missing or duplicated bytes after replay');
+  assert.notEqual(res.destroyed, true);
+  return { stats, writes };
+}
+
+test('spill retries short writes at the actual offset until every byte is stored', async () => {
+  const { stats, writes } = await shortWriteScenario((_attempt, length) => Math.min(10000, length));
+  assert(writes > 2);
+  assert.equal(stats.spilledBytes, CHUNK * 2);
+  assert.equal(stats.spillFailed, false);
+});
+
+test('a spill failure after a short prefix queues only the unwritten suffix', async () => {
+  const { stats, writes } = await shortWriteScenario(attempt => attempt === 1 ? 12345 : new Error('disk full'));
+  assert.equal(writes, 2);
+  assert.equal(stats.spilledBytes, 12345);
+  assert.equal(stats.spillFailed, true);
+});
+
+test('a zero-progress spill write stops retrying and safely falls back to memory', async () => {
+  const { stats, writes } = await shortWriteScenario(() => 0);
+  assert.equal(writes, 1);
+  assert.equal(stats.spilledBytes, 0);
+  assert.equal(stats.spillFailed, true);
+});
+
+function blockedDiskRelay() {
+  const directory = tempDir();
+  const blocked = path.join(directory, 'file'); fs.writeFileSync(blocked, 'x');
+  const res = new EventEmitter(), received = [];
+  res.writableNeedDrain = true;
+  res.write = chunk => { received.push(Buffer.from(chunk)); return true; };
+  res.end = () => res.emit('close'); res.destroy = res.end;
+  return { directory, res, received, relay: createSpillRelay(res, { memoryLimit: CHUNK, directory: blocked }) };
+}
+test('failed spill splits an oversized chunk and waits until the reader resumes', async () => {
+  const fixture = blockedDiskRelay();
+  const { directory, res, received, relay } = fixture;
+  try {
+    const first = Buffer.alloc(CHUNK, 1), large = Buffer.alloc(CHUNK * 8, 2);
+    await relay.push(first);
+    let returned = false;
+    const producer = relay.push(large).then(() => { returned = true; });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(returned, false, 'upstream waits while paused instead of queuing all bytes');
+    assert.equal(relay.stats.spillFailed, true);
+    assert(relay.stats.peakMemoryBytes <= CHUNK);
+    res.writableNeedDrain = false; res.emit('drain');
+    await producer; await relay.end();
+    assert(Buffer.concat(received).equals(Buffer.concat([first, large])));
+    assert(relay.stats.peakMemoryBytes <= CHUNK);
+  } finally { await relay.abort(); fs.rmSync(directory, { recursive: true, force: true }); }
+});
+for (const action of ['abort', 'close']) {
+  test(`failed-spill backpressure releases the waiting producer on ${action}`, async () => {
+    const { directory, res, relay } = blockedDiskRelay();
+    try {
+      await relay.push(Buffer.alloc(CHUNK));
+      let returned = false;
+      const producer = relay.push(Buffer.alloc(CHUNK * 4)).then(() => { returned = true; });
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal(returned, false);
+      if (action === 'abort') await relay.abort(); else res.emit('close');
+      await producer; await relay.done;
+      assert.equal(relay.pendingBytes(), 0);
+      assert(relay.stats.peakMemoryBytes <= CHUNK);
+    } finally { await relay.abort(); fs.rmSync(directory, { recursive: true, force: true }); }
+  });
+}
+
+test('queued head owns its bounded bytes rather than the upstream backing buffer', async () => {
+  const { directory, res, received, relay } = blockedDiskRelay();
+  try {
+    const backing = Buffer.alloc(CHUNK * 64, 7);
+    const chunk = backing.subarray(CHUNK, CHUNK * 2);
+    await relay.push(chunk);
+    backing.fill(9);
+    res.writableNeedDrain = false; res.emit('drain'); await relay.end();
+    assert(Buffer.concat(received).equals(Buffer.alloc(CHUNK, 7)), 'head owns a copy, not the caller backing buffer');
+    assert.equal(relay.stats.peakMemoryBytes, CHUNK);
+  } finally { await relay.abort(); fs.rmSync(directory, { recursive: true, force: true }); }
 });

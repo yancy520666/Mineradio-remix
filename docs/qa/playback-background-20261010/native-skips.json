@@ -1,0 +1,26 @@
+[
+  {
+    "file": "desktop-native-icon-layer-runtime.test.js",
+    "line": "ok 1 - Windows compiles the native guard without installing hooks or touching Explorer # SKIP"
+  },
+  {
+    "file": "dev-launcher.test.js",
+    "line": "ok 2 - Windows launcher selects only verified Dev process trees # SKIP"
+  },
+  {
+    "file": "installer-cleanup.test.js",
+    "line": "# SKIP native NSIS cleanup: Windows required"
+  },
+  {
+    "file": "wallpaper-background-regression.test.js",
+    "line": "ok 5 - native corners recover after WE clears its region and a maximized start restores # SKIP"
+  },
+  {
+    "file": "wallpaper-native-input.test.js",
+    "line": "ok 1 - native scene input maps coordinates, keeps drag flags, releases buttons and restores focus policy # SKIP"
+  },
+  {
+    "file": "wallpaper-window-follow.test.js",
+    "line": "ok 1 - native wallpaper follows host movement without waiting for its recovery timer # SKIP"
+  }
+]

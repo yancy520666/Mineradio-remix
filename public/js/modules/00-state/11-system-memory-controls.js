@@ -75,7 +75,7 @@ function memoryFormatSnapshot(snapshot) {
   var percent = Math.round(Number(snapshot.usedPercent) || 0);
   var proc = snapshot.process || {};
   var rss = Math.round(Number(proc.rssMB) || 0);
-  return '系统 ' + used + '/' + total + ' MB (' + percent + '%), 可用 ' + free + ' MB, 播放器 ' + rss + ' MB';
+  return '系统 ' + used + '/' + total + ' MB (' + percent + '%), 可用 ' + free + ' MB, 主进程 ' + rss + ' MB';
 }
 
 function updateMemoryStatusText(text) {

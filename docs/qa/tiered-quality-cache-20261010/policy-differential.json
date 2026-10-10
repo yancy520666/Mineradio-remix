@@ -1,0 +1,330 @@
+{
+  "kind": "policy-arithmetic-not-real-GPU-FPS",
+  "baseline": "703448ffdfc12f13aecc198e2cb8e2ace810dc6b",
+  "cases": 1088,
+  "ultraCases": 272,
+  "allBudgetsNonIncreasing": true,
+  "ultraOriginalAdaptiveLadderEquivalent": true,
+  "managedEndpointRows": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.8,
+      "baselinePixelRatio": 0.9
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.25,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.8,
+      "baselinePixelRatio": 0.9
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.25,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1.1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.25,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 1.2,
+      "baselinePixelRatio": 1.25
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.25,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1.25,
+      "baselinePixelRatio": 1.25
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.5,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.8,
+      "baselinePixelRatio": 0.9
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.5,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1.1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.5,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 1.2,
+      "baselinePixelRatio": 1.35
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1.5,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1.5,
+      "baselinePixelRatio": 1.5
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 2,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.8,
+      "baselinePixelRatio": 0.9
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 2,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1.1
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 2,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 1.2,
+      "baselinePixelRatio": 1.35
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "dpr": 2,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 2,
+      "baselinePixelRatio": 2
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.6162583107395434,
+      "baselinePixelRatio": 0.6987712429686843
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 0.7547592055307,
+      "baselinePixelRatio": 0.8715208609729954
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 0.9316949906249123,
+      "baselinePixelRatio": 1
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1,
+      "baselinePixelRatio": 1
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.25,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.6162583107395434,
+      "baselinePixelRatio": 0.6987712429686843
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.25,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 0.7547592055307,
+      "baselinePixelRatio": 0.8715208609729954
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.25,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 0.9316949906249123,
+      "baselinePixelRatio": 1.0416666666666667
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.25,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1.25,
+      "baselinePixelRatio": 1.25
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.5,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.6162583107395434,
+      "baselinePixelRatio": 0.6987712429686843
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.5,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 0.7547592055307,
+      "baselinePixelRatio": 0.8715208609729954
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.5,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 0.9316949906249123,
+      "baselinePixelRatio": 1.0416666666666667
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 1.5,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 1.5,
+      "baselinePixelRatio": 1.5
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 2,
+      "quality": "eco",
+      "grid": 96,
+      "floating": 20,
+      "pixelRatio": 0.6162583107395434,
+      "baselinePixelRatio": 0.6987712429686843
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 2,
+      "quality": "balanced",
+      "grid": 128,
+      "floating": 40,
+      "pixelRatio": 0.7547592055307,
+      "baselinePixelRatio": 0.8715208609729954
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 2,
+      "quality": "high",
+      "grid": 192,
+      "floating": 60,
+      "pixelRatio": 0.9316949906249123,
+      "baselinePixelRatio": 1.0416666666666667
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "dpr": 2,
+      "quality": "ultra",
+      "grid": 320,
+      "floating": 100,
+      "pixelRatio": 2,
+      "baselinePixelRatio": 2
+    }
+  ]
+}

@@ -646,7 +646,8 @@ function updateSkullParticleLayer(dt) {
     return;
   }
   skullParticleGroup.visible = true;
-  skullParticleGroup.material.uniforms.uOpacity.value = skullParticleOpacity * clampRange(0.78 + (fx.intensity || 0.85) * 0.18, 0.56, 1.0);
+  skullParticleGroup.material.uniforms.uOpacity.value = skullParticleOpacity * clampRange(0.78 + (fx.intensity || 0.85) * 0.18, 0.56, 1.0)
+    * (uniforms.uBackgroundHandoffAlpha ? uniforms.uBackgroundHandoffAlpha.value : 1);
   var beatTransient = clampRange(Math.max(0, beatPulse - 0.16) / 0.84, 0, 1.35);
   var flashTarget = clampRange(Math.pow(beatTransient, 1.34) * 1.08 + Math.max(0, bass - 0.60) * 0.18 * beatTransient, 0, 1);
   skullBeatFlash += (flashTarget - skullBeatFlash) * Math.min(1, dt * (flashTarget > skullBeatFlash ? 24.0 : 6.2));
@@ -742,13 +743,13 @@ void main(){
   var fs = `
 precision highp float;
 uniform sampler2D uDotTex;
-uniform float uAlpha;
+uniform float uAlpha, uBackgroundHandoffAlpha;
 varying vec3 vC;
 varying float vA;
 void main(){
   vec4 tex = texture2D(uDotTex, gl_PointCoord);
   if (tex.a < 0.02) discard;
-  gl_FragColor = vec4(vC, tex.a * vA * uAlpha);
+  gl_FragColor = vec4(vC, tex.a * vA * uAlpha * uBackgroundHandoffAlpha);
 }
   `;
   var mat = new THREE.ShaderMaterial({
@@ -758,6 +759,7 @@ void main(){
       uPixel: uniforms.uPixel,
       uDotTex: uniforms.uDotTex,
       uAlpha: uniforms.uAlpha,
+      uBackgroundHandoffAlpha: uniforms.uBackgroundHandoffAlpha,
     },
     vertexShader: vs, fragmentShader: fs,
     transparent: true, depthWrite: false, blending: THREE.NormalBlending,

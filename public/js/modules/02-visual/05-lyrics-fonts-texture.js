@@ -56,25 +56,59 @@ function saveCustomLyricFonts() {
 function quotedCssFontFamily(name) {
   return '"' + String(name || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
+// Core stores restore saved fonts before this later classic-module initializer.
+var customLyricFontFaceOwners = customLyricFontFaceOwners || new Map();
+function releaseCustomLyricFontFace(id) {
+  var owner = customLyricFontFaceOwners.get(id);
+  if (!owner) return;
+  customLyricFontFaceOwners.delete(id);
+  if (owner.source) owner.source.loaded = false;
+  if (owner.face && document.fonts && typeof document.fonts.delete === 'function') document.fonts.delete(owner.face);
+}
+function reconcileCustomLyricFontFaces() {
+  var retained = new Set((customLyricFonts || []).map(function (record) { return record.id; }));
+  customLyricFontFaceOwners.forEach(function (owner, id) {
+    if (!retained.has(id)) releaseCustomLyricFontFace(id);
+  });
+}
 function registerCustomLyricFont(record) {
   var source = record;
   record = normalizeCustomLyricFontRecord(record);
   if (!record || typeof FontFace !== 'function' || !document.fonts) return Promise.resolve(false);
-  if (source && source.loaded && source.id === record.id) return Promise.resolve(true);
+  if (!customLyricFontFaceOwners) customLyricFontFaceOwners = new Map();
+  var existing = customLyricFontFaceOwners.get(record.id);
+  if (existing && existing.family === record.family && existing.dataUrl === record.dataUrl) {
+    return existing.promise;
+  }
+  releaseCustomLyricFontFace(record.id);
+  var owner = { family: record.family, dataUrl: record.dataUrl, source: source, face: null, promise: null };
+  customLyricFontFaceOwners.set(record.id, owner);
   try {
     var face = new FontFace(record.family, 'url("' + record.dataUrl + '")');
-    return face.load().then(function (loadedFace) {
+    owner.promise = face.load().then(function (loadedFace) {
+      if (customLyricFontFaceOwners.get(record.id) !== owner) return false;
       document.fonts.add(loadedFace);
-      clearLyricTextMeasureCache();
-      scheduleLyricTextMeasureWarmup(0);
+      owner.face = loadedFace;
       record.loaded = true;
       if (source && source.id === record.id) source.loaded = true;
+      try {
+        clearLyricTextMeasureCache();
+        scheduleLyricTextMeasureWarmup(0);
+      } catch (measureError) { console.warn('[LyricFont] measure warmup failed', measureError); }
+      // Restored fonts can finish after the first lyric raster used a fallback.
+      try {
+        if (typeof fx !== 'undefined' && fx && normalizeLyricFontKey(fx.lyricFont) === customLyricFontKey(record.id)
+          && typeof refreshCurrentLyricStyle === 'function') refreshCurrentLyricStyle();
+      } catch (refreshError) { console.warn('[LyricFont] display refresh failed', refreshError); }
       return true;
     }).catch(function (err) {
+      if (customLyricFontFaceOwners.get(record.id) === owner) customLyricFontFaceOwners.delete(record.id);
       console.warn('[LyricFont] load failed', err);
       return false;
     });
+    return owner.promise;
   } catch (e) {
+    if (customLyricFontFaceOwners.get(record.id) === owner) customLyricFontFaceOwners.delete(record.id);
     console.warn('[LyricFont] register failed', e);
     return Promise.resolve(false);
   }
@@ -121,8 +155,10 @@ function lyricLetterSpacingPx(fontSize) {
 function lyricLineHeightFactor() {
   return clampRange(Number(fx && fx.lyricLineHeight) || 1, 0.72, 1.80);
 }
+var lyricTextMeasureGeneration = 0;
 var lyricTextMeasureCache = { fonts: {}, order: [], maxFonts: 64, maxCharsPerFont: 512 };
 function clearLyricTextMeasureCache() {
+  lyricTextMeasureGeneration += 1;
   lyricTextMeasureCache = { fonts: {}, order: [], maxFonts: 64, maxCharsPerFont: 512 };
 }
 function lyricTextMeasureFontCache(ctx) {

@@ -76,6 +76,9 @@ function createRemixUpdater(options) {
   let updater = null;
   let checkPromise = null;
   let downloadPromise = null;
+  let installTimer = null;
+  let verifiedDownload = false;
+  let installAttempt = 0;
   let state = { supported: enabled, status: enabled ? 'idle' : 'external', currentVersion: app.getVersion(), version: '', percent: 0, error: '' };
 
   function publish(patch) {
@@ -93,26 +96,34 @@ function createRemixUpdater(options) {
     updater.allowPrerelease = false;
     updater.allowDowngrade = false;
     updater.on('update-available', (info) => {
+      if (state.status !== 'checking') return;
       const files = Array.isArray(info && info.files) ? info.files : [];
       const size = Number(files[0] && files[0].size) || 0;
       publish({ status: 'available', version: String(info && info.version || ''), error: '',
         highlights: extractReleaseHighlights(info && info.releaseNotes), downloadBytes: size > 0 ? size : 0 });
     });
-    updater.on('update-not-available', () => publish({ status: 'current', version: '', error: '', highlights: [], downloadBytes: 0 }));
+    updater.on('update-not-available', () => {
+      if (state.status === 'checking') publish({ status: 'current', version: '', error: '', highlights: [], downloadBytes: 0 });
+    });
     updater.on('download-progress', (progress) => {
       if (!downloadPromise || state.status !== 'downloading') return;
       publish({ status: 'downloading', percent: Math.max(0, Math.min(100, Number(progress && progress.percent) || 0)) });
     });
     updater.on('update-downloaded', (info) => {
       if (!downloadPromise || state.status !== 'downloading' || !info || info.version !== state.version) return;
-      publish({ status: 'downloaded', percent: 100, error: '' });
+      verifiedDownload = true;
     });
-    updater.on('error', (error) => publish({ status: 'error', error: String(error && error.message || error || 'UPDATE_FAILED').slice(0, 160) }));
+    updater.on('error', (error) => {
+      if (state.status === 'installing') return failInstall(error);
+      if (!['checking', 'downloading'].includes(state.status)) return;
+      verifiedDownload = false;
+      publish({ status: 'error', error: String(error && error.message || error || 'UPDATE_FAILED').slice(0, 160) });
+    });
     return updater;
   }
 
   async function check() {
-    if (!enabled || state.status === 'downloaded' || state.status === 'downloading') return { ...state };
+    if (!enabled || state.status === 'downloaded' || state.status === 'downloading' || state.status === 'installing') return { ...state };
     if (checkPromise) return checkPromise;
     publish({ status: 'checking', error: '' });
     checkPromise = Promise.resolve().then(() => ensureUpdater().checkForUpdates()).then(() => {
@@ -130,21 +141,60 @@ function createRemixUpdater(options) {
       await check();
       if (state.status !== 'available') return { ...state };
     }
+    if (downloadPromise || state.status !== 'available') return { ...state };
+    verifiedDownload = false;
     publish({ status: 'downloading', percent: 0, error: '' });
     downloadPromise = Promise.resolve().then(() => ensureUpdater().downloadUpdate()).then((files) => {
       if (state.status !== 'downloading') return { ...state };
-      if (!Array.isArray(files) || !files.length) return publish({ status: 'error', error: 'UPDATE_DOWNLOAD_INCOMPLETE' });
+      if (!verifiedDownload && (!Array.isArray(files) || !files.length)) return publish({ status: 'error', error: 'UPDATE_DOWNLOAD_INCOMPLETE' });
+      verifiedDownload = true;
       return publish({ status: 'downloaded', percent: 100 });
     }, (error) => {
+      verifiedDownload = false;
       return publish({ status: 'error', error: String(error && error.message || error || 'UPDATE_DOWNLOAD_FAILED').slice(0, 160) });
     }).finally(() => { downloadPromise = null; });
     return downloadPromise;
   }
 
+  function failInstall(error) {
+    if (installTimer) clearTimeout(installTimer);
+    installTimer = null;
+    installAttempt++;
+    // BaseUpdater 6.8.x leaves this latch set after asynchronous spawn errors.
+    // Reset only after failure, never while another installation is in progress.
+    if (updater && 'quitAndInstallCalled' in updater) updater.quitAndInstallCalled = false;
+    const message = String(error && error.message || error || 'UPDATE_INSTALL_FAILED').slice(0, 160);
+    publish({ status: verifiedDownload ? 'downloaded' : 'error', error: message });
+    if (typeof options.onInstallError === 'function') options.onInstallError(error);
+    return { ok: false, error: message };
+  }
+
   function install() {
-    if (!enabled || state.status !== 'downloaded') return { ok: false, error: 'UPDATE_NOT_READY' };
-    ensureUpdater().quitAndInstall(true, true);
-    return { ok: true };
+    if (state.status === 'installing') return { ok: true, status: 'installing' };
+    if (!enabled || state.status !== 'downloaded' || !verifiedDownload) return { ok: false, error: 'UPDATE_NOT_READY' };
+    const attempt = ++installAttempt;
+    publish({ status: 'installing', error: '' });
+    const launch = () => {
+      if (attempt !== installAttempt || state.status !== 'installing') return { ok: false, error: state.error };
+      try {
+        // Cleanup must finish BEFORE NSIS starts waiting for the app to exit.
+        // Never claim install completion: quitAndInstall returns void and can emit errors.
+        if (typeof options.beforeNativeInstall === 'function') options.beforeNativeInstall();
+        ensureUpdater().quitAndInstall(true, true);
+        if (state.status !== 'installing') return { ok: false, error: state.error };
+        installTimer = setTimeout(() => {
+          installTimer = null;
+          // The installer may already be running. Do not unlock a second launch.
+          publish({ error: 'UPDATE_RESTART_TIMEOUT: 重启尚未完成，请查看安装窗口；仍无响应时退出应用后从发布页手动安装。' });
+        }, options.installTimeoutMs || 30000);
+        if (installTimer.unref) installTimer.unref();
+        return { ok: true, status: 'installing' };
+      } catch (error) { return failInstall(error); }
+    };
+    if (typeof options.beforeInstall === 'function') {
+      return Promise.resolve().then(() => options.beforeInstall()).then(launch, failInstall);
+    }
+    return launch();
   }
 
   function cleanupInstalledDownload() {

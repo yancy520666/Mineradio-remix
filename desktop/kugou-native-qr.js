@@ -5,6 +5,7 @@
 const https = require('https');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const { getKugouVerificationChallenge } = require('./kugou-verification');
 
 function requestQr(path, params, mid) {
   const query = { dfid: '-', mid, uuid: '-', appid: 1005, clientver: 20489,
@@ -28,6 +29,8 @@ function requestQr(path, params, mid) {
       res.on('end', () => {
         try {
           const json = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          const challenge = getKugouVerificationChallenge(json);
+          if (challenge) { resolve(challenge); return; }
           if (res.statusCode !== 200 || Number(json.status) !== 1) throw new Error('KUGOU_QR_REQUEST_FAILED');
           resolve(json.data || {});
         } catch (_) { reject(new Error('KUGOU_QR_REQUEST_FAILED')); }
@@ -52,13 +55,17 @@ function createKugouNativeQrSession(options) {
       const data = await request('/v2/qrcode', { appid: 1001, type: 1, plat: 4,
         qrcode_txt: 'https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1005&' }, mid);
       if (stopped || epoch !== generation) return;
+      const challenge = getKugouVerificationChallenge(data);
+      if (challenge) { finish({ ...challenge, inline: true }); return; }
       const nextKey = String(data.qrcode || '');
       if (!nextKey || nextKey.length > 4096) throw new Error('KUGOU_QR_INVALID');
       const nextImage = await renderQr('https://h5.kugou.com/apps/loginQRCode/html/index.html?qrcode=' + encodeURIComponent(nextKey));
       if (stopped || epoch !== generation) return;
       key = nextKey; image = nextImage; expired = false; started = Date.now(); failures = 0;
       options.notify({ stage: 'qr', image, expired: false });
-    } catch (_) {
+    } catch (error) {
+      const challenge = getKugouVerificationChallenge(error);
+      if (challenge && !stopped && epoch === generation) { finish({ ...challenge, inline: true }); return; }
       if (!stopped && epoch === generation) finish({ ok: false, inline: true, fallback: true, error: 'KUGOU_QR_UNAVAILABLE' });
     }
   }
@@ -69,6 +76,8 @@ function createKugouNativeQrSession(options) {
     try {
       const data = await request('/v2/get_userinfo_qrcode', { plat: 4, qrcode: key }, mid);
       if (stopped || epoch !== generation) return;
+      const challenge = getKugouVerificationChallenge(data);
+      if (challenge) { finish({ ...challenge, inline: true }); return; }
       failures = 0;
       const status = Number(data.status);
       if (status === 4) {
@@ -81,7 +90,9 @@ function createKugouNativeQrSession(options) {
       } else if (status === 0 || Date.now() - started > 180000) {
         expired = true; options.notify({ stage: 'qr', image, expired: true });
       } else if (status === 2) options.notify({ stage: 'scanned' });
-    } catch (_) {
+    } catch (error) {
+      const challenge = getKugouVerificationChallenge(error);
+      if (challenge && !stopped && epoch === generation) { finish({ ...challenge, inline: true }); return; }
       if (!stopped && epoch === generation && ++failures >= 3) finish({ ok: false, inline: true, fallback: true, error: 'KUGOU_QR_UNAVAILABLE' });
     } finally { busy = false; }
   }

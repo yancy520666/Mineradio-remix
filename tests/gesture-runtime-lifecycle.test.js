@@ -181,6 +181,61 @@ vm.runInContext(gestureText, context, { filename: '00-gesture-control.js' });
   assert.match(powerText, /isDesktopEmbedded/);
   assert.doesNotMatch(gestureText, /gestureHands\s*\|\|\s*gestureInferenceBusy\s*\|\|\s*document\.hidden/);
 
+  // Cancelling an awaited camera start must only release that attempt. A late
+  // stream or inference callback must not close or change a replacement owner.
+  context.stopGestureControl();
+  context.fx.cam = 'gesture';
+  const starts = [];
+  context.Camera = function Camera(video, options) {
+    this.options = options;
+    this.stops = 0;
+    this.stop = () => { this.stops++; };
+    this.start = () => new Promise((resolve, reject) => starts.push({
+      camera: this, video, reject,
+      resolve() {
+        const track = { stops: 0, stop() { this.stops++; } };
+        video.srcObject = { getTracks: () => [track] };
+        this.track = track;
+        resolve(true);
+      }
+    }));
+  };
+  for (const settle of ['resolve', 'reject']) {
+    const first = context.startGestureControl();
+    await new Promise(resolve => setImmediate(resolve));
+    const old = starts[starts.length - 1];
+    const oldHands = context.gestureHands;
+    context.stopGestureControl();
+    const second = context.startGestureControl();
+    await new Promise(resolve => setImmediate(resolve));
+    const replacement = starts[starts.length - 1];
+    replacement.resolve();
+    assert.equal(await second, true);
+    const beforeInference = sendCount;
+    await old.camera.options.onFrame();
+    oldHands.results({});
+    assert.equal(sendCount, beforeInference, 'stale camera callback cannot infer through the new model');
+    if (settle === 'resolve') old.resolve();
+    else old.reject(new Error('cancelled-start-error'));
+    assert.equal(await first, false);
+    assert.equal(context.gestureActive, true, 'old settlement cannot disable a new active camera');
+    assert.equal(context.gestureCamera, replacement.camera);
+    assert.equal(replacement.camera.stops, 0);
+    if (old.track) assert.equal(old.track.stops, 1, 'stream attached after cancellation is released');
+    context.stopGestureControl();
+    assert.equal(replacement.track.stops, 1);
+  }
+
+  const cancelled = context.startGestureControl();
+  await new Promise(resolve => setImmediate(resolve));
+  const late = starts[starts.length - 1];
+  context.stopGestureControl();
+  late.resolve();
+  assert.equal(await cancelled, false);
+  assert.equal(late.track.stops, 1, 'late stream is stopped even without a replacement session');
+  assert.equal(context.gestureActive, false);
+  assert.equal(context.gestureLifecycleState, 'off');
+
   console.log('OK gesture-runtime-lifecycle');
 })().catch(error => {
   console.error(error);

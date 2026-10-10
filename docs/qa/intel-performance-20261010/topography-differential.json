@@ -1,0 +1,9 @@
+{
+  "kind": "deterministic-VM-three-matrix-comparison-not-rendered-image-or-GPU-timing",
+  "frames": 720,
+  "activeSlotComparisons": 1358,
+  "baselineMatrixWrites": 158400,
+  "optimizedMatrixWrites": 1409,
+  "terrainVisible": true,
+  "simulationStateEquivalent": true
+}

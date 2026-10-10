@@ -40,6 +40,21 @@
     return values;
   }
 
+  // Equal-power geometry with a zero-slope entrance/exit. At high master
+  // volumes reserve only the headroom needed for coincident unit peaks.
+  // This is a conservative peak bound, not a loudness normalizer or limiter.
+  function buildCuefieldCrossfadeGains(progress, targetVolume, outgoingRatio) {
+    var t = clamp(progress, 0, 1);
+    var eased = t * t * (3 - 2 * t);
+    var target = clamp(targetVolume, 0, 1);
+    var ratio = clamp(outgoingRatio == null ? 1 : outgoingRatio, 0, 1);
+    var outgoing = target * ratio * Math.cos(eased * Math.PI / 2);
+    var incoming = target * Math.sin(eased * Math.PI / 2);
+    var headroom = Math.max(1, outgoing + incoming);
+    return { outgoing: t === 1 ? 0 : outgoing / headroom,
+      incoming: t === 0 ? 0 : incoming / headroom };
+  }
+
   function buildVolumeOnlyCuefieldExecution(opts) {
     opts = opts || {};
     var leadSec = 2.2;
@@ -307,6 +322,7 @@
   return {
     buildCuefieldTimelineExecution: buildCuefieldTimelineExecution,
     buildEqualPowerCurve: buildEqualPowerCurve,
+    buildCuefieldCrossfadeGains: buildCuefieldCrossfadeGains,
     buildVolumeOnlyCuefieldExecution: buildVolumeOnlyCuefieldExecution,
     shouldReleaseCuefieldDeckGraph: shouldReleaseCuefieldDeckGraph,
     transferCuefieldGainOwnership: transferCuefieldGainOwnership,

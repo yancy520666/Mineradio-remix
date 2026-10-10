@@ -105,7 +105,8 @@ test('after a cover settles the next queued covers are warmed with the playback 
   s.c.loadCoverFromUrl(cdn, { trackToken: 1, seamlessTrackSwitch: true });
   s.last().onload();
   s.fire();
-  assert.equal(s.last().src, s.c.coverProxySrc(s.c.coverUrlWithSize(s.c.playQueue[1].cover, 400)));
+  assert.equal(s.last().src, s.c.coverProxySrc(s.c.coverUrlWithSize(s.c.playQueue[1].cover, 400)) + '&priority=background');
+  assert.equal(s.last().fetchPriority, 'low');
   const count = s.images.length;
   s.last().onload();
   s.fire();

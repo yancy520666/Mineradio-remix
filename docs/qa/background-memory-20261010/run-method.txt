@@ -1,0 +1,4 @@
+Baseline: 0becc950f50880b6c047cd7af81b35dfe1741acf.
+QA-only runner selects all tests/*.test.js except login-logout-race.test.js, whose execution authorization was explicitly cancelled. Each file runs separately using node --test --test-reporter=tap, timeout 60 seconds and maxBuffer 12 MiB. Production scripts/run-tests.js is unchanged.
+NODE_PATH=/tmp/mineradio-basic-ftp-deps-20261010/node_modules; ELECTRON_SKIP_BINARY_DOWNLOAD=1.
+Existing synthetic loopback server-security tests are authorized. No external security PoC, Electron binary download/execution, Windows native validation, live account/MFA or real GPU/RSS measurement.

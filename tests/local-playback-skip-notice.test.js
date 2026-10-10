@@ -9,7 +9,7 @@ test('known offline entries do not exhaust the playback failure budget before an
     let terminal = 0, visited = 0;
     const queue = Array.from({ length: 41 }, (_, i) => ({ type: 'local', localFileId: String(i), name: 'fixture-' + i }));
     const c = vm.createContext({
-      trackSwitchToken: 1, playQueue: queue,
+      trackSwitchToken: 1, playQueue: queue, currentIdx: 0,
       window: { desktopWindow: { resolveLocalMusicTrack: async () => ({ localMissing: true }) } },
       showSourceFallbackNotice() {}, settleSourceFallbackTerminal: () => { terminal++; return false; },
     });
@@ -18,6 +18,7 @@ test('known offline entries do not exhaust the playback failure budget before an
       visited++;
       if (!allOffline && index === 40) return true;
       c.trackSwitchToken++;
+      c.currentIdx = index;
       return c.playLocalQueueSong(queue[index], index, c.trackSwitchToken, false, opts, 0);
     };
     const result = await c.playLocalQueueSong(queue[0], 0, 1, false, {}, 0);
@@ -42,7 +43,7 @@ test('offline skips name the song, coalesce notices and terminate instead of cyc
   let terminal = 0;
   const context = vm.createContext({
     window: { desktopWindow: { resolveLocalMusicTrack: async () => ({ localMissing: true }) } },
-    trackSwitchToken: 1, playQueue: [{ type: 'local', name: '离线歌曲', localFileId: 'fixture' }, { type: 'local', name: '下一首', localFileId: 'fixture2' }],
+    trackSwitchToken: 1, currentIdx: 0, playQueue: [{ type: 'local', name: '离线歌曲', localFileId: 'fixture' }, { type: 'local', name: '下一首', localFileId: 'fixture2' }],
     showSourceFallbackNotice: (...args) => notices.push(args),
     settleSourceFallbackTerminal: () => { terminal++; return false; },
     playQueueAt: async (index, options) => { attempts.push({ index, options }); return true; }
@@ -73,7 +74,7 @@ test('output-device waits cannot overwrite a newer local track selection', async
   const noop = () => {};
   const context = vm.createContext({
     window: {}, document: { getElementById: () => ({ classList: { remove() {} } }) },
-    audio: original, playQueue: [song], trackSwitchToken: 1, audioFadeSerial: 0,
+    audio: original, playQueue: [song], currentIdx: 0, trackSwitchToken: 1, audioFadeSerial: 0,
     updateCustomCoverButton: noop, clearAudioFadeTimers: noop, resetPlaybackAudioGraphForSourceSwitch: noop,
     syncActiveAudioRepeatMode: noop, bindPlaybackProgressEvents: noop, applyVolumeToAudio: noop,
     applyAudioOutputDevice: () => deviceWait,
@@ -82,4 +83,25 @@ test('output-device waits cannot overwrite a newer local track selection', async
   const pending = context.playLocalQueueSong(song, 0, 1, false, {}, 0);
   context.trackSwitchToken = 2; context.audio = replacement; release();
   assert.equal(await pending, false); assert.equal(replacement.src, 'new-track'); assert.equal(original.src, '');
+});
+
+test('a local resolution follows its moved live entry without overwriting a neighboring song', async () => {
+  let resolveLocal, resolveOutput;
+  const localGate = new Promise(resolve => { resolveLocal = resolve; });
+  const outputGate = new Promise(resolve => { resolveOutput = resolve; });
+  const noop = () => {}, song = { type: 'local', name: 'B', localFileId: 'b', localKey: 'b' };
+  const c = vm.createContext({ window: { desktopWindow: { resolveLocalMusicTrack: () => localGate } },
+    document: { getElementById: () => ({ classList: { remove: noop } }) },
+    playQueue: [{ name: 'A' }, song, { name: 'C' }], currentIdx: 1, trackSwitchToken: 7,
+    audio: { pause: noop }, audioFadeSerial: 0, queueLogicalOrderState: { queue: null, next: 0 },
+    updateCustomCoverButton: noop, clearAudioFadeTimers: noop, resetPlaybackAudioGraphForSourceSwitch: noop,
+    syncActiveAudioRepeatMode: noop, bindPlaybackProgressEvents: noop, applyVolumeToAudio: noop,
+    applyAudioOutputDevice: () => outputGate, safeRenderQueuePanel: noop, safeShelfRebuild: noop,
+    saveLastPlaybackSnapshot: noop, queueItemKey: song => song.name });
+  loadFunctions(c, 'public/js/modules/05-playback/10-queue-actions.js', ['syncQueueLogicalOrder', 'queueLogicalEntries', 'moveQueueLogicalEntry', 'moveQueueIndex']);
+  loadFunctions(c, 'public/js/modules/05-playback/13-playback-start-audio.js', ['playLocalQueueSong']);
+  const job = c.playLocalQueueSong(song, 1, 7, false, {}, 0);
+  c.moveQueueIndex(1, 0); resolveLocal({ ...song, localUrl: 'fixture:B' }); await new Promise(setImmediate);
+  assert.deepEqual(Array.from(c.playQueue, song => song.name), ['B', 'A', 'C']); assert.equal(c.currentIdx, 0);
+  c.trackSwitchToken++; resolveOutput(); assert.equal(await job, false);
 });

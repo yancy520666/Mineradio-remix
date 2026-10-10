@@ -1,0 +1,1318 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-09T22:10:33.830659+00:00",
+  "baseline": "451b6cf178fb6d872368941020141c312f02c4a3",
+  "current_head": "5bc4f03fed242b7df743924312b379642b1f3b7b",
+  "notice": "完整读审不等于运行通过；扫描不等于读审。共享工作树会继续变化，SHA只描述此时间。",
+  "files": [
+    {
+      "path": "audio-spill-relay.js",
+      "lines": 240,
+      "sha256": "9c0970ec5f3b650ca6631a6b0f8fe0e9889fce5dddc0142e6e27e5ee9ed81957",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/adapter-mineradio.js",
+      "lines": 186,
+      "sha256": "ecb6902a8232a6d0e3353da0f379f2e723243dbfc79c0c22a971e97dc8ca4b56",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/boundary-evidence.js",
+      "lines": 104,
+      "sha256": "c8db4b6024e1e336974de2aaf3ca610caa9130e05b2c5d6b0b40a8120b956a33",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/bridge-planner.js",
+      "lines": 202,
+      "sha256": "1fd6ac75095bde03ff94b2e0031f59b31167b4fdaf5d9cf77f250756071dee93",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/cue-profile.js",
+      "lines": 223,
+      "sha256": "41dd42f39ea58ee6d702c82fd7fd6e54f2370fff6005d55216367226aa02fb53",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/feedback-log.js",
+      "lines": 471,
+      "sha256": "ceac0b022e605c71d38ff80c7b8922bfa23af05b2eb283ad9abd960307e99f8c",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/lrc-anchors.js",
+      "lines": 135,
+      "sha256": "40b0742a3f4d8feb7e22976951701596353333bd5dc76679bd58605dd23ef68b",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/lyric-link.js",
+      "lines": 108,
+      "sha256": "45f6c878947f3467117f7a73e7961fa4a5f731e9b5f1a042dad256cfaab34ac2",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/mineradio-bridge.js",
+      "lines": 717,
+      "sha256": "d9ed192bb6fd3fc67464eb3fb7b34d28ce8b053cbacbe120e5dfd6b617b8b3d6",
+      "static_review": "定点/部分读审",
+      "read_scope": "导出/planCuefieldTransitionFromCache/尾部契约；未逐行全读",
+      "executed_test_references": [
+        "tests/cuefield-transition-runtime.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/musical-profile.js",
+      "lines": 189,
+      "sha256": "29a7f60078c74098c1c7c8113847fb177afef66d779501ada0afa0c45d3321ec",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/planner-contracts.js",
+      "lines": 81,
+      "sha256": "862ffec1c66eb4b03c3d0cc645300960fdac97e8480eab87aeb195d1ddb5d4d2",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/recipe-planner.js",
+      "lines": 1304,
+      "sha256": "142946a2bfe2f768e4f13e2f47a319e35502e6e605c63f9680ece64990847eac",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/section-candidates.js",
+      "lines": 346,
+      "sha256": "22ba3ff0e15d12e0cb9173dd8001d0800d3904fcb37a8665181c42c8aaf6cccd",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/shadow-diagnostics.js",
+      "lines": 213,
+      "sha256": "410aa57f3f40515d0896e5e75712b2f36c21b7ce47562a4cece286e5e6f1ad18",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/structure-map.js",
+      "lines": 307,
+      "sha256": "3a78961278620435f93c0c5785dd05e2fab9e23cd868a2135ce2ccaa2bf0ee38",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/transition-artifact.js",
+      "lines": 213,
+      "sha256": "dc5c58d8f0c34e915c2c43cf4d2eaca9d29be5fa8a868a435157043d749531fd",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/transition-evaluator.js",
+      "lines": 273,
+      "sha256": "344bdf1d98e9a8227d2c0d1396024fcc5f71ce75971c164947f5a1e4b597ffe3",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/transition-router.js",
+      "lines": 218,
+      "sha256": "eb192a59367bcdd4a78818da7935a0ec77cc006a8a0a6aec21f0bb9d35807e0b",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/transition-window-planner.js",
+      "lines": 1371,
+      "sha256": "1cf9e4dc8324bb237f3736becec1d570a2ee7d7f038c950ba34d720026453d14",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "cuefield/version.js",
+      "lines": 94,
+      "sha256": "c60f76ccbba9b0f0239e35fffd4f48319363395cf9b335245f172958c2bd337e",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "desktop/built-in-playlist-library.js",
+      "lines": 295,
+      "sha256": "ccd72fabcfb6bb637405df216685c4cdb59a9de97735092b9f0ed108e4edbcb2",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "desktop/local-music-library.js",
+      "lines": 874,
+      "sha256": "bdf8966ebea7337110c117d137cfc6d3e44be9a05a62eb4045fa29231e66cb76",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/local-alternate-fingerprint-cache.test.js",
+        "tests/local-library-offline-relink.test.js",
+        "tests/local-music-library-persistence.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "desktop/main.js",
+      "lines": 6616,
+      "sha256": "1a410fa59b9005d01f4edc2ba78ca582909f5c36077715578b72f7c7b632ac85",
+      "static_review": "定点/部分读审",
+      "read_scope": "相关 local/built-in/checkpoint/lyric/beat IPC 与协议调用索引；非全文",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/local-music-library-persistence.test.js",
+        "tests/microphone-permission.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "desktop/microphone-permission.js",
+      "lines": 133,
+      "sha256": "abdf667bcc55ebc3c59719e5da2ade57672aaabf2890e7727c0c02bb8fa537e0",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/microphone-permission.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "desktop/playback-checkpoint-store.js",
+      "lines": 64,
+      "sha256": "d5b8699fcb40bd8fb43419f9e9899a7f699efac723cfe39d081e4c2cf4ca71f3",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-checkpoint.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "desktop/preload.js",
+      "lines": 201,
+      "sha256": "2985e8cf07139e4162067a8a7e59e38e3466956c52b8194bb63cf0bab4052300",
+      "static_review": "定点/部分读审",
+      "read_scope": "相关 local/built-in/checkpoint/lyric IPC API 调用索引；非全文",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/local-music-library-persistence.test.js",
+        "tests/microphone-permission.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/desktop-lyrics.html",
+      "lines": 1237,
+      "sha256": "ec9e65d31605e0d4ab59c593761c3679a5e2274186617a5767773a9c255b21e9",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/02-visual/02-lyrics-state-layout.js",
+      "lines": 111,
+      "sha256": "147a08adf65b92e103711da44fcfbebbf0876c363b34a11b54ba5edbd969f09d",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/02a-lyric-work-scheduler.js",
+      "lines": 91,
+      "sha256": "218157e00902b024f9e26178c4ae85e2c6d0b70d3de050ffb6c9a0c59a0d77db",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/lyric-work-scheduler.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/03-lyrics-star-river.js",
+      "lines": 227,
+      "sha256": "5f5dd731d4819c0b94b61dab9ed08e551cc0096a0303e25cc102bb07a774e685",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/05-lyrics-fonts-texture.js",
+      "lines": 355,
+      "sha256": "520f09f89669b967309ea974bd9adb82d7fd3962e74b2f2daef8b267359af1f8",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/lyric-spacing-stability.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/02-visual/07-lyrics-palette-text-utils.js",
+      "lines": 581,
+      "sha256": "4002760736e3d2d0a28358e3d095f522ab280244ba580892c8546a028051ef11",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/adjacent-preparation.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/08-lyrics-display-modes.js",
+      "lines": 154,
+      "sha256": "e39e1a5f2b28f087d35522481ea99af3a19792385e3417434d4db605070c5a6f",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/lyric-motion-profiles.test.js",
+        "tests/lyric-spacing-stability.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/09-lyrics-payloads.js",
+      "lines": 219,
+      "sha256": "cd3d4311ec209640766d16936272007a203bdce32cac6829208e198c2065b761",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/10-lyrics-mask-textures.js",
+      "lines": 951,
+      "sha256": "e4d6f73120ef64aafb256582417c3169d53f70911146fd21fed968485ebf1377",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/lyric-runway-preparation.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/02-visual/11-lyrics-shaders.js",
+      "lines": 160,
+      "sha256": "d153661c567a5d9bda1597061c09b448c13bd6dba5e36806524edbe03037bf29",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/lyric-motion-profiles.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/12-lyrics-row-layers.js",
+      "lines": 1998,
+      "sha256": "b437f166cc05443e958d368df837d01c35f65f4bdfd73b1436586d05e1af6642",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/lyric-active-line-viewport-fit.test.js",
+        "tests/lyric-drag-quality.test.js",
+        "tests/lyric-runway-preparation.test.js",
+        "tests/lyric-spacing-stability.test.js",
+        "tests/lyric-track-seek-glide.test.js",
+        "tests/lyric-work-scheduler.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/02-visual/12a-lyrics-edit-preview.js",
+      "lines": 222,
+      "sha256": "2fb051d964dfb05baf1a4aafde8c2465dcd724d3f2c35f9c925fe76177bfb1dc",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/lyric-edit-preview.test.js",
+        "tests/lyric-work-scheduler.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/02-visual/13-lyrics-mesh-build.js",
+      "lines": 503,
+      "sha256": "ee6b6ca2cc377c5ca8d3344e55937a9e4d94feee97f8d5a9879682b520f30082",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/lyric-spacing-stability.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/02-visual/14-stage-lyrics-rendering.js",
+      "lines": 4129,
+      "sha256": "d794c103dd3b543eb47217c3898826cd0241cf0d33793857245c30afca4deb87",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/lyric-edit-preview.test.js",
+        "tests/lyric-runway-preparation.test.js",
+        "tests/lyric-seek-visibility.test.js",
+        "tests/lyric-spacing-stability.test.js",
+        "tests/lyric-style-refresh.test.js",
+        "tests/lyric-title-handoff.test.js",
+        "tests/lyric-work-scheduler.test.js",
+        "tests/paused-lyric-edit-commit.test.js",
+        "tests/paused-lyric-layout.test.js",
+        "tests/playback-load-recovery.test.js",
+        "tests/stage-lyric-background-restore.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/03-beat/00-tempo-worker-cache-prefetch.js",
+      "lines": 467,
+      "sha256": "f34fe63718b7d320b39c08f5b122ab09e85989a2a17e88bf0732d1a078057804",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/01-audio-beat-analysis.js",
+      "lines": 783,
+      "sha256": "3ae41f3e1e6f9c651999092396550b2e03c679d89e7c0a95976f1a27f517f98e",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/beat-analysis-memory.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/02-podcast-dj-analysis.js",
+      "lines": 826,
+      "sha256": "c5dea90da502d72d519b54519c3b75e6b513172eb0fde13ad6e300b430011127",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/03-local-beat-cache-modal.js",
+      "lines": 365,
+      "sha256": "71367b1304ffb2b785006bcab7b64bee8b7a05e8124fba2833fc00f64aaea096",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/local-analysis-ownership.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/04-beat-map-runtime.js",
+      "lines": 125,
+      "sha256": "664488172770aa6d7a37f6bc6a53400c86768864f9245b06fb9cab15ef1aa43a",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/05-cover-loading-crop.js",
+      "lines": 515,
+      "sha256": "d7cc4b55a804b0718d923287c72affdbe4813a85aa02fdfb6b81ca02cc41994e",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/local-music-library-persistence.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/05a-adjacent-preparation.js",
+      "lines": 199,
+      "sha256": "de021c98357450b97adb1e557686ca3405a78fbd154e641b10321db8af96c976",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/adjacent-preparation.test.js",
+        "tests/playlist-cover-loader.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/03-beat/06-sonic-audio-monitor.js",
+      "lines": 736,
+      "sha256": "3818caffc1e0a32410777ce54fc3831594f95ba826f85ec3be502530a54762d0",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/00-api-quality-output.js",
+      "lines": 1287,
+      "sha256": "b403d24235d804fb73fa51ec6688643499bd18a7147e6189a294030e9838b534",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/audio-output-routing.test.js",
+        "tests/audio-route-drag.test.js",
+        "tests/playback-network-ownership.test.js",
+        "tests/provider-login-state-recovery.test.js",
+        "tests/quality-chip-local-track.test.js",
+        "tests/quality-preset.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/01-cover-custom-map.js",
+      "lines": 134,
+      "sha256": "f874e2785efd9f8c4c746d60b6b593d98cf8e37be02f82dd6f73658c127e8dc5",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/02-listen-stats.js",
+      "lines": 370,
+      "sha256": "f766fecbbaac213b965bba591f779944c1c32ad7d1668c5531a0403b05f15a14",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/03-home-discover-weather.js",
+      "lines": 215,
+      "sha256": "3a83519cb69a4f50005695a29b0c8936244444b99f8395d9e63290de4afd17e6",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/home-discover-ownership.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/03a-home-dashboard.js",
+      "lines": 1400,
+      "sha256": "d0e6f052fc9882515375bee866a9f01c3f9713c559ed2e657d00ccd5d870e3e0",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/content-provider-priority.test.js",
+        "tests/home-daily-recommendation-virtualization.test.js",
+        "tests/home-dashboard-update.test.js",
+        "tests/home-hero-mp4-platform-recommend.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/04-home-empty-wallpaper.js",
+      "lines": 438,
+      "sha256": "fef0201193087cf9ef30f2127b72af1d3d9c8222ecead384393b0e81036ed840",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/content-provider-priority.test.js",
+        "tests/home-daily-recommendation-virtualization.test.js",
+        "tests/local-music-library-persistence.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/05-home-actions.js",
+      "lines": 65,
+      "sha256": "995c3336d184e68cdd4f9ada795b5fc66fce698dff9ef3ef6326f455623ea4a2",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/06-track-detail-lyrics-actions.js",
+      "lines": 2071,
+      "sha256": "6acc456356a9195c5b7dab6b3141d02354f75829ac09f3085b94ddf9294a5298",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/lyric-style-refresh.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/06a-comment-replies.js",
+      "lines": 127,
+      "sha256": "9a4b605d438d607d35bdfd5e27b5850d8b46afb1da5128f8a4ac30423e779173",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/06b-comment-avatars.js",
+      "lines": 118,
+      "sha256": "c9563158c3eeed1b7d4f61af02f7ecf3e6460639ccc0bd16e08d8caa76d4c32d",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/06c-search-pinyin.js",
+      "lines": 152,
+      "sha256": "96dd477a262740bc7e93d7ec580244063784c50e6e11a2948db603c25496690d",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/07-search.js",
+      "lines": 2338,
+      "sha256": "2a67b0a2b7cf93804128966498f3f616e6d6c2d875014246725530290a7758ae",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/08-audio-graph-controls.js",
+      "lines": 807,
+      "sha256": "b4b4c79d1de6fac476fd6ad00145ff5730e4ff979e730f6c08c7db179db11b48",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-audio-graph-recovery.test.js",
+        "tests/playback-pause-cancellation.test.js",
+        "tests/playback-single-repeat-loop.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/09-queue-snapshot-autoplay.js",
+      "lines": 341,
+      "sha256": "049ffd05f17bb32f464d177f4a0e95d270a197eb8c2b7247c65e8bce6cd265be",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-checkpoint.test.js",
+        "tests/queue-logical-order.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/09a-playback-checkpoint.js",
+      "lines": 22,
+      "sha256": "bec592223881aba396a439afc6ffecf64067e830d2cf5770237c89e8b668ac37",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-checkpoint.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/10-queue-actions.js",
+      "lines": 150,
+      "sha256": "a92edbffc3a39d6f7bdec6f8b699569459c62318c1cb0ea144227155fb14759d",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/queue-logical-order.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/11-provider-fallback.js",
+      "lines": 1128,
+      "sha256": "3795e63b9e67e39361315fb381add75cbae3486adf6547dba2d9e320851b399f",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/fallback-reorder-ownership.test.js",
+        "tests/fallback-rollback-ownership.test.js",
+        "tests/playback-duration-units.test.js",
+        "tests/playback-network-ownership.test.js",
+        "tests/playback-source-fallback-transaction.test.js",
+        "tests/qishui-trial-full-source.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/12-playback-switch-core.js",
+      "lines": 188,
+      "sha256": "db98a4ca01e372cdc6788b8bb93024b2dd7bbd16bed4c7892d8cf8e9f1287d81",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-checkpoint.test.js",
+        "tests/playback-load-recovery.test.js",
+        "tests/playback-network-ownership.test.js",
+        "tests/queue-removal.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/13-playback-start-audio.js",
+      "lines": 1739,
+      "sha256": "40c9822eddb7d6597b55d8c380c18d16ba07e8f4b1dda4f247a4358108c5b721",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/local-music-library-persistence.test.js",
+        "tests/local-playback-skip-notice.test.js",
+        "tests/playback-ended-ownership.test.js",
+        "tests/playback-network-ownership.test.js",
+        "tests/playback-single-repeat-loop.test.js",
+        "tests/playback-source-fallback-transaction.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/14-player-controls.js",
+      "lines": 948,
+      "sha256": "30f7d2c73fa58078fe88d39a19906c3688c3a22d12a292e34232e97642cc4663",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/local-music-library-persistence.test.js",
+        "tests/playback-background-resume.test.js",
+        "tests/playback-pause-cancellation.test.js",
+        "tests/playback-single-repeat-loop.test.js",
+        "tests/playback-source-fallback-transaction.test.js",
+        "tests/playback-start-stall.test.js",
+        "tests/playlist-mutation-lifecycle.test.js",
+        "tests/queue-logical-order.test.js",
+        "tests/queue-removal.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/14a-system-media-session.js",
+      "lines": 111,
+      "sha256": "81b1ae62b257ec8f45d2be3a9340e76a5d47ca67fadb558071ea5fb8651ec250",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/15-control-glass-animations.js",
+      "lines": 1034,
+      "sha256": "a9b14ecec4c042db1365c960e004fbfa7a8d6970187032a75c3485d073b58294",
+      "static_review": "索引/模式扫描",
+      "read_scope": "加载顺序、函数/await/token/缓存/释放模式；没有逐行全读",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    },
+    {
+      "path": "public/js/modules/05-playback/16-cuefield-automix-core.js",
+      "lines": 373,
+      "sha256": "605c6720699f52f59f46934ab9df7a9951c0be9b580d16507480f5db9d806ca6",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/cuefield-transition-runtime.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/17-cuefield-timeline-executor.js",
+      "lines": 314,
+      "sha256": "2891c970e25ffc922628181d35c9783fa010f16ceffa02711c7f7583eb61f875",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/cuefield-transition-runtime.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/17a-cuefield-bridge-engine.js",
+      "lines": 177,
+      "sha256": "107622c18a34aae894785933d9044f652b2101eb6560bd15695db543d132cde7",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/cuefield-transition-runtime.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/17b-cuefield-source-loop.js",
+      "lines": 99,
+      "sha256": "66a24b5ba3f831ff90cea27cb9e77aeaa7e157c19bdf630bd7c99257af79bc7c",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/cuefield-transition-runtime.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/18-cuefield-automix-integration.js",
+      "lines": 1105,
+      "sha256": "a8f6a0dc9b8060b5691ac798a4c277894c80ac714db6c3a41286e06864201bf7",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/cuefield-execution-ownership.test.js",
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/playback-single-repeat-loop.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/19-microphone-mixer-runtime.js",
+      "lines": 197,
+      "sha256": "7832ceeb709618c16c22ec6987d6ab089f6e2ec099534e5103ec513e1e1784cf",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/microphone-mixer.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/05-playback/20-microphone-mixer-ui.js",
+      "lines": 212,
+      "sha256": "e2a7a5916612e6600a2caa779989f52a82ebf833badee73950954c0f04d6bcf1",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/microphone-mixer-ui.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/00-built-in-playlists.js",
+      "lines": 209,
+      "sha256": "0d5b661c067b26b76911e0e3c9fbb77457dca00b9a851ca2abad2d7c4a154887",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/playlist-mutation-lifecycle.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/00-lyrics-fetch-parse.js",
+      "lines": 672,
+      "sha256": "30ec1bd0318b3f65ab21880f819328b0ec545a0fc30b12394aaeb58734f47430",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/01-playlist-panel-shell.js",
+      "lines": 810,
+      "sha256": "7ef96e0bb0fab684cdb5976ed081d48c55ea58c7e1c26ea6dd050e0ef843f290",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/content-provider-priority.test.js",
+        "tests/playlist-catalog-epoch.test.js",
+        "tests/playlist-catalog-page-owner.test.js",
+        "tests/playlist-catalog-recovery.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/01a-scroll-motion.js",
+      "lines": 123,
+      "sha256": "3afa291224f6ea1d03ea8dd0554006f0436c14ffffef7bed0886869b3b331e3d",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [],
+      "runtime_status": "无本组直接运行证据",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/02-playlist-detail.js",
+      "lines": 823,
+      "sha256": "6fe19f9f55b6c656ec35a7cbc0367217b1f1118c05ee6bbd49e3101e779ebc2e",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/content-provider-priority.test.js",
+        "tests/playlist-catalog-recovery.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/03-podcast-playlist-loaders.js",
+      "lines": 355,
+      "sha256": "d5493e83ebb846f0087bc503a3c7cd910c6dfe41c97672df972095127e0b71cc",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/built-in-playlist-library.test.js",
+        "tests/playlist-mutation-lifecycle.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/04-progress-seek.js",
+      "lines": 558,
+      "sha256": "9d5890a4483da412a46e666121750a4eaa51994229e9dc547e12f14f44e954b3",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-duration-units.test.js",
+        "tests/playback-source-fallback-transaction.test.js",
+        "tests/playlist-mutation-lifecycle.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/05-upload-dragdrop.js",
+      "lines": 401,
+      "sha256": "177f7ebcd5d69019a67c7143146c82be169128d4dfefa5f3dfccc2aab44c142d",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/local-import-ownership.test.js",
+        "tests/local-music-library-persistence.test.js",
+        "tests/playback-local-restore-lifecycle.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/06-lyrics/06-lyric-timing-offset.js",
+      "lines": 266,
+      "sha256": "9f48d7232fe1152e30ab3d91f83b56073a733644ee0423af33fe714c488e8545",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/paused-lyric-edit-commit.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/08-account/02-login-status.js",
+      "lines": 710,
+      "sha256": "025d82b792524c724ad3e8c6c9dea34924b8ad7ee57bd8fc6bc636747311826e",
+      "static_review": "定点/部分读审",
+      "read_scope": "111-150 网易状态、429-498 汽水 normalize/status、其余账号读守卫定位；非全文",
+      "executed_test_references": [
+        "tests/login-commit-ownership.test.js",
+        "tests/provider-login-state-recovery.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/modules/08-account/03-login-modal-flows.js",
+      "lines": 2239,
+      "sha256": "19c5f5137f9aecf1348b76dfe6fd0a55285cb08bc6c3a67f6887eb2b8352d36d",
+      "static_review": "定点/部分读审",
+      "read_scope": "1-64 auth/attempt、1438-1650 QR、861-866 mark、1861-2240 网易/QQ/酷狗提交顺序；其余索引，非全文",
+      "executed_test_references": [
+        "tests/login-commit-ownership.test.js",
+        "tests/provider-login-state-recovery.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": false
+    },
+    {
+      "path": "public/js/playback-checkpoint-format.js",
+      "lines": 47,
+      "sha256": "91e604f4e8417ef7ae1ac256642a285435d2b3acf2f6fc48ac10b80f5f087416",
+      "static_review": "完整读审",
+      "read_scope": "全文件（分段合并）",
+      "executed_test_references": [
+        "tests/playback-checkpoint.test.js",
+        "tests/queue-logical-order.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放",
+      "cross_owned": false
+    },
+    {
+      "path": "server.js",
+      "lines": 7248,
+      "sha256": "6fedd5d54f55876d5da5307b06b68d5178a3ecf2ba83ce3e58b1673b6139ed3d",
+      "static_review": "定点/部分读审",
+      "read_scope": "handleDiscoverHome(1864-1929)、mapDailyRecommendationSongs、capture/checkNeteaseAccountSession 与 discover HTTP route(5440-5451)全文；其他播放/歌词/节拍/Cuefield 路由索引；非全 server",
+      "executed_test_references": [
+        "tests/cuefield-mineradio-integration.test.js",
+        "tests/home-daily-recommendations-backend.test.js",
+        "tests/home-discover-ownership.test.js",
+        "tests/playlist-paging.test.js",
+        "tests/provider-login-state-recovery.test.js"
+      ],
+      "runtime_status": "关联隔离测试已执行；可能含静态断言，并非每个函数实际运行",
+      "untested": "Electron 主播放器、Windows 真设备/硬件、真实平台账号/长时间播放；未读取部分未验证",
+      "cross_owned": true
+    }
+  ],
+  "executed_tests": [
+    "tests/adjacent-preparation.test.js",
+    "tests/audio-output-routing.test.js",
+    "tests/audio-route-drag.test.js",
+    "tests/beat-analysis-memory.test.js",
+    "tests/beat-analysis-request-lifecycle.test.js",
+    "tests/built-in-playlist-library.test.js",
+    "tests/content-provider-priority.test.js",
+    "tests/cuefield-execution-ownership.test.js",
+    "tests/cuefield-mineradio-integration.test.js",
+    "tests/cuefield-planner-boundaries.test.js",
+    "tests/cuefield-transition-runtime.test.js",
+    "tests/fallback-reorder-ownership.test.js",
+    "tests/fallback-rollback-ownership.test.js",
+    "tests/home-background-image-lifecycle.test.js",
+    "tests/home-daily-recommendation-virtualization.test.js",
+    "tests/home-daily-recommendations-backend.test.js",
+    "tests/home-dashboard-update.test.js",
+    "tests/home-discover-ownership.test.js",
+    "tests/home-hero-mp4-platform-recommend.test.js",
+    "tests/home-video-ui-lifecycle.test.js",
+    "tests/listen-report-session-isolation.test.js",
+    "tests/local-alternate-fingerprint-cache.test.js",
+    "tests/local-analysis-ownership.test.js",
+    "tests/local-import-ownership.test.js",
+    "tests/local-library-offline-relink.test.js",
+    "tests/local-music-library-persistence.test.js",
+    "tests/local-playback-skip-notice.test.js",
+    "tests/login-commit-ownership.test.js",
+    "tests/login-status-refresh-epoch.test.js",
+    "tests/lyric-active-line-viewport-fit.test.js",
+    "tests/lyric-drag-quality.test.js",
+    "tests/lyric-edit-preview.test.js",
+    "tests/lyric-fallback-availability.test.js",
+    "tests/lyric-font-ready-refresh.test.js",
+    "tests/lyric-motion-profiles.test.js",
+    "tests/lyric-runway-preparation.test.js",
+    "tests/lyric-seek-visibility.test.js",
+    "tests/lyric-spacing-stability.test.js",
+    "tests/lyric-style-refresh.test.js",
+    "tests/lyric-title-handoff.test.js",
+    "tests/lyric-track-seek-glide.test.js",
+    "tests/lyric-work-scheduler.test.js",
+    "tests/microphone-mixer-ui.test.js",
+    "tests/microphone-mixer.test.js",
+    "tests/microphone-permission.test.js",
+    "tests/netease-write-session-isolation.test.js",
+    "tests/paused-lyric-edit-commit.test.js",
+    "tests/paused-lyric-effects-owner.test.js",
+    "tests/paused-lyric-layout.test.js",
+    "tests/paused-lyric-quality-ownership.test.js",
+    "tests/playback-audio-graph-recovery.test.js",
+    "tests/playback-background-resume.test.js",
+    "tests/playback-checkpoint.test.js",
+    "tests/playback-duration-units.test.js",
+    "tests/playback-ended-ownership.test.js",
+    "tests/playback-load-recovery.test.js",
+    "tests/playback-local-restore-lifecycle.test.js",
+    "tests/playback-network-ownership.test.js",
+    "tests/playback-pause-cancellation.test.js",
+    "tests/playback-single-repeat-loop.test.js",
+    "tests/playback-source-fallback-transaction.test.js",
+    "tests/playback-start-stall.test.js",
+    "tests/playlist-catalog-epoch.test.js",
+    "tests/playlist-catalog-page-owner.test.js",
+    "tests/playlist-catalog-recovery.test.js",
+    "tests/playlist-collection-ui-race.test.js",
+    "tests/playlist-cover-loader.test.js",
+    "tests/playlist-mutation-lifecycle.test.js",
+    "tests/playlist-paging.test.js",
+    "tests/playlist-panel-material.test.js",
+    "tests/provider-login-state-recovery.test.js",
+    "tests/qishui-trial-full-source.test.js",
+    "tests/quality-chip-local-track.test.js",
+    "tests/quality-preset.test.js",
+    "tests/queue-logical-order.test.js",
+    "tests/queue-removal.test.js",
+    "tests/sonic-workshop-audio.test.js",
+    "tests/stage-lyric-background-restore.test.js",
+    "tests/stage-lyric-mesh-boundaries.test.js"
+  ],
+  "executed_log": "docs/qa/playback-library-regression-2026-10-09.log",
+  "executed_result": {
+    "tests": 377,
+    "pass": 377,
+    "fail": 0,
+    "completed_at": "2026-10-09T22:09:20Z"
+  },
+  "source_and_test_freeze_at": "2026-10-09T22:07:21Z",
+  "tool_incomplete_result": "docs/qa/playback-library-check-tool-status-2026-10-09.json",
+  "contributed_source_paths": [
+    "public/js/modules/03-beat/03-local-beat-cache-modal.js",
+    "public/js/modules/05-playback/03-home-discover-weather.js",
+    "public/js/modules/05-playback/09-queue-snapshot-autoplay.js",
+    "public/js/modules/05-playback/11-provider-fallback.js",
+    "public/js/modules/05-playback/13-playback-start-audio.js",
+    "public/js/modules/05-playback/14-player-controls.js",
+    "public/js/modules/05-playback/16-cuefield-automix-core.js",
+    "public/js/modules/05-playback/18-cuefield-automix-integration.js",
+    "public/js/modules/06-lyrics/00-built-in-playlists.js",
+    "public/js/modules/06-lyrics/01-playlist-panel-shell.js",
+    "public/js/modules/06-lyrics/03-podcast-playlist-loaders.js",
+    "public/js/modules/06-lyrics/04-progress-seek.js",
+    "public/js/modules/06-lyrics/05-upload-dragdrop.js",
+    "public/js/modules/08-account/03-login-modal-flows.js",
+    "server.js",
+    "scripts/quick-check.js"
+  ],
+  "added_test_paths": [
+    "tests/playlist-mutation-lifecycle.test.js",
+    "tests/playback-local-restore-lifecycle.test.js",
+    "tests/local-import-ownership.test.js",
+    "tests/local-analysis-ownership.test.js",
+    "tests/fallback-reorder-ownership.test.js",
+    "tests/cuefield-execution-ownership.test.js",
+    "tests/playback-ended-ownership.test.js",
+    "tests/playlist-catalog-epoch.test.js",
+    "tests/playback-duration-units.test.js",
+    "tests/playlist-catalog-page-owner.test.js",
+    "tests/home-discover-ownership.test.js",
+    "tests/login-commit-ownership.test.js",
+    "tests/fallback-rollback-ownership.test.js"
+  ],
+  "updated_test_paths": [
+    "tests/cuefield-transition-runtime.test.js",
+    "tests/local-playback-skip-notice.test.js",
+    "tests/qishui-trial-full-source.test.js",
+    "tests/queue-removal.test.js",
+    "tests/playback-source-fallback-transaction.test.js",
+    "tests/playlist-catalog-recovery.test.js"
+  ],
+  "contribution_notice": "共享文件可能另有其他负责人的局部修改；清单表示本组贡献，不主张独占整文件。"
+}

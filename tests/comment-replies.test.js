@@ -15,17 +15,17 @@ function renderer(provider) {
     '.comment-replies-status': status, '[data-reply-action="load"]': more, '.comment-replies-list': list };
   const region = { querySelector: selector => selectors[selector] };
   panel.parentElement = region;
-  const ctx = vm.createContext({ URL, trackDetailSeq: 1,
+  const ctx = vm.createContext({ URL, AbortController, trackDetailSeq: 1,
     detailCommentsState: { seq: 1, config: { provider, readUrl: '/api/song/comments?id=123' }, threads: Object.create(null), threadIndex: 0 },
     document: { getElementById: () => panel },
     escHtml: text => String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     coverUrlWithSize: value => value, commentTimeLabel: () => '10月3日',
-    apiJson: url => new Promise((resolve, reject) => requests.push({ url, resolve, reject })),
+    apiJson: (url, opts) => new Promise((resolve, reject) => requests.push({ url, opts, resolve, reject })),
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/06a-comment-replies.js',
     ['detailReplyControlsHtml', 'detailReplyRegion', 'updateDetailReplyControls', 'toggleDetailReplies', 'renderDetailReplyItems', 'loadMoreDetailReplies']);
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
-    ['commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml']);
+    ['commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml', 'cancelDetailCommentReads', 'detailCommentReadStore', 'invalidateDetailCommentReadCache', 'readDetailComments']);
   ctx.detailReplyControlsHtml({ id: 'parent', replyCount: 25, replyResource: '100', user: { nickname: '听众' } });
   return { ctx, requests, toggle, panel, status, more, list };
 }
@@ -171,4 +171,32 @@ test('Qishui PC reply fields preserve counters, timestamps and the recipient', (
   assert.equal(result.replyCount, 0);
   assert.equal(result.time, 1700000000000);
   assert.equal(result.replyTo, '原作者');
+});
+
+test('duplicate-only reply pages retain advancing cursors, with a bounded empty-page guard', async () => {
+  const f = renderer('qq');
+  const first = f.ctx.toggleDetailReplies('parent');
+  f.requests[0].resolve({ comments: [reply('a')], hasMore: true, nextCursor: 'c1' }); await first;
+  const duplicate = f.ctx.loadMoreDetailReplies('parent');
+  f.requests[1].resolve({ comments: [reply('a')], hasMore: true, nextCursor: 'c2' }); await duplicate;
+  assert.equal(f.ctx.detailCommentsState.threads.parent.hasMore, true);
+  const next = f.ctx.loadMoreDetailReplies('parent');
+  f.requests[2].resolve({ comments: [reply('b')], hasMore: true, nextCursor: 'c3' }); await next;
+  assert.equal(f.ctx.detailCommentsState.threads.parent.count, 2);
+  for (let i = 0; i < 3; i++) {
+    const pending = f.ctx.loadMoreDetailReplies('parent');
+    f.requests[3 + i].resolve({ comments: [reply('a')], hasMore: true, nextCursor: 'c' + (4 + i) }); await pending;
+  }
+  assert.equal(f.ctx.detailCommentsState.threads.parent.hasMore, false);
+});
+
+test('reply GET uses an owner deadline and cancellation without rendering an error', async () => {
+  const f = renderer('qq');
+  const pending = f.ctx.toggleDetailReplies('parent');
+  assert.equal(f.requests[0].opts.timeoutMs, 15000);
+  f.ctx.cancelDetailCommentReads(f.ctx.detailCommentsState);
+  assert.equal(f.requests[0].opts.signal.aborted, true);
+  await pending;
+  assert.equal(f.ctx.detailCommentsState.threads.parent.loading, false);
+  assert.equal(f.ctx.detailCommentsState.threads.parent.error, false);
 });

@@ -495,14 +495,47 @@ function showToast(msg) {
 // ============================================================
 //  动态库加载
 // ============================================================
-function loadScriptOnce(src) {
-  return new Promise(function (resolve, reject) {
-    var hit = document.querySelector('script[src="' + src + '"]');
-    if (hit) { resolve(); return; }
-    var sc = document.createElement('script'); sc.src = src; sc.async = true;
-    sc.onload = resolve; sc.onerror = reject;
-    document.head.appendChild(sc);
+var scriptLoadOnceOwners = new Map();
+function loadScriptOnce(src, isReady) {
+  if (typeof isReady === 'function' && isReady()) return Promise.resolve();
+  var previous = scriptLoadOnceOwners.get(src);
+  if (previous) return previous.promise;
+  var sc = document.querySelector('script[src="' + src + '"]');
+  var append = !sc;
+  if (!sc) { sc = document.createElement('script'); sc.src = src; sc.async = true; }
+  if (sc.__mineradioScriptLoaded && typeof isReady !== 'function') return Promise.resolve();
+  var owner = { promise: null, failed: false };
+  owner.promise = new Promise(function (resolve, reject) {
+    var done = false;
+    var timer = setTimeout(function () { finish(new Error('SCRIPT_LOAD_TIMEOUT: ' + src)); }, 20000);
+    function finish(error) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      sc.removeEventListener('load', loaded);
+      sc.removeEventListener('error', failed);
+      if (error) {
+        owner.failed = true;
+        if (scriptLoadOnceOwners.get(src) === owner) scriptLoadOnceOwners.delete(src);
+        if (sc.parentNode) sc.parentNode.removeChild(sc);
+        reject(error);
+      } else {
+        sc.__mineradioScriptLoaded = true;
+        resolve();
+      }
+    }
+    function loaded() {
+      try { finish(typeof isReady === 'function' && !isReady() ? new Error('SCRIPT_SYMBOL_UNAVAILABLE: ' + src) : null); }
+      catch (error) { finish(error); }
+    }
+    function failed() { finish(new Error('SCRIPT_LOAD_FAILED: ' + src)); }
+    sc.addEventListener('load', loaded);
+    sc.addEventListener('error', failed);
+    try { if (append) document.head.appendChild(sc); }
+    catch (error) { finish(error); }
   });
+  if (!owner.failed) scriptLoadOnceOwners.set(src, owner);
+  return owner.promise;
 }
 
 // ============================================================

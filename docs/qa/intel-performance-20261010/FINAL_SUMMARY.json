@@ -1,0 +1,65 @@
+{
+  "baseline": "a746952de73ed3e326d3f5b343a0bafc8e6efca7",
+  "productionFrozenAndUnchanged": true,
+  "sourceManifestVerified": true,
+  "boundedTests": {
+    "discoveredFiles": 247,
+    "selectedFiles": 246,
+    "passedFiles": 246,
+    "failedFiles": 0,
+    "excluded": {
+      "login-logout-race.test.js": "blocked: execution explicitly cancelled; not run"
+    },
+    "totals": {
+      "tests": 1319,
+      "pass": 1314,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 5,
+      "todo": 0
+    }
+  },
+  "focusedTests": {
+    "tests": 22,
+    "pass": 22,
+    "fail": 0
+  },
+  "qualityPolicyMatrix": {
+    "cases": 64,
+    "baselineIdentical": true
+  },
+  "sparkDifferential": {
+    "kind": "production-excerpt-VM-not-GPU-timing",
+    "frames": 600,
+    "visibleFrames": 327,
+    "baselineTrigCalls": 429590,
+    "optimizedTrigCalls": 255747,
+    "baselineAttributeDirtyWrites": 590,
+    "optimizedAttributeDirtyWrites": 327,
+    "allVisiblePositionsAndRotationEquivalent": true
+  },
+  "topographyDifferential": {
+    "kind": "deterministic-VM-three-matrix-comparison-not-rendered-image-or-GPU-timing",
+    "frames": 720,
+    "activeSlotComparisons": 1358,
+    "baselineMatrixWrites": 158400,
+    "optimizedMatrixWrites": 1409,
+    "terrainVisible": true,
+    "simulationStateEquivalent": true
+  },
+  "diffCheckExitCode": 0,
+  "npmCheck": {
+    "status": "passed-user-authorized-single-rerun",
+    "exitCode": 0,
+    "log": "npm-check-authorized-rerun.log",
+    "priorBlockedAttempt": "npm-check-blocked.json",
+    "electronRuntimeSmoke": "skipped-fast-static-mode"
+  },
+  "limitations": [
+    "No real Intel GPU, FPS, driver or rendered-pixel validation",
+    "Native Windows checks skipped",
+    "Explicitly cancelled login-logout-race excluded",
+    "Audio/lyrics/background full scheduler decoupling deferred",
+    "No Git stage/commit/push/upload performed by reviewer"
+  ]
+}

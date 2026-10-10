@@ -9,10 +9,21 @@ function refreshMainRendererViewport(reason) {
     requestStageLyricCameraSnap(reason === 'resize' ? 4 : 10);
   }
 }
+var mainRendererViewportRefreshTimers = [];
+var mainRendererViewportRefreshGeneration = 0;
 function scheduleMainRendererViewportRefresh(reason) {
+  var generation = ++mainRendererViewportRefreshGeneration;
+  mainRendererViewportRefreshTimers.forEach(function (timer) { clearTimeout(timer); });
+  mainRendererViewportRefreshTimers.length = 0;
   refreshMainRendererViewport(reason || 'sync');
   [48, 140, 320].forEach(function (delay) {
-    setTimeout(function () { refreshMainRendererViewport(reason || 'sync'); }, delay);
+    var timer = setTimeout(function () {
+      if (generation !== mainRendererViewportRefreshGeneration) return;
+      var index = mainRendererViewportRefreshTimers.indexOf(timer);
+      if (index >= 0) mainRendererViewportRefreshTimers.splice(index, 1);
+      refreshMainRendererViewport(reason || 'sync');
+    }, delay);
+    mainRendererViewportRefreshTimers.push(timer);
   });
 }
 window.addEventListener('resize', function () {
@@ -20,7 +31,7 @@ window.addEventListener('resize', function () {
   if (desktopRuntimeState.fullscreen || desktopFullscreenActive || document.fullscreenElement || document.body.classList.contains('desktop-fullscreen')) layoutFullscreenDiyZone();
 });
 document.addEventListener('keydown', function (e) {
-  if (isTypingTarget(e.target)) return;
+  if (e.defaultPrevented || isKeyboardUiTarget(e.target)) return;
   if (handleConfiguredLocalHotkey(e)) return;
   if (shouldSuppressDefaultConfiguredHotkey(e)) return;
   if (e.code === 'Space') {

@@ -3,8 +3,108 @@ function hasUsableLyricLines(lines) {
     return line && !line.fallback && !isNoLyricText(line.text);
   });
 }
-var lyricTranslationFallbackCache = {};
-var lyricTranslationFallbackMissCache = {};
+// Cache budgets are conservative retained-data estimates, not measurements of JS heap/RSS.
+var lyricTranslationFallbackCache = new Map();
+var lyricTranslationFallbackMissCache = new Map();
+var lyricTranslationFallbackCacheBytes = 0;
+var lyricTranslationFallbackMissCacheBytes = 0;
+var lyricTranslationCacheSweepTimer = 0;
+var LYRIC_TRANSLATION_CACHE_MAX_ENTRIES = 64;
+var LYRIC_TRANSLATION_CACHE_MAX_BYTES = 2 * 1024 * 1024;
+var LYRIC_TRANSLATION_CACHE_MAX_ENTRY_BYTES = 256 * 1024;
+var LYRIC_TRANSLATION_CACHE_TTL = 30 * 60 * 1000;
+var LYRIC_TRANSLATION_MISS_MAX_ENTRIES = 128;
+var LYRIC_TRANSLATION_MISS_MAX_BYTES = 128 * 1024;
+var LYRIC_TRANSLATION_MISS_TTL = 10 * 60 * 1000;
+function lyricTranslationCacheEntryBytes(key, payload, limit) {
+  // Reject unknown/cyclic shapes and oversized strings before allocating a serialized copy.
+  if (typeof key !== 'string' || key.length > 4096) return Infinity;
+  var bytes = key.length * 2 + 128, nodes = 0, seen = new Set();
+  function visit(value, depth) {
+    if (++nodes > 8192 || depth > 12 || bytes > limit) throw new Error('cache-budget');
+    if (value == null || typeof value === 'boolean' || typeof value === 'number') { bytes += 16; return; }
+    if (typeof value === 'string') { bytes += value.length * 2 + 16; return; }
+    if (typeof value !== 'object' || seen.has(value)) throw new Error('cache-shape');
+    var proto = Object.getPrototypeOf(value);
+    if (!Array.isArray(value) && proto !== null &&
+      !(Object.getPrototypeOf(proto) === null && proto.constructor && proto.constructor.name === 'Object')) throw new Error('cache-shape');
+    seen.add(value); bytes += 64;
+    var keys = Object.keys(value);
+    if (keys.length > 8192) throw new Error('cache-budget');
+    for (var i = 0; i < keys.length; i++) {
+      var descriptor = Object.getOwnPropertyDescriptor(value, keys[i]);
+      if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) throw new Error('cache-shape');
+      bytes += keys[i].length * 2 + 16;
+      visit(descriptor.value, depth + 1);
+    }
+    seen.delete(value);
+  }
+  try { visit(payload, 0); } catch (_) { return Infinity; }
+  return bytes <= limit ? bytes : Infinity;
+}
+function deleteLyricTranslationCacheEntry(cache, key) {
+  var entry = cache.get(key);
+  if (!entry) return;
+  cache.delete(key);
+  if (cache === lyricTranslationFallbackCache) lyricTranslationFallbackCacheBytes -= entry.bytes;
+  else lyricTranslationFallbackMissCacheBytes -= entry.bytes;
+}
+function sweepLyricTranslationCaches() {
+  var now = Date.now();
+  [lyricTranslationFallbackCache, lyricTranslationFallbackMissCache].forEach(function (cache) {
+    cache.forEach(function (entry, key) {
+      if (entry.expiresAt <= now) deleteLyricTranslationCacheEntry(cache, key);
+    });
+  });
+}
+function scheduleLyricTranslationCacheSweep() {
+  clearTimeout(lyricTranslationCacheSweepTimer);
+  lyricTranslationCacheSweepTimer = 0;
+  var expiresAt = Infinity, epoch = generatedLyricCacheEpoch;
+  [lyricTranslationFallbackCache, lyricTranslationFallbackMissCache].forEach(function (cache) {
+    cache.forEach(function (entry) { expiresAt = Math.min(expiresAt, entry.expiresAt); });
+  });
+  if (!Number.isFinite(expiresAt)) return;
+  lyricTranslationCacheSweepTimer = setTimeout(function () {
+    if (epoch !== generatedLyricCacheEpoch) return;
+    lyricTranslationCacheSweepTimer = 0;
+    sweepLyricTranslationCaches();
+    scheduleLyricTranslationCacheSweep();
+  }, Math.max(1, expiresAt - Date.now()));
+}
+function readLyricTranslationFallbackCache(key) {
+  sweepLyricTranslationCaches();
+  var entry = lyricTranslationFallbackCache.get(key);
+  if (entry) {
+    lyricTranslationFallbackCache.delete(key);
+    lyricTranslationFallbackCache.set(key, entry);
+    entry.expiresAt = Date.now() + LYRIC_TRANSLATION_CACHE_TTL;
+  }
+  scheduleLyricTranslationCacheSweep();
+  return entry ? entry.payload : null;
+}
+function storeLyricTranslationFallbackCache(key, payload, epoch, miss) {
+  if (epoch !== generatedLyricCacheEpoch) return false;
+  sweepLyricTranslationCaches();
+  var cache = miss ? lyricTranslationFallbackMissCache : lyricTranslationFallbackCache;
+  var maxBytes = miss ? LYRIC_TRANSLATION_MISS_MAX_BYTES : LYRIC_TRANSLATION_CACHE_MAX_BYTES;
+  var maxEntries = miss ? LYRIC_TRANSLATION_MISS_MAX_ENTRIES : LYRIC_TRANSLATION_CACHE_MAX_ENTRIES;
+  var bytes = lyricTranslationCacheEntryBytes(key, payload, miss ? 8192 : LYRIC_TRANSLATION_CACHE_MAX_ENTRY_BYTES);
+  if (!Number.isFinite(bytes)) { scheduleLyricTranslationCacheSweep(); return false; }
+  deleteLyricTranslationCacheEntry(cache, key);
+  // A later miss must not hide an already successful concurrent response.
+  if (miss && lyricTranslationFallbackCache.has(key)) { scheduleLyricTranslationCacheSweep(); return false; }
+  if (!miss) deleteLyricTranslationCacheEntry(lyricTranslationFallbackMissCache, key);
+  while (cache.size && (cache.size >= maxEntries ||
+    (miss ? lyricTranslationFallbackMissCacheBytes : lyricTranslationFallbackCacheBytes) + bytes > maxBytes)) {
+    deleteLyricTranslationCacheEntry(cache, cache.keys().next().value);
+  }
+  cache.set(key, { payload: payload, bytes: bytes, expiresAt: Date.now() + (miss ? LYRIC_TRANSLATION_MISS_TTL : LYRIC_TRANSLATION_CACHE_TTL) });
+  if (miss) lyricTranslationFallbackMissCacheBytes += bytes;
+  else lyricTranslationFallbackCacheBytes += bytes;
+  scheduleLyricTranslationCacheSweep();
+  return true;
+}
 var lyricQueuePrefetchTimer = 0;
 var lyricQueuePrefetchToken = 0;
 var lyricQueuePrefetchBusy = false;
@@ -14,7 +114,12 @@ function lyricTranslationTextFromAliases(source) {
   source = source || {};
   return source.tlyric || source.trans || source.translatedLyric || source.translation || source.translated_lyric || '';
 }
+function isUnsupportedLyricSong(song) {
+  if (!song || typeof song !== 'object') return /^spotify:/i.test(String(song || ''));
+  return song.provider === 'spotify' || song.source === 'spotify' || song.type === 'spotify' || !!(song.spotifyId || song.spotifyUri) || /^spotify:/i.test(String(song.id || song.uri || ''));
+}
 function lyricEndpointForSong(songOrId) {
+  if (isUnsupportedLyricSong(songOrId)) throw new Error('SPOTIFY_UNSUPPORTED');
   var song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
   var provider = song ? songProviderKey(song) : 'netease';
   if (provider === 'qq') {
@@ -30,9 +135,6 @@ function lyricEndpointForSong(songOrId) {
   if (provider === 'qishui') {
     return '/api/qishui/lyric?id=' + encodeURIComponent(song.id || song.providerSongId || '');
   }
-  if (provider === 'spotify') {
-    return '/api/spotify/lyric?id=' + encodeURIComponent(song.id || song.providerSongId || song.spotifyId || '');
-  }
   var songId = song ? song.id : songOrId;
   return '/api/lyric?id=' + encodeURIComponent(songId);
 }
@@ -45,19 +147,25 @@ function persistentLyricCacheKey(song) {
   return ['lyrics-v1', provider, id, song.name || song.title || '', artist].join('|');
 }
 
-function readPersistentLyricCache(song) {
+var generatedLyricCacheEpoch = 0;
+function readPersistentLyricCache(song, context) {
+  if (context) context.epoch = generatedLyricCacheEpoch;
   if (!window.desktopWindow || typeof window.desktopWindow.readLyricCache !== 'function') return Promise.resolve(null);
   return window.desktopWindow.readLyricCache(persistentLyricCacheKey(song)).then(function (result) {
+    if (context) context.generation = result && result.generation;
+    if (context && context.epoch !== generatedLyricCacheEpoch) return null;
     return result && result.ok && result.hit && result.payload ? result.payload : null;
   }).catch(function () { return null; });
 }
 
-function writePersistentLyricCache(song, payload) {
+function writePersistentLyricCache(song, payload, context) {
+  if (!context || context.epoch !== generatedLyricCacheEpoch || !Number.isFinite(context.generation)) return;
   if (!window.desktopWindow || typeof window.desktopWindow.writeLyricCache !== 'function' || !payload || typeof payload !== 'object') return;
-  window.desktopWindow.writeLyricCache(persistentLyricCacheKey(song), payload).catch(function () {});
+  window.desktopWindow.writeLyricCache(persistentLyricCacheKey(song), payload, context.generation).catch(function () {});
 }
 
 function lyricQueuePrefetchCandidate(song) {
+  if (isUnsupportedLyricSong(song)) return false;
   if (!song || song.type === 'podcast' || song.type === 'local' || song.source === 'local' || song.localUrl) return false;
   return !!(song.id || song.mid || song.songmid || song.hash || song.name || song.title);
 }
@@ -88,13 +196,14 @@ async function runQueueLyricPrefetch(fromIndex, token) {
     for (var i = 0; i < candidates.length; i++) {
       var candidate = candidates[i];
       if (!lyricQueuePrefetchCandidate(candidate.song) || token !== lyricQueuePrefetchToken || generation !== adjacentPreparation.generation) continue;
-      var response = await readPersistentLyricCache(candidate.song);
+      var cacheRead = {};
+      var response = await readPersistentLyricCache(candidate.song, cacheRead);
       if (!response) response = await apiJson(lyricEndpointForSong(candidate.song), { timeoutMs: 6500, signal: lyricQueuePrefetchController.signal });
       if (token !== lyricQueuePrefetchToken || generation !== adjacentPreparation.generation) return false;
       var merged = mergeInlineLyricResponseForSong(candidate.song, response || {});
       var state = parseLyricResponseToOriginalState(candidate.song, merged);
       if (state && state.usableLyric) {
-        writePersistentLyricCache(candidate.song, merged); lyricQueuePrefetchKeys[candidate.key] = true;
+        writePersistentLyricCache(candidate.song, merged, cacheRead); lyricQueuePrefetchKeys[candidate.key] = true;
         storeAdjacentEntry('lyrics|' + candidate.key, merged, JSON.stringify(merged).length * 2, null, candidate.key);
         // One cooperative build at a time, in the user's latest navigation direction.
         prepareAdjacentLyrics(candidate, merged, generation);
@@ -114,16 +223,36 @@ function applyFetchedLyricResponse(song, token, response, options) {
   setOriginalLyricsState(state.lines, state.hasNativeKaraoke, state.timingSource, state.translationLines, state.translationSource);
   applyPreferredLyricsForCurrent(true, { preserveSame: true, reason: 'lyric-fetch' });
   scheduleNeteaseLyricTranslationFallback(song, token, state);
-  if (state.usableLyric && options.persist !== false) writePersistentLyricCache(song, mergedResponse);
+  if (state.usableLyric && options.persist !== false) writePersistentLyricCache(song, mergedResponse, options.cacheRead);
   return state;
 }
 
 function refreshPersistentLyricCache(song) {
-  apiJson(lyricEndpointForSong(song)).then(function (response) {
-    var mergedResponse = mergeInlineLyricResponseForSong(song, response || {});
+  if (isUnsupportedLyricSong(song)) return;
+  var cacheRead = {};
+  readPersistentLyricCache(song, cacheRead).then(function () {
+    if (cacheRead.epoch !== generatedLyricCacheEpoch) return null;
+    return apiJson(lyricEndpointForSong(song));
+  }).then(function (response) {
+    if (!response || cacheRead.epoch !== generatedLyricCacheEpoch) return;
+    var mergedResponse = mergeInlineLyricResponseForSong(song, response);
     var state = parseLyricResponseToOriginalState(song, mergedResponse);
-    if (state && state.usableLyric) writePersistentLyricCache(song, mergedResponse);
+    if (state && state.usableLyric) writePersistentLyricCache(song, mergedResponse, cacheRead);
   }).catch(function () {});
+}
+function resetGeneratedLyricCaches() {
+  generatedLyricCacheEpoch++;
+  lyricTranslationFallbackCache.clear();
+  lyricTranslationFallbackMissCache.clear();
+  lyricTranslationFallbackCacheBytes = 0;
+  lyricTranslationFallbackMissCacheBytes = 0;
+  clearTimeout(lyricTranslationCacheSweepTimer);
+  lyricTranslationCacheSweepTimer = 0;
+  lyricQueuePrefetchKeys = {};
+  clearTimeout(lyricQueuePrefetchTimer);
+  lyricQueuePrefetchToken++;
+  if (lyricQueuePrefetchController) lyricQueuePrefetchController.abort();
+  // Current lyrics may include edits; retain their display and all user archives.
 }
 function mergeInlineLyricResponseForSong(song, response) {
   response = Object.assign({}, response || {});
@@ -144,14 +273,16 @@ function lyricTranslationFallbackKey(song) {
   ].join('|');
 }
 function shouldFetchNeteaseLyricTranslationFallback(song, state) {
+  if (isUnsupportedLyricSong(song)) return false;
   if (!song || !state || !state.usableLyric) return false;
   if (song.type === 'local' || song.source === 'local' || song.localUrl || song.type === 'podcast') return false;
   if (songProviderKey(song) === 'netease') return false;
   if (state.translationLines && state.translationLines.length) return false;
   if (!String(song.name || song.title || '').trim()) return false;
   var key = lyricTranslationFallbackKey(song);
-  var missedAt = lyricTranslationFallbackMissCache[key] || 0;
-  return !missedAt || Date.now() - missedAt > 10 * 60 * 1000;
+  sweepLyricTranslationCaches();
+  scheduleLyricTranslationCacheSweep();
+  return !lyricTranslationFallbackMissCache.has(key);
 }
 function lyricNeteaseFallbackSearchQuery(song) {
   song = song || {};
@@ -159,6 +290,7 @@ function lyricNeteaseFallbackSearchQuery(song) {
   return [song.name || song.title || '', artist].filter(Boolean).join(' ').trim();
 }
 async function findNeteaseLyricFallbackCandidate(song) {
+  if (isUnsupportedLyricSong(song)) return null;
   var query = lyricNeteaseFallbackSearchQuery(song);
   if (!query) return null;
   var data = await apiJson('/api/search?keywords=' + encodeURIComponent(query) + '&limit=8', { timeoutMs: 4800 });
@@ -202,17 +334,19 @@ function mergeNeteaseFallbackTranslationsIntoCurrent(song, token, payload, cache
   return true;
 }
 async function fetchNeteaseLyricTranslationFallback(song, token, cacheKey) {
+  if (isUnsupportedLyricSong(song)) return false;
+  var cacheEpoch = generatedLyricCacheEpoch;
   if (!song || token !== trackSwitchToken) return false;
-  var cached = lyricTranslationFallbackCache[cacheKey];
+  var cached = readLyricTranslationFallbackCache(cacheKey);
   if (cached) return mergeNeteaseFallbackTranslationsIntoCurrent(song, token, cached, cacheKey);
   try {
     var candidate = await findNeteaseLyricFallbackCandidate(song);
-    if (token !== trackSwitchToken || !candidate || !candidate.id) return false;
+    if (cacheEpoch !== generatedLyricCacheEpoch || token !== trackSwitchToken || !candidate || !candidate.id) return false;
     var response = await apiJson('/api/lyric?id=' + encodeURIComponent(candidate.id), { timeoutMs: 5200 });
-    if (token !== trackSwitchToken) return false;
+    if (cacheEpoch !== generatedLyricCacheEpoch || token !== trackSwitchToken) return false;
     var translationPayload = buildLyricTranslationPayload(response || {});
     if (!translationPayload.lines.length) {
-      lyricTranslationFallbackMissCache[cacheKey] = Date.now();
+      storeLyricTranslationFallbackCache(cacheKey, null, cacheEpoch, true);
       return false;
     }
     cached = {
@@ -221,24 +355,26 @@ async function fetchNeteaseLyricTranslationFallback(song, token, cacheKey) {
       candidateId: candidate.id,
       cachedAt: Date.now()
     };
-    lyricTranslationFallbackCache[cacheKey] = cached;
+    storeLyricTranslationFallbackCache(cacheKey, cached, cacheEpoch, false);
     return mergeNeteaseFallbackTranslationsIntoCurrent(song, token, cached, cacheKey);
   } catch (err) {
-    lyricTranslationFallbackMissCache[cacheKey] = Date.now();
+    if (cacheEpoch !== generatedLyricCacheEpoch || token !== trackSwitchToken) return false;
+    storeLyricTranslationFallbackCache(cacheKey, null, cacheEpoch, true);
     console.warn('[LyricTranslationFallback]', err);
     return false;
   }
 }
 function scheduleNeteaseLyricTranslationFallback(song, token, state) {
+  var cacheEpoch = generatedLyricCacheEpoch;
   if (!shouldFetchNeteaseLyricTranslationFallback(song, state)) return;
   var cacheKey = lyricTranslationFallbackKey(song);
-  var cached = lyricTranslationFallbackCache[cacheKey];
+  var cached = readLyricTranslationFallbackCache(cacheKey);
   if (cached) {
-    setTimeout(function () { mergeNeteaseFallbackTranslationsIntoCurrent(song, token, cached, cacheKey); }, 0);
+    setTimeout(function () { if (cacheEpoch === generatedLyricCacheEpoch) mergeNeteaseFallbackTranslationsIntoCurrent(song, token, cached, cacheKey); }, 0);
     return;
   }
   var start = function () {
-    if (token === trackSwitchToken) fetchNeteaseLyricTranslationFallback(song, token, cacheKey);
+    if (cacheEpoch === generatedLyricCacheEpoch && token === trackSwitchToken) fetchNeteaseLyricTranslationFallback(song, token, cacheKey);
   };
   setTimeout(function () {
     if (window.requestIdleCallback) requestIdleCallback(start, { timeout: 1800 });
@@ -282,6 +418,7 @@ function parseLyricResponseToOriginalState(song, response) {
   };
 }
 function shouldRetryStartupLyricFetch(song, token, attempt) {
+  if (isUnsupportedLyricSong(song)) return false;
   if (!song || token !== trackSwitchToken || (attempt || 0) >= 3) return false;
   if (song.type === 'local' || song.source === 'local' || song.localKey || song.type === 'podcast') return false;
   return !!(startupAutoplayPreference || restoredLastPlaybackSnapshot || pendingPlaybackResumeAt > 0);
@@ -324,12 +461,14 @@ function scheduleTrackSwitchFallbackLyrics(song, token, delay) {
   }, titleDelay);
 }
 async function fetchLyric(songOrId, token, attempt) {
+  if (isUnsupportedLyricSong(songOrId)) return false;
   attempt = Math.max(0, Number(attempt) || 0);
-  var song;
+  var song, cacheRead = {}, cacheEpoch = generatedLyricCacheEpoch;
   try {
     song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
     var cachedResponse = song && typeof takeAdjacentEntry === 'function' ? takeAdjacentEntry('lyrics|' + persistentLyricCacheKey(song)) : null;
-    if (!cachedResponse) cachedResponse = song ? await readPersistentLyricCache(song) : null;
+    if (!cachedResponse) cachedResponse = song ? await readPersistentLyricCache(song, cacheRead) : null;
+    if (cacheEpoch !== generatedLyricCacheEpoch) return;
     if (cachedResponse) {
       var cachedState = applyFetchedLyricResponse(song, token, cachedResponse, { persist: false });
       if (cachedState && cachedState.usableLyric) {
@@ -338,11 +477,12 @@ async function fetchLyric(songOrId, token, attempt) {
       }
     }
     var r = await apiJson(lyricEndpointForSong(song || songOrId), { timeoutMs: 12000 });
-    var state = applyFetchedLyricResponse(song, token, r);
+    if (cacheEpoch !== generatedLyricCacheEpoch) return;
+    var state = applyFetchedLyricResponse(song, token, r, { cacheRead: cacheRead });
     if (!state) return;
     if (!state.usableLyric && shouldRetryStartupLyricFetch(song, token, attempt)) scheduleStartupLyricFetchRetry(song, token, attempt);
   } catch (e) {
-    if (token !== trackSwitchToken) return;
+    if (cacheEpoch !== generatedLyricCacheEpoch || token !== trackSwitchToken) return;
     cancelPendingTrackFallbackLyrics();
     var fallbackLines = withLyricFallbackForSong(song || currentLyricSong(), []);
     setOriginalLyricsState(fallbackLines, false, 'fallback', [], 'none');

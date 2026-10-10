@@ -168,7 +168,6 @@ function makeRuntime(options = {}) {
     platform: 'win32',
     normalSkipTaskbar: options.normalSkipTaskbar,
     windowIcon: options.windowIcon,
-    beforeReveal: options.beforeReveal,
     nativeTempPath: 'D:\\MineradioCache\\native-helper-temp',
     requestReconcile: typeof options.requestReconcile === 'function'
       ? options.requestReconcile
@@ -330,24 +329,47 @@ test('failed desktop entry restores the configured taskbar policy', async () => 
   }
 });
 
-test('prepare renderer before an atomic native reveal and restore the app icon before the taskbar', async () => {
+test('desktop attachment uses screen-converted physical bounds while Electron receives logical display bounds', async () => {
+  for (const scaleFactor of [1.25, 1.5, 2]) {
+    const bounds = { x: -1536, y: 120, width: 1536, height: 864 };
+    const physical = { x: -1920, y: 180, width: Math.round(bounds.width * scaleFactor), height: Math.round(bounds.height * scaleFactor) };
+    const display = { id: 9, bounds, workArea: bounds, scaleFactor };
+    const conversions = [];
+    const screen = {
+      getPrimaryDisplay: () => display,
+      getDisplayMatching: () => display,
+      getAllDisplays: () => [display],
+      dipToScreenRect: (window, rect) => {
+        conversions.push({ window, rect });
+        return { ...physical };
+      },
+    };
+    const win = new FakeBrowserWindow();
+    const { runtime, calls } = makeRuntime({ screen });
+    assert.equal((await runtime.enable(win, { interactive: true })).ok, true);
+    assert.deepEqual(win.getBounds(), bounds);
+    assert.deepEqual(calls.watcherStart[0].physicalBounds, physical);
+    assert.deepEqual(calls.coexist[0].width, physical.width);
+    assert.deepEqual(calls.coexist[0].height, physical.height);
+    assert.ok(conversions.some(call => call.window === null && call.rect.x === bounds.x));
+    await runtime.disable();
+  }
+});
+
+test('Electron reveals the desktop widget before native ordering and restores the icon before the taskbar', async () => {
   const win = new FakeBrowserWindow();
   const order = [];
   const { runtime } = makeRuntime({
     windowIcon: 'app.ico',
-    beforeReveal: async ({ status }) => {
-      assert.equal(win.visible, false);
-      assert.equal(status.enabled, true);
-      order.push('renderer');
-    },
     startDesktopIconWatcher: (_input, _count, watcher) => {
-      watcher.reveal = async () => {
-        assert.equal(win.visible, false);
-        assert.equal(order.at(-1), 'renderer');
-        order.push('native-reveal');
-        win.visible = true;
-        return watcher.getLastLayout();
+      const ensureOrder = watcher.ensureOrder;
+      watcher.ensureOrder = async () => {
+        assert.equal(win.visible, true, 'Electron must update its widget visibility first');
+        assert.equal(win.calls.at(-1)[0], 'showInactive');
+        order.push('native-order');
+        return ensureOrder();
       };
+      watcher.reveal = async () => { throw new Error('Native-only show must not bypass Electron'); };
       return watcher;
     },
   });
@@ -355,7 +377,7 @@ test('prepare renderer before an atomic native reveal and restore the app icon b
     win.calls = [];
     assert.equal((await runtime.enable(win)).ok, true);
     assert.equal(win.visible, true);
-    assert.equal(win.calls.some(call => call[0] === 'showInactive'), false, 'no visible Electron move before native placement');
+    assert.equal(win.calls.filter(call => call[0] === 'showInactive').length, 1);
     assert.ok(runtime.getStatus().transitionTimings.totalMs >= 0);
     assert.equal((await runtime.disable()).ok, true);
     assert.equal(win.icon, 'app.ico');
@@ -364,21 +386,19 @@ test('prepare renderer before an atomic native reveal and restore the app icon b
     const show = win.calls.findIndex(call => call[0] === 'show');
     assert.ok(icon >= 0 && icon < taskbar && taskbar < show);
   }
-  assert.deepEqual(order, ['renderer', 'native-reveal', 'renderer', 'native-reveal']);
+  assert.deepEqual(order, ['native-order', 'native-order']);
 });
 
-test('a failed renderer preparation restores a normal window without revealing the desktop child', async () => {
+test('a failed native order acknowledgement restores the ordinary visible window', async () => {
   const win = new FakeBrowserWindow();
-  let nativeReveal = false;
   const { runtime } = makeRuntime({
-    beforeReveal: async () => { throw new Error('FULL_DESKTOP_RENDERER_PREPARE_FAILED'); },
     startDesktopIconWatcher: (_input, _count, watcher) => {
-      watcher.reveal = async () => { nativeReveal = true; return watcher.getLastLayout(); };
+      watcher.ensureOrder = async () => { throw new Error('TEST_ORDER_ACK_FAILED'); };
       return watcher;
     },
   });
   assert.equal((await runtime.enable(win)).ok, false);
-  assert.equal(nativeReveal, false);
+  assert.equal(runtime.enabled, false);
   assert.equal(win.visible, true);
   assert.equal(win.skipTaskbar, false);
 });

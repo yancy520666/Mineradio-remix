@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-10-10T12:07:11.690Z",
+  "mode": "read-only in-memory static verification; no file extraction or executable launch",
+  "officialUrl": "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip",
+  "archiveBytes": 1318877,
+  "pinnedBytes": 1318877,
+  "sha256": "b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb",
+  "manifestEntries": 31,
+  "verifiedEntries": 31,
+  "extractedBytes": 3467579,
+  "includesOriginalReadme": true,
+  "windowsAuthenticodeTrustValidation": "not executed in this environment; runtime must require Status Valid and pinned publisher DER SHA-256"
+}

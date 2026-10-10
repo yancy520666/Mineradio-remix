@@ -125,12 +125,12 @@ function getMusicTempoWorkerUrl() {
   return musicTempoWorkerUrl;
 }
 
-async function analyzeMusicTempoInWorker(buffer, token) {
+async function analyzeMusicTempoInWorker(buffer, token, signal) {
   if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') return null;
   try {
     showBeatChip('后台锁定电影主拍…');
     await yieldToIdle(isHiddenForBackgroundOptimization() ? 20 : 180);
-    if (token !== beatMapToken) return null;
+    if (token !== beatMapToken || (signal && signal.aborted)) return null;
     var channels = buffer.numberOfChannels;
     var len = buffer.length;
     var mono = new Float32Array(len);
@@ -147,44 +147,44 @@ async function analyzeMusicTempoInWorker(buffer, token) {
       }
       if ((monoStart / monoChunk) % 2 === 1) {
         await yieldToIdle(isHiddenForBackgroundOptimization() ? 10 : 60);
-        if (token !== beatMapToken) return null;
+        if (token !== beatMapToken || (signal && signal.aborted)) return null;
       }
     }
     var worker = new Worker(getMusicTempoWorkerUrl());
     return await new Promise(function (resolve) {
       var done = false;
-      var timer = setTimeout(function () {
-        if (done) return;
-        done = true;
-        worker.terminate();
-        resolve(null);
-      }, 16000);
-      worker.onmessage = function (ev) {
+      function finish(value) {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
         worker.terminate();
+        resolve(value);
+      }
+      function onAbort() { finish(null); }
+      var timer = setTimeout(onAbort, 16000);
+      worker.onmessage = function (ev) {
+        if (done) return;
         var data = ev.data || {};
         if (!data.ok) {
           console.warn('music-tempo worker failed:', data.error);
-          resolve(null);
+          finish(null);
           return;
         }
-        resolve(data);
+        finish(data);
       };
       worker.onerror = function (err) {
         if (done) return;
-        done = true;
-        clearTimeout(timer);
-        worker.terminate();
         console.warn('music-tempo worker error:', err && err.message ? err.message : err);
-        resolve(null);
+        finish(null);
       };
-      worker.postMessage({
+      if (signal) { signal.addEventListener('abort', onAbort, { once: true }); if (signal.aborted) onAbort(); }
+      if (done) return;
+      try { worker.postMessage({
         mono: mono.buffer,
         sampleRate: buffer.sampleRate,
         scriptUrl: location.origin + '/vendor/music-tempo.min.js'
-      }, [mono.buffer]);
+      }, [mono.buffer]); } catch (error) { console.warn('music-tempo worker transfer failed:', error); finish(null); }
     });
   } catch (err) {
     console.warn('music-tempo worker setup failed:', err);
@@ -303,21 +303,40 @@ async function ensureBeatDiskCacheStatus() {
   return beatDiskCacheStatus;
 }
 
-async function readBeatDiskCache(key) {
-  if (!key || beatMapCache[key]) return beatMapCache[key] || null;
-  var st = await ensureBeatDiskCacheStatus();
-  if (!st.enabled) return null;
+async function readBeatDiskCache(key, options) {
+  options = options || {};
+  var cache = beatMapCache;
+  var observation = key && typeof observeBeatMapCacheKey === 'function' ? observeBeatMapCacheKey(cache, key) : null;
+  function readStillCurrent() {
+    var current = cache === beatMapCache && (!options.isCurrent || options.isCurrent())
+      && (!observation || observation.valid || !!cache[key]);
+    if (!current) options.cancelled = true;
+    return current;
+  }
   try {
+    if (!readStillCurrent()) return null;
+    if (!key || cache[key]) return cache[key] || null;
+    var st = await ensureBeatDiskCacheStatus();
+    if (!readStillCurrent()) return null;
+    if (cache[key]) return cache[key];
+    if (!st.enabled) return null;
     var r = await apiJson('/api/beatmap/cache?key=' + encodeURIComponent(key) + '&t=' + Date.now());
+    if (!readStillCurrent()) return null;
+    // An edit/analysis that completed during the read takes precedence over disk.
+    if (cache[key]) return cache[key];
     if (r && r.enabled === false) updateBeatDiskCacheStatus(r);
     if (!r || !r.hit || !r.map) return null;
     var map = unpackLocalBeatMap(r.map);
-    if (!map) return null;
-    beatMapCache[key] = map;
+    if (!map || !readStillCurrent()) return null;
+    if (cache[key]) return cache[key];
+    cache[key] = map;
     return map;
   } catch (e) {
+    readStillCurrent();
     console.warn('beat disk cache read failed:', e);
     return null;
+  } finally {
+    if (observation) observation.release();
   }
 }
 
@@ -381,7 +400,7 @@ async function fetchBeatPrefetchAudioUrl(song) {
   if (!song) return null;
   if (typeof resolveAlbumGaplessPlaybackData === 'function') {
     var resolved = await resolveAlbumGaplessPlaybackData(song);
-    if (!resolved || !resolved.url || resolved.trial) return null;
+    if (!resolved || !resolved.url || resolved.trial || resolved.trialKnown === false) return null;
     return '/api/audio?url=' + encodeURIComponent(resolved.url);
   }
   var isQQ = songProviderKey(song) === 'qq';
@@ -394,7 +413,7 @@ async function fetchBeatPrefetchAudioUrl(song) {
   var data = isQQ
     ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam, { timeoutMs: 15000 })
     : await apiJson('/api/song/url?id=' + encodeURIComponent(song.id) + neteaseMatchQuery + qualityParam, { timeoutMs: 14000 });
-  if (!data || !data.url || data.trial) return null;
+  if (!data || !data.url || data.trial || data.trialKnown === false) return null;
   return '/api/audio?url=' + encodeURIComponent(data.url);
 }
 

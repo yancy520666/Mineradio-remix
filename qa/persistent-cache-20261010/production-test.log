@@ -1,0 +1,34 @@
+✔ release locks all actions, avoids double invocation and renders fresh totals without changing playback (3.576186ms)
+✔ partial cleanup reports remaining files and refreshes missing snapshot (1.328414ms)
+✔ rejected or synchronously throwing bridges unlock controls without claiming success (2.07414ms)
+✔ unsupported release does not reset caches or mutate anything (0.99399ms)
+✔ lyric writes carry the generation captured before fetch; old generation and unowned writes are dropped (2.357617ms)
+✔ a comment result already queued before reset neither renders nor repopulates the cache, even without AbortController (3.561454ms)
+✔ intentional active-file skips show preservation rather than a retry error (1.158098ms)
+✔ cover refresh owns the current song, not a previous visible texture, and does not replace user covers (2.487804ms)
+✔ queued translation fallback cannot start after cache release, including the idle-callback gap (2.563949ms)
+✔ only allowlisted flat generated files are deleted; active and user files survive (3.367381ms)
+✔ symlink file, root and ancestor cannot escape the allowlist (1.096214ms)
+✔ active generation skips files, validation preserves unknown data and errors are partial (2.05452ms)
+✔ release is singleflight and drains existing writers; stale callbacks cannot rewrite (0.574647ms)
+✔ cover clear allows active request to finish but prevents stale memory resurrection (1.211989ms)
+✔ search clear does not let old completion replace a fresh result or remove its inflight request (3.418429ms)
+✔ desktop release reports exact disk bytes and retains active wallpaper, login files and edited maps (6.69993ms)
+✔ desktop IPC rejects untrusted release and stale lyric writes while fresh writes continue (12.355623ms)
+✔ desktop cache falls back to C drive user data when D drive is absent (2.393793ms)
+✔ existing D drive remains a supported default without changing user preferences (0.888991ms)
+✔ write failure only removes own new temp and preserves old final/unknown legacy (6.3291ms)
+✔ rename failure only removes own new temp and preserves old final/unknown legacy (3.943461ms)
+✔ close failure only removes own new temp and preserves old final/unknown legacy (1.838985ms)
+✔ success publishes complete record and leaves unrelated legacy untouched (2.003843ms)
+✔ exclusive collision cannot overwrite or remove existing temp (4.593912ms)
+✔ live paused atomic writer retains temp until publish (2.143144ms)
+✔ stale generation cannot create a temp (1.010504ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 132.155

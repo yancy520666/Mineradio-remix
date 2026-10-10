@@ -1,0 +1,7 @@
+'use strict';
+const fs=require('fs'),path=require('path'),assert=require('assert/strict'),cp=require('child_process'),crypto=require('crypto');const root=path.resolve(__dirname,'../../..');const baseline='2b2ca9d18e9e8f6f3664170de667aaeadf123cf1';
+function extract(s,name){const start=s.search(new RegExp('^(?:async )?function '+name+'\\(','m'));assert(start>=0);return s.slice(start,s.indexOf('\n}\n',start)+2)}
+const checks=[];for(const[file,names]of [['public/js/modules/05-playback/07-search.js',['createPlaybackMetadataCache','resetPlaybackMetadataCaches']],['server.js',['createSearchResultCache','requestText']],['qishui-api.js',['createTtlCache','requestTextWithMeta']]]){
+const before=cp.execFileSync('git',['show',baseline+':'+file],{cwd:root,encoding:'utf8'}),after=fs.readFileSync(path.join(root,file),'utf8');for(const name of names){const a=extract(before,name),b=extract(after,name);assert.equal(a,b,name+' must remain intact');checks.push({file,name,unchanged:true,sha256:crypto.createHash('sha256').update(b).digest('hex')})}}
+const files=['package.json','package-lock.json'];for(const file of files){const a=cp.execFileSync('git',['show',baseline+':'+file],{cwd:root}),b=fs.readFileSync(path.join(root,file));assert(a.equals(b));checks.push({file,unchanged:true})}
+fs.writeFileSync(path.join(__dirname,'cache-preservation.json'),JSON.stringify({baseline,checks},null,2));console.log(JSON.stringify({checks:checks.length,allUnchanged:true}));

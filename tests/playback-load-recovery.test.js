@@ -5,7 +5,7 @@ function context(overrides={}) {
  const notices=[],plays=[];const song={id:'fixture'},next={id:'next'};
  const c=vm.createContext({DOMException,Promise,navigator:{onLine:true},trackSwitchToken:4,currentIdx:0,playQueue:[song,next],audio:{currentTime:0},pendingPlaybackResumeAt:0,
   queueItemKey:s=>s.id,showSourceFallbackNotice:(...args)=>notices.push(args),playQueueAt:(...args)=>plays.push(args),setTimeout:fn=>{fn();return 1;},updatePlaybackProgressUi(){},startupAutoplayJobId:8,startupAutoplayAttempted:false,clearStartupAutoplayRetryTimer(){},...overrides});
- loadFunctions(c,'public/js/modules/05-playback/12-playback-switch-core.js',['playbackLoadIsNetworkError','requestPlaybackSourceUrl','playbackFailureToastText','playbackFailureNoticeFromError','isPlaybackRecursionError','showPlaybackLoadFailure','scheduleAudioResumePosition']);
+ loadFunctions(c,'public/js/modules/05-playback/12-playback-switch-core.js',['cancelPlaybackSourceRequest','playbackLoadIsNetworkError','requestPlaybackSourceUrl','playbackFailureToastText','playbackFailureNoticeFromError','isPlaybackRecursionError','showPlaybackLoadFailure','scheduleAudioResumePosition']);
  return {c,notices,plays,song};
 }
 test('temporary URL errors get one retry at the same quality; offline makes no request',async()=>{

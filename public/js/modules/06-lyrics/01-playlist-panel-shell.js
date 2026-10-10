@@ -309,7 +309,7 @@ function renderMiniQueuePanel(opts) {
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="mini-queue-cover"></div>';
     return '<div class="mini-queue-item' + (i === currentIdx ? ' now' : '') + '" data-queue-index="' + i + '" onclick="if(window.__mineradioSuppressReorderClick)return;playQueueAt(' + i + ')">' +
       imgTag +
-      '<div class="mini-queue-info"><div class="mini-queue-name">' + escHtml(song.name) + '</div><div class="mini-queue-sub">' + escHtml(song.artist || '') + '</div></div>' +
+      '<div class="mini-queue-info"><button type="button" class="mini-queue-name queue-play-name" aria-label="播放 ' + escHtml(song.name) + '" onclick="event.stopPropagation();if(window.__mineradioSuppressReorderClick)return;playQueueAt(' + i + ')">' + escHtml(song.name) + '</button><div class="mini-queue-sub">' + escHtml(song.artist || '') + '</div></div>' +
       '<button class="mini-queue-remove mini-queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放" aria-label="下一首播放">' + queueNextIconSvg() + '</button>' +
       '<button class="mini-queue-remove" onclick="event.stopPropagation();removeFromQueue(' + i + ')" title="移除" aria-label="移除">' + queueRemoveIconSvg() + '</button>' +
       '</div>';
@@ -352,7 +352,7 @@ function cancelPanelReorder(markSuppress) {
   panelReorderState.pointerId = null;
 }
 function panelReorderBlockedTarget(target) {
-  return !!(target && target.closest && target.closest('button,a,input,textarea,select,[data-pl-load-more],[data-pl-detail-load-more],[data-pl-detail-top],[data-pl-detail-play],[data-pl-detail-artist],[data-pl-detail-row],.pl-inline-detail'));
+  return !!(target && target.closest && target.closest('button:not(.queue-play-name),a,input,textarea,select,[data-pl-load-more],[data-pl-detail-load-more],[data-pl-detail-top],[data-pl-detail-play],[data-pl-detail-artist],[data-pl-detail-row],.pl-inline-detail'));
 }
 function panelReorderHitFromTarget(target) {
   if (!target || !target.closest || panelReorderBlockedTarget(target)) return null;
@@ -490,7 +490,7 @@ function renderQueuePanel(opts) {
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     return '<div class="queue-item' + (i === currentIdx ? ' now' : '') + '" data-queue-index="' + i + '" onclick="if(window.__mineradioSuppressReorderClick)return;playQueueAt(' + i + ')">' +
       imgTag +
-      '<div class="qi-info"><div class="qi-name">' + (i === currentIdx ? '<span class="qi-eq" aria-hidden="true"><i></i><i></i><i></i></span>' : '') + escHtml(song.name) + '</div><div class="qi-sub"><button class="queue-artist-link" type="button" onclick="event.stopPropagation();openQueueArtist(' + i + ')">' + escHtml(song.artist || '未知歌手') + '</button></div></div>' +
+      '<div class="qi-info"><button type="button" class="qi-name queue-play-name" aria-label="播放 ' + escHtml(song.name) + '" onclick="event.stopPropagation();if(window.__mineradioSuppressReorderClick)return;playQueueAt(' + i + ')">' + (i === currentIdx ? '<span class="qi-eq" aria-hidden="true"><i></i><i></i><i></i></span>' : '') + escHtml(song.name) + '</button><div class="qi-sub"><button class="queue-artist-link" type="button" onclick="event.stopPropagation();openQueueArtist(' + i + ')">' + escHtml(song.artist || '未知歌手') + '</button></div></div>' +
       '<div class="qi-act">' +
       '<button class="' + (isSongLiked(song) ? 'liked' : '') + '" onclick="event.stopPropagation();toggleLikeQueueIndex(' + i + ')" title="' + (isSongLiked(song) ? '取消红心' : '红心喜欢') + '">' + heartIconSvg() + '</button>' +
       '<button class="queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放" aria-label="下一首播放">' + queueNextIconSvg() + '</button>' +
@@ -507,7 +507,6 @@ function playlistCatalogProviderArray(provider) {
   if (provider === 'qq') return qqPlaylists;
   if (provider === 'kugou') return kugouPlaylists;
   if (provider === 'qishui') return qishuiPlaylists;
-  if (provider === 'spotify') return spotifyPlaylists;
   return [];
 }
 function setPlaylistCatalogProviderArray(provider, rows) {
@@ -516,21 +515,29 @@ function setPlaylistCatalogProviderArray(provider, rows) {
   else if (provider === 'qq') qqPlaylists = rows;
   else if (provider === 'kugou') kugouPlaylists = rows;
   else if (provider === 'qishui') qishuiPlaylists = rows;
-  else if (provider === 'spotify') spotifyPlaylists = rows;
 }
 function playlistCatalogProviderLoggedIn(provider) {
   if (provider === 'netease') return !!loginStatus.loggedIn;
   if (provider === 'qq') return !!qqLoginStatus.loggedIn;
   if (provider === 'kugou') return !!kugouLoginStatus.loggedIn;
   if (provider === 'qishui') return !!qishuiLoginStatus.loggedIn;
-  if (provider === 'spotify') return !!spotifyLoginStatus.loggedIn;
   return false;
+}
+function playlistCatalogAccountKey(provider) {
+  var status = typeof platformStatus === 'function' ? platformStatus(provider) : null;
+  if (!status && provider === 'netease' && typeof loginStatus !== 'undefined') status = loginStatus;
+  if (!status && provider === 'qq' && typeof qqLoginStatus !== 'undefined') status = qqLoginStatus;
+  if (!status && provider === 'kugou' && typeof kugouLoginStatus !== 'undefined') status = kugouLoginStatus;
+  if (!status && provider === 'qishui' && typeof qishuiLoginStatus !== 'undefined') status = qishuiLoginStatus;
+  status = status || {};
+  var identity = String(status.userId || status.uid || status.uin || status.openId || status.id || '');
+  if (!identity && typeof providerAuthEpoch === 'function') identity = 'session:' + providerAuthEpoch(provider);
+  return JSON.stringify([playlistCatalogProviderLoggedIn(provider), identity]);
 }
 function playlistCatalogPageUrl(provider, offset, limit) {
   offset = Math.max(0, Number(offset) || 0);
   limit = Math.max(1, Number(limit) || PLAYLIST_CATALOG_FIRST_PAGE_SIZE);
   if (provider === 'netease') return '/api/user/playlists?paged=1&limit=' + limit + '&offset=' + offset;
-  if (provider === 'spotify') return '/api/spotify/user/playlists?limit=' + Math.min(500, limit) + '&offset=' + offset;
   if (provider === 'qq') return '/api/qq/user/playlists';
   if (provider === 'kugou') return '/api/kugou/user/playlists';
   if (provider === 'qishui') return '/api/qishui/user/playlists';
@@ -552,7 +559,7 @@ function mergePlaylistCatalogRows(existing, incoming, provider) {
 }
 function rebuildUserPlaylistsFromCatalog(opts) {
   opts = opts || {};
-  var providers = typeof contentProviderOrder === 'function' ? contentProviderOrder() : ['netease', 'qq', 'kugou', 'qishui', 'spotify'];
+  var providers = typeof contentProviderOrder === 'function' ? contentProviderOrder() : ['netease', 'qq', 'kugou', 'qishui'];
   userPlaylists = builtInPlaylists.slice();
   providers.forEach(function (provider) { userPlaylists = userPlaylists.concat(playlistCatalogProviderArray(provider)); });
   if (typeof applyUserPlaylistOrder === 'function') applyUserPlaylistOrder();
@@ -566,6 +573,20 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
   var state = root.providers && root.providers[provider];
   if (!state || state.loading || !state.hasMore || !playlistCatalogProviderLoggedIn(provider)) return false;
   var token = root.token;
+  var authEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : null;
+  var accountKey = playlistCatalogAccountKey(provider);
+  // A queued background page belongs to the catalog that created its offset.
+  // Do not relabel an old account's rows as the new session during refresh.
+  if ((authEpoch !== null && state.authEpoch != null && state.authEpoch !== authEpoch)
+    || (state.accountKey && state.accountKey !== accountKey)) return false;
+  state.authEpoch = authEpoch;
+  state.accountKey = accountKey;
+  function catalogPageOwnerStillCurrent() {
+    return playlistCatalogSyncState === root && root.token === token && root.providers[provider] === state
+      && playlistCatalogProviderLoggedIn(provider)
+      && playlistCatalogAccountKey(provider) === accountKey
+      && (authEpoch === null || providerAuthEpoch(provider) === authEpoch);
+  }
   var first = state.nextOffset === 0 && (!state.loaded || state.replaceOnFirstPage);
   var limit = first ? PLAYLIST_CATALOG_FIRST_PAGE_SIZE : PLAYLIST_CATALOG_BACKGROUND_PAGE_SIZE;
   var requestOffset = state.nextOffset;
@@ -574,7 +595,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
   state.loading = true;
   try {
     var r = await apiJson(url, { timeoutMs: 15000 });
-    if (playlistCatalogSyncState.token !== token || !playlistCatalogProviderLoggedIn(provider)) return false;
+    if (!catalogPageOwnerStillCurrent()) return false;
     if (!r || !Array.isArray(r.playlists)) throw new Error('PLAYLIST_CATALOG_RESPONSE_INVALID');
     var incoming = (r && r.playlists || []).map(function (pl) { pl.provider = provider; pl.source = provider; return pl; });
     state.pageLimited = !!(r && r.pageLimited);
@@ -619,7 +640,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
       state.total = Math.max(state.loaded, Number(state.total) || 0);
     }
     state.nextOffset = r && r.nextOffset != null ? Math.max(0, Number(r.nextOffset) || 0) : (requestOffset + incoming.length);
-    var supportsPaging = provider === 'netease' || provider === 'spotify';
+    var supportsPaging = provider === 'netease';
     state.hasMore = supportsPaging ? !!(r && r.hasMore) : false;
     var stalled = supportsPaging && !!(r && r.hasMore) && (!incoming.length || state.nextOffset <= requestOffset);
     if (!incoming.length || stalled) state.hasMore = false;
@@ -629,7 +650,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
     rebuildUserPlaylistsFromCatalog({ animate: first && isPlaylistPanelVisibleForRender(), reset: first, preserveScroll: !first, reason: reason || 'playlist-catalog-page' });
     return incoming.length > 0;
   } catch (e) {
-    if (playlistCatalogSyncState.token !== token) return false;
+    if (!catalogPageOwnerStillCurrent()) return false;
     console.warn('[PlaylistCatalogPage]', provider, e);
     state.error = e && e.message || 'PLAYLIST_CATALOG_PAGE_FAILED';
     state.hasMore = false;
@@ -637,7 +658,7 @@ async function loadPlaylistCatalogProviderPage(provider, reason) {
     renderUserPlaylistsList({ preserveScroll: true });
     return false;
   } finally {
-    if (playlistCatalogSyncState.token === token) state.loading = false;
+    if (catalogPageOwnerStillCurrent()) state.loading = false;
   }
 }
 async function retryPlaylistCatalogProvider(provider) {
@@ -645,7 +666,7 @@ async function retryPlaylistCatalogProvider(provider) {
   var state = root.providers && root.providers[provider];
   if (!state || state.loading || !state.error || state.retryable === false || !playlistCatalogProviderLoggedIn(provider)) return;
   // Keep the rows already shown while retrying; merge recovered pages by ID.
-  if (provider !== 'netease' && provider !== 'spotify') {
+  if (provider !== 'netease') {
     state.nextOffset = 0;
     state.replaceOnFirstPage = true;
   }
@@ -661,12 +682,12 @@ async function retryPlaylistCatalogProvider(provider) {
 }
 function playlistCatalogHasPendingPages() {
   var providers = playlistCatalogSyncState.providers || {};
-  return Object.keys(providers).some(function (key) { return providers[key] && (providers[key].loading || providers[key].hasMore); });
+  return Object.keys(providers).some(function (key) { return key !== 'spotify' && providers[key] && (providers[key].loading || providers[key].hasMore); });
 }
 function requestNextPlaylistCatalogPage(reason) {
   var root = playlistCatalogSyncState;
   if (!root || !root.providers) return false;
-  var order = ['netease', 'spotify', 'qq', 'kugou', 'qishui'];
+  var order = ['netease', 'qq', 'kugou', 'qishui'];
   var provider = order.find(function (key) {
     var state = root.providers[key];
     return state && state.hasMore && !state.loading;
@@ -692,7 +713,17 @@ function requestNextPlaylistCatalogPage(reason) {
 async function refreshUserPlaylists(force) {
   beginPlaylistCoverSession();
   if (typeof refreshBuiltInPlaylists === 'function') await refreshBuiltInPlaylists(!!force);
-  if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn && !kugouLoginStatus.loggedIn && !qishuiLoginStatus.loggedIn && !spotifyLoginStatus.loggedIn) {
+  // Keep old usable rows on a same-account network failure, but never merge
+  // another account's private catalog into a partial replacement snapshot.
+  ['netease', 'qq', 'kugou', 'qishui'].forEach(function (provider) {
+    var state = playlistCatalogSyncState.providers && playlistCatalogSyncState.providers[provider];
+    if (!state || !state.accountKey || state.accountKey === playlistCatalogAccountKey(provider)) return;
+    setPlaylistCatalogProviderArray(provider, []);
+    userPlaylists = userPlaylists.filter(function (playlist) { return normalizePlaylistProvider(playlist.provider) !== provider; });
+    if (provider === 'netease') { myPodcastCollections = []; myPodcastItems = {}; }
+    playlistCatalogRevision++;
+  });
+  if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn && !kugouLoginStatus.loggedIn && !qishuiLoginStatus.loggedIn) {
     resetPlaylistPanelRenderLimit();
     userPlaylists = builtInPlaylists.slice();
     playlistCatalogRevision += 1;
@@ -701,7 +732,11 @@ async function refreshUserPlaylists(force) {
     if (podcastListLoggedOut) podcastListLoggedOut.innerHTML = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">登录后显示我的播客</div>';
     return;
   }
-  var catalogNeedsNewProvider = playlistCatalogSyncState.loading && ['netease', 'qq', 'kugou', 'qishui', 'spotify'].some(function (provider) {
+  var catalogAuthorizationChanged = ['netease', 'qq', 'kugou', 'qishui'].some(function (provider) {
+    var state = playlistCatalogSyncState.providers && playlistCatalogSyncState.providers[provider];
+    return !!(state && typeof providerAuthEpoch === 'function' && state.authEpoch !== providerAuthEpoch(provider));
+  });
+  var catalogNeedsNewProvider = catalogAuthorizationChanged || playlistCatalogSyncState.loading && ['netease', 'qq', 'kugou', 'qishui'].some(function (provider) {
     var state = playlistCatalogSyncState.providers && playlistCatalogSyncState.providers[provider];
     return playlistCatalogProviderLoggedIn(provider) && (!state || !state.enabled);
   });
@@ -709,7 +744,7 @@ async function refreshUserPlaylists(force) {
     if (userPlaylists.length) renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });
     return;
   }
-  if (!force && (userPlaylists.length || myPodcastCollections.length)) {
+  if (!force && !catalogAuthorizationChanged && (userPlaylists.length || myPodcastCollections.length)) {
     var cachedAnimate = isPlaylistPanelVisibleForRender();
     renderUserPlaylistsList({ animate: cachedAnimate, preserveScroll: true });
     renderMyPodcastCollections({ animate: cachedAnimate });
@@ -725,10 +760,12 @@ async function refreshUserPlaylists(force) {
   if (playlistCatalogSyncState.timer) clearTimeout(playlistCatalogSyncState.timer);
   var token = playlistCatalogSyncState.token + 1;
   playlistCatalogSyncState = { token: token, loading: true, timer: 0, providers: {}, error: '', startedAt: Date.now() };
-  ['netease', 'qq', 'kugou', 'qishui', 'spotify'].forEach(function (provider) {
+  ['netease', 'qq', 'kugou', 'qishui'].forEach(function (provider) {
     // Retain usable rows while refreshing, including when the network fails.
     playlistCatalogSyncState.providers[provider] = {
       enabled: playlistCatalogProviderLoggedIn(provider),
+      authEpoch: typeof providerAuthEpoch === 'function' ? providerAuthEpoch(provider) : null,
+      accountKey: playlistCatalogAccountKey(provider),
       loaded: playlistCatalogProviderArray(provider).length,
       total: playlistCatalogProviderArray(provider).length,
       totalKnown: false,
@@ -743,9 +780,11 @@ async function refreshUserPlaylists(force) {
   var firstPageTasks = Object.keys(playlistCatalogSyncState.providers).filter(playlistCatalogProviderLoggedIn).map(function (provider) {
     return loadPlaylistCatalogProviderPage(provider, 'first-page');
   });
+  var podcastAuthEpoch = typeof providerAuthEpoch === 'function' ? providerAuthEpoch('netease') : null;
   var podcastTask = loginStatus.loggedIn
     ? apiJson('/api/podcast/my', { timeoutMs: 12000 }).then(function (r) {
-      if (playlistCatalogSyncState.token !== token) return;
+      if (playlistCatalogSyncState.token !== token || !loginStatus.loggedIn
+        || (podcastAuthEpoch !== null && providerAuthEpoch('netease') !== podcastAuthEpoch)) return;
       myPodcastCollections = r && r.collections || [];
       renderMyPodcastCollections({ animate: isPlaylistPanelVisibleForRender() });
       scheduleUiWarmTask(prewarmPlaylistCatalogCovers, 500);

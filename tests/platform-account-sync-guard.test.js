@@ -56,7 +56,7 @@ assert(
   'liked-state identity must remain provider scoped'
 );
 assert(
-  /\/api\/spotify\/playlist\/collect/.test(playlistDetail)
+  !/\/api\/spotify\//.test(playlistDetail)
     && /\/api\/qishui\/playlist\/collect/.test(playlistDetail)
     && /\/api\/playlist\/subscribe/.test(playlistDetail),
   'playlist collection must remain wired for each supported provider'

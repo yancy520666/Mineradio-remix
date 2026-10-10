@@ -1,0 +1,5 @@
+{"version":"3.0.0","mode":"http","passed":true,"proxyHits":1,"connectHits":0}
+(node:14) [DEP0123] DeprecationWarning: Setting the TLS ServerName to an IP address is not permitted by RFC 6066. This will be ignored in a future version.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"version":"3.0.0","mode":"tls","passed":true,"proxyHits":0,"connectHits":2}
+{"version":"3.0.0","mode":"download","passed":true,"proxyHits":1,"connectHits":0}

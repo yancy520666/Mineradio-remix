@@ -1,0 +1,413 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> mineradio-remix@2.4.2 check
+> node scripts/quick-check.js
+
+App root: /workspace/scratch/b9368a61956a/automix-20261010/repo
+
+== Node syntax check ==
+[OK] Checked 183 JavaScript files.
+
+== Playback audio graph track-switch regression ==
+OK playback-audio-graph-recovery
+
+== Background window and playback resume regression ==
+OK background-window-state-recovery
+OK playback-background-resume
+
+== Playback source fallback finite transaction regression ==
+OK playback-source-fallback-transaction
+
+== Playback single-repeat loop regression ==
+OK playback-single-repeat-loop
+
+== Persistent local FLAC library regression ==
+✔ FLAC tags, embedded cover and same-name LRC survive a full library reload (65.872683ms)
+✔ subsequent imports append to the persistent library by default (4.524846ms)
+✔ GB18030 sidecar lyrics and synchronized embedded lyrics normalize to readable LRC (0.508618ms)
+✔ metadata and manifest failures preserve the last committed cover and index (8.20522ms)
+✔ embedded cover budget rejects oversized pixel dimensions on low-spec devices (0.237247ms)
+✔ renderer and Electron wiring restore persistent tracks instead of blob-only missing records (2.101ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162.343218
+
+== Persistent cross-provider built-in playlist regression ==
+✔ built-in playlists persist mixed-provider songs without changing their source (16.199551ms)
+✔ Electron and renderer wiring exposes built-in playlists in collection, panel, queue and shelf (2.238447ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 93.236476
+
+== Wallpaper Engine idle-dispose regression ==
+✔ idle Wallpaper Engine runtime disposes as a verified clean state (1.977663ms)
+✔ single DWM surface accepts bounded visual settings without another native layer (0.686646ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7.908411
+
+== Wallpaper Engine minimize resident regression ==
+OK wallpaper-engine-minimize-resident
+
+== Wallpaper Engine Win10 yellow-border regression ==
+[OK] Wallpaper Engine pak capture avoids Win10 display-capture yellow border fallback.
+
+== Gesture camera permission regression ==
+OK gesture-camera-permission
+
+== Gesture player actions regression ==
+OK gesture-player-actions
+
+== Gesture camera runtime lifecycle regression ==
+OK gesture-runtime-lifecycle
+
+== Curated visual presets regression ==
+OK curated-visual-presets
+
+== Lyric clarity, WE visual controls, and portrait fullscreen regression ==
+✔ translation lyrics share high clarity sampling and global bright-background avoidance (0.970084ms)
+✔ cover particles share bright-background avoidance (0.307313ms)
+✔ portrait fullscreen targets the display under the window center (1.282635ms)
+✔ Wallpaper Engine controls persist and use the existing DWM surface (1.300462ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 75.999992
+
+== QQ/Kugou provider entitlement regression ==
+[KugouSongUrl] hash: free-song album:  mix: 42 auth: guest tier: none
+[KugouSongUrl] hash: member-fallback-song album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: preview-song album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: full-fallback-song album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: client-only-song album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: unavailable-song album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: challenge-song album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: challenge-stop album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: challenge-stop album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: preview-then-challenge album:  mix: 0 auth: ready tier: svip
+✔ current official songinfo route includes the H5 signature and stable web UUID (9.535347ms)
+[KugouSongUrl] hash: preview-then-challenge album:  mix: 0 auth: ready tier: svip
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+✔ transport and non-JSON failures reach the official retry host instead of breaking fallback (7.545173ms)
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: structured-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+✔ official previews stay marked as previews in both fresh and cached responses (4.418125ms)
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+✔ a full authorized fallback can replace a preview without relabeling preview audio (2.5915ms)
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+[KugouSongUrl] hash: invalid-challenge album:  mix: 0 auth: guest tier: none
+✔ URL arrays select one valid address and failed gateway payloads cannot authorize audio (2.881758ms)
+✔ upstream errors are distinct from non-membership and official security challenges are preserved (3.402053ms)
+✔ an official challenge stops all endpoint and quality fallbacks and retains its URL and upstream code (1.948399ms)
+✔ a security challenge wins over an earlier official preview and JSON HTTP failures preserve challenges (2.444277ms)
+✔ clear upstream verification messages and structured challenge links cannot be mistaken for audio URLs (1.885935ms)
+✔ missing and unsafe challenge URLs retain verification state without inventing a destination (4.133196ms)
+✔ unknown or stale membership waits for verification without claiming non-membership or requesting paid audio (4.801394ms)
+✔ login profile challenges preserve identity, deny playback readiness and stop membership probing (4.52707ms)
+✔ web, primary and fallback VIP challenges survive login and stop subsequent probes without caching (3.2417ms)
+[KugouSearch] fixture search limit: 3 offset: 0
+✔ VIP probes are sequential and transport failures never become security verification (7.52926ms)
+[KugouSearch] fixture search limit: 3 offset: 0
+[KugouSearch] page test limit: 3 offset: 2
+✔ membership security challenges also terminate playback before any audio request (0.656661ms)
+✔ search failures are rejected and not cached as an empty successful search (1.214342ms)
+✔ search offsets cross page boundaries without returning preceding tracks (1.310738ms)
+✔ Cookie object helpers preserve login identity and lyrics decode official base64 content (0.688669ms)
+✔ personal-library failures retain an explicit upstream code and are retried instead of cached as empty (1.026839ms)
+✔ malformed personal-library and track payloads cannot become successful cached empty libraries (1.450939ms)
+✔ personal library reads every page, not just the first 50 playlists (1.125277ms)
+✔ failed later pages retain loaded playlists and retry to a complete library (1.707546ms)
+✔ page limit is explicit with or without totals, but a known complete final page succeeds (20.928465ms)
+✔ cloudlist connection rejection stays a failure with an explicit recovery action (0.477701ms)
+✔ cloudlist library and created-list tracks use the Android contract, retaining failure codes (0.949723ms)
+✔ Android tracker signs all parameters and does not request an unnecessary preview (0.600216ms)
+✔ Kugou ordinary login keeps a reusable session without clearing storage (3.576576ms)
+✔ Kugou explicit re-login discards a revoked token before reuse and completes with a fresh session (6.992424ms)
+✔ Kugou only literal true requests storage clearing (3.32103ms)
+✔ Kugou cancelled re-login never returns the discarded session (1.827357ms)
+✔ Kugou renderer re-login options reach the main handler without an unlock step (2.43878ms)
+✔ Kugou website fallback is an interactive visible window, not a QR-only screenshot (2.064324ms)
+✔ Kugou verification stays visible with existing playback cookies, keeps the session and closes without claiming success (2.640303ms)
+✔ Kugou verification rejects unsafe challenge URLs before opening a window (3.262232ms)
+✔ Kugou navigation and popups cannot leave official HTTPS hosts or invoke an external app (1.834207ms)
+✔ a visible security challenge during website login takes precedence over complete cookies (1.731472ms)
+✔ new Kugou verification replaces an older window and logout cancels all login activity before clearing cookies (1.583399ms)
+✔ Kugou redirect guard supports current Electron details and leaves captcha subframes usable (1.247762ms)
+✔ untrusted renderers cannot launch Kugou login or clear its session (1.175734ms)
+✔ logout while cookie reuse is pending cannot create a late Kugou window or return success (0.641929ms)
+✔ DOM-ready and full-load share the pending challenge check before any login-entry click (2.013758ms)
+[OK] Kugou VIP hardening: web roles are source-scoped, expiry-aware, and cannot overgrant music-package accounts.
+✔ /workspace/scratch/b9368a61956a/automix-20261010/repo/tests/kugou-vip-hardening.test.js (80.124198ms)
+[KugouSongUrl] hash: ordinary-free-track-hash album:  mix: 0 auth: ready tier: none
+[KugouSongUrl] hash: verified-vip-track-hash album:  mix: 0 auth: ready tier: vip
+[KugouSongUrl] hash: music-package-track-hash album:  mix: 0 auth: ready tier: none
+[OK] Provider entitlement boundaries reject false VIP signals and protect restricted URLs.
+✔ /workspace/scratch/b9368a61956a/automix-20261010/repo/tests/provider-entitlement-boundary.test.js (118.301687ms)
+✔ catalogue credentials cannot become a Qishui account or playback authorization (4.072664ms)
+✔ API timeout remains active while a response body is stalled (5.346947ms)
+✔ temporary provider errors retain account identity without claiming current authorization (2.265839ms)
+✔ JSON error responses are also treated as temporary status failures (1.132649ms)
+✔ officially expired Qishui session clears account and asks for a new scan (1.346882ms)
+✔ unknown membership does not overwrite verified audit history as a normal account (1.120941ms)
+✔ the shared badge retains QQ pending and verified ordinary account states (1.099759ms)
+✔ an old saved cookie cannot confirm a waiting or expired QR attempt (7.898225ms)
+✔ only a newly confirmed and valid QR session is saved (5.616704ms)
+✔ a Qishui QR confirmation that resolves after logout is not saved (2.215422ms)
+✔ a rejected fresh session stops the QR poll and displays a rescan action (3.270404ms)
+[OK] QQ VIP entitlement regression tests passed
+✔ /workspace/scratch/b9368a61956a/automix-20261010/repo/tests/qq-vip-entitlement.test.js (102.280601ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 55
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 189.864445
+
+== Direct account binding entry regression ==
+OK login-entry-direct
+
+== Qishui provider distribution, entitlement, and signed Passport QR regression ==
+[OK] Qishui account membership, expiry TTL, and account-scoped metadata cache verified.
+✔ /workspace/scratch/b9368a61956a/automix-20261010/repo/tests/qishui-entitlement-cache.test.js (86.510133ms)
+✔ Qishui Passport QR bridge persists a confirmed official web session and clears it (2.918464ms)
+✔ an old saved cookie or superseded QR poll cannot confirm a new login (0.751444ms)
+✔ Qishui login product surface uses only the signed Passport QR flow (3.288902ms)
+[OK] Qishui search pagination and official-session account boundary verified.
+✔ /workspace/scratch/b9368a61956a/automix-20261010/repo/tests/qishui-provider-distribution.test.js (82.155584ms)
+✔ expired official session cannot become a successful status or an empty synchronized library (6.878358ms)
+✔ a transient profile failure stays unknown and immediately recovers on retry (3.595284ms)
+✔ HTTP 200 with missing account identity cannot validate saved cookies (2.085357ms)
+✔ personal playlists load without waiting for recommendation feeds and partial failures are retried (2.808817ms)
+✔ empty PC responses keep public search available but identify an expired playback session (4.449433ms)
+✔ a failed player-info resolution retries immediately and cached audio cannot override stricter rights (3.861786ms)
+✔ playback settles under a wall-clock deadline even when DNS or the response never emits an event (20.829575ms)
+✔ an explicit numeric end-of-search flag stops pagination even when the final page is full (1.012467ms)
+✔ created playlists follow the cursor past the first 50; a response without paging fields stays one page (2.410257ms)
+✔ a library with more pages at the safety limit stays incomplete and is not cached as complete (6.405554ms)
+✔ has_more with a missing or unchanged cursor cannot become a completed library (0.777413ms)
+✔ VIP may use lossless but cannot use Hi-Res reserved for explicit SVIP (1.422777ms)
+✔ unknown membership never grants a premium stream (0.292241ms)
+✔ SVIP-only track flags are normalized and gated independently from VIP (0.444461ms)
+✔ VIP and SVIP expiry fields are evaluated independently (1.061882ms)
+✔ a same-cookie official positive survives only a short immediate outage (0.452042ms)
+✔ unknown without positive history is not converted to an ordinary account (0.294385ms)
+✔ an official positive is never retained beyond its expiry (0.160392ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.59778
+
+== Provider removal, fullscreen DIY, and cinematic preload regression ==
+✔ removed provider has no user-facing or callable login surface (7.086657ms)
+✔ fullscreen DIY control follows the bottom-most visible account pill (0.576379ms)
+✔ full-track cinematic analysis waits for playback and retries bounded failures (0.269457ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.008801
+
+== Visual performance controls regression ==
+✔ visual performance controls are visible and persisted without reordering old MR2 fields (2.590398ms)
+✔ disabled controls bypass the expensive lyric and particle paths (0.615689ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80.532519
+
+== Platform account action and listen-sync guard ==
+[OK] Platform account actions, provider-affine listen reports, and truthful duration-sync boundaries are guarded.
+
+== Complete daily recommendation data and bounded rendering regression ==
+✔ daily recommendation modal consumes the full frontend dataset without an eight-song slice (1.634676ms)
+✔ daily recommendation viewport range exposes every index while keeping each DOM window bounded (1.478972ms)
+✔ virtualized daily cards preserve absolute indexes and full-queue playback (0.709541ms)
+✔ daily viewport updates are scroll-driven and animation-frame throttled (0.546424ms)
+✔ daily recommendation mapper preserves every valid upstream song in order (2.31347ms)
+✔ discover home returns the complete mapped daily list without a fixed song cap (0.502578ms)
+✔ discover home does not request or return recommended podcasts (0.373223ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 86.763821
+
+== Combined index module parse ==
+[OK] Combined classic script parses. Modules: 131.
+
+== Forbidden FSR/DLSS/native FG scan ==
+[OK] No FSR/DLSS/native FG markers in 185 scanned files.
+
+== Main window chrome guard ==
+[OK] Main player window still uses frame:false and transparent:true.
+
+== Background transparency controls guard ==
+[OK] Background window opacity and gated glass opacity controls are wired through UI, CSS, runtime, persistence, and archives.
+
+== Wallpaper Engine additive import guard ==
+[OK] Independent layer, native Scene runtime, opaque IPC IDs, path containment, safe previews, Range streaming, and original-background restore are guarded.
+
+== Desktop wallpaper mode guard ==
+[OK] Legacy canvas backdrop is forbidden; the complete Mineradio HUD, recoverable software lock, desktop-icon switch, click-outside close, Escape exit, native watcher recovery, single WE DWM layering, and ordered cleanup are guarded.
+
+== Desktop window adaptation guard ==
+[OK] Desktop shell adapts portrait displays and window minimize/restore animation.
+
+== Lyric layout range guard ==
+[OK] Lyric layout position/depth/angle ranges stay expanded through UI, runtime, autosave, and archives.
+
+== Free camera pointer-lock guard ==
+[OK] Local app pointerLock permission and plain lock request are guarded.
+
+== Progress drag seek guard ==
+[OK] Progress drag previews visually and commits audio seek on release.
+
+== Lyric backface readability guard ==
+[OK] Lyric translation/readability/glow layers stay readable from the back side.
+
+== Lyric scroll performance guard ==
+[OK] Lyric scrolling keeps one persistent whole-song text runway, bounded effect layers, realtime continuous drag, and warm lyric activation.
+
+== Persistent cache storage guard ==
+[OK] Persistent lyric and application cache paths are configurable and report current usage.
+
+== External update page bridge guard ==
+✔ the latest Release body supplies two new pages and the announcement without stale visible links (4.437294ms)
+✔ a source build reads only the bold 更新重点 phrases, not the heading or explanations (1.182694ms)
+✔ explicit manifest pages replace legacy URL aliases instead of appending a retired third source (0.977395ms)
+✔ an explicitly empty or unsafe list retires legacy sources while old single-page manifests remain compatible (0.672214ms)
+✔ renderer replaces three old sources with two latest sources and opens only the selected new page (2.35959ms)
+✔ renderer clears retired sources and previous notes when the next payload omits the announcement (0.699376ms)
+✔ renderer preserves the legacy single-page response when no explicit list is supplied (0.646045ms)
+✔ release update metadata accepts only a bounded HTTPS external page (1.211568ms)
+✔ removed local update routes stay disabled and their workers stay absent (0.973289ms)
+✔ release body preserves all three labelled HTTPS download pages (2.374131ms)
+✔ renderer opens the external page without local installer or patch calls (0.218299ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 87.262424
+[OK] Updates use a trusted HTTPS-only external-page bridge with no local installer path.
+
+== Netease lyric translation guard ==
+[OK] Netease tlyric/ytlrc translation merge is guarded.
+
+== Lyric vertical float toggle guard ==
+[OK] Lyric vertical float toggle is wired through UI, persistence, archive, and render layers.
+
+== Qishui provider guard ==
+[OK] Qishui search/lyric fallback stays usable without third-party playback proxy.
+
+== Removed provider surface guard ==
+[OK] Removed provider has no searchable, login, account-capsule, startup, HTTP, or desktop IPC surface.
+
+== Playback control source/VIP badge guard ==
+[OK] Bottom player title shows source and VIP badges without stretching the control bar.
+
+== Provider fallback transaction and terminal-state guard ==
+[OK] Provider fallback respects active credentials, commits after playback, and reaches a clean terminal state.
+
+== Search glass entrance guard ==
+[OK] Search glass uses the saved RGB SVG surface and is composited before the search panel appears.
+
+== Provider entitlement boundary guard ==
+[OK] Provider account membership and per-track playback entitlement remain separated.
+
+== QQ VIP status refresh guard ==
+[OK] QQ membership status can be force-refreshed after renewals.
+
+== Provider auth cookie path guard ==
+[OK] Provider auth cookies stay on userData paths and QQ partial login is explicit.
+
+== Long-pause playback resume recovery guard ==
+[OK] Long-pause resume recovery refreshes expired provider URLs across providers.
+
+== Audio output workflow panel guard ==
+[OK] Audio output workflow opens as a dedicated wiring panel and leaves settings compact.
+
+== Volume wheel step guard ==
+[OK] Volume wheel step is 1%.
+
+== Non-current audio prefetch guard ==
+[OK] Non-current audio URL prefetch stays disabled by default.
+
+== Cuefield AutoMix integration guard ==
+[OK] Cuefield AutoMix is opt-in, packages with the app, uses local feedback, and reuses safe handoff controls.
+
+== Album detail and explicit gapless guard ==
+[OK] Album detail opens from covers, loads provider album tracks, and gapless playback is explicit/preheated/sequential.
+
+== Internal beta packaging guard ==
+[OK] Internal beta packaging stays isolated, closed-channel, and non-publishing.
+
+== Sonic topography visual preset guard ==
+[OK] 音域回响 preset is selectable, bounded, saved, and driven by existing rhythm envelopes.
+
+== Long press playlist/queue reorder guard ==
+[OK] Long-press reorder stays on left playlist/queue panels and is disabled for 3D shelf cards.
+
+== Playlist panel trigger guard ==
+[OK] Playlist panel trigger, secondary-edge, bottom-control, and animation-duration guards are in sync.
+
+== Shuffle queue order guard ==
+[OK] Shuffle mode keeps the visible queue aligned with the actual playback order.
+
+== Large playlist virtualization and progressive queue guard ==
+[OK] 5k catalog=5.50ms/window 20; 10k queue=1 warm + 61 on-demand pages/window 26; one outer detail scroll; 3D pools retained.
+
+== First-launch defaults and splash timing guard ==
+[OK] 206 captured defaults match; splash cue pace is 0.72x of upstream (logo settles ~2.5s) with entry at 1.5s (0.65s reduced motion); archive actions stay in one row.
+
+== Visual console workspace guard ==
+[OK] Six task tabs, explicit grouping, scoped history, safe DOM cleanup, search, and responsive styles are wired.
+
+== Electron runtime smoke check ==
+[SKIP] Fast/static mode. Use quick-check.bat full to enable it.
+
+All checks passed.

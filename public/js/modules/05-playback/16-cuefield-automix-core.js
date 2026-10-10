@@ -173,6 +173,65 @@
     });
   }
 
+  // Listening policy is deliberately independent of beat/section confidence.
+  // Short songs keep their body; a late cue must not turn the next song into a teaser.
+  function listeningFloor(duration, startedAt) {
+    duration = toNumber(duration, 0);
+    if (duration <= 0) return Infinity;
+    startedAt = Math.max(0, toNumber(startedAt, 0));
+    return Math.min(duration, Math.max(duration <= 90 ? duration - 2.2 : duration * 0.65,
+      startedAt + Math.min(45, Math.max(0, duration - startedAt - 2.2))));
+  }
+
+  function introLimit(duration) {
+    duration = toNumber(duration, 0);
+    return duration > 0 ? Math.min(12, duration * 0.1) : 0;
+  }
+
+  function listeningSafePlan(plan, ctx) {
+    ctx = ctx || {};
+    var chosen = plan && plan.chosen || {};
+    if (chosen.technicalFailure === true) return plan;
+    var duration = toNumber(ctx.currentDuration, 0);
+    var now = Math.max(0, toNumber(ctx.currentTime, 0));
+    // Unknown/live durations use the ordinary ended path, never a guessed early exit.
+    if (duration <= 0 || duration - now < 0.4) return null;
+    var floor = Math.max(listeningFloor(duration, ctx.listenStartedAt), toNumber(ctx.minimumListenUntil, 0));
+    var timeline = timelineOf(plan);
+    var start = toNumber(chosen.mixStart, NaN);
+    var end = toNumber(chosen.handoffAt, NaN);
+    var incoming = timelineBStart(timeline, toNumber(chosen.entry && chosen.entry.time, 0));
+    var nextDuration = toNumber(ctx.nextDuration, 0);
+    var span = end - start;
+    var safe = plan && plan.ok && scoreOf(plan) >= 0.64 && duration > 90
+      && nextDuration > 90 && start >= floor && start >= now - 0.35
+      && end <= duration && span > 0 && span <= 9
+      && incoming <= introLimit(nextDuration)
+      && timeline.every(function(action) {
+        return action && (action.deck !== 'B' || action.op !== 'play'
+          || (toNumber(action.at, Infinity) <= introLimit(nextDuration) && toNumber(action.at, -1) >= 0));
+      });
+    if (safe) return plan;
+    // No synthetic bridge or source seek: a small equal-power fade at the natural end.
+    var overlap = nextDuration > 0 ? Math.min(2.2, nextDuration * 0.1) : 2.2;
+    start = Math.max(now, floor, duration - overlap);
+    span = duration - start;
+    if (span < 0.4) return null;
+    return { ok: true, chosen: {
+      evaluation: { tier: 'usable', score: 1, risks: [] },
+      transitionRecipe: 'end-of-track-crossfade',
+      listeningSafetyFallback: true,
+      protectedUntil: floor, mixStart: start, handoffAt: duration,
+      exit: { time: start }, entry: { time: 0 }, preRollDuration: 0, audibleOverlap: span,
+      timeline: [
+        { t: 0, deck: 'B', op: 'play', at: 0, volume: 0 },
+        { t: 0, deck: 'A', op: 'volume', value: 0, duration: span * 1000, curve: 'equal-power-out' },
+        { t: 0, deck: 'B', op: 'volume', value: 1, duration: span * 1000, curve: 'equal-power-in' },
+        { t: span, deck: 'B', op: 'handoff' }
+      ]
+    } };
+  }
+
   function createCuefieldAutoMix(deps) {
     deps = deps || {};
     var state = {
@@ -215,6 +274,10 @@
         if (!deps.planTransition) throw new Error('PLAN_TRANSITION_REQUIRED');
         var plan = await deps.planTransition(fromKey, toKey, ctx);
         if (serial !== state.serial) return { status: 'stale' };
+        if (deps.listeningSafety) {
+          if (deps.getPlaybackContext) Object.assign(ctx, deps.getPlaybackContext(ctx));
+          plan = listeningSafePlan(plan, ctx);
+        }
         var chosen = plan && plan.chosen;
         var tier = tierOf(plan);
         if (plan && plan.ok === false && chosen && chosen.technicalFailure === true) {
@@ -226,7 +289,7 @@
           reset('fallback');
           return { status: 'fallback', plan: plan || null };
         }
-        var listenFloor = Math.max(0, toNumber(chosen.protectedUntil, 0));
+        var listenFloor = Math.max(0, toNumber(ctx.minimumListenUntil, 0), toNumber(chosen.protectedUntil, 0));
         ctx.minimumListenUntil = listenFloor;
         var audioUrl = deps.prepareAudioUrl ? await deps.prepareAudioUrl(nextSong, ctx) : '';
         if (serial !== state.serial) return { status: 'stale' };
@@ -241,7 +304,9 @@
         var fallbackLeadSec = executionMode === 'intro-bed'
           ? toNumber(ctx.introBedLeadSec, toNumber(ctx.leadSec, 1))
           : toNumber(ctx.leadSec, 1);
-        var leadSec = timelineLeadSec(timeline, fallbackLeadSec);
+        var leadSec = executionMode === 'end-of-track-crossfade'
+          ? Math.max(0, toNumber(chosen.preRollDuration, 0))
+          : timelineLeadSec(timeline, fallbackLeadSec);
         var protectedUntil = Math.max(0, toNumber(chosen.protectedUntil, 0));
         var explicitMixStart = chosen.mixStart != null ? Number(chosen.mixStart) : NaN;
         var explicitHandoffAt = chosen.handoffAt != null ? Number(chosen.handoffAt) : NaN;
@@ -285,6 +350,7 @@
         state.lastStatus = 'ready';
         return { status: 'ready', pending: state.pending };
       } catch (err) {
+        if (serial !== state.serial) return { status: 'stale' };
         reset('error');
         return { status: 'error', error: err && err.message ? err.message : String(err) };
       }
@@ -362,11 +428,15 @@
       prepare: prepare,
       shouldTrigger: shouldTrigger,
       consumePending: consumePending,
+      restorePending: function(pending) { if (state.enabled && !state.pending) state.pending = pending; },
       snapshot: snapshot,
     };
   }
 
   return {
     createCuefieldAutoMix: createCuefieldAutoMix,
+    listeningSafePlan: listeningSafePlan,
+    listeningFloor: listeningFloor,
+    introLimit: introLimit,
   };
 });

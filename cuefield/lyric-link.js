@@ -39,7 +39,9 @@ function linesAtClimax(lines, time) {
 
 function containsPronoun(text, values) {
   const normalized = ` ${normalize(text)} `;
-  return values.some((value) => value.length === 1 ? normalized.includes(value) : normalized.includes(` ${value} `));
+  return values.some((value) => value === '我' || value === '你'
+    ? normalized.includes(value)
+    : normalized.includes(` ${value} `));
 }
 
 function isCallResponse(fromText, toText) {

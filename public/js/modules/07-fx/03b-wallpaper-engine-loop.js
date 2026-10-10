@@ -87,11 +87,26 @@ function wallpaperLoopRestoreWindow(job) {
   job.restoring.catch(function (error) { console.warn('[Wallpaper loop window restore]', error); });
   return job.restoring;
 }
+// Each asynchronous cache response owns its own lease, even for the same key.
+// Transfer that lease to the media element only when its URL is installed.
+function releaseWallpaperLoopLease(holder) {
+  if (!holder || !holder.wallpaperLoopLeaseId) return;
+  var leaseId = holder.wallpaperLoopLeaseId;
+  holder.wallpaperLoopLeaseId = '';
+  wallpaperLoopRequest({ action: 'release', leaseId: leaseId }).catch(function () {});
+}
+function acceptWallpaperLoopLease(job, cached) {
+  job.wallpaperLoopLeaseId = cached && cached.leaseId || '';
+  if (!wallpaperLoopIsCurrent(job)) { releaseWallpaperLoopLease(job); return false; }
+  return true;
+}
+
 function cancelWallpaperEngineLoop() {
   var job = wallpaperLoopJob;
   wallpaperLoopJob = null;
   if (job) {
     job.cancelled = true;
+    releaseWallpaperLoopLease(job);
     if (job.recorder && job.recorder.state !== 'inactive') job.recorder.stop();
     if (job.cancelRecording) job.cancelRecording();
     if (job.jobId) wallpaperEngineDesktopApi().wallpaperEngineLoopCache({ action: 'abort', jobId: job.jobId }).catch(function () {});
@@ -136,6 +151,7 @@ function syncWallpaperEngineLoopVisibility() {
 async function wallpaperLoopRequest(payload) {
   var api = wallpaperEngineDesktopApi();
   if (!api || typeof api.wallpaperEngineLoopCache !== 'function') throw new Error('LOOP_API_UNAVAILABLE');
+  payload.leaseProtocol = 1;
   var result = await api.wallpaperEngineLoopCache(payload);
   if (!result || result.ok === false) throw new Error(result && result.error || 'LOOP_CACHE_FAILED');
   return result;
@@ -237,11 +253,11 @@ async function recordWallpaperLoop(job, source, settings) {
   }
 }
 async function playWallpaperLoop(job, cached, message, actions) {
-  if (!wallpaperLoopIsCurrent(job)) return;
+  if (!wallpaperLoopIsCurrent(job)) { releaseWallpaperLoopLease(job); return; }
   // Await exact native teardown before exposing the cached video. WE itself and
   // the user's desktop wallpaper remain running; only our popout is closed.
   var stopped = await stopWallpaperEngineNativeSession();
-  if (!wallpaperLoopIsCurrent(job)) return;
+  if (!wallpaperLoopIsCurrent(job)) { releaseWallpaperLoopLease(job); return; }
   if (stopped && stopped.ok === false) throw new Error('LOOP_NATIVE_STOP_FAILED');
   cancelWallpaperEngineSwitchTimer();
   var token = ++wallpaperEngineLayerToken;
@@ -263,8 +279,11 @@ async function playWallpaperLoop(job, cached, message, actions) {
     if (!wallpaperLoopIsCurrent(job) || token !== wallpaperEngineLayerToken) return;
     wallpaperLoopStatus(job, '视频播放失败，可切回原生模式');
     wallpaperEngineRuntimeError = '循环视频播放失败';
+    clearWallpaperEngineLayerMedia(0);
     restoreOriginalBackgroundAfterWallpaperEngine(); updateWallpaperEngineEntryUi();
   };
+  video.wallpaperLoopLeaseId = job.wallpaperLoopLeaseId || '';
+  job.wallpaperLoopLeaseId = '';
   video.src = cached.url;
   video.load();
   // The cached video now covers the background; return to the user's window.
@@ -306,7 +325,7 @@ function startWallpaperEngineLoopBackground(item, options) {
       await wallpaperLoopWindowRestorePending;
       if (!wallpaperLoopIsCurrent(job)) return;
       var cached = await wallpaperLoopRequest({ action: 'lookup', id: item.id });
-      if (!wallpaperLoopIsCurrent(job)) return;
+      if (!acceptWallpaperLoopLease(job, cached)) return;
       var limits = wallpaperLoopLimits(cached);
       if (cached.cached && !options.regenerate) {
         var low = cached.recordedWidth > 0 && cached.recordedHeight > 0
@@ -316,6 +335,7 @@ function startWallpaperEngineLoopBackground(item, options) {
             run: function () { regenerateWallpaperEngineLoop(item, limits); } }] : null);
         return;
       }
+      releaseWallpaperLoopLease(job); // A regeneration lookup will not be played.
       var capture = options.capture || (wallpaperLoopCanExpand(limits) ? '' : 'window');
       if (!capture) {
         // Keep the native wallpaper visible while the user decides.
@@ -354,8 +374,10 @@ function startWallpaperEngineLoopBackground(item, options) {
       var size = await recordWallpaperLoop(job, source, begun);
       cached = await wallpaperLoopRequest({ action: 'finish', jobId: job.jobId, size: size });
       job.jobId = ''; job.recording = false;
+      if (!acceptWallpaperLoopLease(job, cached)) return;
       await playWallpaperLoop(job, cached);
     } catch (error) {
+      releaseWallpaperLoopLease(job);
       if (job.jobId) await wallpaperLoopRequest({ action: 'abort', jobId: job.jobId }).catch(function () {});
       if (!wallpaperLoopIsCurrent(job)) return;
       job.recording = false; flushWallpaperEngineVisualSettings();

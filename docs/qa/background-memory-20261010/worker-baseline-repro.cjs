@@ -1,0 +1,9 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),cp=require('child_process'),assert=require('assert/strict');
+const root=process.argv[2] || require('path').resolve(__dirname, '../../..');
+function extract(src,name){const s=src.indexOf('function '+name+'(');assert(s>=0);const begin=src.slice(Math.max(0,s-6),s)==='async '?s-6:s;return src.slice(begin,src.indexOf('\n}',s)+2);}
+async function run(label,source){let now=1_000_000,timer,trimCount=0;const c=vm.createContext({process:{platform:'win32'},Date:{now:()=>now},memoryAutoState:{appTrimEnabled:true,backgroundTrimEnabled:true},lastAppMemoryTrimAt:0,lastAppMemoryTrimReason:'',appMemoryTrimInFlight:false,appMemoryTrimTimer:null,mainWindow:{isDestroyed:()=>false,isVisible:()=>false,isMinimized:()=>true},setTimeout:fn=>(timer=fn,1),clearTimeout:()=>{},systemMemory:{getMemorySnapshot:()=>({}),trimAppWorkingSets:async()=>{trimCount++;return {ok:true}}},collectAppTrimPids:()=>[1]}); vm.runInContext(['isMainWindowForegroundVisible','trimAppMemoryNow','scheduleAppMemoryTrim'].map(n=>extract(source,n)).join('\n'),c);
+c.scheduleAppMemoryTrim('minimize',1600);now+=2000;await c.trimAppMemoryNow('renderer-deep-sleep');now+=2000;timer();await new Promise(setImmediate);assert.equal(trimCount,2);console.log(label,'same hide cycle: renderer trim + main pending timer =>',trimCount,'trims 2 seconds apart');
+now+=130000;c.scheduleAppMemoryTrim('hide',2200);c.memoryAutoState.appTrimEnabled=false;c.memoryAutoState.backgroundTrimEnabled=false;now+=4000;timer();await new Promise(setImmediate);assert.equal(trimCount,3);console.log(label,'disabled while timer pending: still trimmed =>',trimCount);
+}
+(async()=>{await run('ORIGINAL 735b30d',cp.execFileSync('git',['show','735b30d:desktop/main.js'],{cwd:root,encoding:'utf8',maxBuffer:10e6}));})().catch(e=>{console.error(e);process.exitCode=1});

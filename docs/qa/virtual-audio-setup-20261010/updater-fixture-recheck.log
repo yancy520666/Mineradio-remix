@@ -1,0 +1,43 @@
+Targeted recheck after isolated updater shutdown fixture dependency injection.
+
+== remix-updater-install.test.js ==
+✔ installer waits for shutdown preparation; duplicate clicks/checks/stale events cannot replace installing state (2.442437ms)
+✔ synchronous throw, emitted failure and asynchronous spawn failure preserve verified download and allow one retry (2.244087ms)
+✔ failed preparation never launches, and an inconclusive restart timeout never unlocks a duplicate installer (16.025649ms)
+✔ verified completion event does not make a still-pending or rejected download installable (0.519815ms)
+✔ renderer disables repeated install, shows errors and restores restart action after failed launch (2.562819ms)
+✔ real main quit handlers block shutdown during preparation and preserve server/tray until successful quit (2.626545ms)
+✔ failed installer leaves reversible desktop and wallpaper runtimes usable for subsequent enable/load (2.247533ms)
+✔ timed-out preparation cannot stop resumed wallpaper or overwrite a newer retry after delayed cache cleanup (2.240502ms)
+✔ already-running native cleanup owns old sessions and desktop enable queues behind old disable (8.939563ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.159473
+
+== virtual-audio-setup.test.js ==
+✔ Windows x64 capability promises visible installer assistance, never installed or ready (1.592984ms)
+✔ native explicit confirmation precedes download, verification and visible launch; cleanup waits for known exit (2.613394ms)
+✔ native cancel and untrusted frames cannot download, verify, launch or open arbitrary pages (0.408136ms)
+✔ fixed official information topics cannot accept URLs, paths or prototype names (0.339012ms)
+✔ repeated setup clicks share exactly one pending native confirmation (1.125539ms)
+✔ navigation, renderer loss, window close, disposal and quit fence late confirmation (0.903234ms)
+✔ cancel during download or verify cleans owned package and cannot reach native handoff (0.679837ms)
+✔ verification failures fail closed; no guessed launch or automatic fallback occurs (0.355327ms)
+✔ UAC rejection permits safe cleanup, but uncertain launch or exit retains bounded files and blocks relaunch (0.580637ms)
+✔ guide rechecks frame and quitting after confirmation and refuses unsupported architectures (0.390699ms)
+✔ attachment replaces lifecycle listeners; cleanup removes them and stale owners receive no state (0.26552ms)
+✔ same-frame same-URL reload fences late verification and late completion state from the next document (0.501227ms)
+✔ preload requires Chromium activation, whitelists topics and removes state subscription (2.438842ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.416358

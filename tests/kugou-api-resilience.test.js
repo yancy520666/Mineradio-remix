@@ -141,6 +141,92 @@ test('upstream errors are distinct from non-membership and official security cha
   });
 });
 
+test('an official challenge stops all endpoint and quality fallbacks and retains its URL and upstream code', async () => {
+  const verificationUrl = 'https://verify.kugou.com/security/challenge?ticket=fixture-ticket';
+  await withRequests(({ url }) => {
+    if (url.pathname === '/recharge/roleinfo') return membershipResponse();
+    assert.equal(url.pathname, '/v5/url', 'no alternative playback route may follow the challenge');
+    return { body: { status: 0, err_code: 30020, data: { verify_url: verificationUrl } } };
+  }, async calls => {
+    const params = { hash: 'challenge-stop', sqHash: 'challenge-stop-sq', quality: 'lossless', fee: 1 };
+    const first = await kugou.handleKugouSongUrl(params, memberCookie);
+    assert.equal(first.playable, false);
+    assert.equal(first.url, '');
+    assert.equal(first.reason, 'verification_required');
+    assert.equal(first.verificationUrl, verificationUrl);
+    assert.equal(first.upstreamCode, 30020);
+    assert.equal(first.restriction.verificationUrl, verificationUrl);
+    assert.equal(first.restriction.upstreamCode, 30020);
+    assert.equal(calls.filter(call => call.url.pathname !== '/recharge/roleinfo').length, 1);
+    await kugou.handleKugouSongUrl(params, memberCookie);
+    assert.equal(calls.filter(call => call.url.pathname !== '/recharge/roleinfo').length, 2, 'challenges are not cached; a completed official verification can be retried');
+  });
+});
+
+test('a security challenge wins over an earlier official preview and JSON HTTP failures preserve challenges', async () => {
+  for (const statusCode of [200, 403]) {
+    const verificationUrl = 'https://www.kugou.com/verify?ticket=fixture';
+    await withRequests(({ url }) => {
+      if (url.pathname === '/recharge/roleinfo') return membershipResponse();
+      if (url.pathname === '/v5/url') return songResponse({ is_free_part: 1 });
+      assert.equal(url.hostname, 'wwwapi.kugou.com');
+      return { statusCode, body: { status: 0, data: { error_code: 30020, challenge: { url: verificationUrl } } } };
+    }, async calls => {
+      const result = await kugou.handleKugouSongUrl({ hash: 'preview-then-challenge', fee: 1 }, memberCookie);
+      assert.equal(result.playable, false);
+      assert.equal(result.url, '');
+      assert.equal(result.reason, 'verification_required');
+      assert.equal(result.verificationUrl, verificationUrl);
+      assert.equal(result.upstreamCode, 30020);
+      assert.equal(calls.filter(call => call.url.pathname !== '/recharge/roleinfo').length, 2);
+    });
+  }
+});
+
+test('clear upstream verification messages and structured challenge links cannot be mistaken for audio URLs', async () => {
+  const verificationUrl = 'https://captcha.kugou.com/security?ticket=fixture';
+  for (const body of [
+    { status: 1, data: { error_code: 41001, msg: '请先完成安全验证', url: verificationUrl } },
+    { status: 1, data: { challenge: { url: verificationUrl } } },
+    { status: 1, data: { verification_required: true, redirect_url: verificationUrl } },
+  ]) {
+    await withRequests(() => ({ body }), async calls => {
+      const result = await kugou.handleKugouSongUrl({ hash: 'structured-challenge' }, '');
+      assert.equal(result.playable, false);
+      assert.equal(result.reason, 'verification_required');
+      assert.equal(result.verificationUrl, verificationUrl);
+      assert.equal(calls.length, 1);
+    });
+  }
+  const ordinary = kugou._test.kugouPlaybackRestriction({ status: 0, data: { url: verificationUrl, msg: '登录凭证过期' } }, {});
+  assert.equal(ordinary.category, 'login_required', 'an ordinary URL or login message alone is not a security challenge');
+  assert.equal(ordinary.verificationUrl, undefined);
+});
+
+test('missing and unsafe challenge URLs retain verification state without inventing a destination', async () => {
+  for (const verificationUrl of [
+    undefined, '', 'http://verify.kugou.com/challenge', '//verify.kugou.com/challenge',
+    'https://kugou.com.attacker.test/challenge', 'https://fakekugou.com/challenge',
+    'https://verify.kugou.com@attacker.test/challenge', 'https://user:secret@verify.kugou.com/challenge',
+    'https://verify.kugou.com:8443/challenge', 'javascript:alert(1)',
+  ]) {
+    await withRequests(() => ({ body: { status: 0, err_code: 30020, data: { verificationUrl } } }), async calls => {
+      const result = await kugou.handleKugouSongUrl({ hash: 'invalid-challenge' }, '');
+      assert.equal(result.reason, 'verification_required');
+      assert.equal(result.verificationUrl, '');
+      assert.equal(result.restriction.verificationUrl, '');
+      assert.equal(result.upstreamCode, 30020);
+      assert.equal(calls.length, 1);
+    });
+  }
+  const ambiguous = kugou._test.kugouPlaybackRestriction({
+    err_code: 30020, verify_url: 'https://attacker.test/challenge', data: { url: 'https://www.kugou.com/audio.mp3' },
+  }, {});
+  assert.equal(ambiguous.verificationUrl, '', 'an unsafe explicit challenge must not be replaced by an unrelated generic URL');
+  const nested = kugou._test.kugouPlaybackRestriction({ error_data: { error_code: 30020, verification: { redirect_url: 'https://kugou.com/verify' } } }, {});
+  assert.equal(nested.verificationUrl, 'https://kugou.com/verify');
+});
+
 test('unknown or stale membership waits for verification without claiming non-membership or requesting paid audio', async () => {
   for (const stale of [false, true]) {
     await withRequests(() => ({ body: { status: 1, data: {} } }), async calls => {
@@ -158,6 +244,122 @@ test('unknown or stale membership waits for verification without claiming non-me
       assert(!calls.some(call => ['/v5/url', '/play/songinfo', '/app/i/getSongInfo.php'].includes(call.url.pathname)));
     });
   }
+});
+
+test('login profile challenges preserve identity, deny playback readiness and stop membership probing', async () => {
+  const verificationUrl = 'https://verify.kugou.com/profile?ticket=fixture';
+  for (const responseKind of ['gateway-object', 'http-string', 'error-code', 'success-envelope']) {
+    let challenged = true;
+    await withRequests(({ url }) => {
+      if (!challenged) {
+        if (url.pathname === '/recharge/roleinfo') return membershipResponse();
+        return { body: { status: 1, data: { info: [] } } };
+      }
+      assert.equal(url.pathname, '/v7/get_all_list');
+      if (responseKind === 'error-code') {
+        const error = new Error('Official security challenge');
+        error.upstreamCode = 30020;
+        throw error;
+      }
+      return {
+        statusCode: responseKind === 'http-string' ? 403 : 200,
+        body: { status: responseKind === 'success-envelope' ? 1 : 0, error_code: 30020, data: { verify_url: verificationUrl } },
+      };
+    }, async calls => {
+      const status = await kugou.getKugouLoginInfo(memberCookie);
+      assert.equal(status.loggedIn, true);
+      assert.equal(status.userId, '123');
+      assert.equal(status.hasToken, true);
+      assert.equal(status.playbackReady, false);
+      assert.equal(status.playbackKeyReady, false);
+      assert.equal(status.verificationRequired, true);
+      assert.equal(status.error, 'KUGOU_VERIFICATION_REQUIRED');
+      assert.equal(status.upstreamCode, 30020);
+      assert.equal(status.restriction.category, 'verification_required');
+      assert.equal(status.verificationUrl, responseKind === 'error-code' ? '' : verificationUrl);
+      assert.equal(status.membershipKnown, false);
+      assert.equal(status.membershipRights.canPlayVipTracks, false);
+      assert.equal(calls.length, 1);
+      challenged = false;
+      const recovered = await kugou.getKugouLoginInfo(memberCookie);
+      assert.equal(recovered.verificationRequired, undefined);
+      assert.equal(recovered.playbackReady, true);
+      assert.equal(recovered.isVip, true);
+      assert.equal(calls.length, 3, 'profile challenges must not be cached as a successful empty profile');
+    });
+  }
+});
+
+test('web, primary and fallback VIP challenges survive login and stop subsequent probes without caching', async () => {
+  const cookie = memberCookie + '; nickname=fixture user; avatar=https://www.kugou.com/fixture-avatar.jpg';
+  const verificationUrl = 'https://captcha.kugou.com/member?ticket=fixture';
+  for (const stage of ['web', 'primary', 'fallback']) {
+    let challenged = true;
+    await withRequests(({ url }) => {
+      if (!challenged) return membershipResponse();
+      const target = stage === 'web' ? '/recharge/roleinfo' : stage === 'primary' ? '/v1/get_union_vip' : '/v1/vipuser_sub';
+      if (url.pathname === target) return { body: { status: 0, err_code: 30020, data: { challenge_url: verificationUrl } } };
+      if (url.pathname === '/recharge/roleinfo') return { body: { status: 1, data: {} } };
+      assert.equal(url.pathname, '/v1/get_union_vip');
+      return { body: { status: 1, data: { userid: '123', is_vip: false, vip_type: 0 } } };
+    }, async calls => {
+      const status = await kugou.getKugouLoginInfo(cookie);
+      assert.equal(status.loggedIn, true);
+      assert.equal(status.playbackReady, false);
+      assert.equal(status.verificationRequired, true);
+      assert.equal(status.verificationUrl, verificationUrl);
+      assert.equal(status.upstreamCode, 30020);
+      assert.equal(status.membershipKnown, false, 'the earlier ordinary response cannot replace a verification challenge');
+      assert.equal(calls.length, stage === 'web' ? 1 : stage === 'primary' ? 2 : 3);
+      const count = calls.length;
+      challenged = false;
+      const recovered = await kugou.getKugouLoginInfo(cookie);
+      assert.equal(recovered.verificationRequired, undefined);
+      assert.equal(recovered.playbackReady, true);
+      assert.equal(recovered.isVip, true);
+      assert.equal(calls.length, count + 1, 'an explicit retry rechecks roleinfo instead of reusing challenge/unknown cache');
+    });
+  }
+});
+
+test('VIP probes are sequential and transport failures never become security verification', async () => {
+  const cookie = memberCookie + '; nickname=fixture; avatar=https://www.kugou.com/avatar.jpg';
+  let active = 0;
+  let maximumActive = 0;
+  await withRequests(async ({ url }) => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2));
+      if (url.pathname === '/recharge/roleinfo') throw new Error('ECONNRESET');
+      if (url.pathname === '/v1/get_union_vip') throw new Error('Request timeout');
+      if (url.pathname === '/v1/vipuser_sub') return { body: { status: 1, data: { userid: '123', is_vip: true, vip_end_time: 4102444800 } } };
+      throw new Error('unexpected probe');
+    } finally { active -= 1; }
+  }, async calls => {
+    const status = await kugou.getKugouLoginInfo(cookie);
+    assert.equal(status.loggedIn, true);
+    assert.equal(status.verificationRequired, undefined);
+    assert.equal(status.isVip, true);
+    assert.equal(maximumActive, 1);
+    assert.deepEqual(calls.map(call => call.url.pathname), ['/recharge/roleinfo', '/v1/get_union_vip', '/v1/vipuser_sub']);
+  });
+});
+
+test('membership security challenges also terminate playback before any audio request', async () => {
+  await withRequests(({ url }) => {
+    assert.equal(url.pathname, '/recharge/roleinfo');
+    return { statusCode: 403, body: { err_code: 30020, verify_url: 'https://verify.kugou.com/rights?ticket=fixture' } };
+  }, async calls => {
+    const result = await kugou.handleKugouSongUrl({ hash: 'member-probe-challenge', fee: 1 }, memberCookie);
+    assert.equal(result.playable, false);
+    assert.equal(result.reason, 'verification_required');
+    assert.equal(result.verificationRequired, true);
+    assert.equal(result.verificationUrl, 'https://verify.kugou.com/rights?ticket=fixture');
+    assert.equal(result.upstreamCode, 30020);
+    assert.equal(result.playbackReady, false);
+    assert.equal(calls.length, 1);
+  });
 });
 
 test('search failures are rejected and not cached as an empty successful search', async () => {

@@ -87,3 +87,14 @@ test('removing a later item or an invalid index cannot change current playback',
   assert.equal(c.currentIdx, 2); assert.equal(c.playQueue[c.currentIdx].name, 'C');
   assert.equal(c.audio.paused, false); assert.equal(calls.length, 0);
 });
+
+test('explicitly clearing the queue stops media, invalidates pending work and persists empty selection', () => {
+  const { c, snapshots } = fixture(); const token = c.trackSwitchToken;
+  let cancelled = 0; c.cancelPlaybackSourceRequest = () => cancelled++;
+  c.clearQueue();
+  assert.equal(c.playQueue.length, 0); assert.equal(c.currentIdx, -1);
+  assert.equal(c.audio.paused, true); assert.equal(c.audio.src, ''); assert.equal(c.audio.onended, null);
+  assert.equal(c.trackSwitchToken, token + 1); assert.equal(cancelled, 1);
+  assert.equal(c.playbackResumeRecovery.pending, false); assert.equal(c.playing, false);
+  assert.equal(snapshots.length, 1); assert.equal(snapshots[0].idx, -1);
+});

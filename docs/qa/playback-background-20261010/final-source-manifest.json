@@ -1,0 +1,146 @@
+{
+  "capturedAt": "2026-10-10T09:03:41.009Z",
+  "head": "5d3cc3ecfb06ae32d6db232d62ca37746f1aac50",
+  "files": [
+    {
+      "file": "desktop/main.js",
+      "sha256": "b69be8591b2c31548b382d6c1d9e761012473afce66755fd91463316d6523002"
+    },
+    {
+      "file": "public/css/index.css",
+      "sha256": "ae4f83194104724d753e2e3587e90234bc2a3b15da5bd2732463e9e1a76fc6c6"
+    },
+    {
+      "file": "public/index.html",
+      "sha256": "61f14631022a26a0753fa89f9a0bc2f4e1f3a288ffb4ce3d8826b5c1cdea6902"
+    },
+    {
+      "file": "public/js/modules/00-state/03-beat-dj-state.js",
+      "sha256": "39fa9e5e475ae335b95d55316eaa12da2248d3f8bd012037131725552854e7a2"
+    },
+    {
+      "file": "public/js/modules/02-visual/00-pointer-cover-particles.js",
+      "sha256": "add7f508bfd3493f2b865c64a373d1c6e0e717528a79a50542a2bb6d5e3e0910"
+    },
+    {
+      "file": "public/js/modules/02-visual/01-float-skull-backcover.js",
+      "sha256": "f24f03031d8ba013da954516325d0a9bc8c44a19e3c386c7001ffecdb0519781"
+    },
+    {
+      "file": "public/js/modules/03-beat/00-tempo-worker-cache-prefetch.js",
+      "sha256": "954dab350543a3e86fe41989d6e59e1ffbb1b3aa8740b423eaccae99c22995b0"
+    },
+    {
+      "file": "public/js/modules/05-playback/00-api-quality-output.js",
+      "sha256": "a09ad488cc43320f93a0b468a107359cfb9118acbed82c7c7668f93e78384b08"
+    },
+    {
+      "file": "public/js/modules/05-playback/11-provider-fallback.js",
+      "sha256": "cbf9aa0720d8445caceb0498f28c1fa96c18133b00d8fa42c90184210f6f4cd8"
+    },
+    {
+      "file": "public/js/modules/05-playback/13-playback-start-audio.js",
+      "sha256": "84dea78bc2e636300004df1ebebfc8a80b113439b43d546990af14adf4a66c55"
+    },
+    {
+      "file": "public/js/modules/07-fx/00-preset-archive-data.js",
+      "sha256": "d01238269a45f6129673c1d666288faa5de9757942b36eeca2bc65bdd67c8e5b"
+    },
+    {
+      "file": "public/js/modules/07-fx/02-accent-background-controls.js",
+      "sha256": "19ce5a2a57bfa109698b078e071fec984f8b2b17ef3d867b8bccadfa759b9f20"
+    },
+    {
+      "file": "public/js/modules/07-fx/03-wallpaper-engine-library.js",
+      "sha256": "84601994b41832bbcaf3d7880549dab5ab1ed5be4e258749b9d57fab131231fe"
+    },
+    {
+      "file": "public/js/modules/07-fx/04-preset-grid-uniforms.js",
+      "sha256": "6096d718b399613eb10d7edc4742d011639c625baba8b20ae6673eb8e617589b"
+    },
+    {
+      "file": "public/js/modules/08-account/02-login-status.js",
+      "sha256": "2b3d525746e71c36826b77ccf6bd956569732b6c58fc7fee79d212289261dc38"
+    },
+    {
+      "file": "public/js/modules/08-account/03-login-modal-flows.js",
+      "sha256": "ccbb72b8bba3672f555ed747c16ef4d98cb74db8b83474d4eef06dc513258e49"
+    },
+    {
+      "file": "public/js/modules/11-main-loop.js",
+      "sha256": "759bd56b4c580e3dd0a256b2dc1c4c6ab144984a1b8ddf5f7e569d1ffc65a0f1"
+    },
+    {
+      "file": "public/sonic-performance.js",
+      "sha256": "f4afc9681c996f4b3409c71fd5bc9c42fbe9f5cc6a9e7e008363f36ce56d90b1"
+    },
+    {
+      "file": "public/sonic-topography-preset.js",
+      "sha256": "b69924370af718b56d2477faca47bc305147cf97868000fd459dc337cbdf5c81"
+    },
+    {
+      "file": "public/sonic-workshop-preset.js",
+      "sha256": "dbab1283ab793c41b825e06cc06928aa81b16aed4013124badfc656f9673a7ce"
+    },
+    {
+      "file": "public/vendor/sonic-workshop/mineradio-bridge.html",
+      "sha256": "bd47dbb2d440495c366d2de24ae786c98496ea57ba703d5022beed49eb4e6f2e"
+    },
+    {
+      "file": "public/vendor/sonic-workshop/mineradio-performance.js",
+      "sha256": "b5b99a52ed2a9be13017dd643b57ebd6c296234dcc21f2ef7efddbfb9536340a"
+    },
+    {
+      "file": "qishui-api.js",
+      "sha256": "5e1753aad6ef44376ec97f6081725903ffd870fd521aef9223ed6f28b229ecf5"
+    },
+    {
+      "file": "scripts/quick-check.js",
+      "sha256": "f0f125b911699cca1007241eb4962a3baf45691d3cb8e92abd200656035ca0cf"
+    },
+    {
+      "file": "tests/audio-route-construction-lifecycle.test.js",
+      "sha256": "08877cb426abd828fdf7ebf901e746d4e0e323356c5e225b2dcd2af41d01d01c"
+    },
+    {
+      "file": "tests/qishui-trial-full-source.test.js",
+      "sha256": "39ad3a44c9f0059dfba85106cbf0f62e7475fffe139acd4843a14f2af066044e"
+    },
+    {
+      "file": "tests/sonic-workshop-audio.test.js",
+      "sha256": "a98c1840fd9d881cf914279e91c16f6da8c799fe6291e7b2b45708c14ba9faa9"
+    },
+    {
+      "file": "tests/wallpaper-background-regression.test.js",
+      "sha256": "72e37d5225a9b39f5779dcb3200ecd56cb64dc420594eeb988fb4acc25bfa25f"
+    },
+    {
+      "file": "tests/custom-background-handoff.test.js",
+      "sha256": "e1450719b43802ffc10a239f548094dd4a245bc591d1cdd7fad105f80472ad6a"
+    },
+    {
+      "file": "tests/login-validation-presentation.test.js",
+      "sha256": "f9760e26c46bfa907052d301f9e637dc6c82f3162e7e15bba79e3c2b00b2fd0d"
+    },
+    {
+      "file": "tests/playback-start-critical-path.test.js",
+      "sha256": "11e932ff5b530308fad38a46372c7c9c9e89392db5a7a7173fc70a77d67e9370"
+    },
+    {
+      "file": "tests/preset-background-handoff.test.js",
+      "sha256": "c693a5a806893eb855d73fe6fab191514dd788b5e485210c7c361797963eb5cf"
+    },
+    {
+      "file": "tests/qishui-playback-extent.test.js",
+      "sha256": "4d8346797fde913158a9235dbf59338eac68968f11e2b7eeff2cf05ec15d8586"
+    },
+    {
+      "file": "tests/qq-login-navigation.test.js",
+      "sha256": "c33496b0252843e64bc1574015d2c38cd1a487022eaa1aafdd9366265d29f81d"
+    },
+    {
+      "file": "tests/qq-scan-presentation.test.js",
+      "sha256": "e94b6676a448d74c015c8f3a173b2006bd2dbddb6778efb10c1d5f36e4c53c4f"
+    }
+  ]
+}

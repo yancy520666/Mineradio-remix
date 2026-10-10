@@ -1,4 +1,62 @@
 var loginRefreshRequestSeq = 0;
+var loginAttemptCurrent = null;
+var providerAuthEpochs = {};
+function providerAuthEpoch(provider) { return providerAuthEpochs[provider] || 0; }
+function invalidateProviderAuthSession(provider) {
+  providerAuthEpochs[provider] = providerAuthEpoch(provider) + 1;
+  if (typeof invalidatePlaybackQualityRuntimeCaps === 'function') invalidatePlaybackQualityRuntimeCaps(provider);
+  try { window.dispatchEvent(new CustomEvent('provider-auth-session-changed', { detail: { provider: provider } })); } catch (e) { }
+}
+function isLoginAttemptCurrent(attempt) {
+  return !!(attempt && loginAttemptCurrent === attempt && loginProvider === attempt.provider && loginRefreshRequestSeq === attempt.seq);
+}
+function cancelServerLoginAttempt(attempt) {
+  if (!attempt || !attempt.id) return;
+  apiJson('/api/login/attempt', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: attempt.provider, action: 'cancel', attemptId: attempt.id }) }).catch(function () { });
+}
+function invalidateLoginAttempt(provider) {
+  if (loginAttemptCurrent && (!provider || loginAttemptCurrent.provider === provider)) {
+    var attempt = loginAttemptCurrent;
+    loginAttemptCurrent = null;
+    cancelServerLoginAttempt(attempt);
+    if (attempt.provider === 'netease') neteaseWebLoginBusy = false;
+    if (attempt.provider === 'qq') qqWebLoginBusy = false;
+    if (attempt.provider === 'kugou') { kugouWebLoginBusy = false; kugouCookieBusy = false; }
+    else qqCookieBusy = false;
+  }
+  if (!provider || provider === loginProvider) {
+    loginRefreshRequestSeq += 1;
+    qrKey = null;
+    stopQrPoll();
+  }
+}
+async function beginRendererLoginAttempt(provider) {
+  invalidateLoginAttempt();
+  var attempt = { provider: provider, seq: loginRefreshRequestSeq, id: '' };
+  loginAttemptCurrent = attempt;
+  invalidateProviderAuthSession(provider);
+  var result;
+  try {
+    result = await apiJson('/api/login/attempt', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: provider, action: 'begin' }) });
+  } catch (e) {
+    if (!isLoginAttemptCurrent(attempt)) return null;
+    loginAttemptCurrent = null;
+    throw e;
+  }
+  attempt.id = result && result.attemptId;
+  if (!isLoginAttemptCurrent(attempt)) { cancelServerLoginAttempt(attempt); return null; }
+  if (!attempt.id) { loginAttemptCurrent = null; throw new Error('无法开始登录，请重试'); }
+  return attempt;
+}
+function scheduleLoginAttemptClose(attempt, callback, delay) {
+  setTimeout(function () {
+    if (!isLoginAttemptCurrent(attempt)) return;
+    closeLoginModal();
+    callback();
+  }, delay);
+}
 var loginWorkflowDrag = null;
 var LOGIN_WORKFLOW_CONNECTION_STORE_KEY = 'mineradio-login-workflow-connections-v1';
 var LOGIN_WORKFLOW_PROVIDERS = ['netease', 'qq', 'kugou', 'qishui'];
@@ -16,12 +74,6 @@ var loginWorkflowRetractFrame = 0;
 var loginWorkflowPendingLogout = null;
 var loginWorkflowCommittingLogout = {};
 var LOGIN_WORKFLOW_LOGOUT_DELAY_MS = 4000;
-var SPOTIFY_DEVELOPER_DASHBOARD_URL = 'https://developer.spotify.com/dashboard';
-var SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:43879/callback';
-var spotifySetupCallbackReady = false;
-var spotifySetupDiagnostics = null;
-var spotifySetupBusy = false;
-var spotifySetupAutoCheckKey = '';
 
 function isLoginRefreshCurrent(provider, seq) {
   return loginProvider === provider && loginRefreshRequestSeq === seq;
@@ -32,11 +84,10 @@ function normalizeLoginProviderKey(provider) {
 }
 function loginProviderSupportsCookieMode(provider) {
   provider = normalizeLoginProviderKey(provider);
-  return provider !== 'spotify' && provider !== 'qishui';
+  return provider !== 'qishui';
 }
 function loginProviderOfficialModeText(provider) {
   provider = normalizeLoginProviderKey(provider);
-  if (provider === 'spotify') return { title: 'OAuth', sub: '弹出 Spotify 授权窗口' };
   if (provider === 'qishui') return { title: '扫码', sub: '使用抖音 App 官方授权' };
   if (provider === 'kugou') return { title: '官网', sub: '弹出酷狗官方窗口' };
   return { title: '扫码', sub: '连接后弹出官方窗口' };
@@ -99,6 +150,7 @@ function setLoginAuthDrawerOpen(open) {
   if (modal) modal.classList.toggle('login-details-open', !!open);
   if (drawer) drawer.classList.toggle('show', !!open);
   if (!open) {
+    invalidateLoginAttempt(loginProvider);
     loginWorkflowPendingProvider = '';
     try { stopQrPoll(); } catch (e) { }
     cancelInlineLoginQr();
@@ -287,7 +339,7 @@ function setLoginWorkflowHoverProvider(provider) {
   renderLoginWorkflowEdges();
 }
 function loginWorkflowShortLabel(provider) {
-  return provider === 'qq' ? ' QQ ' : (provider === 'kugou' ? '酷狗' : (provider === 'qishui' ? '汽水' : (provider === 'spotify' ? ' Spotify ' : '网易云')));
+  return provider === 'qq' ? ' QQ ' : (provider === 'kugou' ? '酷狗' : (provider === 'qishui' ? '汽水' : '网易云'));
 }
 function loginWorkflowProviderLabel(provider) {
   var meta = platformMeta(provider);
@@ -512,6 +564,21 @@ function finishLoginProviderPointer(e) {
   setTimeout(function () { loginProviderClickSuppressed = false; }, 120);
   scheduleLoginWorkflowEdges('sort-finish');
 }
+function showPendingProviderLogin(provider, info, statusEl) {
+  if (!providerSessionNeedsValidation(info)) return false;
+  var text = providerSessionPendingText(provider, info);
+  if (statusEl) { statusEl.textContent = text; statusEl.className = 'preview'; }
+  return true;
+}
+async function retryProviderSessionValidation() {
+  var provider = loginProvider;
+  if (provider === 'netease') await refreshLoginStatus(true);
+  else if (provider === 'qq') await refreshQQLoginStatus({ forceVip: true });
+  else if (provider === 'kugou') await refreshKugouLoginStatus();
+  else if (provider === 'qishui') await refreshQishuiLoginStatus();
+  if (loginProvider === provider) updateLoginProviderUi();
+}
+
 function loginProviderVipLabel(provider, status) {
   if (!status || !status.loggedIn) return '';
   if (providerMembershipNeedsSync(provider, status)) return '待同步';
@@ -750,9 +817,11 @@ function connectLoginProvider(provider) {
 }
 function selectLoginMode(mode) {
   if (mode === 'cookie' && !loginProviderSupportsCookieMode(loginProvider)) {
-    showToast(loginProvider === 'qishui' ? '汽水音乐仅使用官方扫码登录' : 'Spotify 使用官方 OAuth 登录');
+    showToast('汽水音乐仅使用官方扫码登录');
     return;
   }
+  invalidateLoginAttempt(loginProvider);
+  cancelInlineLoginQr();
   setManualCookieOpenForProvider(loginProvider, mode === 'cookie');
   updateLoginProviderUi();
   var drawerOpen = hasLoginWorkflowConnection(loginProvider) || loginWorkflowPendingProvider === loginProvider;
@@ -771,17 +840,13 @@ function startSelectedLoginConnection() {
 function connectLoginMode(mode) {
   setLoginAuthDrawerOpen(true);
   markLoginNodeConnecting();
-  if (loginProvider === 'spotify') {
-    setManualCookieOpenForProvider('spotify', false);
-    updateLoginProviderUi();
-    scheduleSpotifySetupAutoCheck();
-    return;
-  }
   if (mode === 'cookie') {
     if (!loginProviderSupportsCookieMode(loginProvider)) {
-      showToast(loginProvider === 'qishui' ? '汽水音乐仅使用官方扫码登录' : 'Spotify 使用官方 OAuth 登录');
+      showToast('汽水音乐仅使用官方扫码登录');
       return;
     }
+    invalidateLoginAttempt(loginProvider);
+    cancelInlineLoginQr();
     setManualCookieOpenForProvider(loginProvider, true);
     updateLoginProviderUi();
     var input = document.getElementById('qq-cookie-input');
@@ -790,12 +855,15 @@ function connectLoginMode(mode) {
   }
   setManualCookieOpenForProvider(loginProvider, false);
   updateLoginProviderUi();
-  setTimeout(openProviderWebLogin, 120);
+  var connectionProvider = loginProvider;
+  var connectionSeq = loginRefreshRequestSeq;
+  setTimeout(function () { if (isLoginRefreshCurrent(connectionProvider, connectionSeq)) openProviderWebLogin(); }, 120);
 }
 
 function markProviderLoginConnected(provider, info) {
   provider = normalizeLoginProviderKey(provider);
   if (!hasPlatformLogin(provider) && !(info && info.loggedIn)) return;
+  invalidateProviderAuthSession(provider);
   markLoginWorkflowConnected(provider);
   updateLoginNodeGraphUi();
 }
@@ -826,12 +894,13 @@ async function importBrowserCookieLogin() {
   }
   browserCookieImportArmed = null;
   browserCookieImportBusy = true;
+  var importSeq = loginRefreshRequestSeq;
   var btn = document.getElementById('browser-cookie-import-btn');
   if (btn) btn.classList.add('busy');
   setStatus('正在读取浏览器里的' + label + '登录…', 'preview');
   try {
     var result = await window.desktopWindow.importBrowserLogin(provider);
-    if (loginProvider !== provider) return;
+    if (!isLoginRefreshCurrent(provider, importSeq)) return;
     if (!result || !result.ok || !result.cookie) {
       setStatus((result && result.message) || '没有在浏览器里找到登录信息，可以改用扫码登录。', 'fail');
       return;
@@ -848,6 +917,7 @@ async function importBrowserCookieLogin() {
 
 function showLoginModal(opts) {
   opts = opts || {};
+  invalidateLoginAttempt();
   loginProvider = opts.provider ? normalizeLoginProviderKey(opts.provider) : 'netease';
   var modal = document.getElementById('login-modal');
   openGsapModal(modal);
@@ -864,6 +934,7 @@ function closeLoginModal() {
   if (typeof maybeRunStartupVisualGuide === 'function') maybeRunStartupVisualGuide('login-close');
 }
 function setLoginProvider(provider, silent) {
+  invalidateLoginAttempt();
   loginProvider = normalizeLoginProviderKey(provider);
   if (inlineLoginQrProvider && inlineLoginQrProvider !== loginProvider) cancelInlineLoginQr();
   loginRefreshRequestSeq += 1;
@@ -875,272 +946,11 @@ function qishuiPublicSearchReady() {
 }
 function qishuiLoginStatusText(info) {
   info = info || qishuiLoginStatus || {};
-  if (info.reauthRequired) return '汽水音乐登录已失效，请使用抖音 App 重新扫码';
-  if (info.stale) return '汽水音乐连接暂时不可用，账号与会员状态待同步';
-  if (info.webSession) return '汽水音乐已登录 · 可同步我的喜欢、歌单并按账号权益播放';
+  if (info.reauthRequired) return '汽水音乐登录已过期，请使用抖音 App 重新扫码';
+  if (info.stale) return '暂时无法确认登录，请刷新状态';
+  if (providerSessionNeedsValidation(info)) return providerSessionPendingText('qishui', info);
+  if (info.webSession) return '汽水音乐已登录';
   return '请使用抖音 App 扫描二维码并确认登录';
-}
-function spotifyLoginStatusText(info) {
-  info = info || spotifyLoginStatus || {};
-  if (info.loggedIn) return 'Spotify 已连接 / ' + (info.product === 'premium' ? 'Premium' : (info.product ? String(info.product).toUpperCase() : '方案未知')) + ' / 可同步歌单和 Liked Songs';
-  if (info.reauthRequired) return 'Spotify 长期授权已到期，请重新连接官方 OAuth';
-  if (info.stale) return 'Spotify 登录已过期，请重新连接官方 OAuth';
-  if (info.localConfigMissing) return 'Spotify 未连接：粘贴 Spotify Client ID 后点击“保存并授权”';
-  if (info.oauthConfigured) return 'Spotify Client ID 已保存，点击“连接 Spotify”打开官方授权窗口';
-  if (info.configured || info.searchReady) return 'Spotify 搜索已可用；登录后可同步会员状态、歌单和红心歌单';
-  var missing = info.oauthMissing && info.oauthMissing.length ? (' 缺少: ' + info.oauthMissing.join(', ')) : '';
-  return '粘贴 Spotify Client ID，并在 Spotify Developer Dashboard 登记回调地址 http://127.0.0.1:43879/callback' + missing;
-}
-function parseSpotifyConfigInput(text) {
-  text = String(text || '').trim();
-  if (!text) return {};
-  var parsed = null;
-  if (/^\s*\{/.test(text)) {
-    try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
-  }
-  if (parsed && typeof parsed === 'object') {
-    var source = parsed.spotify && typeof parsed.spotify === 'object' ? parsed.spotify : parsed;
-    return {
-      clientId: source.clientId || source.client_id || source.id || '',
-      redirectUri: source.redirectUri || source.redirect_uri || source.callbackUrl || source.callback_url || '',
-      market: source.market || source.country || '',
-      scope: source.scope || source.scopes || ''
-    };
-  }
-  var payload = {};
-  var loose = [];
-  text.split(/[\r\n;]+/).forEach(function (part) {
-    part = String(part || '').trim();
-    if (!part) return;
-    var pair = part.match(/^([A-Za-z0-9_\-\s]+)\s*[:=]\s*(.+)$/);
-    if (!pair) {
-      loose.push(part);
-      return;
-    }
-    var key = pair[1].toLowerCase().replace(/[\s_-]+/g, '');
-    var value = pair[2].trim();
-    if (key === 'clientid' || key === 'spotifyclientid' || key === 'id') payload.clientId = value;
-    else if (key === 'redirecturi' || key === 'callbackurl' || key === 'callback') payload.redirectUri = value;
-    else if (key === 'market' || key === 'country') payload.market = value;
-    else if (key === 'scope' || key === 'scopes') payload.scope = value;
-  });
-  if (!payload.clientId && loose.length) payload.clientId = loose[0];
-  return payload;
-}
-async function openSpotifyDeveloperDashboard() {
-  try {
-    var api = window.desktopWindow;
-    if (api && typeof api.openUpdatePage === 'function') await api.openUpdatePage(SPOTIFY_DEVELOPER_DASHBOARD_URL);
-    else window.open(SPOTIFY_DEVELOPER_DASHBOARD_URL, '_blank');
-  } catch (e) { }
-  showToast('已打开 Spotify 开发者网页');
-}
-async function copySpotifyRedirectUri() {
-  var ok = false;
-  try {
-    var api = window.desktopWindow;
-    if (api && typeof api.copyText === 'function') {
-      var res = await Promise.resolve(api.copyText(SPOTIFY_REDIRECT_URI));
-      ok = !res || res.ok !== false;
-    }
-  } catch (e) { ok = false; }
-  if (!ok && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    try {
-      await navigator.clipboard.writeText(SPOTIFY_REDIRECT_URI);
-      ok = true;
-    } catch (e) { ok = false; }
-  }
-  if (!ok) {
-    var helper = document.createElement('textarea');
-    helper.value = SPOTIFY_REDIRECT_URI;
-    helper.setAttribute('readonly', 'readonly');
-    helper.style.position = 'fixed';
-    helper.style.left = '-9999px';
-    document.body.appendChild(helper);
-    helper.select();
-    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-    document.body.removeChild(helper);
-  }
-  showToast(ok ? '已复制 Spotify 回调地址' : '复制失败，请手动复制回调地址');
-}
-
-function spotifySetupCurrentStep() {
-  var configReady = !!(spotifyLoginStatus && spotifyLoginStatus.oauthConfigured);
-  var loggedIn = !!(spotifyLoginStatus && spotifyLoginStatus.loggedIn);
-  if (!configReady) return 1;
-  if (!spotifySetupCallbackReady && !loggedIn) return 2;
-  if (!loggedIn) return 3;
-  return 4;
-}
-
-function setSpotifySetupOverall(message, kind) {
-  var node = document.getElementById('spotify-setup-overall');
-  if (!node) return;
-  node.textContent = message || '按当前步骤继续，Mineradio 会自动检测。';
-  node.className = 'spotify-setup-overall' + (kind ? (' ' + kind) : '');
-}
-
-function spotifySetupEscapeHtml(value) {
-  return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char];
-  });
-}
-
-function renderSpotifySetupChecks() {
-  var root = document.getElementById('spotify-setup-check-list');
-  if (!root) return;
-  var checks = spotifySetupDiagnostics && Array.isArray(spotifySetupDiagnostics.checks)
-    ? spotifySetupDiagnostics.checks.filter(function (check) {
-      return ['profile', 'scopes', 'library', 'playlists'].indexOf(check && check.id) >= 0;
-    })
-    : [];
-  if (!checks.length) {
-    root.innerHTML = '<span class="spotify-setup-check">等待账号授权</span><span class="spotify-setup-check">等待权限检测</span>';
-    return;
-  }
-  root.innerHTML = checks.map(function (check) {
-    var title = spotifySetupEscapeHtml(check && check.title || '接口');
-    var message = spotifySetupEscapeHtml(check && check.message || '');
-    return '<span class="spotify-setup-check ' + (check && check.ok ? 'ok' : 'fail') + '" title="' + message + '">' + title + '</span>';
-  }).join('');
-}
-
-function renderSpotifySetupWizard() {
-  var wizard = document.getElementById('spotify-setup-wizard');
-  if (!wizard) return;
-  var configReady = !!(spotifyLoginStatus && spotifyLoginStatus.oauthConfigured);
-  var loggedIn = !!(spotifyLoginStatus && spotifyLoginStatus.loggedIn);
-  var diagnosticsReady = !!(spotifySetupDiagnostics && spotifySetupDiagnostics.ready);
-  var currentStep = spotifySetupCurrentStep();
-  var completed = {
-    1: configReady,
-    2: spotifySetupCallbackReady || loggedIn,
-    3: loggedIn,
-    4: diagnosticsReady
-  };
-  [1, 2, 3, 4].forEach(function (step) {
-    var card = document.getElementById('spotify-setup-step-' + step);
-    var progress = document.querySelector('[data-spotify-progress="' + step + '"]');
-    var state = document.querySelector('[data-spotify-step-state="' + step + '"]');
-    var locked = step > currentStep && !completed[step];
-    if (card) {
-      card.classList.toggle('is-complete', !!completed[step]);
-      card.classList.toggle('is-active', step === currentStep && !completed[step]);
-      card.classList.toggle('is-locked', !!locked);
-    }
-    if (progress) {
-      progress.classList.toggle('complete', !!completed[step]);
-      progress.classList.toggle('current', step === currentStep && !completed[step]);
-    }
-    if (state) state.textContent = completed[step] ? '已通过' : (locked ? '等待上一步' : (spotifySetupBusy ? '检测中…' : '进行中'));
-  });
-  var input = document.getElementById('spotify-setup-client-id');
-  if (input && !input.value && spotifyLoginStatus && spotifyLoginStatus.clientId) input.value = spotifyLoginStatus.clientId;
-  var redirect = document.getElementById('spotify-setup-redirect-uri');
-  if (redirect) redirect.textContent = spotifyLoginStatus && spotifyLoginStatus.redirectUri || SPOTIFY_REDIRECT_URI;
-  var saveButton = document.getElementById('spotify-setup-save-client');
-  var callbackButton = document.getElementById('spotify-setup-check-callback');
-  var authButton = document.getElementById('spotify-setup-authorize');
-  var diagnoseButton = document.getElementById('spotify-setup-diagnose');
-  if (saveButton) saveButton.disabled = spotifySetupBusy || spotifyConfigBusy || spotifyOAuthBusy;
-  if (callbackButton) callbackButton.disabled = !configReady || spotifySetupBusy || spotifyOAuthBusy;
-  if (authButton) {
-    authButton.disabled = !configReady || (!spotifySetupCallbackReady && !loggedIn) || spotifySetupBusy || spotifyOAuthBusy;
-    authButton.textContent = spotifyOAuthBusy ? '等待浏览器授权…' : (loggedIn ? '重新授权 Spotify' : '打开浏览器并授权');
-  }
-  if (diagnoseButton) diagnoseButton.disabled = !loggedIn || spotifySetupBusy || spotifyOAuthBusy;
-  renderSpotifySetupChecks();
-}
-
-async function saveSpotifySetupClientId() {
-  if (spotifySetupBusy || spotifyConfigBusy || spotifyOAuthBusy) return;
-  var input = document.getElementById('spotify-setup-client-id');
-  var clientId = String(input && input.value || '').replace(/\s+/g, '').trim();
-  if (!clientId) {
-    setSpotifySetupOverall('请先粘贴 Dashboard 中的 Client ID。', 'fail');
-    if (input) input.focus();
-    return;
-  }
-  spotifyConfigBusy = true;
-  spotifySetupBusy = true;
-  setSpotifySetupOverall('正在保存并验证 Client ID…');
-  renderSpotifySetupWizard();
-  try {
-    var info = await apiJson('/api/spotify/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: clientId, redirectUri: SPOTIFY_REDIRECT_URI })
-    });
-    if (!info || info.ok === false || info.error) throw new Error(info && (info.message || info.error) || 'Client ID 保存失败');
-    spotifyLoginStatus = normalizeSpotifyLoginStatus(info);
-    spotifySetupCallbackReady = false;
-    spotifySetupDiagnostics = null;
-    setSpotifySetupOverall('Client ID 已通过格式验证。现在把回调地址保存到 Spotify Dashboard。', 'success');
-  } catch (error) {
-    setSpotifySetupOverall(error && error.message || 'Client ID 保存失败', 'fail');
-  } finally {
-    spotifyConfigBusy = false;
-    spotifySetupBusy = false;
-    updateLoginProviderUi();
-  }
-}
-
-async function verifySpotifySetupCallback(silent) {
-  if (spotifySetupBusy || spotifyOAuthBusy) return false;
-  var api = window.desktopWindow;
-  if (!api || typeof api.verifySpotifyMusicSetup !== 'function') {
-    spotifySetupCallbackReady = false;
-    setSpotifySetupOverall('当前不是可执行本机回调检测的 Mineradio 桌面环境。', 'fail');
-    renderSpotifySetupWizard();
-    return false;
-  }
-  spotifySetupBusy = true;
-  if (!silent) setSpotifySetupOverall('正在检测本机回调地址与端口…');
-  renderSpotifySetupWizard();
-  try {
-    var result = await api.verifySpotifyMusicSetup();
-    spotifySetupCallbackReady = !!(result && result.ok && result.callbackReady);
-    setSpotifySetupOverall(result && result.message || (spotifySetupCallbackReady ? '本机回调检测通过。' : '本机回调检测失败。'), spotifySetupCallbackReady ? 'success' : 'fail');
-    return spotifySetupCallbackReady;
-  } catch (error) {
-    spotifySetupCallbackReady = false;
-    setSpotifySetupOverall(error && error.message || '本机回调检测失败。', 'fail');
-    return false;
-  } finally {
-    spotifySetupBusy = false;
-    renderSpotifySetupWizard();
-  }
-}
-
-async function runSpotifySetupDiagnostics(force) {
-  if (spotifySetupBusy) return spotifySetupDiagnostics;
-  spotifySetupBusy = true;
-  setSpotifySetupOverall('正在验证账号资料、权限、喜欢歌曲和个人歌单…');
-  renderSpotifySetupWizard();
-  try {
-    spotifySetupDiagnostics = await apiJson('/api/spotify/setup/diagnostics?t=' + Date.now());
-    var ready = !!(spotifySetupDiagnostics && spotifySetupDiagnostics.ready);
-    setSpotifySetupOverall(spotifySetupDiagnostics && spotifySetupDiagnostics.message || (ready ? 'Spotify 接口已全部接通。' : '仍有接口未通过。'), ready ? 'success' : 'fail');
-    return spotifySetupDiagnostics;
-  } catch (error) {
-    spotifySetupDiagnostics = { ready: false, checks: [], message: error && error.message || 'Spotify 接口体检失败' };
-    setSpotifySetupOverall(spotifySetupDiagnostics.message, 'fail');
-    return spotifySetupDiagnostics;
-  } finally {
-    spotifySetupBusy = false;
-    renderSpotifySetupWizard();
-  }
-}
-
-function scheduleSpotifySetupAutoCheck() {
-  if (loginProvider !== 'spotify') return;
-  var key = [spotifyLoginStatus && spotifyLoginStatus.oauthConfigured ? 1 : 0, spotifyLoginStatus && spotifyLoginStatus.loggedIn ? 1 : 0].join(':');
-  if (spotifySetupAutoCheckKey === key) return;
-  spotifySetupAutoCheckKey = key;
-  setTimeout(async function () {
-    if (loginProvider !== 'spotify') return;
-    if (loginProvider === 'spotify' && spotifyLoginStatus && spotifyLoginStatus.loggedIn) await runSpotifySetupDiagnostics(false);
-  }, 80);
 }
 function openQishuiPublicSearch() {
   closeLoginModal();
@@ -1188,88 +998,17 @@ function updateLoginProviderUi() {
   var canUseQishuiQrLogin = true;
   var qishuiSearchReady = qishuiPublicSearchReady();
   var qishuiBusy = !!(qishuiTokenBusy || qishuiOAuthBusy);
-  var isSpotify = loginProvider === 'spotify';
-  var spotifyBtn = document.getElementById('login-provider-spotify');
   var loginDrawer = document.getElementById('login-auth-drawer');
-  var loginModalPanel = document.querySelector('#login-modal .dual-login-modal');
-  var spotifyWizard = document.getElementById('spotify-setup-wizard');
-  var canOpenSpotifyOAuth = !!(window.desktopWindow && typeof window.desktopWindow.openSpotifyMusicLogin === 'function');
-  var spotifyBusy = !!(spotifyConfigBusy || spotifyOAuthBusy);
-  if (loginDrawer) loginDrawer.classList.toggle('spotify-mode', isSpotify);
-  if (loginModalPanel) loginModalPanel.classList.toggle('spotify-setup-open', isSpotify);
-  if (spotifyWizard) spotifyWizard.setAttribute('aria-hidden', isSpotify ? 'false' : 'true');
   updateLoginNodeGraphUi();
-  if (isSpotify) {
-    if (neteaseBtn) neteaseBtn.classList.toggle('active', false);
-    if (qqBtn) qqBtn.classList.toggle('active', false);
-    if (kugouBtn) kugouBtn.classList.toggle('active', false);
-    if (qishuiBtn) qishuiBtn.classList.toggle('active', false);
-    if (spotifyBtn) spotifyBtn.classList.toggle('active', true);
-    if (title) title.textContent = '连接 Spotify';
-    if (desc) desc.innerHTML = canOpenSpotifyOAuth
-      ? '粘贴 <b>Spotify Client ID</b> 后保存并授权，用于同步 Premium/Free 状态、歌单和 Liked Songs；播放仍按匹配源自动换源。'
-      : '当前环境不支持桌面授权桥；请在 Mineradio 桌面版中连接 Spotify。';
-    if (shell) {
-      shell.classList.add('web-login-preview');
-      shell.classList.remove('qq-preview', 'netease-preview');
-    }
-    if (qqPanel) {
-      qqPanel.classList.add('show', 'spotify-guide-panel');
-    }
-    if (qqCookieToggle) qqCookieToggle.classList.remove('show');
-    if (qqCookieInput) qqCookieInput.placeholder = spotifyLoginStatus.oauthConfigured
-      ? '已保存 Client ID；可粘贴新的 Client ID 覆盖'
-      : '粘贴 Spotify Client ID';
-    if (qqCookieNote) qqCookieNote.innerHTML =
-      '<div class="spotify-guide-title">Spotify 玩家接入三步</div>' +
-      '<div class="spotify-guide-steps">' +
-        '<span>1. 打开网页，创建 App</span>' +
-        '<span>2. 回调填 <code>' + SPOTIFY_REDIRECT_URI + '</code></span>' +
-        '<span>3. 复制 Client ID，粘到这里</span>' +
-      '</div>' +
-      '<div class="spotify-guide-actions">' +
-        '<button type="button" class="spotify-guide-link" onclick="openSpotifyDeveloperDashboard()">打开网页</button>' +
-        '<button type="button" class="spotify-guide-link" onclick="copySpotifyRedirectUri()">复制回调</button>' +
-        '<span>PKCE 不用填 Client Secret</span>' +
-      '</div>';
-    if (qqCookieSaveBtn) {
-      qqCookieSaveBtn.disabled = spotifyBusy;
-      qqCookieSaveBtn.textContent = spotifyConfigBusy ? '保存中…' : (spotifyOAuthBusy ? '等待授权…' : '保存并授权');
-    }
-    if (qqCard) {
-      qqCard.style.display = '';
-      qqCard.onclick = openSpotifyWebLogin;
-      qqCard.disabled = spotifyBusy || !canOpenSpotifyOAuth || !spotifyLoginStatus.oauthConfigured;
-      var spCardMark = qqCard.querySelector('b');
-      var spCardLabel = qqCard.querySelector('span');
-      if (spCardMark) spCardMark.textContent = 'SP';
-      if (spCardLabel) spCardLabel.textContent = spotifyOAuthBusy ? '等待 Spotify 授权' : (spotifyLoginStatus.oauthConfigured ? '打开 Spotify 授权' : '先保存 Client ID');
-    }
-    if (st) {
-      st.className = 'preview';
-      st.textContent = spotifyLoginStatusText();
-    }
-    if (refreshBtn) {
-      refreshBtn.disabled = spotifyBusy || !canOpenSpotifyOAuth;
-      refreshBtn.textContent = spotifyConfigBusy ? '保存中…' : (spotifyOAuthBusy ? '等待授权…' : (spotifyLoginStatus.oauthConfigured ? '连接 Spotify' : '保存并授权'));
-      refreshBtn.onclick = spotifyLoginStatus.oauthConfigured ? openSpotifyWebLogin : submitSpotifyConfigLogin;
-    }
-    renderSpotifySetupWizard();
-    scheduleSpotifySetupAutoCheck();
-    updateLoginNodeGraphUi();
-    return;
-  }
-  if (qqPanel) qqPanel.classList.remove('spotify-guide-panel');
-  if (spotifyBtn) spotifyBtn.classList.toggle('active', false);
   if (neteaseBtn) neteaseBtn.classList.toggle('active', loginProvider === 'netease');
   if (qqBtn) qqBtn.classList.toggle('active', isQQ);
   if (kugouBtn) kugouBtn.classList.toggle('active', isKugou);
   if (qishuiBtn) qishuiBtn.classList.toggle('active', isQishui);
-  if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label);
+  if (title) title.textContent = isQQ ? '扫码登录 QQ 音乐' : (isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label));
   var inlineQrDesc = inlineLoginQrSupported() && isQQ;
-  if (desc && inlineQrDesc) desc.innerHTML = '请用 <b>QQ 音乐 App</b> 扫码；QQ／微信扫一扫请点下方“QQ 网页登录”。';
+  if (desc && inlineQrDesc) desc.textContent = '请用 QQ 音乐 App 扫码';
   else if (desc) desc.innerHTML = isQQ
-    ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
+    ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，确认后自动保存登录信息。'
     : (isKugou
       ? '优先使用 <b>酷狗音乐 App</b> 扫码授权；失败时回退官方网页登录。'
     : (isQishui
@@ -1288,7 +1027,7 @@ function updateLoginProviderUi() {
     qqCookieToggle.textContent = manualCookieOpen ? '收起导入' : 'Cookie 导入';
   }
   if (qqCookieInput) qqCookieInput.placeholder = isKugou ? 'KuGoo=...; token=...; userid=...; kg_mid=...' : (isNetease ? 'MUSIC_U=...; __csrf=...' : 'uin=...; qqmusic_key=...; qm_keyst=...');
-  if (qqCookieNote) qqCookieNote.textContent = isKugou ? '从 kugou.com 的登录会话导入。' : (isNetease ? '从 music.163.com 的登录会话导入。' : '从 y.qq.com 的登录会话导入。');
+  if (qqCookieNote) qqCookieNote.textContent = isKugou ? '从 kugou.com 的登录信息导入。' : (isNetease ? '从 music.163.com 的登录信息导入。' : '从 y.qq.com 的登录信息导入。');
   if (qqCookieSaveBtn) qqCookieSaveBtn.textContent = '保存 Cookie';
   if (qqCard) {
     qqCard.style.display = '';
@@ -1303,10 +1042,11 @@ function updateLoginProviderUi() {
   }
   if (st && !(inlineLoginQrProvider === loginProvider && inlineLoginQrPhase)) {
     st.className = isManualCookieProvider ? 'preview' : '';
-    st.textContent = isQQ
+    var currentSession = platformStatus(loginProvider);
+    st.textContent = providerSessionNeedsValidation(currentSession) ? providerSessionPendingText(loginProvider, currentSession) : isQQ
       ? qqLoginStatusText(qqLoginStatus)
       : (isKugou
-        ? (kugouLoginStatus.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouLoginStatus.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口')
+        ? (kugouLoginStatus.loggedIn ? ('酷狗音乐登录信息已保存 · ' + (kugouLoginStatus.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口')
         : (isQishui
           ? qishuiLoginStatusText()
         : '请使用网易云音乐 App 扫码；生成失败可打开官方窗口'));
@@ -1320,6 +1060,10 @@ function updateLoginProviderUi() {
     var qqNeedsMembershipSync = isQQ && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(qqLoginStatus);
     refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : '刷新二维码'));
     refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : refreshQr));
+    if (providerSessionNeedsValidation(platformStatus(loginProvider)) && !inlineLoginQrProvider) {
+      refreshBtn.textContent = '刷新状态';
+      refreshBtn.onclick = retryProviderSessionValidation;
+    }
     if (inlineLoginQrProvider && inlineLoginQrProvider === loginProvider) {
       refreshBtn.disabled = false;
       refreshBtn.textContent = loginProvider === 'qq' ? (inlineLoginQrPhase === 'loading' ? '生成中…' : (inlineLoginQrPhase === 'scanned' ? '确认中…' : '刷新二维码')) : '官网登录';
@@ -1329,7 +1073,10 @@ function updateLoginProviderUi() {
   }
   // Cookie import gets the drawer to itself: the QR card is hidden while it is open.
   var cookieMode = isManualCookieProvider && manualCookieOpen;
-  if (loginDrawer) loginDrawer.classList.toggle('cookie-mode', cookieMode);
+  if (loginDrawer) {
+    loginDrawer.classList.toggle('cookie-mode', cookieMode);
+    loginDrawer.classList.toggle('qq-scan-mode', inlineQrDesc && !cookieMode);
+  }
   if (cookieMode) {
     var cookieSite = isKugou ? 'kugou.com' : (isNetease ? 'music.163.com' : 'y.qq.com');
     if (title) title.textContent = '导入' + meta.label + '登录';
@@ -1367,25 +1114,13 @@ function showLoginQrImage(img, src, alt) {
   img.src = src;
 }
 async function refreshQr() {
+  invalidateLoginAttempt();
   stopQrPoll();
   updateLoginProviderUi();
   var refreshProvider = loginProvider;
   var refreshSeq = ++loginRefreshRequestSeq;
-  if (loginProvider === 'spotify') {
-    qrKey = null;
-    var spotifyStatus = document.getElementById('qr-status');
-    var spotifyImg = document.getElementById('qr-img');
-    clearLoginQrImage(spotifyImg);
-    var spotifyInfo = await refreshSpotifyLoginStatus();
-    if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
-    updateLoginProviderUi();
-    if (spotifyStatus) {
-      spotifyStatus.textContent = spotifyLoginStatusText(spotifyInfo);
-      spotifyStatus.className = 'preview';
-    }
-    return;
-  }
   if (loginProvider === 'qishui') {
+    invalidateProviderAuthSession('qishui');
     qrKey = null;
     var qishuiStatus = document.getElementById('qr-status');
     var qishuiImg = document.getElementById('qr-img');
@@ -1444,7 +1179,7 @@ async function refreshQr() {
     var kugouInfo = await refreshKugouLoginStatus();
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (kugouStatus) {
-      kugouStatus.textContent = kugouInfo && kugouInfo.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouInfo.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口';
+      kugouStatus.textContent = kugouInfo && kugouInfo.loggedIn ? ('酷狗音乐登录信息已保存 · ' + (kugouInfo.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口';
       kugouStatus.className = 'preview';
     }
     return;
@@ -1453,11 +1188,14 @@ async function refreshQr() {
   clearLoginQrImage(neQrImg);
   setLoginQrLoading(true);
   try {
-    var k = await apiJson('/api/login/qr/key');
+    var attempt = await beginRendererLoginAttempt('netease');
+    if (!attempt) return;
+    refreshSeq = attempt.seq;
+    var k = await apiJson('/api/login/qr/key?attemptId=' + encodeURIComponent(attempt.id));
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (!k.key) throw new Error('获取 key 失败');
     qrKey = k.key;
-    var q = await apiJson('/api/login/qr/create?key=' + encodeURIComponent(qrKey));
+    var q = await apiJson('/api/login/qr/create?key=' + encodeURIComponent(qrKey) + '&attemptId=' + encodeURIComponent(attempt.id));
     if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
     if (!q.img) throw new Error('生成二维码失败');
     showLoginQrImage(neQrImg, q.img, '网易云音乐登录二维码');
@@ -1507,9 +1245,11 @@ async function pollQishuiQr(generation) {
     if (result && result.loggedIn) {
       stopQrPoll();
       qishuiLoginStatus = normalizeQishuiLoginStatus(result);
+      invalidateProviderAuthSession('qishui');
       activeAccountProvider = 'qishui';
       markLoginWorkflowConnected('qishui');
       renderUserBtn();
+      if (showPendingProviderLogin('qishui', result, statusEl)) { updateLoginProviderUi(); return; }
       if (statusEl) {
         statusEl.textContent = '登录成功！';
         statusEl.className = 'scan';
@@ -1537,19 +1277,19 @@ async function pollQishuiQr(generation) {
     if (qrStatus === 'verifying') {
       nextDelay = 8000;
       if (statusEl) {
-        statusEl.textContent = '扫码已确认，正在重新验证账号连接…';
+        statusEl.textContent = '已扫码，正在确认登录…';
         statusEl.className = 'preview';
       }
     } else if (code === 7 || qrStatus === 'rate_limited') {
       nextDelay = Number(result && result.retryAfterMs) || 60000;
       if (statusEl) {
-        statusEl.textContent = '请求较频繁，稍后自动继续检查…';
+        statusEl.textContent = '操作太频繁，请稍候…';
         statusEl.className = 'preview';
       }
     } else if (qrStatus === 'mfa_cancelled' || qrStatus === 'cancelled') {
       stopQrPoll();
       if (statusEl) {
-        statusEl.textContent = qrStatus === 'cancelled' ? '登录已被退出操作取消，请刷新二维码后重试' : '二次验证已取消，请刷新二维码后重试';
+        statusEl.textContent = qrStatus === 'cancelled' ? '已取消登录，请刷新二维码重试' : '安全验证已取消，请刷新二维码重试';
         statusEl.className = 'fail';
       }
       return;
@@ -1572,7 +1312,6 @@ async function pollQishuiQr(generation) {
   }
 }
 function toggleQQCookiePanel() {
-  if (loginProvider === 'spotify') return;
   setManualCookieOpenForProvider(loginProvider, !isManualCookieOpenForProvider(loginProvider));
   updateLoginProviderUi();
 }
@@ -1607,7 +1346,9 @@ function handleInlineLoginQr(payload) {
     setInlineLoginQrView(true);
     showLoginQrImage(img, payload.image, loginWorkflowProviderLabel(payload.provider) + '登录二维码');
     if (statusEl) {
-      statusEl.textContent = payload.expired ? '二维码已过期，点一下二维码刷新' : ('请使用' + (payload.scanApp || inlineLoginQrAppLabel(payload.provider)) + '扫码');
+      // QQ's persistent description already explains which app to use.
+      // Keep this live status line for progress and errors, not duplicate guidance.
+      statusEl.textContent = payload.expired ? '二维码已过期，点一下二维码刷新' : (payload.provider === 'qq' ? '' : ('请使用' + (payload.scanApp || inlineLoginQrAppLabel(payload.provider)) + '扫码'));
       statusEl.className = payload.expired ? 'fail' : '';
     }
   } else if (payload.stage === 'scanned' && statusEl) {
@@ -1615,7 +1356,7 @@ function handleInlineLoginQr(payload) {
     statusEl.className = 'scan';
   } else if (payload.stage === 'failed' && statusEl) {
     setLoginQrLoading(false);
-    statusEl.textContent = payload.message || '客户端扫码授权未完成，请刷新二维码重试';
+    statusEl.textContent = payload.message || '扫码登录未完成，请刷新二维码重试';
     statusEl.className = 'fail';
   } else if (payload.stage === 'loading') {
     clearLoginQrImage(img); setLoginQrLoading(true);
@@ -1725,63 +1466,7 @@ function openProviderWebLogin() {
   if (loginProvider === 'qq') return openQQWebLogin();
   if (loginProvider === 'kugou') return openKugouWebLogin();
   if (loginProvider === 'qishui') return openQishuiWebLogin();
-  if (loginProvider === 'spotify') return openSpotifyWebLogin();
   return refreshQr();
-}
-async function openSpotifyWebLogin() {
-  if (spotifyOAuthBusy) return;
-  var api = window.desktopWindow;
-  if (!api || !api.isDesktop || typeof api.openSpotifyMusicLogin !== 'function') {
-    setSpotifySetupOverall('当前环境不支持 Spotify 本地授权桥，请使用 Mineradio 桌面版。', 'fail');
-    return;
-  }
-  if (!spotifyLoginStatus.oauthConfigured && !spotifyLoginStatus.tokenConfigured) {
-    var latestStatus = await refreshSpotifyLoginStatus();
-    if (!latestStatus.oauthConfigured && !latestStatus.tokenConfigured) {
-      updateLoginProviderUi();
-      setSpotifySetupOverall('先完成第一步：粘贴并保存 Spotify Client ID。', 'fail');
-      return;
-    }
-  }
-  if (!spotifySetupCallbackReady) {
-    var callbackReady = await verifySpotifySetupCallback(false);
-    if (!callbackReady) return;
-  }
-  spotifyOAuthBusy = true;
-  updateLoginProviderUi();
-  setSpotifySetupOverall('已打开系统浏览器，请在 Spotify 官方页面完成授权；Mineradio 正在等待回调。');
-  var failText = '';
-  try {
-    var result = await api.openSpotifyMusicLogin();
-    if (!result || !result.ok) {
-      if (result && result.error === 'SPOTIFY_OAUTH_NOT_CONFIGURED') {
-        throw new Error((result.message || '请先保存 Spotify Client ID') + (result.redirectUri ? (' / 回调地址: ' + result.redirectUri) : ''));
-      }
-      throw new Error((result && (result.message || result.error)) || 'Spotify 授权未完成');
-    }
-    setSpotifySetupOverall('授权已返回，正在验证账号资料和接口…');
-    var info = await refreshSpotifyLoginStatus();
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || 'Spotify 登录态不可用');
-    activeAccountProvider = 'spotify';
-    markLoginWorkflowConnected('spotify');
-    renderUserBtn();
-    await refreshUserPlaylists(true);
-    loadHomeDiscover(true);
-    spotifyOAuthBusy = false;
-    updateLoginProviderUi();
-    await runSpotifySetupDiagnostics(true);
-    showToast('Spotify 已连接: ' + (info.nickname || info.userId || ''));
-  } catch (e) {
-    failText = e && e.message ? e.message : 'Spotify 授权失败';
-    setSpotifySetupOverall(failText, 'fail');
-  } finally {
-    spotifyOAuthBusy = false;
-    updateLoginProviderUi();
-    if (failText) setSpotifySetupOverall(failText, 'fail');
-  }
-}
-async function submitSpotifyConfigLogin() {
-  return saveSpotifySetupClientId();
 }
 async function openNeteaseWebLogin() {
   if (neteaseWebLoginBusy) return;
@@ -1799,35 +1484,41 @@ async function openNeteaseWebLogin() {
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入网易云登录二维码…' : '正在打开网易云官方登录页，二维码加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
+    var attempt = await beginRendererLoginAttempt('netease');
+    if (!attempt) return;
+    neteaseWebLoginBusy = true;
     var result = await openProviderLoginWithInlineQr('netease', function (opts) { return api.openNeteaseMusicLogin(opts); });
+    if (!isLoginAttemptCurrent(attempt)) return;
     if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || '网易云登录未完成');
     }
-    if (statusEl) { statusEl.textContent = '正在同步网易云会话…'; statusEl.className = 'preview'; }
+    if (statusEl) { statusEl.textContent = '正在确认网易云登录…'; statusEl.className = 'preview'; }
     var info = await apiJson('/api/login/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie: result.cookie })
+      body: JSON.stringify({ cookie: result.cookie, attemptId: attempt.id })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || '网易云会话不可用');
+    if (!isLoginAttemptCurrent(attempt)) return;
+    if (!info || !info.loggedIn || info.sessionRejected) throw new Error((info && (info.message || info.error)) || '暂时无法确认网易云登录，请重试');
     loginStatus = info;
     activeAccountProvider = 'netease';
     renderUserBtn();
+    markProviderLoginConnected('netease', info);
     refreshUserPlaylists(true);
     loadHomeDiscover(true);
-    if (statusEl) { statusEl.textContent = '网易云会话已保存'; statusEl.className = 'scan'; }
-    markProviderLoginConnected('netease', info);
-    setTimeout(function () {
-      closeLoginModal();
+    if (showPendingProviderLogin('netease', info, statusEl)) return;
+    if (statusEl) { statusEl.textContent = '网易云登录信息已保存'; statusEl.className = 'scan'; }
+    scheduleLoginAttemptClose(attempt, function () {
       showToast('网易云已登录: ' + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
+    if (attempt && !isLoginAttemptCurrent(attempt)) return;
     neteaseWebLoginBusy = false;
     updateLoginProviderUi();
     if (statusEl) { statusEl.textContent = e && e.message ? e.message : '网易云登录失败'; statusEl.className = 'fail'; }
   } finally {
-    if (neteaseWebLoginBusy) {
+    if ((!loginAttemptCurrent || loginAttemptCurrent === attempt) && neteaseWebLoginBusy) {
       neteaseWebLoginBusy = false;
       updateLoginProviderUi();
     }
@@ -1849,48 +1540,81 @@ async function openQQWebLogin(options) {
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入 QQ 音乐登录二维码…' : '已打开 QQ 音乐窗口，请扫码并确认登录…'; statusEl.className = 'preview'; }
   try {
+    var attempt = await beginRendererLoginAttempt('qq');
+    if (!attempt) return;
+    qqWebLoginBusy = true;
     var result = options.officialWindow ? await api.openQQMusicLogin({ nativeQr: false, forceReauth: true }) : await openProviderLoginWithInlineQr('qq', function (opts) { return api.openQQMusicLogin(opts); }, {
       forceReauth: !!(qqLoginStatus && qqLoginStatus.authorizationIncomplete && qqLoginStatus.playbackKeyReady === false)
     });
+    if (!isLoginAttemptCurrent(attempt)) return;
     if (!result) return;
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || 'QQ 登录未完成');
     }
-    if (statusEl) { statusEl.textContent = '正在同步 QQ 音乐会话…'; statusEl.className = 'preview'; }
+    if (statusEl) { statusEl.textContent = '正在确认 QQ 音乐登录…'; statusEl.className = 'preview'; }
     var info = await apiJson('/api/qq/login/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie: result.cookie })
+      body: JSON.stringify({ cookie: result.cookie, attemptId: attempt.id })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || 'QQ 会话不可用');
+    if (!isLoginAttemptCurrent(attempt)) return;
+    if (!info || !info.loggedIn || info.sessionRejected) throw new Error((info && (info.message || info.error)) || '暂时无法确认 QQ 音乐登录，请重试');
     qqLoginStatus = normalizeQQLoginStatus(info);
     auditProviderVipState('qq', qqLoginStatus);
     activeAccountProvider = 'qq';
     qqManualCookieOpen = false;
     renderUserBtn();
-    refreshUserPlaylists(true);
     markProviderLoginConnected('qq', info);
+    refreshUserPlaylists(true);
+    if (showPendingProviderLogin('qq', info, statusEl)) return;
     var qqPlaybackReady = !!info.playbackKeyReady && !result.partial;
     if (!qqPlaybackReady) {
-      if (statusEl) { statusEl.textContent = 'QQ 账号态已同步，但播放授权未完成；请重新打开 QQ 音乐登录并等待进入播放器页后再关闭窗口。'; statusEl.className = 'preview'; }
-      showToast('QQ 账号态已同步，播放授权未完成');
+      if (statusEl) { statusEl.textContent = '请重新打开 QQ 音乐登录窗口，进入播放器页面后再关闭'; statusEl.className = 'preview'; }
+      showToast('已登录，还需完成 QQ 音乐播放授权');
       return;
     }
-    if (statusEl) { statusEl.textContent = qqPlaybackReady ? qqLoginStatusText(qqLoginStatus) : 'QQ 账号已同步，播放授权不完整，部分歌曲会自动换源'; statusEl.className = 'scan'; }
-    setTimeout(function () {
-      closeLoginModal();
-      showToast((qqPlaybackReady ? 'QQ 音乐已登录: ' : 'QQ 账号已同步: ') + (info.nickname || info.userId || ''));
+    if (statusEl) { statusEl.textContent = qqPlaybackReady ? qqLoginStatusText(qqLoginStatus) : '请完成 QQ 音乐播放授权'; statusEl.className = 'scan'; }
+    scheduleLoginAttemptClose(attempt, function () {
+      showToast((qqPlaybackReady ? 'QQ 音乐已登录: ' : 'QQ 账号已登录: ') + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
+    if (attempt && !isLoginAttemptCurrent(attempt)) return;
     qqWebLoginBusy = false;
     updateLoginProviderUi();
     if (statusEl) { statusEl.textContent = e && e.message ? e.message : 'QQ 登录失败'; statusEl.className = 'fail'; }
   } finally {
-    if (qqWebLoginBusy) {
+    if ((!loginAttemptCurrent || loginAttemptCurrent === attempt) && qqWebLoginBusy) {
       qqWebLoginBusy = false;
       updateLoginProviderUi();
     }
   }
+}
+// One visible official challenge at a time. Closing it is not proof of success.
+var kugouVerificationBusy = false;
+async function openKugouSecurityVerification(data) {
+  if (kugouVerificationBusy) return false;
+  var api = window.desktopWindow;
+  if (!api || !api.isDesktop || typeof api.openKugouMusicLogin !== 'function') {
+    showToast('请在桌面版打开酷狗官方窗口完成安全验证');
+    return false;
+  }
+  kugouVerificationBusy = true;
+  if (typeof kugouStatusVerificationPrompted !== 'undefined') kugouStatusVerificationPrompted = true;
+  try {
+    var restriction = data && data.restriction || {};
+    var result = await api.openKugouMusicLogin({ verification: true, nativeQr: false, inline: false,
+      verificationUrl: data && data.verificationUrl || restriction.verificationUrl || '' });
+    if (result && result.retryRequired) {
+      showToast('验证窗口已关闭，请重试刚才的登录或播放');
+    } else if (result && result.error) {
+      showToast('酷狗验证窗口未能打开，请重试官方登录');
+    }
+    // Do not replace a client token with a website cookie or infer success from closing.
+    return false;
+  } catch (_) {
+    showToast('酷狗验证窗口未能打开，请重试官方登录');
+    return false;
+  } finally { kugouVerificationBusy = false; }
 }
 async function openKugouWebLogin(options) {
   options = options || {};
@@ -1908,36 +1632,56 @@ async function openKugouWebLogin(options) {
   updateLoginProviderUi();
   if (statusEl) { statusEl.textContent = inlineLoginQrSupported() ? '正在载入酷狗音乐登录二维码…' : '正在打开酷狗音乐官方登录页，加载完成后窗口会自动弹出…'; statusEl.className = 'preview'; }
   try {
+    var attempt = await beginRendererLoginAttempt('kugou');
+    if (!attempt) return;
+    kugouWebLoginBusy = true;
     var result = options.officialWindow ? await api.openKugouMusicLogin({ nativeQr: false, forceReauth: true }) : await openProviderLoginWithInlineQr('kugou', function (opts) { return api.openKugouMusicLogin(opts); }, { forceReauth: true });
+    if (!isLoginAttemptCurrent(attempt)) return;
     if (!result) return;
+    if (result.retryRequired) {
+      if (statusEl) { statusEl.textContent = '验证窗口已关闭，请重试登录'; statusEl.className = 'preview'; }
+      return;
+    }
+    if (result.verificationRequired) {
+      if (statusEl) { statusEl.textContent = '请在官方窗口完成安全验证，再重新登录'; statusEl.className = 'preview'; }
+      await openKugouSecurityVerification(result);
+      return;
+    }
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || '酷狗登录未完成');
     }
-    if (statusEl) { statusEl.textContent = '正在同步酷狗音乐会话…'; statusEl.className = 'preview'; }
+    if (statusEl) { statusEl.textContent = '正在确认酷狗音乐登录…'; statusEl.className = 'preview'; }
     var info = await apiJson('/api/kugou/login/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie: result.cookie })
+      body: JSON.stringify({ cookie: result.cookie, attemptId: attempt.id })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || '酷狗会话不可用');
+    if (!isLoginAttemptCurrent(attempt)) return;
+    if (info && info.verificationRequired) {
+      if (statusEl) { statusEl.textContent = '请在酷狗官方窗口完成安全验证，再重试登录'; statusEl.className = 'preview'; }
+      await openKugouSecurityVerification(info);
+      return;
+    }
+    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || '暂时无法确认酷狗音乐登录，请重试');
     kugouLoginStatus = normalizeKugouLoginStatus(info);
     activeAccountProvider = 'kugou';
     kugouManualCookieOpen = false;
     renderUserBtn();
-    refreshUserPlaylists(true);
     markProviderLoginConnected('kugou', info);
+    refreshUserPlaylists(true);
+    if (showPendingProviderLogin('kugou', info, statusEl)) return;
     var ready = !!info.playbackKeyReady && !result.partial;
-    if (statusEl) { statusEl.textContent = ready ? '酷狗音乐会话已保存' : '酷狗账号已同步，播放授权不完整，部分歌曲可能需要重登'; statusEl.className = 'scan'; }
-    setTimeout(function () {
-      closeLoginModal();
-      showToast((ready ? '酷狗音乐已登录: ' : '酷狗账号已同步: ') + (info.nickname || info.userId || ''));
+    if (statusEl) { statusEl.textContent = ready ? '酷狗音乐登录信息已保存' : '请重新登录酷狗音乐，完成播放授权'; statusEl.className = 'scan'; }
+    scheduleLoginAttemptClose(attempt, function () {
+      showToast((ready ? '酷狗音乐已登录: ' : '酷狗账号已登录: ') + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
+    if (attempt && !isLoginAttemptCurrent(attempt)) return;
     kugouWebLoginBusy = false;
     updateLoginProviderUi();
     if (statusEl) { statusEl.textContent = e && e.message ? e.message : '酷狗登录失败'; statusEl.className = 'fail'; }
   } finally {
-    if (kugouWebLoginBusy) {
+    if ((!loginAttemptCurrent || loginAttemptCurrent === attempt) && kugouWebLoginBusy) {
       kugouWebLoginBusy = false;
       updateLoginProviderUi();
     }
@@ -1948,30 +1692,40 @@ async function openQishuiWebLogin() {
   return refreshQr();
 }
 async function submitQQCookieLogin(importedCookie) {
-  if (loginProvider === 'spotify') return submitSpotifyConfigLogin();
   if (loginProvider === 'qishui') return openQishuiWebLogin();
   if (loginProvider === 'netease') return submitNeteaseCookieLogin(importedCookie);
   var isKugou = loginProvider === 'kugou';
+  var provider = isKugou ? 'kugou' : 'qq';
   if (isKugou ? kugouCookieBusy : qqCookieBusy) return;
   var input = document.getElementById('qq-cookie-input');
   var statusEl = document.getElementById('qr-status');
   var saveBtn = document.getElementById('qq-cookie-save-btn');
   var cookie = typeof importedCookie === 'string' ? importedCookie.trim() : (input ? input.value.trim() : '');
   if (!cookie) {
-    if (statusEl) { statusEl.textContent = isKugou ? '先粘贴酷狗音乐 cookie' : '先粘贴 QQ 音乐 cookie'; statusEl.className = 'fail'; }
+    if (statusEl) { statusEl.textContent = isKugou ? '请粘贴酷狗音乐 Cookie' : '请粘贴 QQ 音乐 Cookie'; statusEl.className = 'fail'; }
     return;
   }
   if (isKugou) kugouCookieBusy = true;
   else qqCookieBusy = true;
   if (saveBtn) saveBtn.classList.add('busy');
-  if (statusEl) { statusEl.textContent = isKugou ? '正在保存酷狗会话…' : '正在保存 QQ 会话…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = isKugou ? '正在保存酷狗登录信息…' : '正在保存 QQ 登录信息…'; statusEl.className = 'preview'; }
   try {
+    var attempt = await beginRendererLoginAttempt(provider);
+    if (!attempt) return;
+    if (isKugou) kugouCookieBusy = true;
+    else qqCookieBusy = true;
     var info = await apiJson(isKugou ? '/api/kugou/login/cookie' : '/api/qq/login/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie: cookie })
+      body: JSON.stringify({ cookie: cookie, attemptId: attempt.id })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || (isKugou ? '酷狗会话不可用' : 'QQ 会话不可用'));
+    if (!isLoginAttemptCurrent(attempt)) return;
+    if (isKugou && info && info.verificationRequired) {
+      if (statusEl) { statusEl.textContent = '请在酷狗官方窗口完成安全验证'; statusEl.className = 'preview'; }
+      await openKugouSecurityVerification(info);
+      return;
+    }
+    if (!info || !info.loggedIn || info.sessionRejected) throw new Error((info && (info.message || info.error)) || (isKugou ? '暂时无法确认酷狗音乐登录，请重试' : '暂时无法确认 QQ 音乐登录，请重试'));
     if (isKugou) kugouLoginStatus = normalizeKugouLoginStatus(info);
     else {
       qqLoginStatus = normalizeQQLoginStatus(info);
@@ -1980,21 +1734,24 @@ async function submitQQCookieLogin(importedCookie) {
     activeAccountProvider = isKugou ? 'kugou' : 'qq';
     if (input) input.value = '';
     renderUserBtn();
-    refreshUserPlaylists(true);
-    var manualPlaybackReady = !!info.playbackKeyReady;
-    if (statusEl) { statusEl.textContent = manualPlaybackReady ? (isKugou ? '酷狗音乐会话已保存' : qqLoginStatusText(qqLoginStatus)) : (isKugou ? '酷狗账号已同步，播放授权不完整，部分歌曲可能需要重登' : 'QQ 账号已同步，播放授权不完整，部分歌曲会自动换源'); statusEl.className = 'scan'; }
-    setManualCookieOpenForProvider(activeAccountProvider, false);
     markProviderLoginConnected(activeAccountProvider, info);
-    setTimeout(function () {
-      closeLoginModal();
-      showToast((manualPlaybackReady ? (isKugou ? '酷狗音乐已登录: ' : 'QQ 音乐已登录: ') : (isKugou ? '酷狗账号已同步: ' : 'QQ 账号已同步: ')) + (info.nickname || info.userId || ''));
+    refreshUserPlaylists(true);
+    if (showPendingProviderLogin(activeAccountProvider, info, statusEl)) return;
+    var manualPlaybackReady = !!info.playbackKeyReady;
+    if (statusEl) { statusEl.textContent = manualPlaybackReady ? (isKugou ? '酷狗音乐登录信息已保存' : qqLoginStatusText(qqLoginStatus)) : (isKugou ? '请重新登录酷狗音乐，完成播放授权' : '请完成 QQ 音乐播放授权'); statusEl.className = 'scan'; }
+    setManualCookieOpenForProvider(activeAccountProvider, false);
+    scheduleLoginAttemptClose(attempt, function () {
+      showToast((manualPlaybackReady ? (isKugou ? '酷狗音乐已登录: ' : 'QQ 音乐已登录: ') : (isKugou ? '酷狗账号已登录: ' : 'QQ 账号已登录: ')) + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
-    if (statusEl) { statusEl.textContent = e && e.message ? e.message : (isKugou ? '酷狗会话保存失败' : 'QQ 会话保存失败'); statusEl.className = 'fail'; }
+    if (attempt && !isLoginAttemptCurrent(attempt)) return;
+    if (statusEl) { statusEl.textContent = e && e.message ? e.message : (isKugou ? '酷狗登录信息保存失败，请重试' : 'QQ 登录信息保存失败，请重试'); statusEl.className = 'fail'; }
   } finally {
-    if (isKugou) kugouCookieBusy = false;
-    else qqCookieBusy = false;
-    if (saveBtn) saveBtn.classList.remove('busy');
+    if (!loginAttemptCurrent || loginAttemptCurrent === attempt) {
+      if (isKugou) kugouCookieBusy = false;
+      else qqCookieBusy = false;
+      if (saveBtn) saveBtn.classList.remove('busy');
+    }
   }
 }
 
@@ -2005,66 +1762,88 @@ async function submitNeteaseCookieLogin(importedCookie) {
   var saveBtn = document.getElementById('qq-cookie-save-btn');
   var cookie = typeof importedCookie === 'string' ? importedCookie.trim() : (input ? input.value.trim() : '');
   if (!cookie) {
-    if (statusEl) { statusEl.textContent = '先粘贴网易云 MUSIC_U cookie'; statusEl.className = 'fail'; }
+    if (statusEl) { statusEl.textContent = '请粘贴网易云音乐 Cookie'; statusEl.className = 'fail'; }
     return;
   }
   qqCookieBusy = true;
   if (saveBtn) saveBtn.classList.add('busy');
-  if (statusEl) { statusEl.textContent = '正在保存网易云会话…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = '正在保存网易云登录信息…'; statusEl.className = 'preview'; }
   try {
+    var attempt = await beginRendererLoginAttempt('netease');
+    if (!attempt) return;
+    qqCookieBusy = true;
     var info = await apiJson('/api/login/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie: cookie })
+      body: JSON.stringify({ cookie: cookie, attemptId: attempt.id })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || '网易云会话不可用');
+    if (!isLoginAttemptCurrent(attempt)) return;
+    if (!info || !info.loggedIn || info.sessionRejected) throw new Error((info && (info.message || info.error)) || '暂时无法确认网易云登录，请重试');
     loginStatus = info;
     activeAccountProvider = 'netease';
     neteaseManualCookieOpen = false;
     if (input) input.value = '';
     renderUserBtn();
+    markProviderLoginConnected('netease', info);
     refreshUserPlaylists(true);
     loadHomeDiscover(true);
-    if (statusEl) { statusEl.textContent = '网易云会话已保存'; statusEl.className = 'scan'; }
-    markProviderLoginConnected('netease', info);
-    setTimeout(function () {
-      closeLoginModal();
+    if (showPendingProviderLogin('netease', info, statusEl)) return;
+    if (statusEl) { statusEl.textContent = '网易云登录信息已保存'; statusEl.className = 'scan'; }
+    scheduleLoginAttemptClose(attempt, function () {
       showToast('网易云已登录: ' + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
-    if (statusEl) { statusEl.textContent = e && e.message ? e.message : '网易云会话保存失败'; statusEl.className = 'fail'; }
+    if (attempt && !isLoginAttemptCurrent(attempt)) return;
+    if (statusEl) { statusEl.textContent = e && e.message ? e.message : '网易云登录信息保存失败，请重试'; statusEl.className = 'fail'; }
   } finally {
-    qqCookieBusy = false;
-    if (saveBtn) saveBtn.classList.remove('busy');
-    updateLoginProviderUi();
+    if (!loginAttemptCurrent || loginAttemptCurrent === attempt) {
+      qqCookieBusy = false;
+      if (saveBtn) saveBtn.classList.remove('busy');
+      updateLoginProviderUi();
+    }
   }
 }
 async function checkQr() {
   if (!qrKey || loginProvider !== 'netease') return;
   var checkedKey = qrKey;
   var checkedSeq = loginRefreshRequestSeq;
+  var attempt = loginAttemptCurrent;
+  if (!isLoginAttemptCurrent(attempt)) return;
   try {
-    var r = await apiJson('/api/login/qr/check?key=' + encodeURIComponent(checkedKey));
-    if (loginProvider !== 'netease' || qrKey !== checkedKey || loginRefreshRequestSeq !== checkedSeq) return;
+    var r = await apiJson('/api/login/qr/check?key=' + encodeURIComponent(checkedKey) + '&attemptId=' + encodeURIComponent(attempt.id));
+    if (!isLoginAttemptCurrent(attempt) || qrKey !== checkedKey || loginRefreshRequestSeq !== checkedSeq) return;
     var $st = document.getElementById('qr-status');
-    if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; stopQrPoll(); qrKey = null; }
+    if (r.code === 800) { $st.textContent = '二维码已过期, 请刷新'; $st.className = 'fail'; invalidateLoginAttempt('netease'); }
     else if (r.code === 801) { $st.textContent = '请在 App 中扫码'; $st.className = ''; }
     else if (r.code === 802) { $st.textContent = '已扫码, 请在手机确认…'; $st.className = 'scan'; }
-    else if (r.code === 803 && (r.loggedIn || r.hasCookie)) {
-      $st.textContent = r.pendingProfile ? '登录成功，正在同步账号资料…' : '登录成功！'; $st.className = 'scan';
+    else if (r.code === 803 && !r.sessionRejected && (r.loggedIn || r.hasCookie)) {
+      $st.textContent = providerSessionNeedsValidation(r) ? providerSessionPendingText('netease', r) : '登录成功！'; $st.className = 'scan';
       stopQrPoll();
       loginStatus = r.loggedIn ? r : Object.assign({}, r, { loggedIn: true, pendingProfile: true, nickname: r.nickname || '网易云用户' });
+      invalidateProviderAuthSession('netease');
       activeAccountProvider = 'netease';
       renderUserBtn();
       setTimeout(async function () {
-        var fresh = await refreshLoginStatus(true);
-        if (!fresh || !fresh.loggedIn) {
-          loginStatus = Object.assign({}, loginStatus, { loggedIn: true, pendingProfile: true });
+        if (!isLoginAttemptCurrent(attempt)) return;
+        var fresh;
+        try { fresh = await apiJson('/api/login/status?fresh=1'); } catch (e) { fresh = { unverified: true }; }
+        if (!isLoginAttemptCurrent(attempt)) return;
+        if (fresh && fresh.sessionRejected) {
+          loginStatus = fresh;
+          if (typeof loginWorkflowVerifiedSession !== 'undefined') delete loginWorkflowVerifiedSession.netease;
           renderUserBtn();
-          fresh = loginStatus;
+          $st.textContent = '网易云登录已过期，请重新登录'; $st.className = 'fail';
+          return;
         }
+        loginStatus = fresh && fresh.loggedIn ? fresh : Object.assign({}, loginStatus, { pendingProfile: true, unverified: true });
+        fresh = loginStatus;
+        renderUserBtn();
+        markLoginWorkflowConnected('netease');
+        updateLoginNodeGraphUi();
+        if (typeof refreshUserPlaylists === 'function') refreshUserPlaylists(true);
+        if (typeof loadHomeDiscover === 'function') loadHomeDiscover(true);
+        if (showPendingProviderLogin('netease', fresh, $st)) { updateLoginProviderUi(); return; }
         closeLoginModal();
-        markProviderLoginConnected('netease', fresh);
         showToast('欢迎 ' + (fresh && fresh.nickname ? fresh.nickname : ''));
       }, r.pendingProfile ? 1200 : 500);
     } else if (r.code === 803) {

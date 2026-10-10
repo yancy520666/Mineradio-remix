@@ -1,0 +1,400 @@
+# 舞台歌词逐函数/回调覆盖（2026-10-09）
+
+Every listed source file was read in full in numbered chunks and reviewed by function/callback. This AST ledger records completed source-level semantic review by the AI reviewer; AST enumeration alone is not a passing test or complete runtime coverage. Listed test links are direct or adjacent-chain evidence, not an assertion that every callback executed. This is not human visual acceptance.
+
+Node VM tests use isolated fake clocks/canvas metrics; browser companion uses real original scripts, temporary generated WAV and SwiftShader. No Windows GPU/performance, native desktop IPC, real accounts, platform rights or subjective visual acceptance is established.
+
+## public/js/modules/02-visual/05-lyrics-fonts-texture.js
+
+355 行；顶层函数 32；含嵌套回调 39。SHA256：520f09f89669b967309ea974bd9adb82d7fd3962e74b2f2daef8b267359af1f8
+
+- L1-3 builtinLyricFontKeyPattern：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L4-7 customLyricFontKey：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L8-11 customLyricFontIdFromKey：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L12-19 customLyricFontRecordForKey：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L20-23 normalizeCustomLyricFontName：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L24-37 normalizeCustomLyricFontRecord：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L38-46 readCustomLyricFonts：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L47-55 saveCustomLyricFonts：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L56-58 quotedCssFontFamily：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L61-67 releaseCustomLyricFontFace：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L68-73 reconcileCustomLyricFontFaces：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L69-69 reconcileCustomLyricFontFaces → callback@69：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L70-72 reconcileCustomLyricFontFaces → callback@70：font ownership, late ready, removed/superseded source, selected-font refresh。仅源码/调用链，未单独执行该回调。
+- L74-115 registerCustomLyricFont：font ownership, late ready, removed/superseded source, selected-font refresh。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L88-104 registerCustomLyricFont → callback@88：font ownership, late ready, removed/superseded source, selected-font refresh。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L104-108 registerCustomLyricFont → callback@104：font ownership, late ready, removed/superseded source, selected-font refresh。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L116-119 registerSavedCustomLyricFonts：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L118-118 registerSavedCustomLyricFonts → callback@118：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L120-125 normalizeLyricFontKey：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L126-143 lyricFontStackForKey：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L144-147 lyricFontWeightValue：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L148-151 lyricFontCss：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L152-154 lyricLetterSpacingPx：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L155-157 lyricLineHeightFactor：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L160-163 clearLyricTextMeasureCache：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L164-175 lyricTextMeasureFontCache：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L176-185 lyricMeasuredCharacterWidth：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L187-195 warmLyricTextMeasureCache：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L196-205 scheduleLyricTextMeasureWarmup：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L200-204 scheduleLyricTextMeasureWarmup → callback@200：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L207-210 callback@207：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L213-238 measureTextWithLetterSpacing：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L239-241 lyricMeasureText：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L242-248 lyricMeasureTextAtSize：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L249-271 drawTextWithLetterSpacing：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L272-274 lyricFillText：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L275-277 lyricStrokeText：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L278-347 applyStonePrintTexture：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+- L348-355 hexToRgb：font identity/weights, bounded measurement cache, invalidation generation, letter spacing, unchanged stone print。仅源码/调用链，未单独执行该回调。
+
+## public/js/modules/02-visual/10-lyrics-mask-textures.js
+
+951 行；顶层函数 42；含嵌套回调 47。SHA256：e4d6f73120ef64aafb256582417c3169d53f70911146fd21fed968485ebf1377
+
+- L1-19 applyLyricVerticalEdgeFade：WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change。仅源码/调用链，未单独执行该回调。
+- L21-42 configureLyricTextureSampling：WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change。仅源码/调用链，未单独执行该回调。
+- L26-26 configureLyricTextureSampling → isPowerOfTwo：WebGL1/2 mipmap/anisotropy decisions and edge alpha; no sampling-policy change。仅源码/调用链，未单独执行该回调。
+- L44-92 beginLyricMaskLayoutBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L58-58 beginLyricMaskLayoutBuild → callback@58：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L94-96 lyricMaskLayoutCacheKey：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L98-109 measureLyricMaskLayoutBaseEntry：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L111-117 scaledLyricMaskLayoutWidth：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L119-122 finishLyricMaskLayoutBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L124-233 finalizeLyricMaskLayoutBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L138-144 finalizeLyricMaskLayoutBuild → measureWidestAtSize：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L145-149 finalizeLyricMaskLayoutBuild → lyricMaskLayoutFits：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L235-249 stepLyricMaskLayoutBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L251-255 measureLyricMaskLayout：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L257-279 lyricMaskLayoutMetricsFromLayout：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L281-283 beginLyricMaskLayoutMetricsBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L285-287 stepLyricMaskLayoutMetricsBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L289-292 finishLyricMaskLayoutMetricsBuild：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L294-298 makeLyricMaskLayoutMetrics：empty input, active line mapping, cooperative measurements, fit and finite logical layout。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L300-308 lyricStableHash：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。仅源码/调用链，未单独执行该回调。
+- L310-319 lyricSeededRandom：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。仅源码/调用链，未单独执行该回调。
+- L312-318 lyricSeededRandom → callback@312：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。仅源码/调用链，未单独执行该回调。
+- L321-328 lyricMaskStoneSeed：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。仅源码/调用链，未单独执行该回调。
+- L330-404 makeLyricMask：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L405-411 lyricRunwayRowPixelBudget：deterministic raster seed, logical/runway dimensions, ink bounds and CPU+GPU runway estimate。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L413-420 lyricTextureClarityScale：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L422-435 lyricRowTextureWidthBudget：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L437-445 lyricQualityPoolBudgetBytes：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L447-450 lyricQualityMaxResidentRows：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L452-477 lyricQualityTargetMetrics：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L479-532 makeLyricQualityTexture：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L534-548 lyricGlowTextureWidthBudget：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L550-576 lyricGlowRasterMetrics：selected quality tier, maximum dimensions, per-item bytes, logical glyph size and glow resolution。仅源码/调用链，未单独执行该回调。
+- L578-626 compactLyricLineMaskTexture：compaction transfers texture, releases old canvas and preserves logical/world dimensions。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L631-671 beginLyricReadabilityTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L673-697 drawLyricReadabilityStrokeLines：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L699-758 stepLyricReadabilityTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L760-764 finishLyricReadabilityTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L766-768 makeLyricReadabilityTexture：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L770-822 beginLyricGlowTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L824-851 drawLyricGlowText：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L853-863 drawLyricGlowBlurPass：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L865-878 drawLyricGlowRadialPass：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L880-914 finishLyricGlowTexturePixels：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L916-941 stepLyricGlowTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L943-947 finishLyricGlowTextureBuild：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+- L949-951 makeLyricGlowTexture：readability/glow phase state, drawing-state save/restore, final owned textures and row-builder cancellation boundary。仅源码/调用链，未单独执行该回调。
+
+## public/js/modules/02-visual/12a-lyrics-edit-preview.js
+
+222 行；顶层函数 12；含嵌套回调 22。SHA256：2fb051d964dfb05baf1a4aafde8c2465dcd724d3f2c35f9c925fe76177bfb1dc
+
+- L2-4 lyricFxEditActive：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L7-14 lyricFxPausedCommitActive：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。定向/相邻链：paused-lyric-effects-owner.test.js、paused-lyric-quality-ownership.test.js。
+- L15-39 finishLyricFxPausedCommit：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。定向/相邻链：paused-lyric-effects-owner.test.js、paused-lyric-quality-ownership.test.js。
+- L40-62 suspendLyricFxEditWork：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L63-90 finishLyricFxEditWork：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L79-79 finishLyricFxEditWork → callback@79：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L79-79 finishLyricFxEditWork → callback@79：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L91-93 lyricFxRasterKey：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L94-148 syncLyricFxLiveRows：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L97-147 syncLyricFxLiveRows → callback@97：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L101-101 syncLyricFxLiveRows → callback@101：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L106-108 syncLyricFxLiveRows → callback@106：gesture cancellation, finite paused current/snapshot/generation ownership and explicit final commit。仅源码/调用链，未单独执行该回调。
+- L119-146 syncLyricFxLiveRows → callback@119：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L141-144 syncLyricFxLiveRows → callback@141：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L149-181 updateLyricFxTextPreview：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L151-153 updateLyricFxTextPreview → callback@151：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L184-189 lyricMaskInkBounds：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L190-197 lyricTranslationTightDistance：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L198-206 lyricTranslationDistanceForRow：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L207-222 prepareLyricTranslationParents：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L211-216 prepareLyricTranslationParents → callback@211：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+- L217-219 prepareLyricTranslationParents → callback@217：live spacing/scale/raster preview, parent-row ownership, ink-bounds fallback。仅源码/调用链，未单独执行该回调。
+
+## public/js/modules/02-visual/13-lyrics-mesh-build.js
+
+503 行；顶层函数 15；含嵌套回调 16。SHA256：ee6b6ca2cc377c5ca8d3344e55937a9e4d94feee97f8d5a9879682b520f30082
+
+- L1-18 primeLyricMeshOpacity：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。仅源码/调用链，未单独执行该回调。
+- L8-16 primeLyricMeshOpacity → callback@8：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。仅源码/调用链，未单独执行该回调。
+- L20-24 stableStageLyricRowMaskLayout：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L26-32 lyricRowLayerBundleActiveMask：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。仅源码/调用链，未单独执行该回调。
+- L34-223 buildLyricMesh：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。仅源码/调用链，未单独执行该回调。
+- L225-231 disposeCooperativeLyricBuildMask：mask/bundle ownership, empty fallback, geometry/material/spark assembly and stable logical size。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L233-261 beginCooperativeLyricMeshBuild：cooperative phase state, finish ownership transfer, cancel idempotence and failure release。仅源码/调用链，未单独执行该回调。
+- L263-294 stepCooperativeLyricMeshBuild：cooperative phase state, finish ownership transfer, cancel idempotence and failure release。仅源码/调用链，未单独执行该回调。
+- L296-328 finishCooperativeLyricMeshBuild：cooperative phase state, finish ownership transfer, cancel idempotence and failure release。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L330-342 cancelCooperativeLyricMeshBuild：cooperative phase state, finish ownership transfer, cancel idempotence and failure release。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L344-369 scheduleLyricTrackBoundaryPrewarm：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+- L371-384 shouldSnapLyricTrackScroll：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+- L386-392 lyricTrackScrollWindowKey：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+- L394-400 snapLyricTrackScroll：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+- L402-417 updateLyricMeshProgress：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+- L419-503 setLyricTrackTarget：same-track targeting, pending progress, restore snaps, continuous seek and boundary demands。仅源码/调用链，未单独执行该回调。
+
+## public/js/modules/02-visual/14-stage-lyrics-rendering.js
+
+4129 行；顶层函数 169；含嵌套回调 206。SHA256：d794c103dd3b543eb47217c3898826cd0241cf0d33793857245c30afca4deb87
+
+- L22-26 stageLyricColorSignature：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L28-59 stageLyricPrewarmStyleKey：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L61-63 stageLyricPrewarmBuildGuardKey：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L65-77 stageLyricPreparedKey：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L79-83 stageLyricRenderSignatureForCurrentState：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L85-89 stageLyricCanPreserveSameRender：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L91-95 stageLyricPrewarmPayload：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L97-100 stageLyricLightPrewarmReason：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L102-113 clearStageLyricFullTrackWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L115-132 cancelStageLyricPrewarmBuildOnly：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L134-149 disposeStageLyricPrewarmMesh：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L151-160 clearStageLyricSingleLinePrewarmItem：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L159-159 clearStageLyricSingleLinePrewarmItem → callback@159：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L162-166 clearStageLyricSingleLinePrewarmCache：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L168-174 trimStageLyricSingleLinePrewarmCache：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L176-178 stageLyricNowMs：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L180-220 stageLyricTextLoadInfo：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L222-225 stageLyricPreferLightweightTrack：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L227-230 stageLyricShouldSkipFullTrackWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L232-238 clearStageLyricRestoreWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L240-265 stageLyricRestoreWarmupSeconds：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L267-273 stageLyricIndexForSeconds：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L275-282 scheduleStageLyricRestorePrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L284-296 requestStageLyricRestoreWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L298-302 requestStageLyricWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L304-307 clearStageLyricWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L309-331 invalidateStageLyricPayloadForNewLyrics：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L333-341 stageLyricWarmupPending：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L343-346 stageLyricPayloadIsSingleLine：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L348-350 lyricVerticalFloatEnabled：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L352-355 stageLyricSingleLineTrackStub：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L357-364 stageLyricSingleLineNextIndex：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L366-369 stageLyricSingleLineNextPrewarmReady：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L371-378 stageLyricSingleLineIndexPrewarmReady：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L380-390 stageLyricSingleLineUpcomingIndexes：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L392-403 stageLyricSingleLinePrewarmDelay：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L405-412 stageLyricSingleLinePrewarmCanServePayload：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L414-427 takeStageLyricSingleLinePrewarmMesh：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L425-425 takeStageLyricSingleLinePrewarmMesh → callback@425：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L429-479 scheduleStageLyricSingleLineCachePrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L447-447 scheduleStageLyricSingleLineCachePrewarm → callback@447：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L452-471 scheduleStageLyricSingleLineCachePrewarm → runSingleLinePrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L481-495 scheduleStageLyricSingleLineNextPrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L497-517 scheduleStageLyricSingleLineBootstrapPrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L519-568 resetPreparedStageLyricMesh：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L570-602 takeStageLyricPrewarmMesh：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L604-615 stageLyricMeshCanServePayload：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L617-622 stageLyricPrewarmCanServePayload：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L624-630 stageLyricCurrentMeshAlreadyPreparedForPayload：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L632-640 stageLyricPreparedFullPayloadForIndex：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L642-644 stageLyricPrewarmFullCanServeIndex：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L646-656 shouldDeferStageLyricSyncBuild：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L658-673 requestStageLyricDemandPrewarm：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L675-693 ensureStageLyricPlaybackWarmup：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L695-710 requestStageLyricLightweightUpgrade：prepared cache keys, track invalidation, bounded single-line lookahead, demand/restore/upgrade gates。仅源码/调用链，未单独执行该回调。
+- L712-715 stageLyricCurrentUsesPersistentTrack：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L717-724 stageLyricResidentRowKey：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L726-742 updateStageLyricPersistentResidentBounds：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L744-761 cancelStageLyricResidentBuild：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L763-769 cancelStageLyricResidentDemand：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L771-789 scheduleStageLyricResidentDemand：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L777-787 scheduleStageLyricResidentDemand → callback@777：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L791-823 buildStageLyricResidentPayload：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：stage-lyric-mesh-boundaries.test.js、lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L825-832 disposeStageLyricResidentRow：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L834-839 alignStageLyricResidentEffectToRow：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L841-855 stageLyricResidentDisplayedScrollOffset：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L852-852 stageLyricResidentDisplayedScrollOffset → callback@852：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L857-880 stageLyricResidentTransformSnapshot：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L882-915 primeStageLyricResidentRowTransform：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L917-1001 mergeStageLyricResidentBundle：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L993-997 mergeStageLyricResidentBundle → callback@993：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1003-1005 stageLyricResidentMeshIsCurrent：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1006-1009 stageLyricResidentJobIsCurrent：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1011-1063 finishStageLyricResidentBuild：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1025-1025 finishStageLyricResidentBuild → callback@1025：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1065-1089 runStageLyricResidentBuild：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1091-1114 scheduleStageLyricResidentBuildWork：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1095-1095 scheduleStageLyricResidentBuildWork → callback@1095：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1100-1111 scheduleStageLyricResidentBuildWork → queue：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1104-1107 scheduleStageLyricResidentBuildWork → callback@1104：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1109-1109 scheduleStageLyricResidentBuildWork → callback@1109：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1116-1167 startStageLyricResidentBuild：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1169-1177 stageLyricPersistentPrimaryMap：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1179-1188 stageLyricPersistentResidentRowMap：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1190-1203 stageLyricPersistentLineRowsResident：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1205-1218 stageLyricPersistentLineEffectsResident：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1220-1249 stageLyricPersistentTargetRowsReady：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1251-1253 stageLyricPersistentTargetEffectsReady：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1255-1295 stageLyricPersistentNextTextRunwayRange：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1297-1302 commitStageLyricPersistentPendingTarget：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1304-1477 ensureStageLyricPersistentTrackRows：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：paused-lyric-effects-owner.test.js、paused-lyric-quality-ownership.test.js、lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1359-1364 ensureStageLyricPersistentTrackRows → callback@1359：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：paused-lyric-effects-owner.test.js、paused-lyric-quality-ownership.test.js、lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1479-1544 trimStageLyricPersistentTrackRows：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1546-1584 initializeStageLyricPersistentTrack：resident row identity, stale generation rejection, transform snapshot, merge ownership, visible/sharp/runway/effect priority and trimming。定向/相邻链：lyric-runway-preparation.test.js、lyric-spacing-stability.test.js。
+- L1586-1589 stageLyricCurrentUsesLightweightTrack：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1591-1597 stageLyricTrackRevealReady：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-title-handoff.test.js。
+- L1599-1607 stageLyricShouldHoldOutgoingForReveal：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-title-handoff.test.js。
+- L1609-1617 releaseStageLyricRevealHoldsForSuccessor：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-title-handoff.test.js。
+- L1619-1631 stageLyricLightweightPrewarmAwaitingTakeover：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1633-1641 stageLyricCurrentCanResumeWithoutWarmup：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L1643-1666 upgradeCurrentStageLyricFromPreparedTrack：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1672-1685 stageLyricsMotionSettling：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1687-1689 stageLyricProgressPreviewActive：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1690-1696 stageLyricPlaybackSeconds：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1699-1702 clearStageLyricSeekHold：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1703-1712 beginStageLyricSeekHold：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1707-1707 beginStageLyricSeekHold → callback@1707：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1713-1755 applyStageLyricSeekHold：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1723-1730 applyStageLyricSeekHold → callback@1723：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1738-1738 applyStageLyricSeekHold → callback@1738：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1750-1750 applyStageLyricSeekHold → callback@1750：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1756-1768 stageLyricProgressSeekVisualReady：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。定向/相邻链：lyric-seek-visibility.test.js、lyric-track-seek-glide.test.js。
+- L1769-1789 chooseStageLyricPrewarmIndex：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1791-1796 stageLyricSingleLineBootstrapIndex：reveal/resume lifetime, seek fallback arming/release and shared preview/media clock。仅源码/调用链，未单独执行该回调。
+- L1798-1806 stageLyricShouldBuildCooperatively：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1808-1829 updateStageLyricBuildStats：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1831-1900 finishStageLyricCooperativePrewarm：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1885-1885 finishStageLyricCooperativePrewarm → callback@1885：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1902-1912 stageLyricShouldYieldToPendingInput：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1914-1920 stageLyricCooperativeNextDelay：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L1922-1953 scheduleStageLyricCooperativeWork：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1926-1926 scheduleStageLyricCooperativeWork → callback@1926：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1931-1950 scheduleStageLyricCooperativeWork → runAfterPaint：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1936-1939 scheduleStageLyricCooperativeWork → callback@1936：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1942-1949 scheduleStageLyricCooperativeWork → callback@1942：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1945-1948 scheduleStageLyricCooperativeWork → callback@1945：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1955-1996 runStageLyricCooperativePrewarm：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L1998-2032 startStageLyricCooperativePrewarm：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L2034-2138 scheduleStageLyricPrewarmForIndex：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2083-2132 scheduleStageLyricPrewarmForIndex → runPrewarm：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2139-2142 scheduleStageLyricPrewarm：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2143-2146 stageLyricMultiLineWarmupLoad：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2147-2160 stageLyricFullTrackWarmupDelay：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2162-2177 queueStageLyricFullTrackWarmupRetry：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2171-2175 queueStageLyricFullTrackWarmupRetry → callback@2171：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2179-2204 runStageLyricFullTrackWarmup：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2188-2194 runStageLyricFullTrackWarmup → run：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2198-2201 runStageLyricFullTrackWarmup → callback@2198：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2206-2236 scheduleStageLyricFullTrackWarmup：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2211-2215 scheduleStageLyricFullTrackWarmup → callback@2211：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2230-2234 scheduleStageLyricFullTrackWarmup → callback@2230：cooperative ownership, finite phase slices, stale guard rejection, explicit paused commit and full warmup cancellation。仅源码/调用链，未单独执行该回调。
+- L2240-2246 beginStageLyricIntro：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2243-2243 beginStageLyricIntro → callback@2243：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2247-2249 stageLyricIntroActive：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2250-2292 tickStageLyricIntro：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2272-2272 tickStageLyricIntro → callback@2272：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2297-2306 stageLyricOutgoingStillVisible：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2308-2315 stageLyricEntranceWaitsForOutgoing：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2317-2401 showStageLine：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。定向/相邻链：lyric-title-handoff.test.js。
+- L2403-2426 applyCurrentLyricStyleRefresh：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。仅源码/调用链，未单独执行该回调。
+- L2427-2433 refreshCurrentLyricStyle：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。仅源码/调用链，未单独执行该回调。
+- L2429-2432 refreshCurrentLyricStyle → callback@2429：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。仅源码/调用链，未单独执行该回调。
+- L2435-2454 clearStageLyrics：intro owns handoff, sole title exit, show/retarget/redraw ownership, style refresh and complete clear。仅源码/调用链，未单独执行该回调。
+- L2456-2462 stageLyricUsesSingleLineSwap：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。仅源码/调用链，未单独执行该回调。
+- L2488-2488 lyricShelfActiveCamera：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2489-2499 stageLyricShelfHalfWidthNdc：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2500-2532 stageLyricShelfCaptionMetrics：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2536-2551 stageLyricShelfAnchor：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2559-2562 stageLyricShelfFlipEase：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2564-2568 stageLyricShelfFlipSeconds：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2571-2576 stageLyricShelfIntendedFocus：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2580-2611 stageLyricShelfReferenceCamera：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2615-2631 stageLyricStableShelfAnchor：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2634-2645 stageLyricShelfBasePosition：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2648-2659 stageLyricShelfFlipTarget：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2663-2676 stageLyricShelfFit：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2680-2686 stageLyricShelfSourcePose：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2689-2697 blendStageLyricShelfFlip：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2698-2711 stageLyricShelfProjectedCaption：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2712-2731 clampStageLyricTargetForShelf：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2734-2959 updateStageLyricLayout：shelf rest/reference camera, real caption projection, fit/rotation/arc/offset formulas and paused UI layout。定向/相邻链：shelf-lyric-flip.test.js、paused-lyric-layout.test.js。
+- L2961-3396 updateStageLyrics3D：entrance/outgoing/reveal timing, progress smoothing, preview lock, glow/particle/breathing numeric inputs and exit release。仅源码/调用链，未单独执行该回调。
+- L3013-3384 updateStageLyrics3D → tickMesh：entrance/outgoing/reveal timing, progress smoothing, preview lock, glow/particle/breathing numeric inputs and exit release。仅源码/调用链，未单独执行该回调。
+- L3399-3402 lyricKaraokeMeasureContext：native word proportional measurements/cache generation and line progress boundaries。仅源码/调用链，未单独执行该回调。
+- L3403-3412 lyricKaraokeMetricsKey：native word proportional measurements/cache generation and line progress boundaries。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L3413-3441 lyricKaraokeWordRanges：native word proportional measurements/cache generation and line progress boundaries。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L3418-3418 lyricKaraokeWordRanges → callback@3418：native word proportional measurements/cache generation and line progress boundaries。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L3426-3437 lyricKaraokeWordRanges → callback@3426：native word proportional measurements/cache generation and line progress boundaries。定向/相邻链：lyric-font-ready-refresh.test.js、custom-font-lifecycle.test.js。
+- L3442-3444 lyricLineHasNativeKaraoke：native word proportional measurements/cache generation and line progress boundaries。仅源码/调用链，未单独执行该回调。
+- L3445-3474 getLyricLineProgress：native word proportional measurements/cache generation and line progress boundaries。仅源码/调用链，未单独执行该回调。
+- L3476-3479 lyricLineDisplayTextAt：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3480-3483 lyricLineTranslationTextAt：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3484-3507 stageLyricContextEntry：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3508-3532 makeStageLyricTranslationEntry：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3533-3573 applyLyricTranslationModeToEntries：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3574-3597 applyLyricTranslationModeToTrackEntries：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3598-3624 stageLyricTrackKeyForMode：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3626-3639 stageLyricTrackBaseEntry：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3640-3685 lyricMeshTrackWindow：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L3686-3714 buildStageLyricMeshTrackEntries：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3715-3723 lyricBufferedTrackWindow：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3724-3764 buildStageLyricTrackEntries：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3765-3823 buildStageLyricDisplayPayload：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3775-3775 buildStageLyricDisplayPayload → callback@3775：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3813-3813 buildStageLyricDisplayPayload → callback@3813：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3824-3839 buildStageLyricPlaybackPayload：context/translation entries, fixed virtual slots, lightweight/window/full payload and track cache identity。仅源码/调用链，未单独执行该回调。
+- L3841-3858 findStageLyricIndexAtTime：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：stage-lyric-mesh-boundaries.test.js。
+- L3860-3871 retireCurrentStageLyricForIdle：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。仅源码/调用链，未单独执行该回调。
+- L3873-3879 resetStageLyricResumeFrameGates：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L3881-3927 markStageLyricsPlaybackResume：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L3929-3978 restoreCurrentStageLyrics：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：paused-lyric-edit-commit.test.js、stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L3980-3983 restorePausedStageLyrics：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：paused-lyric-edit-commit.test.js、stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L3985-3989 restoreStageLyricsAfterBackground：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：stage-lyric-background-restore.test.js、lyric-work-scheduler.test.js。
+- L3993-3999 stageLyricCanKeepIntroTitle：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：lyric-title-handoff.test.js。
+- L4000-4112 tickLyricsParticles：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L4114-4126 disposeLyricsParticles：binary line search, idle retirement, duplicate resume, attached-mesh recovery, pause-hold and lyric tick/disposal。仅源码/调用链，未单独执行该回调。
+
+## public/js/modules/06-lyrics/06-lyric-timing-offset.js
+
+266 行；顶层函数 23；含嵌套回调 35。SHA256：9f48d7232fe1152e30ab3d91f83b56073a733644ee0423af33fe714c488e8545
+
+- L6-10 normalizeLyricTimingOffsetSeconds：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L12-15 lyricTimingOffsetEntryValue：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L17-38 readLyricTimingOffsetMap：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L22-33 readLyricTimingOffsetMap → callback@22：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L40-54 writeLyricTimingOffsetMap：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L42-44 writeLyricTimingOffsetMap → callback@42：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L46-46 writeLyricTimingOffsetMap → callback@46：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L56-60 lyricTimingCurrentSong：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L62-73 lyricTimingSongKey：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L75-78 getLyricTimingOffsetForSong：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L80-82 getActiveLyricTimingOffsetSeconds：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L84-88 getAdjustedLyricPlaybackTime：bounded per-song offset map, song identity and finite adjusted media time。仅源码/调用链，未单独执行该回调。
+- L90-94 formatLyricTimingOffset：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L96-100 lyricTimingToastText：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L102-107 releaseLyricTimingPopoverFocus：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L109-116 clearLyricTimingPopoverClose：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L118-120 suppressLyricTimingSiblingPanels：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L122-127 lyricTimingControlIsActive：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L129-133 releaseLyricTimingSiblingPanelsSoon：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L130-132 releaseLyricTimingSiblingPanelsSoon → callback@130：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L135-149 closeLyricTimingPopover：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L144-147 closeLyricTimingPopover → callback@144：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L151-164 updateLyricTimingOffsetUi：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L161-163 updateLyricTimingOffsetUi → callback@161：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L166-177 refreshLyricTimingAfterOffsetChange：offset UI/debounce/focus, duplicate event guards and explicit paused restore。定向/相邻链：paused-lyric-edit-commit.test.js。
+- L179-217 setCurrentLyricTimingOffset：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L219-222 adjustCurrentLyricTimingOffset：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L224-237 handleLyricTimingOffsetClick：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L239-263 bindLyricTimingOffsetControls：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L243-247 bindLyricTimingOffsetControls → callback@243：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L248-252 bindLyricTimingOffsetControls → callback@248：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L253-253 bindLyricTimingOffsetControls → callback@253：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L254-254 bindLyricTimingOffsetControls → callback@254：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L256-258 bindLyricTimingOffsetControls → callback@256：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。
+- L259-261 bindLyricTimingOffsetControls → callback@259：offset UI/debounce/focus, duplicate event guards and explicit paused restore。仅源码/调用链，未单独执行该回调。

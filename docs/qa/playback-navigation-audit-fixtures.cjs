@@ -1,0 +1,18 @@
+'use strict';
+const vm=require('node:vm');const {loadFunctions}=require('../../tests/helpers/classic-functions');const no=()=>{};
+(async()=>{
+ const calls=[];const c=vm.createContext({playQueue:[{id:'playing'}],currentIdx:0,trackSwitchToken:7,playing:true,currentLocalSong:null,startupRestoreHomePending:false,pendingPlaybackResumeAt:0,restoredLastPlaybackSnapshot:{current:{id:'playing'}},LAST_PLAYBACK_STORE_KEY:'fixture',
+  localStorage:{removeItem:no},audio:{src:'playing.wav',paused:false,pause(){this.paused=true;}},cancelPlaylistQueueHydration:no,safeRenderQueuePanel:no,safeShelfRebuild:no,updateCustomCoverButton:no,updateCustomLyricControls:no,updateEmptyHomeVisibility:no,saveLastPlaybackSnapshot:()=>calls.push('saved'),cancelPlaybackSourceRequest:()=>calls.push('abort')});
+ Object.assign(c,{cancelSourceFallbackRecovery:no,clearAlbumGaplessPreload:no,resetCuefieldAutoMix:no,clearPlaybackResumeWatchdogs:no,playbackResumeRecovery:{serial:0},cancelBeatAnalysisTimer:no,cancelBeatPrefetchTimer:no,cancelDjBeatAnalysisTimer:no,beatMapToken:0,djBeatMapToken:0,localBeatAnalysis:{active:false},finalizeListenSession:no,setPlayIcon:no,hideLoading:no,forcePlaybackControlsInteractive:no,pauseCurrentAudioForTrackSwitch:()=>c.audio.pause()});c.audio.removeAttribute=function(){this.src='';};c.audio.load=no;loadFunctions(c,'public/js/modules/05-playback/14-player-controls.js',['clearQueue']);c.clearQueue();console.log('PBL-04 clear',JSON.stringify({queueLength:c.playQueue.length,src:c.audio.src,paused:c.audio.paused,token:c.trackSwitchToken,saves:calls}));
+ let release;const gate=new Promise(r=>release=r);const started=[];
+ const p=vm.createContext({playQueue:[{id:'existing'}],currentIdx:0,trackSwitchToken:7,queueLoadRequestSerial:0,queueHydrationState:{token:1},userPlaylists:[],PLAYLIST_QUEUE_INITIAL_BATCH_SIZE:96,
+  updateEmptyHomeVisibility:no,showLoading:no,hideLoading:no,cancelPlaylistQueueHydration:no,fetchPlaylistTracksPage:()=>gate,
+  cloneSong:s=>({...s}),isLikedPlaylistContext:()=>false,syncLikeStatusForSongs:no,safeRenderQueuePanel:no,safeSwitchPlaylistTab:no,safeShelfRebuild:no,forcePlaybackControlsInteractive:no,showToast:no,
+  normalizePlaylistProvider:p=>p,playQueueAt:i=>started.push(p.playQueue[i].id),console});
+ loadFunctions(p,'public/js/modules/06-lyrics/03-podcast-playlist-loaders.js',['beginQueueLoadRequest','queueLoadRequestStillCurrent','playlistQueueSource','playlistQueuePageSize','loadPlaylistIntoQueueById']);
+ const old=p.loadPlaylistIntoQueueById('old-playlist',true,'old');p.playQueue=[{id:'new-selection'}];p.currentIdx=0;p.queueHydrationState={token:9,queueRef:p.playQueue};
+ release({tracks:[{id:'stale-first-page'}],total:1,nextOffset:1,hasMore:false});await old;console.log('PBL-05 stale playlist first-page',JSON.stringify({selectedBefore:'new-selection',selectedAfter:p.playQueue[p.currentIdx].id,started}));
+ const s=vm.createContext({progressDragState:{active:true,seekTrackToken:7,pointerStartX:0,pointerMoved:true,pointerStartedAt:0,previewTime:50,resumeAfterSeek:true,media:null,mediaSrc:'fixture'},
+  trackSwitchToken:7,performance:{now:()=>300},progressBar:{classList:{remove:no},releasePointerCapture:no},flushProgressPointerPreview:no,clearProgressPreviewHold:no,progressSeekMediaStillCurrent:()=>true,restorePlaybackGain:no,attemptAudioPlay:()=>{s.audio.paused=false;},audio:{paused:true},console});
+ s.progressDragState.media=s.audio;loadFunctions(s,'public/js/modules/06-lyrics/04-progress-seek.js',['endProgressDrag']);s.endProgressDrag({clientX:50,pointerId:1},false);console.log('PBL-06 cancel seek',JSON.stringify({playingBeforeDrag:true,pausedAfterCancel:s.audio.paused}));
+})().catch(e=>{console.error(e);process.exitCode=1;});
