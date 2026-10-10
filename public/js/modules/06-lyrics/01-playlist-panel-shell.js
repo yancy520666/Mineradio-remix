@@ -235,6 +235,9 @@ function switchPlaylistTab(tab, opts) {
   if ((tab === 'playlists' || tab === 'podcasts') && opts.refresh !== false) refreshUserPlaylists();
   if (opts.animate !== false) animatePlaylistPanelCurrentTab(document.getElementById('playlist-panel'));
   updatePanelTabIndicator();
+  var panel = document.getElementById('playlist-panel');
+  if (panel && typeof playlistPanelTopInset === 'function') playlistPanelTopInset(panel);
+  if (panel && typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(panel);
 }
 // A single pill slides under the active tab instead of each tab swapping
 // its own background. Offsets are layout-relative, so panel transforms and
@@ -478,6 +481,7 @@ function renderQueuePanel(opts) {
     renderMiniQueuePanel();
     var panel = document.getElementById('playlist-panel');
     if (panel && (panel.classList.contains('show') || panel.classList.contains('peek')) && queueViewTab === 'queue') switchPlaylistTab('playlists', { save: false });
+    if (panel && typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(panel);
     return;
   }
   var total = playQueue.length;
@@ -499,6 +503,7 @@ function renderQueuePanel(opts) {
       '</div>' +
       '</div>';
   }).join('') + queueVirtualSpacerHtml(windowInfo.bottom) + queueHydrationFooterHtml(false);
+  if (panelScroller && typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(panelScroller);
   if (opts.animate && seq === queueRenderSeq) animateVisiblePanelList($ql, '.queue-item', document.getElementById('playlist-panel'), '.queue-item.now');
   renderMiniQueuePanel({ scrollCurrent: opts.scrollCurrent !== false && miniQueueOpen });
 }

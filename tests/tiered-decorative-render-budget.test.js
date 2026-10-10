@@ -35,7 +35,7 @@ test('fractional explicit profile caps cannot be bypassed by legacy interpolatio
  const actual=policy.pixelRatio(explicit,2560,1440,2);
  assert(actual<=.6);assert(actual**2*2560*1440<=700000+1e-6);
 });
-test('high stable subset uses shared source attributes and restores original ultra with no reseeding',()=>{
+test('high and ultra keep the full regular grid; lower tiers use complete smaller grids',()=>{
  const src=fs.readFileSync('public/js/modules/02-visual/00-pointer-cover-particles.js','utf8');
  const helper=fs.readFileSync('public/js/modules/02-visual/04-visual-settings-persistence.js','utf8');
  for(const resolution of [.75,.9,1,1.1,1.32,1.55]){
@@ -45,11 +45,12 @@ test('high stable subset uses shared source attributes and restores original ult
   const original=c.geo;let disposed=0;original.addEventListener('dispose',()=>disposed++);
   for(let n=0;n<3;n++)for(const q of ['eco','balanced','high','ultra']){
    c.fx.performanceQuality=q;c.applyCoverParticleQualityBudget();const selected=c.particles.geometry;
-   assert.equal(selected.userData.count,Math.min(c.GRID_X,{eco:97,balanced:127,high:167,ultra:Infinity}[q])**2);
+   assert.equal(selected.userData.count,Math.min(c.GRID_X,{eco:97,balanced:127,high:Infinity,ultra:Infinity}[q])**2);
    assert.equal(c.bloomParticles.geometry,selected);assert.equal(c.fx.coverResolution,resolution);
-   for(const attr of ['position','aUv','aRand'])assert.equal(selected.getAttribute(attr),original.getAttribute(attr));
+   assert.equal(selected.index,null);
+   for(const attr of ['position','aUv','aRand'])assert.equal(selected.getAttribute(attr).count,selected.userData.count);
    if(selected.index){const idx=Array.from(selected.index.array);assert.equal(new Set(idx).size,idx.length);assert.equal(idx[0],0);assert.equal(idx.at(-1),c.GRID_X**2-1);}
-   if(q==='ultra')assert.equal(selected,original);
+   if(q==='ultra'||q==='high')assert.equal(selected,original);
   }
   assert.equal(disposed,0);
  }

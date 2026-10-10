@@ -1206,6 +1206,9 @@ class FullDesktopModeRuntime {
       || this.iconLayerRestoreUnconfirmed || !this.isWindowAlive(win)
       || !this.attachment || this.attachment.kind !== 'icon-host'
       || !webContents || typeof webContents.sendInputEvent !== 'function') return false;
+    // A legitimate zero setting means no scrolling. Do not emit a zero-delta
+    // event either: some page controls interpret any wheel event as a step.
+    if (wheel.lines === 0) return false;
     const bounds = this.attachment.bounds || {};
     const scaleX = Number(bounds.width) > 0 ? bounds.width / wheel.width : 1;
     const scaleY = Number(bounds.height) > 0 ? bounds.height / wheel.height : 1;

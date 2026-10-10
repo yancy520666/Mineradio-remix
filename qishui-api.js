@@ -152,6 +152,15 @@ function createTtlCache(maxEntries, defaultTtlMs) {
         if (oldest) store.delete(oldest[0]);
       }
     },
+    delete(key) {
+      store.delete(key);
+      inflight.delete(key);
+    },
+    deleteMatching(predicate) {
+      for (const key of new Set([...store.keys(), ...inflight.keys()])) {
+        if (predicate(key)) this.delete(key);
+      }
+    },
     clear() {
       generation += 1;
       store.clear();
@@ -163,9 +172,10 @@ function createTtlCache(maxEntries, defaultTtlMs) {
       if (inflight.has(key)) return inflight.get(key);
       const startedGeneration = generation;
       let promise;
-      promise = Promise.resolve().then(fn).then((value) => {
+      const isCurrent = () => startedGeneration === generation && inflight.get(key) === promise;
+      promise = Promise.resolve().then(() => fn(isCurrent)).then((value) => {
         const resolvedTtlMs = typeof ttlMs === 'function' ? ttlMs(value) : ttlMs;
-        if (startedGeneration === generation && resolvedTtlMs !== 0) this.set(key, value, resolvedTtlMs);
+        if (isCurrent() && resolvedTtlMs !== 0) this.set(key, value, resolvedTtlMs);
         return value;
       }).finally(() => {
         if (inflight.get(key) === promise) inflight.delete(key);
@@ -189,6 +199,9 @@ const QISHUI_MEMBERSHIP_POSITIVE_CACHE_MS = 10 * 1000;
 const QISHUI_MEMBERSHIP_POSITIVE_GRACE_MS = 20 * 1000;
 const qishuiTrackMetadataCache = createTtlCache(120, 20 * 1000);
 const qishuiPlaybackCache = createTtlCache(120, 4 * 60 * 1000);
+// Pending handlers only: a fresh metadata failure must also supersede an old
+// handler that has not reached its downstream playback-cache key yet.
+const qishuiPlaybackRequests = createTtlCache(120, 4 * 60 * 1000);
 
 function requestText(targetUrl, opts, body) {
   return requestTextWithMeta(targetUrl, opts, body).then(meta => meta.text);
@@ -486,6 +499,7 @@ function clearQishuiRuntimeCaches() {
   qishuiMembershipPositiveHistory.clear();
   qishuiTrackMetadataCache.clear && qishuiTrackMetadataCache.clear();
   qishuiPlaybackCache.clear && qishuiPlaybackCache.clear();
+  qishuiPlaybackRequests.clear();
 }
 
 function qishuiAccessTokenInfo() {
@@ -3396,9 +3410,10 @@ function requireQishuiPlaybackPayload(payload) {
   return payload;
 }
 
-async function fetchQishuiPcTrackV2(trackId, cookieText) {
+async function fetchQishuiPcTrackV2(trackId, cookieText, options) {
   const cookie = normalizeQishuiCookieInput(cookieText);
   const cacheKey = 'track-v2-meta|' + qishuiCookieFingerprint(cookie) + '|' + normalizeText(trackId);
+  if (options && options.fresh === true) qishuiTrackMetadataCache.delete(cacheKey);
   return qishuiTrackMetadataCache.wrap(cacheKey, 20 * 1000, async () => {
     try {
       return requireQishuiPlaybackPayload(await fetchQishuiPcTrackV2Post(trackId, cookie));
@@ -3534,9 +3549,10 @@ function qishuiUrlWithAuth(url, auth) {
   return url + '#auth=' + encodeURIComponent(auth);
 }
 
-async function resolveQishuiSeoPlayback(id, cookie, membership, requestedQuality, timeoutBudgetMs) {
+async function resolveQishuiSeoPlayback(id, cookie, membership, requestedQuality, timeoutBudgetMs, options) {
   const tier = qishuiMembershipTier(membership);
   const cacheKey = 'public-seo|' + qishuiCookieFingerprint(cookie) + '|' + tier + '|' + id + '|' + requestedQuality;
+  if (options && options.fresh === true) qishuiPlaybackCache.delete(cacheKey);
   return qishuiPlaybackCache.wrap(cacheKey, 60 * 1000, async () => {
     const deadline = Date.now() + timeoutBudgetMs;
     function requestTimeout(maximum) {
@@ -3605,14 +3621,34 @@ async function handleQishuiSongUrl(opts, cookieText) {
     });
   }
   const requestedQuality = normalizeText(opts.quality || '');
+  const accountKey = qishuiCookieFingerprint(cookie);
+  const requestScope = accountKey + '|' + id + '|' + requestedQuality + '|';
+  if (opts.fresh === true) {
+    qishuiPlaybackRequests.deleteMatching(key => key.startsWith(requestScope));
+    // Membership/required tier are discovered after metadata. Invalidate the
+    // current account/song/quality now, even if fresh official metadata fails.
+    qishuiPlaybackCache.deleteMatching(key => {
+      const parts = key.split('|');
+      return (parts[0] === 'track-v2' || parts[0] === 'public-seo')
+        && parts[1] === accountKey && parts[3] === id && parts[4] === requestedQuality;
+    });
+  }
+  const requestKey = requestScope + qishuiTrackPlaybackRestriction(opts).requiredTier;
+  return qishuiPlaybackRequests.wrap(requestKey, 0, async (isRequestCurrent) => {
+  function superseded() {
+    return qishuiUnavailable('Playback request superseded.', 'request_superseded', { playbackKeyReady: false });
+  }
   const startedAt = Date.now();
   let payload;
   try {
-    payload = await fetchQishuiPcTrackV2(id, cookie);
+    payload = await fetchQishuiPcTrackV2(id, cookie, { fresh: opts.fresh === true });
+    if (!isRequestCurrent()) return superseded();
   } catch (err) {
+    if (!isRequestCurrent()) return superseded();
     const checked = qishuiSessionExpired(err)
       ? { reauthRequired: true }
       : await fetchQishuiPlaybackMembership(cookie);
+    if (!isRequestCurrent()) return superseded();
     if (checked.reauthRequired) {
       return qishuiUnavailable('汽水音乐登录状态已失效，请重新扫码登录。', 'login_required', {
         loggedIn: false, webSession: false, reauthRequired: true,
@@ -3622,7 +3658,8 @@ async function handleQishuiSongUrl(opts, cookieText) {
     let fallbackError;
     try {
       const fallback = await resolveQishuiSeoPlayback(id, cookie, checked, requestedQuality,
-        Math.max(0, 14000 - (Date.now() - startedAt)));
+        Math.max(0, 14000 - (Date.now() - startedAt)), { fresh: opts.fresh === true });
+      if (!isRequestCurrent()) return superseded();
       return Object.assign({}, fallback, {
         officialPlaybackUnavailable: true,
         officialPlaybackError: err && err.code || 'QISHUI_PC_PLAYBACK_UNAVAILABLE',
@@ -3649,6 +3686,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
   }
   let membership = qishuiPlaybackMembershipFromPayload(payload);
   if (!membership.membershipKnown) membership = await fetchQishuiPlaybackMembership(cookie);
+  if (!isRequestCurrent()) return superseded();
   if (membership.reauthRequired) {
     return qishuiUnavailable('汽水音乐登录状态已失效，请重新扫码登录。', 'login_required', {
       loggedIn: false, webSession: false, reauthRequired: true,
@@ -3662,6 +3700,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
   const requestRestriction = qishuiTrackPlaybackRestriction(opts);
   const requiredTier = qishuiHigherRequiredTier(trackRestriction.requiredTier, requestRestriction.requiredTier);
   const cacheKey = 'track-v2|' + qishuiCookieFingerprint(cookie) + '|' + membershipKey + '|' + id + '|' + requestedQuality + '|' + requiredTier;
+  if (opts.fresh === true) qishuiPlaybackCache.delete(cacheKey);
   return qishuiPlaybackCache.wrap(cacheKey, value => value.playable ? 4 * 60 * 1000 : 0, async () => {
     try {
       if (!qishuiRequiredTierAllowed(requiredTier, membership)) {
@@ -3745,6 +3784,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
         rawError: err && err.message || String(err),
       });
     }
+  });
   });
 }
 

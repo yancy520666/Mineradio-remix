@@ -1329,7 +1329,8 @@ async function playQueueAt(idx, opts) {
       if (playbackQualityAboveCap(requestedQuality, playbackProvider, runtimeQualityCap)) {
         requestedQuality = runtimeQualityCap;
       }
-      var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
+      var qualityParam = '&quality=' + encodeURIComponent(requestedQuality)
+        + (opts.resumeRecovery && (isKugouPlayback || isQishuiPlayback) ? '&fresh=1' : '');
       var data;
       if (albumGaplessHandoff) {
         data = opts.preloadedData;

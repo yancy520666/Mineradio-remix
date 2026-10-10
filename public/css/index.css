@@ -496,7 +496,7 @@ body.desktop-shell #desktop-window-shell {
 }
 
 body.desktop-shell.desktop-maximized #desktop-window-shell,
-body.desktop-shell.desktop-fullscreen #desktop-window-shell,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #desktop-window-shell,
 body.desktop-shell.desktop-wallpaper-mode #desktop-window-shell,
 html:fullscreen body.desktop-shell #desktop-window-shell {
   border-radius: 0 !important;
@@ -756,6 +756,7 @@ body.desktop-shell #toast {
   height: 52px;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   pointer-events: none;
   -webkit-app-region: no-drag
 }
@@ -781,12 +782,12 @@ body.visual-guide-active #fullscreen-diy-btn {
   transform: translateY(-18px) scale(.96) !important
 }
 
-body.desktop-shell.desktop-fullscreen #desktop-titlebar,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #desktop-titlebar,
 html:fullscreen body.desktop-shell #desktop-titlebar {
   display: none !important
 }
 
-body.desktop-shell.desktop-fullscreen #fullscreen-diy-zone,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #fullscreen-diy-zone,
 html:fullscreen body.desktop-shell #fullscreen-diy-zone {
   display: flex
 }
@@ -803,11 +804,11 @@ body.fullscreen-diy-peek #fullscreen-diy-btn,
   transform: translateY(0) scale(1)
 }
 
-body.desktop-shell.desktop-fullscreen #search-area.peek {
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #search-area.peek {
   top: 24px
 }
 
-body.desktop-shell.desktop-fullscreen #top-right {
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #top-right {
   top: 24px
 }
 
@@ -1033,10 +1034,10 @@ body.desktop-shell.desktop-maximized #wallpaper-engine-layer,
 body.desktop-shell.desktop-maximized #wallpaper-engine-image,
 body.desktop-shell.desktop-maximized #wallpaper-engine-video,
 body.desktop-shell.desktop-maximized #wallpaper-engine-freeze,
-body.desktop-shell.desktop-fullscreen #wallpaper-engine-layer,
-body.desktop-shell.desktop-fullscreen #wallpaper-engine-image,
-body.desktop-shell.desktop-fullscreen #wallpaper-engine-video,
-body.desktop-shell.desktop-fullscreen #wallpaper-engine-freeze,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #wallpaper-engine-layer,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #wallpaper-engine-image,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #wallpaper-engine-video,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #wallpaper-engine-freeze,
 body.desktop-shell.desktop-wallpaper-mode #wallpaper-engine-layer,
 body.desktop-shell.desktop-wallpaper-mode #wallpaper-engine-image,
 body.desktop-shell.desktop-wallpaper-mode #wallpaper-engine-video,
@@ -3580,12 +3581,12 @@ body.empty-home-active.controls-visible #empty-home {
   height: 58px
 }
 
-body.desktop-shell:not(.desktop-fullscreen) #upload-actions {
+body.desktop-shell:not(:is(.desktop-fullscreen, .desktop-wallpaper-interactive)) #upload-actions {
   margin-top: 0
 }
 
 html:fullscreen body.desktop-shell #upload-actions,
-body.desktop-shell.desktop-fullscreen #upload-actions {
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #upload-actions {
   margin-top: 0
 }
 
@@ -3892,26 +3893,26 @@ body.desktop-shell .home-tile-cover {
   height: 84px
 }
 
-body.desktop-shell.desktop-fullscreen #empty-home,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #empty-home,
 html:fullscreen body.desktop-shell #empty-home {
   top: 96px;
   bottom: 52px;
   width: min(1480px, calc(100vw - 96px))
 }
 
-body.desktop-shell.desktop-fullscreen .empty-home-shell,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) .empty-home-shell,
 html:fullscreen body.desktop-shell .empty-home-shell {
   max-width: 1480px;
   margin: 0 auto;
   grid-template-columns: minmax(380px, .92fr) minmax(560px, 1.08fr)
 }
 
-body.desktop-shell.desktop-fullscreen .home-mosaic,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) .home-mosaic,
 html:fullscreen body.desktop-shell .home-mosaic {
   height: clamp(146px, 16vh, 208px)
 }
 
-body.desktop-shell.desktop-fullscreen .home-mosaic-cell.has-cover,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) .home-mosaic-cell.has-cover,
 html:fullscreen body.desktop-shell .home-mosaic-cell.has-cover {
   background-size: contain;
   background-repeat: no-repeat;
@@ -13814,7 +13815,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45), 0 0 34px rgba(var(--fc-accent-rgb), .08)
 }
 
-body.desktop-shell.desktop-fullscreen #playlist-panel,
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #playlist-panel,
 html:fullscreen body.desktop-shell #playlist-panel {
   top: clamp(64px, 6vh, 92px);
   left: clamp(24px, 2.2vw, 54px);
@@ -13824,7 +13825,7 @@ html:fullscreen body.desktop-shell #playlist-panel {
 
 @media (max-height:760px) {
 
-  body.desktop-shell.desktop-fullscreen #playlist-panel,
+  body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #playlist-panel,
   html:fullscreen body.desktop-shell #playlist-panel {
     top: 56px;
     max-height: calc(100vh - 78px)
@@ -13833,7 +13834,7 @@ html:fullscreen body.desktop-shell #playlist-panel {
 
 @media (min-width:2200px) and (min-height:1100px) {
 
-  body.desktop-shell.desktop-fullscreen #playlist-panel,
+  body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #playlist-panel,
   html:fullscreen body.desktop-shell #playlist-panel {
     width: clamp(380px, 19vw, 460px)
   }
@@ -19677,14 +19678,23 @@ html.aero-water-on #bottom-bar #play-btn::after { opacity: 1; }
 /* Left-panel material settings: one backdrop pass for the complete panel. */
 #playlist-panel,
 html.control-glass-svg-ok #playlist-panel {
-  background: rgba(12, 12, 18, var(--playlist-panel-density, .55)) !important;
+  background: rgba(12, 12, 18, var(--playlist-panel-density, 1)) !important;
   backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) !important;
   -webkit-backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) !important;
 }
 #playlist-panel .playlist-panel-sticky,
-#playlist-panel .queue-toolbar {
+#playlist-panel .queue-toolbar,
+#playlist-panel .pl-inline-detail,
+#playlist-panel .pl-detail-sticky {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+/* Controls always cover scrolling rows, including profiles with saved low density. */
+#playlist-panel .playlist-panel-sticky {
+  background: linear-gradient(180deg, rgb(12, 14, 18), rgb(9, 11, 15) 70%, rgb(9, 11, 15)) !important;
+}
+#playlist-panel .queue-toolbar {
+  background: linear-gradient(180deg, rgb(11, 13, 18), rgb(8, 10, 14) 74%, rgb(8, 10, 14)) !important;
 }
 
 /* Reuse the theme's existing clear/cyan/blue sheen under the panel content. */
@@ -19700,24 +19710,30 @@ html.aero-water-on #playlist-panel > .aero-sheen .aero-sheen-light {
 
 /* Let full-panel density and the existing water sheen remain visible through rows. */
 #playlist-panel .pl-card,
+#playlist-panel .pl-card.podcast-card,
+#playlist-panel .pl-card.podcast-child,
 #playlist-panel .queue-item,
 #playlist-panel .pl-detail-row {
   background: rgba(0, 0, 0, var(--playlist-row-a, .20)) !important;
 }
 #playlist-panel .pl-card:hover,
+#playlist-panel .pl-card.podcast-card:hover,
+#playlist-panel .pl-card.podcast-child:hover,
 #playlist-panel .queue-item:hover,
 #playlist-panel .pl-detail-row:hover {
   background: rgba(18, 18, 22, var(--playlist-row-hover-a, .30)) !important;
 }
 #playlist-panel .pl-card.expanded,
+#playlist-panel .pl-card.podcast-card.expanded,
+#playlist-panel .pl-card.podcast-child.expanded,
 #playlist-panel .queue-item.now {
   background: rgba(8, 14, 24, var(--playlist-row-selected-a, .38)) !important;
 }
 #playlist-panel .pl-inline-detail {
-  background: linear-gradient(180deg, rgba(var(--fc-accent-rgb), .105), rgba(8, 12, 20, var(--playlist-row-hover-a, .30)) 24%, rgba(4, 7, 12, var(--playlist-row-a, .20)));
+  background: linear-gradient(180deg, rgba(var(--fc-accent-rgb), .105), rgba(8, 12, 20, var(--playlist-row-hover-a, .30)) 24%, rgba(4, 7, 12, var(--playlist-row-a, .20))) !important;
 }
 #playlist-panel .pl-detail-sticky {
-  background: linear-gradient(180deg, rgba(12, 17, 27, var(--playlist-detail-header-a, .72)), rgba(12, 17, 27, var(--playlist-row-selected-a, .38)));
+  background: linear-gradient(180deg, rgb(12, 17, 27), rgb(12, 17, 27)) !important;
 }
 
 /* Optional local microphone mix stays outside the routing SVG/drag surface. */
@@ -19923,3 +19939,117 @@ body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-
 #audio-output-workflow-modal .audio-route-steps { margin: 12px 0 0; padding-left: 20px; color: rgba(255,255,255,.86); font-size: 12px; line-height: 1.8; }
 #audio-output-workflow-modal .audio-route-steps b { color: #f1d59c; font-weight: 600; }
 #audio-output-workflow-modal .route-lane .audio-route-steps + .audio-route-note { margin-top: 4px; }
+
+/* Reply in place: a single quiet glass card stays with the selected comment. */
+#song-comments .comment-reply-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+#song-comments .comment-reply-open {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, .38);
+  font: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+#song-comments .comment-reply-open:hover,
+#song-comments .is-reply-selected > .comment-main > .comment-replies > .comment-actions .comment-reply-open,
+#song-comments .is-reply-selected > .comment-reply-copy > .comment-actions .comment-reply-open { color: rgba(var(--fc-accent-rgb), .94); }
+#song-comments .comment-reply-open:focus-visible { outline: 2px solid rgba(var(--fc-accent-rgb), .85); outline-offset: 3px; }
+#song-comments .is-replyable > .comment-main > .comment-text,
+#song-comments .is-replyable > .comment-reply-copy > .comment-reply-text { cursor: pointer; }
+#song-comments .comment-reply-copy > .comment-actions { gap: 9px; }
+#song-comments .detail-reply-compose {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .23);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, .16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+#song-comments .detail-reply-target {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  color: rgba(255, 255, 255, .42);
+  font-size: 10.5px;
+  line-height: 17px;
+}
+#song-comments .detail-reply-target span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(var(--fc-accent-rgb), .9);
+}
+#song-comments .detail-reply-quote {
+  overflow: hidden;
+  margin: 2px 0 8px;
+  padding-left: 7px;
+  border-left: 2px solid rgba(var(--fc-accent-rgb), .25);
+  color: rgba(255, 255, 255, .34);
+  font-size: 10px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#song-comments .detail-reply-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  max-height: 130px;
+  padding: 7px 9px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(0, 0, 0, .16);
+  color: rgba(255, 255, 255, .86);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+#song-comments .detail-reply-input::placeholder { color: rgba(255, 255, 255, .3); }
+#song-comments .detail-reply-input:focus { border-color: rgba(var(--fc-accent-rgb), .4); }
+#song-comments .detail-reply-input:disabled { opacity: .65; }
+#song-comments .detail-reply-compose-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 8px; margin-top: 7px; }
+#song-comments .detail-reply-length { flex: 1 0 48px; color: rgba(255, 255, 255, .28); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+#song-comments .detail-reply-compose-actions button {
+  flex: 0 0 auto;
+  min-height: 27px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, .48);
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#song-comments .detail-reply-compose-actions button:hover { background: rgba(255, 255, 255, .05); color: rgba(255, 255, 255, .85); }
+#song-comments .detail-reply-compose-actions .detail-reply-send {
+  padding-right: 10px;
+  padding-left: 10px;
+  border-color: rgba(var(--fc-accent-rgb), .25);
+  background: rgba(var(--fc-accent-rgb), .1);
+  color: rgba(var(--fc-accent-rgb), .95);
+}
+#song-comments .detail-reply-compose-actions .detail-reply-send:hover { background: rgba(var(--fc-accent-rgb), .17); }
+#song-comments .detail-reply-compose-actions button:disabled { opacity: .38; cursor: default; }
+#song-comments .detail-reply-compose-actions button:focus-visible { outline: 2px solid rgba(var(--fc-accent-rgb), .85); outline-offset: 2px; }
+#song-comments .detail-reply-feedback { margin: 7px 0 0; color: rgba(var(--fc-accent-rgb), .86); font-size: 10.5px; line-height: 17px; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  #song-comments .detail-reply-compose { padding: 8px; }
+  #song-comments .detail-reply-compose-actions { gap: 4px; }
+}

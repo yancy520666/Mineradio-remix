@@ -93,11 +93,13 @@ const {
   clearKugouSessionCaches,
   kugouCookieHasPlayback,
   extractKugouAuth,
+  kugouGatewayRequest,
   kugouAudioReferer,
 } = require('./kugou-api');
 const { handleKugouComments, handleKugouDailyRecommendations, handleKugouReplies } = require('./kugou-community-api');
 const { handleNeteaseReplies, handleQQReplies } = require('./comment-replies-api');
 const { handleNeteaseCommentPage, handleQQCommentPage } = require('./comment-list-api');
+const { handleCommentReply, replyFailure, COMMENT_REPLY_CAPABILITIES } = require('./comment-reply-write-api');
 const {
   getQishuiStatus,
   handleQishuiStatus,
@@ -5255,23 +5257,24 @@ const server = http.createServer(async (req, res) => {
     sendJSON(res, {
       netease: {
         playlists: true, likeRead: true, likeWrite: true, albumRead: true,
-        albumCollect: true, commentsRead: true, commentsWrite: true,
+        albumCollect: true, commentsRead: true, commentsWrite: true, commentsReply: COMMENT_REPLY_CAPABILITIES.netease,
         listenReport: 'experimental-unverified',
       },
       qq: {
         playlists: true, likeRead: true, likeWrite: false, albumRead: true,
-        albumCollect: false, commentsRead: true, commentsWrite: false,
+        albumCollect: false, commentsRead: true, commentsWrite: false, commentsReply: COMMENT_REPLY_CAPABILITIES.qq,
         listenReport: false,
       },
       kugou: {
         playlists: true, likeRead: true, likeWrite: true, albumRead: false,
-        albumCollect: false, commentsRead: false, commentsWrite: false,
+        albumCollect: false, commentsRead: true, commentsWrite: false, commentsReply: COMMENT_REPLY_CAPABILITIES.kugou,
         listenReport: false,
       },
       qishui: {
         playlists: true, likeRead: true, likeWrite: qishuiCookieHasLogin(qishuiCookie),
         albumRead: false, albumCollect: qishuiCookieHasLogin(qishuiCookie),
         commentsRead: qishuiCookieHasLogin(qishuiCookie), commentsWrite: qishuiCookieHasLogin(qishuiCookie),
+        commentsReply: COMMENT_REPLY_CAPABILITIES.qishui,
         recentPlayReport: qishuiCookieHasLogin(qishuiCookie), listenReport: false,
       },
     });
@@ -5906,6 +5909,7 @@ const server = http.createServer(async (req, res) => {
     try {
       sendJSON(res, await handleQishuiSongUrl({
         id: url.searchParams.get('id') || url.searchParams.get('trackId') || '',
+        fresh: url.searchParams.get('fresh') === '1',
         quality: url.searchParams.get('quality') || '',
         vipRequired: url.searchParams.get('vipRequired') || '',
         needVip: url.searchParams.get('needVip') || url.searchParams.get('need_vip') || '',
@@ -5935,6 +5939,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const info = await handleKugouSongUrl({
         hash: url.searchParams.get('hash') || url.searchParams.get('id') || '',
+        fresh: url.searchParams.get('fresh') === '1',
         albumId: url.searchParams.get('albumId') || url.searchParams.get('album_id') || '',
         albumAudioId: url.searchParams.get('albumAudioId') || url.searchParams.get('album_audio_id') || url.searchParams.get('mixSongId') || '',
         mixSongId: url.searchParams.get('mixSongId') || url.searchParams.get('albumAudioId') || url.searchParams.get('album_audio_id') || '',
@@ -6946,6 +6951,43 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---------- 歌曲评论 ----------
+  if (pn === '/api/song/comment/reply') {
+    if (req.method !== 'POST') { sendJSON(res, { created: false, success: false, outcome: 'rejected', error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    if (!/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type'] || ''))) {
+      sendJSON(res, { created: false, success: false, outcome: 'rejected', error: 'JSON_BODY_REQUIRED', message: '回复请求格式无效。' }, 415); return;
+    }
+    // Freeze every provider before reading the body; selecting the provider
+    // must not silently pick up credentials from an intervening account switch.
+    const sessions = Object.fromEntries(['netease', 'qq', 'kugou'].map(provider => [provider, captureProviderAccountSession(provider)]));
+    try {
+      const body = await readBoundedRequestBody(req, { maxBytes: 8192, timeoutMs: 10000 });
+      const result = await handleCommentReply(body, sessions[body && body.provider], {
+        isCurrent: session => !!session && checkProviderAccountSession(session),
+        extractKugouAuth, requestJson, qqRequest: qqMusicRequest,
+        resolveQQSongId: async mid => {
+          const song = await qqSongDetail(mid, { mid }, 8500);
+          return song && (song.qqId || song.id);
+        },
+        resolveKugouResourceName: async (input, cookie) => {
+          const json = await kugouGatewayRequest('/mcomment/v1/hot_replylist', { cookie, method: 'POST', timeoutMs: 8500,
+            params: { childrenid: input.resource, mixsongid: input.id, tid: input.parentId, p: 1, pagesize: 1,
+              need_show_image: 1, code: 'fc4be23b4e972707f36b8a828a93ba8a' } });
+          const data = json && (json.data || json);
+          if (!data || Number(json.err_code || json.error_code || 0) || !Array.isArray(data.list)) throw new Error('Invalid comment resource');
+          const first = data.list[0] || {};
+          const name = first.special_child_name || first.song_show_text || '';
+          return typeof name === 'string' ? name.slice(0, 512) : '';
+        },
+      });
+      sendJSON(res, result.payload, result.status);
+    } catch (_) {
+      // Body read failures occur before any platform write and never disclose
+      // raw transport errors, credentials, challenge URLs or provider bodies.
+      const result = replyFailure(null, null, false);
+      sendJSON(res, result.payload, result.status);
+    }
+    return;
+  }
   if (pn === '/api/song/comment/replies') {
     if (req.method !== 'GET') { sendJSON(res, { error: 'METHOD_NOT_ALLOWED' }, 405); return; }
     const provider = url.searchParams.get('provider') || '';

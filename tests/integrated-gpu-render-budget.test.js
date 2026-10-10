@@ -16,51 +16,46 @@ function particleContext(resolution = 1.55, quality = 'high') {
   return c;
 }
 
-test('eco stable subsets preserve every surviving position, UV and random seed and restore exact full geometry', () => {
-  for (const resolution of [0.75, 0.9, 1, 1.1, 1.32, 1.55]) {
-    const c = particleContext(resolution), original = c.geo, grid = c.GRID_X;
-    let disposed = 0;
-    original.addEventListener('dispose', () => disposed++);
-    for (let repeat = 0; repeat < 3; repeat++) {
-      c.fx.performanceQuality = 'eco'; c.applyCoverParticleQualityBudget();
-      const low = c.particles.geometry;
-      assert.equal(low, c.bloomParticles.geometry);
-      assert.equal(c.fx.coverResolution, resolution);
-      assert.equal(low.userData.count, Math.min(97, grid) ** 2);
-      for (const name of ['position', 'aUv', 'aRand']) assert.equal(low.getAttribute(name), original.getAttribute(name));
-      if (grid > 97) {
-        const indices = Array.from(low.index.array);
-        assert.equal(new Set(indices).size, 97 ** 2);
-        assert.equal(indices[0], 0); assert.equal(indices.at(-1), grid ** 2 - 1);
-        assert.equal(indices[(indices.length - 1) / 2], (grid ** 2 - 1) / 2);
-        assert(indices.every((v, i) => i === 0 || v > indices[i - 1]));
-      }
-      c.fx.performanceQuality = 'balanced'; c.applyCoverParticleQualityBudget();
-      const medium = c.particles.geometry;
-      assert.equal(medium, c.bloomParticles.geometry);
-      assert.equal(medium.userData.count, Math.min(127, grid) ** 2);
-      for (const name of ['position', 'aUv', 'aRand']) assert.equal(medium.getAttribute(name), original.getAttribute(name));
-      if (grid > 127) {
-        assert.equal(new Set(medium.index.array).size, 127 ** 2);
-        assert.equal(medium.index.array[0], 0); assert.equal(medium.index.array.at(-1), grid ** 2 - 1);
-      }
-      for (const quality of ['ultra']) {
-        c.fx.performanceQuality = quality; c.applyCoverParticleQualityBudget();
-        assert.equal(c.particles.geometry, original); assert.equal(c.bloomParticles.geometry, original);
-        assert.equal(c.geo.index, null); assert.equal(c.fx.coverResolution, resolution);
-      }
+function assertRegularGrid(geometry) {
+  const grid=geometry.userData.grid, count=grid*grid;
+  assert.equal(geometry.index,null);
+  for(const name of ['position','aUv','aRand'])assert.equal(geometry.getAttribute(name).count,count);
+  const pos=geometry.getAttribute('position').array, uv=geometry.getAttribute('aUv').array;
+  for(let y=0;y<grid;y++)for(let x=0;x<grid;x++){
+    const i=y*grid+x;
+    assert(Math.abs(pos[i*3]-((x/(grid-1)-.5)*4.8))<1e-6);
+    assert(Math.abs(pos[i*3+1]-((y/(grid-1)-.5)*4.8))<1e-6);
+    assert(Math.abs(uv[i*2]-(x+.5)/grid)<1e-6);
+    assert(Math.abs(uv[i*2+1]-(y+.5)/grid)<1e-6);
+  }
+}
+test('all tiers use complete evenly spaced grids; returning high restores saved detail and seeds',()=>{
+  for(const resolution of [.75,.9,1,1.1,1.32,1.55]){
+    const c=particleContext(resolution), original=c.geo, seeds=original.getAttribute('aRand');
+    let disposed=0;original.addEventListener('dispose',()=>disposed++);
+    const cache={};
+    for(let repeat=0;repeat<3;repeat++)for(const quality of ['eco','balanced','high','ultra']){
+      c.fx.performanceQuality=quality;c.applyCoverParticleQualityBudget();
+      const selected=c.particles.geometry;
+      assert.equal(selected,c.bloomParticles.geometry);assertRegularGrid(selected);
+      const grid=Math.min(c.GRID_X,{eco:97,balanced:127,high:Infinity,ultra:Infinity}[quality]);
+      assert.equal(selected.userData.count,grid*grid);
+      assert.equal(c.coverParticleCountLabel(resolution),grid+'x'+grid);
+      assert.equal(c.fx.coverResolution,resolution);
+      if(cache[quality])assert.equal(selected,cache[quality]);cache[quality]=selected;
+      if(quality==='high'||quality==='ultra'){assert.equal(selected,original);assert.equal(selected.getAttribute('aRand'),seeds);}
     }
-    assert.equal(disposed, 0, 'quality changes never dispose/rebuild geometry');
+    assert.equal(disposed,0);
   }
 });
 
 test('explicit resolution edit while eco retains new custom setting and releases all old geometries', () => {
   const c = particleContext(1.55, 'eco');
-  const full = c.geo, low = c.lowDetailCoverGeo, medium = c.mediumDetailCoverGeo, high = c.highDetailCoverGeo;
+  const full = c.geo, low = c.lowDetailCoverGeo, medium = c.mediumDetailCoverGeo;
   let released = 0;
-  full.addEventListener('dispose', () => released++); low.addEventListener('dispose', () => released++); medium.addEventListener('dispose', () => released++); high.addEventListener('dispose', () => released++);
+  full.addEventListener('dispose', () => released++); low.addEventListener('dispose', () => released++); medium.addEventListener('dispose', () => released++);
   c.applyCoverParticleResolution(1.32, { reload: false });
-  assert.equal(released, 4); assert.equal(c.fx.coverResolution, 1.32);
+  assert.equal(released, 3); assert.equal(c.fx.coverResolution, 1.32);
   assert.equal(c.particles.geometry.userData.count, 97 ** 2);
   const updated = c.geo;
   c.fx.performanceQuality = 'ultra'; c.applyCoverParticleResolution(1.32, { reload: false });
@@ -68,7 +63,7 @@ test('explicit resolution edit while eco retains new custom setting and releases
   assert.equal(c.fx.coverResolution, 1.32);
 });
 
-test('1080p / 1440p quality and DPR matrix preserves existing main pixel policies and user cover settings', () => {
+test('1080p / 1440p quality and DPR matrix preserves full high detail with bounded render pixels and user cover settings', () => {
   const source = read('public/js/modules/01-scene/00-renderer-quality.js').split('var renderer =')[0];
   for (const [width, height] of [[1920, 1080], [2560, 1440]]) {
     for (const dpr of [1, 1.25, 1.5, 2]) for (const lowSpec of [false, true]) {
@@ -76,8 +71,8 @@ test('1080p / 1440p quality and DPR matrix preserves existing main pixel policie
         const c = particleContext(1.32, quality);
         Object.assign(c, { innerWidth: width, innerHeight: height, window: { devicePixelRatio: dpr }, runtimeHardwareProfile: { lowSpec } });
         vm.runInContext(source, c);
-        const caps = { eco: lowSpec ? .88 : .95, balanced: lowSpec ? .98 : 1.12, high: lowSpec ? 1.12 : 1.35, ultra: 2 };
-        const budgets = { eco: lowSpec ? 1900000 : 2400000, balanced: lowSpec ? 2800000 : 3800000, high: lowSpec ? 3600000 : 5200000, ultra: Infinity };
+        const caps = { eco: lowSpec ? .88 : .95, balanced: lowSpec ? .98 : 1.12, high: lowSpec ? 1.05 : 1.20, ultra: 2 };
+        const budgets = { eco: lowSpec ? 1900000 : 2400000, balanced: lowSpec ? 2800000 : 3800000, high: lowSpec ? 3200000 : 4600000, ultra: Infinity };
         const expected = Math.min(dpr, caps[quality], Math.sqrt(budgets[quality] / (width * height)));
         assert(Math.abs(c.getRenderPixelRatio() - expected) < 1e-12);
         assert.equal(c.fx.coverResolution, 1.32);

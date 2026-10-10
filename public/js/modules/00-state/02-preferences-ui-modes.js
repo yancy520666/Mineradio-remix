@@ -237,6 +237,9 @@ function updateFxFabAutoHideFromPointer(x, y) {
   if (!nearBottomRight) fxFabAutoHideRevealArmed = true;
   document.body.classList.toggle('fx-fab-peek', panelOpen || (nearBottomRight && fxFabAutoHideRevealArmed));
 }
+function isFullscreenPlayerLayout() {
+  return !!(desktopRuntimeState.fullscreen || desktopFullscreenActive || document.fullscreenElement || document.body.classList.contains('desktop-fullscreen') || document.body.classList.contains('desktop-wallpaper-interactive'));
+}
 var fullscreenDiyLayoutFrame = 0;
 var fullscreenDiyLayoutResizeObserver = null;
 var fullscreenDiyLayoutMutationObserver = null;
@@ -318,7 +321,7 @@ function shouldSuppressFullscreenDiyPeek() {
   return !!(visualGuideActive || fxPanelOpen || hotkeyOpen);
 }
 function updateFullscreenDiyPeekFromPointer(x, y) {
-  var isFullscreen = !!(desktopRuntimeState.fullscreen || desktopFullscreenActive || document.fullscreenElement || document.body.classList.contains('desktop-fullscreen'));
+  var isFullscreen = isFullscreenPlayerLayout();
   if (!isFullscreen || immersiveMode || shouldSuppressFullscreenDiyPeek()) {
     document.body.classList.remove('fullscreen-diy-peek');
     return;

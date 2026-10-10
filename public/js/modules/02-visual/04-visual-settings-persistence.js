@@ -78,6 +78,9 @@ function coverParticleGridForResolution(v) {
 }
 function coverParticleCountLabel(v) {
   var grid = coverParticleGridForResolution(v);
+  var quality = typeof fx !== 'undefined' && fx ? fx.performanceQuality : 'ultra';
+  if (quality === 'eco') grid = Math.min(grid, 97);
+  else if (quality === 'balanced') grid = Math.min(grid, 127);
   return grid + 'x' + grid;
 }
 function coverTextureSizeForResolution(v) {

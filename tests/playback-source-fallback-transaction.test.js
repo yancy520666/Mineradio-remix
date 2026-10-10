@@ -244,11 +244,12 @@ function testStaticRecoveryWiring() {
   assert(/playbackMediaMatchesCurrentQueueItem\(audioEl\)/.test(progressText));
   assert(/ownerQueueItemKey:\s*String\(audioEl\.__mineradioQueueItemKey/.test(progressText));
   assert(/function playbackStallRecoveryOwnerStillCurrent/.test(controlsText));
-  assert((controlsText.match(/playbackStallRecoveryOwnerStillCurrent\(/g) || []).length >= 4);
+  assert((controlsText.match(/playbackStallRecoveryOwnerStillCurrent\(/g) || []).length >= 2);
+  assert((controlsText.match(/ownerCurrent\(\)/g) || []).length >= 4);
   assert(/recoverySerial !== playbackResumeRecovery\.serial/.test(controlsText));
   assert(/clearPlaybackResumeWatchdogs\(\);\s*playbackResumeRecovery\.serial =/.test(controlsText));
   assert(/\['play', 'playing', 'pause'[\s\S]{0,500}audioEl !== audio/.test(progressText));
-  assert(/\['error', 'stalled'\][\s\S]{0,700}schedulePlaybackStallRecovery/.test(progressText));
+  assert(/\['error', 'stalled', 'waiting'\][\s\S]{0,700}schedulePlaybackStallRecovery/.test(progressText));
   assert((startText.match(/schedulePlaybackEndedAdvance\(this, token\)/g) || []).length >= 2, 'local and online ended playback must still schedule advancement');
   assert(/function schedulePlaybackEndedAdvance\(media, token\)[\s\S]{0,500}token !== trackSwitchToken[\s\S]{0,300}audio !== media[\s\S]{0,300}else nextTrack\(\)/.test(startText), 'deferred advancement must retain media/token ownership and normal next behavior');
   const nextTrackBlock = controlsText.slice(

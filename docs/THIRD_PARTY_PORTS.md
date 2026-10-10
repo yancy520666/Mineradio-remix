@@ -1,5 +1,24 @@
 # Third-party ports
 
+## Exact-target comment reply writes (2026-10-10)
+
+- Netease: existing npm `NeteaseCloudMusicApi` 4.32.0, MIT; its installed `module/comment.js` supplies song `threadId` and exact `commentId` reply mapping. Its installed `util/crypto.js` supplies `weapi` encryption. Remix uses the existing bounded HTTP transport, matching the authenticated cookie's `__csrf`, rather than the package's unbounded transport. The original npm license remains bundled.
+- QQ: [L-1124/QQMusicApi `comment.py`](https://github.com/L-1124/QQMusicApi/blob/27861e51432ea6b6e88dc35c4e8c8e239c0339e8/qqmusic_api/modules/comment.py#L261-L299) and [`versioning.py`](https://github.com/L-1124/QQMusicApi/blob/27861e51432ea6b6e88dc35c4e8c8e239c0339e8/qqmusic_api/core/versioning.py), GNU GPL v3. Independently written minimal `CommentWriteServer.AddComment` request mapping with `RepliedCmId` as the exact clicked comment. The existing QQ web/native transport retains the captured cookie and native comm fields; web CSRF derives from the music key. No Python runtime or additional dependency is bundled.
+- Kugou: [MakcRe/KuGouMusicApi `_comment.js`](https://github.com/MakcRe/KuGouMusicApi/blob/ba3645f2c89e6b9d4fec82ff783c15287e4c5f43/module/_comment.js#L147-L191), [`comment_floor_send.js`](https://github.com/MakcRe/KuGouMusicApi/blob/ba3645f2c89e6b9d4fec82ff783c15287e4c5f43/module/comment_floor_send.js), and [`helper.js`](https://github.com/MakcRe/KuGouMusicApi/blob/ba3645f2c89e6b9d4fec82ff783c15287e4c5f43/util/helper.js#L158-L179). The current reference [LICENSE](https://github.com/MakcRe/KuGouMusicApi/blob/ba3645f2c89e6b9d4fec82ff783c15287e4c5f43/LICENSE) is MIT, Copyright (c) 2023 MakcRe. This is the license checked for the new reply mapping; the historical read-adapter attribution below describes its earlier review. Remix independently implements the minimal `commentsv2/reply` contract: `tid` stays the root, nested `pid` is the clicked target, top-level replies use `pid=0/is_t=1`. Its separate parameter-key contract is used without the default gateway signature. No upstream runtime or proprietary component is bundled.
+
+The capability map distinguishes replies from top-level comment writing. Qishui
+reply writes remain unsupported because no reviewed source established their
+write path and exact-target fields. The 280-character limit is an application
+limit, not a claim about platform maximums. Every write is sent once with a
+9-second transport deadline. Timeouts and malformed acknowledgements remain
+unknown outcomes; no automatic retries, challenge solving or re-login occurs.
+
+Verification covered source inspection and isolated fake-account/mock transports.
+No live comments, replies or login/logout actions were performed. Real-account
+posting, moderation, anti-abuse challenges and platform acceptance remain
+unverified. Redistributed source remains under this repository's GPL-3.0-only
+license and preserves the existing third-party license material.
+
 ## Kugou comments and daily recommendation protocol reference
 
 - Reference: [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi), GPL-3.0.

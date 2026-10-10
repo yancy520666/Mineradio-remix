@@ -392,3 +392,187 @@ test('late cancelled comment GET cannot cache stale data or delete a replacement
   const cached = await f.ctx.readDetailComments({ config: { provider: 'netease' } }, '/replaced', true);
   assert.equal(cached.comments[0].id, 'new'); assert.equal(f.requests.length, 2);
 });
+
+// Exercise the installed provider's real request builder, with only its transport
+// replaced. Unlike comment_music's offset/before API, comment_new uses a time
+// cursor from page two onward, including pages on either side of 5,000 comments.
+function deepNeteaseBackend(total) {
+  const provider = require('NeteaseCloudMusicApi/module/comment_new');
+  const newest = Array.from({ length: total }, (_, i) => ({ ...neteaseRaw(String(i)), time: 1800000000000 - i }));
+  const calls = [];
+  const ctx = listBackend({
+    mapNeteaseComment: raw => ({ id: String(raw.commentId), content: raw.content, time: raw.time, replyCount: raw.replyCount }),
+    comment_new: options => provider({ ...options }, async (route, data) => {
+      assert.equal(route, '/api/v2/resource/comments');
+      assert.equal(data.threadId, 'R_SO_4_186016');
+      assert.equal(data.offset, undefined);
+      assert.equal(data.beforeTime, undefined);
+      calls.push({ ...data });
+      if (data.sortType === 2) {
+        // A hot comment can overlap the newest list. Its old time/cursor must
+        // never be used for traversing the separate newest list.
+        return { body: { code: 200, data: { comments: [newest[0], { ...neteaseRaw('hot-only'), time: 100 }],
+          cursor: 'normalHot#10', hasMore: true, totalCount: total } } };
+      }
+      assert.equal(data.sortType, 3);
+      const start = data.cursor === '0' ? 0 : newest.findIndex(raw => raw.time < Number(data.cursor));
+      assert(start >= 0, 'every later page must use the preceding newest time');
+      assert.equal(start, (data.pageNo - 1) * data.pageSize);
+      const comments = newest.slice(start, start + data.pageSize);
+      return { body: { code: 200, data: { comments, cursor: String(comments[comments.length - 1].time),
+        hasMore: start + comments.length < total, totalCount: total } } };
+    }),
+  });
+  return { ctx, calls, newest };
+}
+
+test('Netease time pagination traverses fewer than, exactly and more than 5,000 newest comments', async () => {
+  for (const total of [4999, 5000, 5001]) {
+    const { ctx, calls, newest } = deepNeteaseBackend(total);
+    const ids = [];
+    let cursor = '', page = 0;
+    do {
+      const result = await ctx.handleNeteaseCommentPage('186016', '', 25, cursor);
+      page++;
+      const normal = result.comments.filter(raw => !raw.isHot);
+      ids.push(...normal.map(raw => raw.id));
+      assert.equal(result.total, total);
+      assert.equal(result.comments.filter(raw => raw.isHot).length, page === 1 ? 2 : 0);
+      assert(normal.every(raw => raw.replyCount === 3));
+      if (result.hasMore) {
+        const next = JSON.parse(result.nextCursor);
+        assert.equal(next.p, page + 1);
+        assert.equal(next.c, String(normal[normal.length - 1].time));
+      } else {
+        assert.equal(result.nextCursor, '');
+      }
+      cursor = result.nextCursor;
+    } while (cursor);
+    assert.deepEqual(ids, newest.map(raw => String(raw.commentId)), 'newest order and every comment survive the boundary');
+    assert.equal(page, Math.ceil(total / 25));
+    assert.equal(calls.filter(call => call.sortType === 2).length, 1);
+    const latest = calls.filter(call => call.sortType === 3);
+    assert.equal(latest[199].cursor, String(newest[4974].time), 'the page ending at 5,000 is time-based');
+    if (total > 5000) assert.equal(latest[200].cursor, String(newest[4999].time), 'the first page beyond 5,000 keeps the same time protocol');
+  }
+});
+
+test('the renderer forwards deep newest cursors, keeps hot comments separate and deduplicates repeated IDs', async () => {
+  const backend = deepNeteaseBackend(5040);
+  const f = renderer();
+  loadFunctions(f.ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js', ['commentTimeLabel']);
+  f.ctx.apiJson = async (url, opts) => {
+    assert.equal(opts.timeoutMs, 15000);
+    const parsed = new URL(url, 'http://localhost');
+    assert.equal(parsed.searchParams.has('offset'), false);
+    assert.equal(parsed.searchParams.has('before'), false);
+    const cursor = parsed.searchParams.get('cursor');
+    const result = await backend.ctx.handleNeteaseCommentPage(parsed.searchParams.get('id'), '', Number(parsed.searchParams.get('limit')), cursor);
+    // A live list can repeat an already seen item, even after the 5,000 boundary.
+    if (cursor && JSON.parse(cursor).p === 168) result.comments.unshift({ ...comment('4980'), time: 1800000000000 - 4980 });
+    return result;
+  };
+  await f.ctx.loadDetailComments({ id: '186016', provider: 'netease' }, 1);
+  const savedHot = f.hotList.innerHTML;
+  while (f.ctx.detailCommentsState.hasMore) await f.ctx.loadMoreDetailComments();
+  assert.equal(f.ctx.detailCommentsState.count, 5041);
+  assert.equal(f.ctx.detailCommentsState.hotCount, 2);
+  assert.equal(f.ctx.detailCommentsState.normalCount, 5039);
+  assert.equal(f.hotList.innerHTML, savedHot);
+  assert.equal(f.normalList.innerHTML.match(/Comment 4980</g).length, 1);
+  assert(f.normalList.innerHTML.indexOf('Comment 4999<') < f.normalList.innerHTML.indexOf('Comment 5000<'));
+  assert.match(f.normalList.innerHTML, /Comment 5039</);
+  assert.equal(f.button.hidden, true);
+  assert.match(f.label.textContent, /已到底/);
+});
+
+test('Netease newest cursors follow the service, independently of duplicate timestamps, filtered content and hot order', async () => {
+  const calls = [];
+  const ctx = listBackend({
+    mapNeteaseComment: raw => ({ id: raw.commentId, content: raw.content, time: raw.time }),
+    comment_new: async options => {
+      calls.push(options);
+      if (options.sortType === 2) return { body: { code: 200, data: { comments: [{ ...neteaseRaw('hot'), time: 1 }],
+        cursor: 'normalHot#10', hasMore: true } } };
+      return { body: { code: 200, data: { comments: [
+        { ...neteaseRaw('a'), time: 1700000000500 }, { ...neteaseRaw('b'), time: 1700000000500 },
+        { ...neteaseRaw('filtered'), time: 1700000000400, content: '' },
+      ], cursor: '1700000000399', hasMore: true } } };
+    },
+  });
+  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '');
+  assert.deepEqual(Array.from(first.comments, raw => raw.id), ['hot', 'a', 'b']);
+  assert.equal(JSON.parse(first.nextCursor).c, '1700000000399');
+  const repeated = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor);
+  assert.equal(calls[2].sortType, 3);
+  assert.equal(calls[2].cursor, '1700000000399');
+  assert.equal(repeated.hasMore, false);
+  assert.equal(repeated.nextCursor, '');
+  await assert.rejects(ctx.handleNeteaseCommentPage('186016', '', 30, '{"p":168,"c":"normalHot#5010"}'), /Invalid comment cursor/);
+  await assert.rejects(ctx.handleNeteaseCommentPage('186016', '', 30, '{"p":168,"c":"1700000000399"}', 'hot'), /Invalid comment cursor/);
+});
+
+test('a deep pending page cannot update a replacement song after close, including a queued success', async () => {
+  const f = renderer();
+  const initial = f.ctx.loadDetailComments({ id: '186016', provider: 'netease' }, 1);
+  f.requests[0].resolve({ comments: batch(0), nextCursor: '{"p":168,"c":"1700000000000"}', hasMore: true });
+  await initial;
+  const oldState = f.ctx.detailCommentsState;
+  const deep = f.ctx.loadMoreDetailComments();
+  assert.match(f.requests[1].url, /cursor=%7B%22p%22%3A168%2C%22c%22%3A%221700000000000%22%7D$/);
+  // The success is already queued when the old owner closes.
+  f.requests[1].resolve({ comments: [comment('old-deep')], nextCursor: '{"p":169,"c":"1699999999000"}', hasMore: true });
+  f.ctx.closeTrackDetailModal();
+  const replacement = f.ctx.loadDetailComments({ id: 'new-song', provider: 'netease' }, f.ctx.trackDetailSeq);
+  assert.equal(f.requests[1].opts.signal.aborted, true);
+  await deep;
+  assert.equal(oldState.count, 30);
+  assert.equal(f.ctx.detailCommentsState.count, 0);
+  f.requests[2].resolve({ comments: [comment('new-song')], nextCursor: '', hasMore: false });
+  await replacement;
+  assert.equal(f.ctx.detailCommentsState.count, 1);
+  assert.doesNotMatch(f.list.innerHTML, /old-deep/);
+  assert.match(f.list.innerHTML, /Comment new-song</);
+});
+
+test('deep hot-order pages retain popularity cursors in the installed provider request', async () => {
+  const provider = require('NeteaseCloudMusicApi/module/comment_new');
+  const calls = [];
+  const ctx = listBackend({
+    mapNeteaseComment: raw => ({ id: raw.commentId, content: raw.content, time: raw.time }),
+    comment_new: options => provider({ ...options }, async (_route, data) => {
+      calls.push({ ...data });
+      return { body: { code: 200, data: { comments: [{ ...neteaseRaw('popular'), time: 123 }],
+        cursor: 'normalHot#5040', hasMore: true } } };
+    }),
+  });
+  const result = await ctx.handleNeteaseCommentPage('186016', '', 30, '{"p":168,"c":"normalHot#5010"}', 'hot');
+  assert.equal(calls.length, 1, 'a later hot-order page must not prepend a separate hot list');
+  assert.equal(calls[0].sortType, 2);
+  assert.equal(calls[0].pageNo, 168);
+  assert.equal(calls[0].cursor, 'normalHot#5010');
+  assert.equal(result.comments[0].isHot, false);
+  assert.equal(result.nextCursor, '{"p":169,"c":"normalHot#5040"}');
+});
+
+test('an auth epoch change cannot render a deep old-account page or poison the first-page cache', async () => {
+  const f = renderer(); let epoch = 1;
+  f.ctx.providerAuthEpoch = () => epoch;
+  const first = f.ctx.loadDetailComments({ id: '186016', provider: 'netease' }, 1);
+  f.requests[0].resolve({ comments: batch(0), nextCursor: '{"p":168,"c":"1700000000000"}', hasMore: true });
+  await first;
+  const deep = f.ctx.loadMoreDetailComments();
+  epoch++;
+  f.requests[1].resolve({ comments: [comment('old-account-deep')], nextCursor: '{"p":169,"c":"1699999999000"}', hasMore: true });
+  await deep;
+  assert.equal(f.ctx.detailCommentsState.count, 30);
+  assert.equal(f.ctx.detailCommentsState.cursor, '{"p":168,"c":"1700000000000"}');
+  assert.doesNotMatch(f.list.innerHTML, /old-account-deep/);
+  assert.equal(f.ctx.detailCommentReadStore().cache.size, 1, 'only the original first page is cached, under its original epoch');
+  const replacement = f.ctx.loadDetailComments({ id: '186016', provider: 'netease' }, 1);
+  assert.equal(f.requests.length, 3, 'the new epoch must fetch its own first page');
+  f.requests[2].resolve({ comments: [comment('new-account')], nextCursor: '', hasMore: false });
+  await replacement;
+  assert.equal(f.ctx.detailCommentsState.count, 1);
+  assert.match(f.list.innerHTML, /new-account/);
+});

@@ -58,7 +58,7 @@
         </button>
       </div>
     </div>
-    <div id="fullscreen-diy-zone" aria-hidden="true">
+    <div id="fullscreen-diy-zone" role="group" aria-label="玩家工具">
       <button id="fullscreen-diy-btn" class="desktop-mode-btn" type="button" onclick="toggleDiyMode()" title="DIY"
         aria-label="DIY" aria-pressed="false">DIY</button>
     </div>
@@ -486,13 +486,13 @@
           step="0.01"><output></output></div>
 
       <div class="fx-section-label">主控</div>
-      <div class="fx-slider"><label>律动强度</label><input id="fx-intensity" type="range" min="0.2" max="1.6"
+      <div class="fx-slider"><label>粒子律动强度</label><input id="fx-intensity" type="range" min="0.2" max="1.6"
           step="0.01"><output></output></div>
-      <div class="fx-slider"><label>立体感</label><input id="fx-depth" type="range" min="0.2" max="1.8"
+      <div class="fx-slider"><label>丝绸立体起伏</label><input id="fx-depth" type="range" min="0.2" max="1.8"
           step="0.01"><output></output></div>
-      <div class="fx-slider"><label>封面清晰度</label><input id="fx-coverres" type="range" min="0.75" max="1.55"
+      <div class="fx-slider"><label>封面粒子细节</label><input id="fx-coverres" type="range" min="0.75" max="1.55"
           step="0.01"><output></output></div>
-      <div class="fx-slider"><label>镜头晃动</label><input id="fx-cineshake" type="range" min="0" max="1.8"
+      <div class="fx-slider"><label>镜头晃动强度</label><input id="fx-cineshake" type="range" min="0" max="1.8"
           step="0.01"><output></output></div>
       <div class="fx-slider"><label>歌词溢光</label><input id="fx-lyricglow" type="range" min="0" max="0.85"
           step="0.01"><output></output></div>
@@ -801,7 +801,7 @@
           <div class="fx-toggle-grid">
             <div class="fx-toggle" id="t-float" onclick="toggleFx('floatLayer')"><span>浮空粒子层</span><span
                 class="dot"></span></div>
-            <div class="fx-toggle" id="t-cinema" onclick="toggleFx('cinema')"><span>电影镜头</span><span class="dot"></span>
+            <div class="fx-toggle" id="t-cinema" onclick="toggleFx('cinema')"><span>动态镜头</span><span class="dot"></span>
             </div>
             <div class="fx-toggle" id="t-lyricGlow" onclick="toggleFx('lyricGlow')"><span>歌词溢光</span><span
                 class="dot"></span></div>
@@ -1879,7 +1879,7 @@
             <div>
               <div class="update-kicker">MINERADIO</div>
               <div id="update-modal-title" class="update-title">New release</div>
-              <div id="update-modal-version" class="update-version">v2.4.2</div>
+              <div id="update-modal-version" class="update-version">v2.5.0</div>
             </div>
           </div>
           <div class="update-hero">

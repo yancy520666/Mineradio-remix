@@ -65,7 +65,9 @@ test('duplicate-content optimization still repairs a corrupt primary after backu
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).currentTime, 10);
 });
 test('out-of-order submissions cannot overwrite progress, failed writes preserve last valid file', async t => {
-  const directory = fixture(t), store = createPlaybackCheckpointStore(directory), now = Date.now();
+  // Keep now + 1 in the past so future-time normalization cannot turn the
+  // injected write failure into an equal-timestamp/stale-save fast path.
+  const directory = fixture(t), store = createPlaybackCheckpointStore(directory), now = Date.now() - 1000;
   await Promise.all([store.save(snapshot(70, now)), store.save(snapshot(12, now - 1))]);
   assert.equal(store.read().currentTime, 70);
   const io = Object.create(fs.promises);

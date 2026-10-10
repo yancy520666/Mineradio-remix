@@ -225,7 +225,7 @@ var coverResolutionReloadTimer = null;
 var currentCoverSource = null;
 var coverPickerCanvas = null;
 
-function buildCoverParticleGeometry(grid) {
+function buildCoverParticleGeometry(grid, publish) {
   grid = coverParticleGridForResolution(grid / 118);
   var count = grid * grid;
   var nextGeo = new THREE.BufferGeometry();
@@ -249,48 +249,36 @@ function buildCoverParticleGeometry(grid) {
   nextGeo.setAttribute('aRand', new THREE.BufferAttribute(nextRand, 1));
   nextGeo.userData.grid = grid;
   nextGeo.userData.count = count;
-  positions = nextPositions;
-  uvs = nextUvs;
-  aRand = nextRand;
+  if (publish !== false) {
+    positions = nextPositions;
+    uvs = nextUvs;
+    aRand = nextRand;
+  }
   return nextGeo;
 }
 
-// Lower detail tiers select a stable subset of the authored grid. Shared attributes
-// preserve UVs, positions and random seeds; changing quality never regenerates
-// particles or alters the user's saved coverResolution/texture detail.
+// Lower tiers use complete smaller grids, exactly as a lower cover-detail
+// setting would. Never skip rows/columns of the full grid. Cache the grids
+// so switching tiers restores the same particle seeds and positions.
 function buildCoverBudgetGeometry(source, targetGrid) {
-  var grid = source.userData.grid;
-  var lowGrid = Math.min(grid, targetGrid);
-  if (lowGrid === grid) return null;
-  var lowGeo = new THREE.BufferGeometry();
-  lowGeo.setAttribute('position', source.getAttribute('position'));
-  lowGeo.setAttribute('aUv', source.getAttribute('aUv'));
-  lowGeo.setAttribute('aRand', source.getAttribute('aRand'));
-  var indices = new Uint16Array(lowGrid * lowGrid);
-  for (var y = 0; y < lowGrid; y++) {
-    var gy = Math.round(y * (grid - 1) / (lowGrid - 1));
-    for (var x = 0; x < lowGrid; x++) {
-      var gx = Math.round(x * (grid - 1) / (lowGrid - 1));
-      indices[y * lowGrid + x] = gy * grid + gx;
-    }
-  }
-  lowGeo.setIndex(new THREE.BufferAttribute(indices, 1));
-  lowGeo.userData.grid = lowGrid;
-  lowGeo.userData.count = indices.length;
-  return lowGeo;
+  var grid = Math.min(source.userData.grid, targetGrid);
+  return grid === source.userData.grid ? null : buildCoverParticleGeometry(grid, false);
 }
 
 var geo = buildCoverParticleGeometry(GRID_X);
 var lowDetailCoverGeo = buildCoverBudgetGeometry(geo, 97);
 var mediumDetailCoverGeo = buildCoverBudgetGeometry(geo, 127);
 
-var highDetailCoverGeo = buildCoverBudgetGeometry(geo, 167);
 function applyCoverParticleQualityBudget() {
   var quality = normalizePerformanceQuality(fx.performanceQuality);
-  var selected = quality === 'eco' ? lowDetailCoverGeo : (quality === 'balanced' ? mediumDetailCoverGeo : (quality === 'high' ? highDetailCoverGeo : null));
+  // High and ultra keep the complete regular grid; indexed thinning creates
+  // periodic gaps that break the cover into visible tiles. Spend less on
+  // render pixels in high mode instead of removing authored particles.
+  var selected = quality === 'eco' ? lowDetailCoverGeo : (quality === 'balanced' ? mediumDetailCoverGeo : null);
   selected = selected || geo;
   if (particles) particles.geometry = selected;
   if (bloomParticles) bloomParticles.geometry = selected;
+  if (typeof setRange === 'function') setRange('fx-coverres', fx.coverResolution);
 }
 
 function applyCoverParticleResolution(value, opts) {
@@ -304,18 +292,15 @@ function applyCoverParticleResolution(value, opts) {
   var oldGeo = geo;
   var oldLowGeo = lowDetailCoverGeo;
   var oldMediumGeo = mediumDetailCoverGeo;
-  var oldHighGeo = highDetailCoverGeo;
   var nextGeo = buildCoverParticleGeometry(grid);
   geo = nextGeo;
   lowDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 97);
   mediumDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 127);
-  highDetailCoverGeo = buildCoverBudgetGeometry(nextGeo, 167);
   GRID_X = GRID_Y = grid;
   PCOUNT = grid * grid;
   applyCoverParticleQualityBudget();
   if (oldLowGeo) oldLowGeo.dispose();
   if (oldMediumGeo) oldMediumGeo.dispose();
-  if (oldHighGeo) oldHighGeo.dispose();
   if (oldGeo && oldGeo !== nextGeo) oldGeo.dispose();
   uniforms.uBurstAmt.value = Math.max(uniforms.uBurstAmt.value, 0.18);
   if (opts.reload !== false) scheduleCoverResolutionReload();

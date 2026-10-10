@@ -24,7 +24,7 @@ function fixture(point) {
     audioCtx: { state: 'running', currentTime: 1, createDelay: () => node('delay'), createGain: () => node('gain'),
       createMediaStreamDestination() { const n = node('destination'), track = { stops: 0, stop() { this.stops++; } };
         tracks.push(track); n.stream = { getTracks: () => [track] }; return n; } }, gainNode: tap, analyser: null,
-    Audio: function () {
+    audioOutputMirrorStall: Object.create(null), Audio: function () {
       failure('audio-constructor'); this.paused = true; this.pause = () => { this.paused = true; };
       this.play = () => { this.paused = false; return Promise.resolve(); }; this.setSinkId = () => Promise.resolve();
       Object.defineProperty(this, 'srcObject', { get() { return this._stream; }, set(value) { if (value) failure('attach-stream'); this._stream = value; } });
@@ -32,7 +32,7 @@ function fixture(point) {
     setInterval: () => 1, clearInterval() {}, applyAudioOutputDevice() { c.syncAudioOutputMirrors('apply-device'); } });
   loadFunctions(c, 'public/js/modules/05-playback/00-api-quality-output.js', [
     'invalidateAudioOutputSinkApplications', 'releaseAudioOutputMirrorResources', 'removeAudioOutputMirror', 'clearAudioOutputMirrors',
-    'applyAudioOutputMirrorSink', 'syncAudioOutputMirrors', 'applyAudioRouteSettings', 'retryAudioRoutes' ]);
+    'applyAudioOutputMirrorSink', 'syncAudioOutputMirrors', 'updateAudioOutputMirrorAttempt', 'applyAudioRouteSettings', 'retryAudioRoutes' ]);
   return { c, tap, monitor, nodes, tracks, disconnectTargets, recover() { fail = ''; } };
 }
 test('every construction failure retires only the owned partial route; retry preserves the normal settings', async () => {

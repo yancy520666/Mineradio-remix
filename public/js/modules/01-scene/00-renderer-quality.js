@@ -2,8 +2,8 @@
 var scene = new THREE.Scene();
 scene.background = null;
 var camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-var RENDER_DPR_CAP = 1.35;
-var RENDER_PIXEL_BUDGET = 5200000;
+var RENDER_DPR_CAP = 1.20;
+var RENDER_PIXEL_BUDGET = 4600000;
 var RENDER_MIN_DPR = 0.72;
 // 0 = display vsync. Foreground visible motion must keep VSync cadence.
 var RENDER_VISIBLE_VSYNC = true;
@@ -132,7 +132,7 @@ function renderQualityProfile() {
   // Original detail uses native resolution up to the same 2x DPR as Sonic WE,
   // without a resolution-dependent pixel budget. Lower tiers remain bounded.
   if (quality === 'ultra') return { cap: 2, min: 0.5, budget: Infinity };
-  return { cap: lowSpec ? 1.12 : RENDER_DPR_CAP, min: lowSpec ? 0.66 : RENDER_MIN_DPR, budget: lowSpec ? 3600000 : RENDER_PIXEL_BUDGET };
+  return { cap: lowSpec ? 1.05 : RENDER_DPR_CAP, min: lowSpec ? 0.66 : RENDER_MIN_DPR, budget: lowSpec ? 3200000 : RENDER_PIXEL_BUDGET };
 }
 function getRenderPixelRatio() {
   var device = window.devicePixelRatio || 1;

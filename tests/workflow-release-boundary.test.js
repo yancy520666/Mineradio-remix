@@ -4,6 +4,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const yaml = require('js-yaml');
 
+test('release source version matches the lockfile, UI fallback, and release notes', () => {
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[''].version, pkg.version);
+  const html = fs.readFileSync('public/index.html', 'utf8');
+  const versionLabel = html.match(/id="update-modal-version"[^>]*>v([^<]+)</);
+  assert.ok(versionLabel, 'update dialog must have a version fallback');
+  assert.equal(versionLabel[1], pkg.version);
+  assert.ok(fs.existsSync(`docs/RELEASE_NOTES_v${pkg.version}.md`), 'release notes must exist before tag validation');
+  assert.equal(pkg.build.appId, 'com.mineradio.remix', 'a version bump must retain the existing installation identity');
+});
+
 test('CI and release actions are pinned; only the gated publisher has write permission', () => {
   const ci = yaml.load(fs.readFileSync('.github/workflows/ci.yml', 'utf8'));
   const release = yaml.load(fs.readFileSync('.github/workflows/release-windows.yml', 'utf8'));

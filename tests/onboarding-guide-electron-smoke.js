@@ -66,7 +66,8 @@ if (!process.argv.includes('--child')) {
       const step=visualGuideSteps[visualGuideStep], target=guideTargetRect(step);
       const ring=box(document.getElementById('visual-guide-ring')), card=box(document.getElementById('visual-guide-card'));
       const panel=document.getElementById('fx-panel'), shell=document.getElementById('desktop-window-shell');
-      return {key:step.key,center:!!step.center,target,loginOpen:document.getElementById('login-modal').classList.contains('show'),ring,card,w:innerWidth,h:innerHeight,
+      return {key:step.key,active:visualGuideActive,ready:visualGuideStepReady,swapping:document.getElementById('visual-guide-card').classList.contains('is-swapping'),
+        center:!!step.center,target,loginOpen:document.getElementById('login-modal').classList.contains('show'),ring,card,w:innerWidth,h:innerHeight,
         shellScroll:[shell.scrollLeft,shell.scrollTop], rootScroll:[scrollX,scrollY],
         bottomOpacity:Number(getComputedStyle(document.getElementById('bottom-bar')).opacity),
         playlistPeek:document.getElementById('playlist-panel').classList.contains('peek'),
@@ -74,6 +75,16 @@ if (!process.argv.includes('--child')) {
         panelOpacity:Number(getComputedStyle(panel).opacity), title:document.getElementById('visual-guide-title').textContent,
         body:document.getElementById('visual-guide-body').textContent, hint:document.getElementById('visual-guide-hint').textContent};
     })()`;
+    const waitForGuideStep = async key => {
+      const deadline = Date.now() + 8000;
+      let state;
+      while (Date.now() < deadline) {
+        state = await evaluate(snapshot);
+        if (state.active && state.key === key && state.ready && !state.swapping) return state;
+        await wait(40);
+      }
+      assert.fail(key + ' guide target/ring/card did not settle: ' + JSON.stringify(state));
+    };
     const verify = (state, bounds) => {
       assert.deepEqual(win.getBounds(), bounds, state.key + ' resized or moved the window');
       assert.deepEqual(state.shellScroll, [0, 0], state.key + ' scrolled the desktop shell');
@@ -107,20 +118,20 @@ if (!process.argv.includes('--child')) {
       if (size[0] === 1280) {
         await evaluate(`startupOnboardingState.visual=false; localStorage.removeItem(startupGuideStoreKey('visual'));
           maybeRunStartupVisualGuide('empty-player-qa'); true`);
-        await wait(1700);
+        await waitForGuideStep('welcome');
         assert(await evaluate('visualGuideActive'), 'First-run guide did not start for a logged-out empty player');
       } else await evaluate('startVisualGuide({manual:true}); true');
       const bounds = win.getBounds();
       const stepCount = await evaluate('visualGuideSteps.length');
       for (let index=0; index<stepCount; index++) {
-        await evaluate(`showVisualGuideStep(${index}); true`); await wait(1600);
-        let state = await evaluate(snapshot);
+        const key = await evaluate(`showVisualGuideStep(${index}); activeVisualGuideSteps()[visualGuideStep].key`);
+        let state = await waitForGuideStep(key);
         await mouse(state.card.left + 20, state.card.top + 20);
         if (index === 2 || index === 3) {
           await evaluate('controlsHovering=false; controlsRevealHoldUntil=0; setControlsHidden(true); scheduleControlsHide(10); true');
           await wait(index === 3 ? 2800 : 500);
-        } else await wait(300);
-        state = await evaluate(snapshot); verify(state, bounds);
+        }
+        state = await waitForGuideStep(key); verify(state, bounds);
         await capture(size.join('x') + '-' + state.key);
         results.push({size:size.join('x'),step:state.key,target:state.target,ring:state.ring,card:state.card});
       }
@@ -134,10 +145,10 @@ if (!process.argv.includes('--child')) {
       await evaluate(`document.getElementById('fx-panel').scrollTop=90; window.guideQaScroll=document.getElementById('fx-panel').scrollTop;
         window.guideQaFold=document.querySelector('.bg-media-row').closest('.fx-console-group');
         guideQaFold.classList.remove('open'); startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='background')); true`);
-      await wait(1600); verify(await evaluate(snapshot), bounds);
+      verify(await waitForGuideStep('background'), bounds);
       assert(await evaluate('guideQaFold.classList.contains("open")'), 'Closed background group was not revealed');
-      await evaluate('nextVisualGuideStep(); prevVisualGuideStep(); true'); await wait(1500);
-      verify(await evaluate(snapshot), bounds);
+      await evaluate('nextVisualGuideStep(); prevVisualGuideStep(); true');
+      verify(await waitForGuideStep('background'), bounds);
       await evaluate('closeVisualGuide(true); true'); await wait(100);
       assert(await evaluate(`diyPlayerMode && fxPanelPinned && fxPanelTab==='lyrics'
         && document.getElementById('fx-panel').classList.contains('peek')
@@ -149,25 +160,25 @@ if (!process.argv.includes('--child')) {
     assert(await evaluate('desktopFullscreenActive'), 'Native fullscreen did not activate');
     await evaluate('startVisualGuide({manual:true}); true');
     for (const key of ['diy','background','login']) {
-      await evaluate(`showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='${key}')); true`); await wait(1800);
-      const state=await evaluate(snapshot); verify(state,fullBounds);
+      await evaluate(`showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='${key}')); true`);
+      const state=await waitForGuideStep(key); verify(state,fullBounds);
       await capture('fullscreen-' + state.key); results.push({size:'fullscreen',step:state.key,target:state.target,ring:state.ring,card:state.card});
     }
     await evaluate('closeVisualGuide(true); true'); await wait(200);
     assert(await evaluate('desktopFullscreenActive && getComputedStyle(document.getElementById("desktop-titlebar")).display==="none"'), 'Fullscreen titlebar override leaked after close');
     assert.deepEqual(win.getBounds(),fullBounds);
     await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name:'prefers-reduced-motion', value:'reduce' }] });
-    await evaluate(`startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='wallpaper')); true`); await wait(1200);
-    verify(await evaluate(snapshot),fullBounds);
+    await evaluate(`startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.findIndex(s=>s.key==='wallpaper')); true`);
+    verify(await waitForGuideStep('wallpaper'),fullBounds);
     await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
     assert(await evaluate('!visualGuideActive'), 'Escape did not skip the guide');
     // Finishing on the login step leaves the panel open; skipping there closes it.
-    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await wait(1200);
+    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await waitForGuideStep('login');
     assert(await evaluate(`document.getElementById('login-modal').classList.contains('show') && document.getElementById('visual-guide-wire').style.opacity !== ''`), 'Login step did not open the panel or play the wire');
     await evaluate('nextVisualGuideStep(); true'); await wait(600);
     assert(await evaluate(`!visualGuideActive && document.getElementById('login-modal').classList.contains('show') && startupGuideWasSeen('login')`), 'Finishing the guide closed the login panel');
     await evaluate('closeLoginModal(); true'); await wait(600);
-    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await wait(1200);
+    await evaluate('startVisualGuide({manual:true}); showVisualGuideStep(visualGuideSteps.length-1); true'); await waitForGuideStep('login');
     await evaluate('closeVisualGuide(true); true'); await wait(600);
     assert(await evaluate(`!document.getElementById('login-modal').classList.contains('show')`), 'Skipping on the login step left the panel open');
     // A user-selected mode survives; closing during a pending content swap cannot reopen the card.

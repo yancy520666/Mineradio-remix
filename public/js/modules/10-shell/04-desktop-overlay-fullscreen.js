@@ -1150,6 +1150,8 @@ function syncDesktopWallpaperBodyClasses(status, enabled, interactive) {
   document.documentElement.classList.toggle('desktop-explorer-layered-colorkey-root', explorerLayeredColorkey);
   document.body.classList.toggle('desktop-wallpaper-mode', enabled);
   document.body.classList.toggle('desktop-wallpaper-interactive', interactive);
+  if (typeof scheduleFullscreenDiyLayout === 'function') scheduleFullscreenDiyLayout();
+  if (!interactive && !document.body.classList.contains('desktop-fullscreen')) document.body.classList.remove('fullscreen-diy-peek');
   document.body.classList.toggle('desktop-explorer-layered-colorkey', explorerLayeredColorkey);
   document.body.classList.toggle('desktop-software-locked', interactive && status.softwareInteractionLocked === true);
   document.body.classList.toggle('desktop-icons-hidden', iconsHidden);

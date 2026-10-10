@@ -464,6 +464,11 @@ function updateDesktopRuntimeState(state) {
     recoverVisualsAfterBackground('desktop-runtime-state');
     if (typeof wakeMainLoopFromBackground === 'function') wakeMainLoopFromBackground();
   }
+  // A system resume can push an unchanged visible window state, with no
+  // visibilitychange/focus event. The playback owner guards this finite check.
+  if (!isDeepBackgroundMode() && typeof recoverPlaybackAfterBackground === 'function') {
+    recoverPlaybackAfterBackground('desktop-runtime-state');
+  }
   if (desktopRuntimeState.fullscreen !== wasFullscreen) scheduleMainRendererViewportRefresh('desktop-runtime-state');
 }
 function refreshDesktopRuntimeStateAfterWake(reason) {
@@ -493,6 +498,7 @@ function installRenderPowerHooks() {
     applyRendererPowerMode();
     if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('visibilitychange');
     if (!isDeepBackgroundMode()) recoverVisualsAfterBackground('visibilitychange');
+    if (!isDeepBackgroundMode() && typeof recoverPlaybackAfterBackground === 'function') recoverPlaybackAfterBackground('visibilitychange');
   });
   window.addEventListener('focus', function () {
     desktopRuntimeState.focused = true;
@@ -501,6 +507,7 @@ function installRenderPowerHooks() {
     applyRendererPowerMode();
     if (typeof syncGestureControlHostVisibility === 'function') syncGestureControlHostVisibility('focus');
     if (!isDeepBackgroundMode()) recoverVisualsAfterBackground('focus');
+    if (!isDeepBackgroundMode() && typeof recoverPlaybackAfterBackground === 'function') recoverPlaybackAfterBackground('focus');
   });
   window.addEventListener('blur', function () {
     desktopRuntimeState.focused = false;

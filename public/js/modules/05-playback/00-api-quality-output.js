@@ -1084,18 +1084,20 @@ function releaseAudioOutputMirrorResources(mirror, route) {
     });
   } catch (_) { }
 }
-function removeAudioOutputMirror(id) {
+function removeAudioOutputMirror(id, preserveAttempt) {
   var mirror = audioOutputMirrorElements[id];
   if (mirror) {
     delete audioOutputMirrorElements[id]; // Invalidate pending sink/play completions first.
     releaseAudioOutputMirrorResources(mirror);
   }
   delete audioOutputMirrorRuntime[id];
+  if (!preserveAttempt && typeof audioOutputMirrorStall !== 'undefined') delete audioOutputMirrorStall[id];
 }
 
 function clearAudioOutputMirrors() {
-  Object.keys(audioOutputMirrorElements || {}).forEach(removeAudioOutputMirror);
+  Object.keys(audioOutputMirrorElements || {}).forEach(function (id) { removeAudioOutputMirror(id); });
   audioOutputMirrorRuntime = {};
+  if (typeof audioOutputMirrorStall !== 'undefined') audioOutputMirrorStall = Object.create(null);
   if (audioOutputMirrorSyncTimer) {
     clearInterval(audioOutputMirrorSyncTimer);
     audioOutputMirrorSyncTimer = 0;
@@ -1120,10 +1122,14 @@ function syncAudioOutputMirrors(reason) {
   Object.keys(audioOutputMirrorElements).forEach(function (id) {
     if (ids.indexOf(id) < 0) removeAudioOutputMirror(id);
   });
+  Object.keys(audioOutputMirrorStall).forEach(function (id) {
+    if (ids.indexOf(id) < 0) delete audioOutputMirrorStall[id];
+  });
   if (!ids.length) { clearAudioOutputMirrors(); return; }
   var tap = audio && audioReady && audioCtx && audioCtx.state !== 'closed' && (gainNode || analyser);
   ids.forEach(function (id) {
     var mirror = audioOutputMirrorElements[id];
+    if (mirror) updateAudioOutputMirrorAttempt(id, mirror, !unknownOutputs && !!(audio && !audio.paused && !audio.ended), false);
     if (mirror && (!tap || mirror._route.tap !== tap || (!unknownOutputs && !audioOutputDeviceById(id)) || (!unknownOutputs && !mirror._mineradioSinkReady && !mirror._mineradioSinkBusy && reason === 'apply-device'))) {
       removeAudioOutputMirror(id);
       mirror = null;
@@ -1132,9 +1138,16 @@ function syncAudioOutputMirrors(reason) {
       if (mirror && mirror._mineradioSinkReady && mirror.sinkId !== id) mirror.pause();
       markAudioOutputMirrorRuntime(id, 'waiting', '设备列表未完整读取，刷新接口后重连'); return;
     }
-    if (!unknownOutputs && !audioOutputDeviceById(id)) { markAudioOutputMirrorRuntime(id, 'disconnected', '设备离线，重连后自动恢复'); return; }
+    if (!unknownOutputs && !audioOutputDeviceById(id)) { delete audioOutputMirrorStall[id]; markAudioOutputMirrorRuntime(id, 'disconnected', '设备离线，重连后自动恢复'); return; }
     if (!audioOutputMirrorSinkSupported()) { markAudioOutputMirrorRuntime(id, 'unsupported', '当前内核不支持输出选择'); return; }
-    if (!tap) { markAudioOutputMirrorRuntime(id, 'waiting', '播放时自动连接'); return; }
+    if (!tap) { delete audioOutputMirrorStall[id]; markAudioOutputMirrorRuntime(id, 'waiting', '播放时自动连接'); return; }
+    var attempt = audioOutputMirrorStall[id];
+    if (attempt && attempt.stalled) {
+      if (attempt.mirror._route.tap === tap) {
+        markAudioOutputMirrorRuntime(id, 'stalled', '连不上，可断开后重连，或用下方「麦克风混音」输出'); return;
+      }
+      delete audioOutputMirrorStall[id];
+    }
     if (!mirror) {
       var construction = { tap: tap, delay: null, gain: null, destination: null, released: false };
       try {
@@ -1147,6 +1160,7 @@ function syncAudioOutputMirrors(reason) {
         tap.connect(delay); delay.connect(level); level.connect(destination);
         mirror.srcObject = destination.stream;
         mirror._mineradioSinkBusy = true;
+        updateAudioOutputMirrorAttempt(id, mirror, !audio.paused && !audio.ended, true);
         applyAudioOutputMirrorSink(mirror, id).then(function (ok) {
           if (audioOutputMirrorElements[id] !== mirror) return;
           mirror._mineradioSinkBusy = false;
@@ -1156,6 +1170,7 @@ function syncAudioOutputMirrors(reason) {
       } catch (e) {
         if (audioOutputMirrorElements[id] === mirror) delete audioOutputMirrorElements[id];
         releaseAudioOutputMirrorResources(mirror, construction);
+        delete audioOutputMirrorStall[id];
         markAudioOutputMirrorRuntime(id, 'unsupported', '音频分发初始化失败，请重新播放');
         return;
       }
@@ -1167,6 +1182,7 @@ function syncAudioOutputMirrors(reason) {
       markAudioOutputMirrorRuntime(id, 'paused', '随播放器暂停');
     } else if (mirror.paused && !mirror._routePlayPending && (reason !== 'clock' || !audioOutputMirrorRuntimeFor(id) || audioOutputMirrorRuntimeFor(id).state !== 'play-error')) {
       mirror._routePlayPending = true;
+      updateAudioOutputMirrorAttempt(id, mirror, !unknownOutputs, true);
       markAudioOutputMirrorRuntime(id, 'play-pending', '正在启用');
       Promise.resolve().then(function () {
         if (audioOutputMirrorElements[id] !== mirror || audio.paused || audio.ended) return;
@@ -1186,22 +1202,35 @@ function syncAudioOutputMirrors(reason) {
   if (reason === 'clock' && audio && !audio.paused && !audio.ended && typeof checkStalledAudioOutputMirrors === 'function') checkStalledAudioOutputMirrors(ids);
   if (!audioOutputMirrorSyncTimer) audioOutputMirrorSyncTimer = setInterval(function () { syncAudioOutputMirrors('clock'); }, 2200);
 }
-// A route still "connecting" while music plays gets one silent rebuild, then a
-// plain message instead of an endless pending state.
+// Time only an owned sink/play attempt while music plays and its device list is
+// known. UI-state changes (including repeated play AbortError) cannot renew it.
 var audioOutputMirrorStall = Object.create(null);
+function updateAudioOutputMirrorAttempt(id, mirror, active, start) {
+  var attempt = audioOutputMirrorStall[id], now = Date.now();
+  if (!attempt && !start) return;
+  if (!attempt || attempt.mirror !== mirror) {
+    if (!start) return;
+    attempt = audioOutputMirrorStall[id] = { mirror: mirror, startedAt: now, pausedAt: active ? null : now,
+      retried: !!(attempt && attempt.retried), notified: false, stalled: false };
+  } else if (active && attempt.pausedAt !== null) {
+    attempt.startedAt += now - attempt.pausedAt;
+    attempt.pausedAt = null;
+  } else if (!active && attempt.pausedAt === null) attempt.pausedAt = now;
+}
 function checkStalledAudioOutputMirrors(ids) {
   ids.forEach(function (id) {
-    var rt = audioOutputMirrorRuntimeFor(id);
-    if (!rt || !/^(sink-pending|sink-ready|play-pending|waiting)$/.test(rt.state) || Date.now() - rt.at < 6000) return;
-    var stall = audioOutputMirrorStall[id] || (audioOutputMirrorStall[id] = { retried: false, notified: false });
+    var rt = audioOutputMirrorRuntimeFor(id), stall = audioOutputMirrorStall[id];
+    if (!stall || stall.stalled || stall.pausedAt !== null || audioOutputMirrorElements[id] !== stall.mirror
+      || !rt || !/^(sink-pending|sink-ready|play-pending|waiting)$/.test(rt.state) || Date.now() - stall.startedAt < 6000) return;
     if (!stall.retried) {
       stall.retried = true;
-      removeAudioOutputMirror(id);
-      markAudioOutputMirrorRuntime(id, 'sink-pending', '正在重新连接');
+      removeAudioOutputMirror(id, true);
       syncAudioOutputMirrors('stall-retry');
       return;
     }
     var name = String((audioOutputDeviceById(id) || {}).label || '这个设备').replace(/\s*\(.*$/, '');
+    stall.stalled = true;
+    removeAudioOutputMirror(id, true);
     markAudioOutputMirrorRuntime(id, 'stalled', '连不上，可断开后重连，或用下方「麦克风混音」输出');
     if (!stall.notified && typeof showToast === 'function') {
       stall.notified = true;

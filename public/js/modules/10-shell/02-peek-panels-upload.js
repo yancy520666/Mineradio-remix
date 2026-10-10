@@ -252,6 +252,7 @@ var PLAYLIST_PANEL_FULLSCREEN_FOCUS_HOLD_X = 14;
 var PLAYLIST_PANEL_FULLSCREEN_EDGE_LEAVE_TOLERANCE_X = -8;
 var PLAYLIST_PANEL_BOTTOM_LEFT_BLOCK_X = 176;
 function isPlaylistFullscreenEdgeMode() {
+  if (document.body.classList.contains('desktop-wallpaper-interactive')) return true;
   return !!((typeof desktopRuntimeState !== 'undefined' && desktopRuntimeState && desktopRuntimeState.fullscreen) ||
     (typeof desktopFullscreenActive !== 'undefined' && desktopFullscreenActive) ||
     document.fullscreenElement ||

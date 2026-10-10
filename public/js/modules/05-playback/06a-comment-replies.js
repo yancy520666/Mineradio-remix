@@ -1,8 +1,9 @@
 // The reply toggle shares the comment's bottom row with its like control.
-function detailReplyControlsHtml(comment, likeHtml) {
+function detailReplyControlsHtml(comment, likeHtml, replyButtonHtml) {
   var owner = detailCommentsState;
   var count = Number(comment.replyCount);
-  if (!owner || comment.id == null || String(comment.id) === '' || !Number.isFinite(count) || count <= 0) return '';
+  if (!Number.isFinite(count) && replyButtonHtml) count = 0;
+  if (!owner || comment.id == null || String(comment.id) === '' || !Number.isFinite(count) || count < 0 || (!count && !replyButtonHtml)) return '';
   var key = encodeURIComponent(String(comment.id));
   var id = 'detail-replies-' + owner.seq + '-' + owner.threadIndex++;
   owner.threads[key] = { id: id, parentId: String(comment.id), resource: comment.replyResource || '',
@@ -10,9 +11,10 @@ function detailReplyControlsHtml(comment, likeHtml) {
     count: 0, offset: 0, cursor: '', seen: Object.create(null) };
   var label = commentCountLabel(count) + ' 条回复 ›';
   return '<div class="comment-replies" data-reply-key="' + escHtml(key) + '"><div class="comment-actions">' +
-    '<button type="button" class="comment-replies-toggle" data-reply-action="toggle" aria-expanded="false" aria-controls="' + id + '">' + label + '</button>' +
+    '<div class="comment-reply-actions">' + (replyButtonHtml || '') +
+    '<button type="button" class="comment-replies-toggle" data-reply-action="toggle" aria-expanded="false" aria-controls="' + id + '"' + (!count ? ' hidden' : '') + '>' + label + '</button></div>' +
     (likeHtml || '') + '</div>' +
-    '<div id="' + id + '" class="comment-replies-panel" hidden role="region" aria-label="' + escHtml((comment.user && comment.user.nickname || '这条评论') + '的回复') + '">' +
+    '<div id="' + id + '" class="comment-replies-panel" hidden role="region" aria-label="评论回复">' +
     '<div class="comment-replies-list"></div><div class="comment-replies-footer">' +
     '<span class="comment-replies-status" role="status" aria-live="polite"></span>' +
     '<button type="button" data-reply-action="load">加载更多回复</button></div></div></div>';
@@ -40,6 +42,7 @@ function detailReplyRegion(thread) {
 function updateDetailReplyControls(thread, region) {
   if (!region) return;
   var toggle = region.querySelector('.comment-replies-toggle');
+  toggle.hidden = !thread.total;
   toggle.textContent = thread.open ? '收起回复' : commentCountLabel(thread.total) + ' 条回复 ›';
   toggle.setAttribute('aria-expanded', thread.open ? 'true' : 'false');
   region.querySelector('.comment-replies-panel').hidden = !thread.open;
@@ -50,6 +53,7 @@ function updateDetailReplyControls(thread, region) {
   more.hidden = !thread.hasMore;
   more.disabled = thread.loading;
   more.textContent = thread.loading ? '正在加载…' : thread.error ? '重试' : '加载更多回复';
+  if (typeof updateDetailReplyComposer === 'function') updateDetailReplyComposer();
 }
 
 function toggleDetailReplies(key) {
@@ -61,17 +65,19 @@ function toggleDetailReplies(key) {
   return thread.open && !thread.loaded ? loadMoreDetailReplies(key) : Promise.resolve();
 }
 
-function renderDetailReplyItems(comments) {
+function renderDetailReplyItems(comments, thread) {
   return comments.map(function (comment) {
     var user = comment.user || {};
     var avatar = user.avatar ? escHtml(coverUrlWithSize(user.avatar, 48)) : '';
-    return '<div class="comment-reply-item">' + (avatar
+    var replyTarget = typeof detailReplyTarget === 'function' && thread ? detailReplyTarget(comment, thread) : null;
+    return '<div class="comment-reply-item' + (replyTarget ? ' is-replyable' : '') + '"' +
+      (replyTarget ? ' data-comment-reply-target="' + replyTarget.key + '"' : '') + '>' + (avatar
       ? (typeof commentAvatarHtml === 'function' ? commentAvatarHtml(user.avatar, 48, 'comment-reply-avatar') : '<img class="comment-reply-avatar" src="' + avatar + '" alt="" loading="lazy">')
       : '<span class="comment-reply-avatar" aria-hidden="true"></span>') +
       '<div class="comment-reply-copy">' + commentHeadHtml(comment) +
       '<div class="comment-reply-text">' + (comment.replyTo ? '<span class="comment-reply-to">回复 ' + escHtml(comment.replyTo) + '：</span>' : '') +
       commentContentHtml(comment.content) + '</div>' +
-      '<div class="comment-actions"><span></span>' + commentLikeHtml(comment) + '</div></div></div>';
+      '<div class="comment-actions">' + (replyTarget ? detailReplyButtonHtml(replyTarget.key) : '<span></span>') + commentLikeHtml(comment) + '</div></div></div>';
   }).join('');
 }
 
@@ -98,7 +104,7 @@ function loadMoreDetailReplies(key) {
       thread.seen[replyKey] = true;
       return true;
     });
-    if (fresh.length) region.querySelector('.comment-replies-list').insertAdjacentHTML('beforeend', renderDetailReplyItems(fresh));
+    if (fresh.length) region.querySelector('.comment-replies-list').insertAdjacentHTML('beforeend', renderDetailReplyItems(fresh, thread));
     thread.count += fresh.length;
     thread.total = Math.max(thread.total, Number(result.total) || 0, thread.count);
     thread.loaded = true;
@@ -113,12 +119,14 @@ function loadMoreDetailReplies(key) {
       thread.hasMore = thread.hasMore && !!cursor && cursor !== thread.cursor;
       thread.cursor = cursor;
     }
+    return true;
   }).catch(function (error) {
     if (owner === detailCommentsState && owner.seq === trackDetailSeq) {
       if (error && error.name === 'AbortError') return;
       thread.error = true;
       thread.errorMessage = error.message === 'QISHUI_COOKIE_REQUIRED' ? '请先登录汽水音乐后重试' : '回复加载失败';
     }
+    return false;
   }).finally(function () {
     if (owner !== detailCommentsState || owner.seq !== trackDetailSeq) return;
     thread.loading = false;

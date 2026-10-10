@@ -239,7 +239,7 @@ function bindPlaybackProgressEvents(audioEl) {
       saveLastPlaybackSnapshot(['play', 'playing', 'pause', 'ended'].indexOf(name) >= 0, name);
     });
   });
-  ['error', 'stalled'].forEach(function (name) {
+  ['error', 'stalled', 'waiting'].forEach(function (name) {
     audioEl.addEventListener(name, function () {
       if (audioEl !== audio) return;
       if (Number(audioEl.__mineradioTrackSwitchToken) !== Number(trackSwitchToken)) return;
@@ -253,6 +253,7 @@ function bindPlaybackProgressEvents(audioEl) {
           ownerQueueItemKey: String(audioEl.__mineradioQueueItemKey || '')
         });
       }
+      if (name === 'waiting' && typeof recoverPlaybackAfterBackground === 'function') recoverPlaybackAfterBackground('waiting');
     });
   });
 }
