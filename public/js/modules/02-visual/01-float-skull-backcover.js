@@ -767,6 +767,7 @@ void main(){
   backCoverGroup = new THREE.Points(bg, mat);
   backCoverGroup.frustumCulled = false;
   backCoverColorArr = bc;
+  if (typeof applyAmbientParticleBudget === 'function') applyAmbientParticleBudget(backCoverGroup, BACK_COVER_COUNT);
   scene.add(backCoverGroup);
 }
 

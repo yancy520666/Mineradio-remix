@@ -861,6 +861,7 @@ function applyFxArchiveSnapshot(snapshot) {
   applyCameraArchiveState(data);
   applyVisualRotationArchiveState(data);
   applyCoverParticleResolution(fx.coverResolution, { reload: true });
+  if (typeof applyPerformanceDetailProfile === 'function') applyPerformanceDetailProfile();
   if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer();
   setParticleLyricsSilently(fx.particleLyrics);
   if (fx.backCover) createBackCoverLayer(); else destroyBackCoverLayer();

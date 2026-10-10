@@ -1,6 +1,16 @@
 // Full-window backgrounds need their own image; playback thumbnails stay small.
 var albumCoverBackgroundLoad = null;
 
+// Ultra keeps the original 2048 request. Lower tiers ask for what the window
+// can show (with the crop zoom), which halves decode memory on 1080p.
+function albumCoverBackgroundTargetSize() {
+  var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+  if (!detail || !detail.backgroundImageScale) return 2048;
+  var zoom = Math.max(1, Number(fx && fx.backgroundMediaZoom) || 1);
+  var screen = Math.max(innerWidth, innerHeight) * (window.devicePixelRatio || 1) * zoom * detail.backgroundImageScale;
+  return Math.max(720, Math.min(2048, Math.ceil(screen / 64) * 64));
+}
+
 function albumCoverBackgroundFullSource(src) {
   try {
     var url = new URL(src, window.location.href);
@@ -11,8 +21,9 @@ function albumCoverBackgroundFullSource(src) {
     if (/^p\d+\.music\.126\.net$/i.test(url.hostname)) {
       // The existing playback URL asks NetEase for a 400px thumbnail.
       var requestedSize = /^(\d+)y(\d+)$/.exec(url.searchParams.get('param') || '');
-      if (requestedSize && Math.min(Number(requestedSize[1]), Number(requestedSize[2])) >= 2048) return src;
-      url.searchParams.set('param', '2048y2048');
+      var target = albumCoverBackgroundTargetSize();
+      if (requestedSize && Math.min(Number(requestedSize[1]), Number(requestedSize[2])) >= target) return src;
+      url.searchParams.set('param', target + 'y' + target);
     } else if (/^(y\.qq\.com|y\.gtimg\.cn)$/i.test(url.hostname)) {
       url.pathname = url.pathname.replace(/\/T002R(\d+)x\d+M000/i, function (match, size) {
         return Number(size) < 800 ? '/T002R800x800M000' : match;

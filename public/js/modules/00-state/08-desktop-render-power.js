@@ -100,6 +100,29 @@ function runtimePerfScale() {
   var level = runtimePerfBudgetLevel();
   return level <= 0 ? 0.72 : (level === 1 ? 0.84 : (level >= 3 ? 1.08 : 1.0));
 }
+// Decorative detail per quality tier. Ultra is the original presentation.
+// High keeps the cover grid and look, and only thins what is hard to see
+// (glow density, ambient stars). Medium/low trade visible detail for iGPUs.
+// Values a user changed explicitly are honoured by each consumer.
+function performanceDetailProfile() {
+  var quality = (typeof normalizePerformanceQuality === 'function')
+    ? normalizePerformanceQuality(fx && fx.performanceQuality)
+    : String(fx && fx.performanceQuality || 'ultra');
+  if (quality === 'eco') {
+    return { quality: quality, coverGridCap: 97, coverTextureCap: 256, bloomDensity: 0.2,
+      ambient: 0.35, sparks: 0.4, svgGlass: false, backdropGlass: false, lyricClarityCap: 1, backgroundImageScale: 0.6 };
+  }
+  if (quality === 'balanced') {
+    return { quality: quality, coverGridCap: 127, coverTextureCap: 384, bloomDensity: 0.3,
+      ambient: 0.5, sparks: 0.7, svgGlass: false, backdropGlass: true, lyricClarityCap: 0, backgroundImageScale: 0.75 };
+  }
+  if (quality === 'high') {
+    return { quality: quality, coverGridCap: Infinity, coverTextureCap: Infinity, bloomDensity: 0.5,
+      ambient: 0.7, sparks: 1, svgGlass: true, backdropGlass: true, lyricClarityCap: 0, backgroundImageScale: 1 };
+  }
+  return { quality: 'ultra', coverGridCap: Infinity, coverTextureCap: Infinity, bloomDensity: 1,
+    ambient: 1, sparks: 1, svgGlass: true, backdropGlass: true, lyricClarityCap: 0, backgroundImageScale: 0 };
+}
 function runtimeAudioAnalysisScale() {
   if (isDeepBackgroundMode()) return 0.18;
   var level = runtimePerfBudgetLevel();

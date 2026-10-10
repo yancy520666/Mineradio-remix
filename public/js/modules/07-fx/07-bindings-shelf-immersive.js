@@ -556,6 +556,7 @@ function resetFx() {
     shelfAngleYManual: false
   });
   applyCoverParticleResolution(fx.coverResolution, { reload: true });
+  if (typeof applyPerformanceDetailProfile === 'function') applyPerformanceDetailProfile();
   updateFxInputs();
   syncFxUniforms();
   refreshStageLyricDisplayMode();

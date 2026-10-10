@@ -185,6 +185,7 @@ function buildLyricMesh(input, preparedRowLayerBundle, preparedMasks) {
     transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending
   });
   var sparks = new THREE.Points(pgeo, pmat);
+  if (typeof applyAmbientParticleBudget === 'function') applyAmbientParticleBudget(sparks, sparkCount, 'sparks');
   sparks.renderOrder = 44;
   sparks.visible = !!fx.lyricGlowParticles;
   group.add(sparks);

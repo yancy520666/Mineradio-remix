@@ -6,11 +6,19 @@ const vm = require('node:vm');
 const THREE = require('../public/vendor/three.r128.min.js');
 const read = p => fs.readFileSync(p, 'utf8');
 const particlesSource = read('public/js/modules/02-visual/00-pointer-cover-particles.js');
+const profileSource = (() => {
+  const src = read('public/js/modules/00-state/08-desktop-render-power.js');
+  const start = src.indexOf('function performanceDetailProfile()');
+  return src.slice(start, src.indexOf('function runtimeAudioAnalysisScale()'));
+})();
 function particleContext(resolution = 1.55, quality = 'high') {
   const c = vm.createContext({ THREE, fx: { coverResolution: resolution, performanceQuality: quality },
-    particles: {}, bloomParticles: {}, uniforms: { uBurstAmt: { value: 0 } } });
+    fxDefaults: { coverResolution: 1.55, performanceQuality: 'ultra' },
+    particles: {}, bloomParticles: {},
+    uniforms: { uBurstAmt: { value: 0 }, uBloomDensitySize: { value: 1 }, uGridPointScale: { value: 1 }, uCoverRes: { value: 1 } } });
   const helpers = read('public/js/modules/02-visual/04-visual-settings-persistence.js');
   vm.runInContext(helpers.slice(0, helpers.indexOf('var currentFxAutosaveDiskTimer')), c);
+  vm.runInContext(profileSource, c);
   vm.runInContext(particlesSource.slice(particlesSource.indexOf('var PLANE_SIZE ='), particlesSource.indexOf('// 涟漪数据纹理')), c);
   c.applyCoverParticleQualityBudget();
   return c;
@@ -29,41 +37,53 @@ function assertRegularGrid(geometry) {
     assert(Math.abs(uv[i*2+1]-(y+.5)/grid)<1e-6);
   }
 }
-test('all tiers use complete evenly spaced grids; returning high restores saved detail and seeds',()=>{
-  for(const resolution of [.75,.9,1,1.1,1.32,1.55]){
-    const c=particleContext(resolution), original=c.geo, seeds=original.getAttribute('aRand');
-    let disposed=0;original.addEventListener('dispose',()=>disposed++);
-    const cache={};
-    for(let repeat=0;repeat<3;repeat++)for(const quality of ['eco','balanced','high','ultra']){
+test('default cover detail: high keeps the authored grid; lower tiers and glow draw complete smaller grids',()=>{
+  const c=particleContext(1.55), original=c.geo, seeds=original.getAttribute('aRand');
+  let disposed=0;original.addEventListener('dispose',()=>disposed++);
+  for(let repeat=0;repeat<3;repeat++)for(const quality of ['eco','balanced','high','ultra']){
+    c.fx.performanceQuality=quality;c.applyCoverParticleQualityBudget();
+    const main=c.particles.geometry, glow=c.bloomParticles.geometry;
+    assertRegularGrid(main);assertRegularGrid(glow);
+    const grid={eco:97,balanced:127,high:183,ultra:183}[quality];
+    assert.equal(main.userData.grid,grid);
+    assert.equal(c.coverParticleCountLabel(1.55),grid+'x'+grid);
+    assert.equal(c.fx.coverResolution,1.55);
+    if(quality==='high'||quality==='ultra'){assert.equal(main,original);assert.equal(main.getAttribute('aRand'),seeds);assert.equal(c.uniforms.uGridPointScale.value,1);}
+    else assert(c.uniforms.uGridPointScale.value>1);
+    if(quality==='ultra')assert.equal(glow,main);
+    else assert(glow.userData.count<main.userData.count*.55);
+    // Glow points widen with the spacing so the glow stays one continuous area.
+    assert(Math.abs(c.uniforms.uBloomDensitySize.value-grid/glow.userData.grid)<1e-12);
+  }
+  assert.equal(disposed,0);
+});
+
+test('a user-chosen cover detail is kept in every quality tier',()=>{
+  for(const resolution of [.75,.9,1,1.1,1.32]){
+    const c=particleContext(resolution), original=c.geo;
+    for(const quality of ['eco','balanced','high','ultra']){
       c.fx.performanceQuality=quality;c.applyCoverParticleQualityBudget();
-      const selected=c.particles.geometry;
-      assert.equal(selected,c.bloomParticles.geometry);assertRegularGrid(selected);
-      const grid=Math.min(c.GRID_X,{eco:97,balanced:127,high:Infinity,ultra:Infinity}[quality]);
-      assert.equal(selected.userData.count,grid*grid);
-      assert.equal(c.coverParticleCountLabel(resolution),grid+'x'+grid);
-      assert.equal(c.fx.coverResolution,resolution);
-      if(cache[quality])assert.equal(selected,cache[quality]);cache[quality]=selected;
-      if(quality==='high'||quality==='ultra'){assert.equal(selected,original);assert.equal(selected.getAttribute('aRand'),seeds);}
+      assert.equal(c.particles.geometry,original);
+      assert.equal(c.coverParticleCountLabel(resolution),original.userData.grid+'x'+original.userData.grid);
+      assert.equal(c.uniforms.uGridPointScale.value,1);
+      assert.equal(c.coverTextureSizeForResolution(resolution),resolution>=1.32?512:(resolution>=1.1?384:256));
     }
-    assert.equal(disposed,0);
   }
 });
 
-test('explicit resolution edit while eco retains new custom setting and releases all old geometries', () => {
+test('explicit resolution edit while eco keeps the new custom detail and releases old geometries', () => {
   const c = particleContext(1.55, 'eco');
-  const full = c.geo, low = c.lowDetailCoverGeo, medium = c.mediumDetailCoverGeo;
+  const full = c.geo, low = c.particles.geometry, glow = c.bloomParticles.geometry;
   let released = 0;
-  full.addEventListener('dispose', () => released++); low.addEventListener('dispose', () => released++); medium.addEventListener('dispose', () => released++);
+  for (const g of [full, low, glow]) g.addEventListener('dispose', () => released++);
   c.applyCoverParticleResolution(1.32, { reload: false });
   assert.equal(released, 3); assert.equal(c.fx.coverResolution, 1.32);
-  assert.equal(c.particles.geometry.userData.count, 97 ** 2);
-  const updated = c.geo;
+  assert.equal(c.particles.geometry, c.geo); assert.equal(c.geo.userData.grid, 157);
   c.fx.performanceQuality = 'ultra'; c.applyCoverParticleResolution(1.32, { reload: false });
-  assert.equal(c.particles.geometry, updated); assert.equal(c.geo.userData.grid, 157);
-  assert.equal(c.fx.coverResolution, 1.32);
+  assert.equal(c.particles.geometry.userData.grid, 157); assert.equal(c.bloomParticles.geometry, c.geo);
 });
 
-test('1080p / 1440p quality and DPR matrix preserves full high detail with bounded render pixels and user cover settings', () => {
+test('1080p / 1440p quality and DPR matrix keeps bounded pixels with a floor against blur', () => {
   const source = read('public/js/modules/01-scene/00-renderer-quality.js').split('var renderer =')[0];
   for (const [width, height] of [[1920, 1080], [2560, 1440]]) {
     for (const dpr of [1, 1.25, 1.5, 2]) for (const lowSpec of [false, true]) {
@@ -72,11 +92,13 @@ test('1080p / 1440p quality and DPR matrix preserves full high detail with bound
         Object.assign(c, { innerWidth: width, innerHeight: height, window: { devicePixelRatio: dpr }, runtimeHardwareProfile: { lowSpec } });
         vm.runInContext(source, c);
         const caps = { eco: lowSpec ? .88 : .95, balanced: lowSpec ? .98 : 1.12, high: lowSpec ? 1.05 : 1.20, ultra: 2 };
+        const mins = { eco: lowSpec ? .72 : .78, balanced: .85, high: lowSpec ? .66 : .72, ultra: .5 };
         const budgets = { eco: lowSpec ? 1900000 : 2400000, balanced: lowSpec ? 2800000 : 3800000, high: lowSpec ? 3200000 : 4600000, ultra: Infinity };
-        const expected = Math.min(dpr, caps[quality], Math.sqrt(budgets[quality] / (width * height)));
+        const floor = Math.min(mins[quality], Math.sqrt(budgets[quality] * 1.5 / (width * height)));
+        const expected = Math.max(floor, Math.min(dpr, caps[quality], Math.sqrt(budgets[quality] / (width * height))));
         assert(Math.abs(c.getRenderPixelRatio() - expected) < 1e-12);
         assert.equal(c.fx.coverResolution, 1.32);
-        assert.equal(c.particles.geometry.userData.count, quality === 'eco' ? 9409 : (quality === 'balanced' ? 16129 : 24649));
+        assert.equal(c.particles.geometry.userData.count, 24649);
       }
     }
   }

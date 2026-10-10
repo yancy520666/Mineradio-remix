@@ -76,18 +76,26 @@ function coverParticleGridForResolution(v) {
   grid = Math.max(88, Math.min(183, grid));
   return grid % 2 ? grid : grid + 1;
 }
-function coverParticleCountLabel(v) {
+// The slider's maximum is also the default, so any lower value is the user's
+// own choice. Quality tiers only cap the untouched default; a chosen detail
+// is kept in every tier.
+function coverResolutionUserChosen(v) {
+  return normalizeCoverResolution(v) < normalizeCoverResolution(fxDefaults.coverResolution) - 0.001;
+}
+function effectiveCoverParticleGrid(v) {
   var grid = coverParticleGridForResolution(v);
-  var quality = typeof fx !== 'undefined' && fx ? fx.performanceQuality : 'ultra';
-  if (quality === 'eco') grid = Math.min(grid, 97);
-  else if (quality === 'balanced') grid = Math.min(grid, 127);
+  if (coverResolutionUserChosen(v) || typeof performanceDetailProfile !== 'function') return grid;
+  return Math.min(grid, performanceDetailProfile().coverGridCap);
+}
+function coverParticleCountLabel(v) {
+  var grid = effectiveCoverParticleGrid(v);
   return grid + 'x' + grid;
 }
 function coverTextureSizeForResolution(v) {
   v = normalizeCoverResolution(v);
-  if (v >= 1.32) return 512;
-  if (v >= 1.10) return 384;
-  return 256;
+  var size = v >= 1.32 ? 512 : (v >= 1.10 ? 384 : 256);
+  if (coverResolutionUserChosen(v) || typeof performanceDetailProfile !== 'function') return size;
+  return Math.min(size, performanceDetailProfile().coverTextureCap);
 }
 var currentFxAutosaveDiskTimer = null;
 var currentFxAutosaveDiskPayload = null;

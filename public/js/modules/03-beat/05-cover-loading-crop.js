@@ -98,7 +98,9 @@ function loadCoverFromUrl(directUrl, opts) {
     settle();
     if (!coverApplyStillCurrent(opts)) return;
     var size = coverTextureSizeForResolution(fx.coverResolution);
-    var cv = opts.preparedCover && opts.preparedCover.canvas || makeSquareCoverCanvas(img, size);
+    // A quality-tier change can alter the texture size after prefetch.
+    var prepared = opts.preparedCover && opts.preparedCover.canvas;
+    var cv = prepared && prepared.width === size ? prepared : makeSquareCoverCanvas(img, size);
     previewCurrentTrackCover(src, opts);
     setAlbumBackground(src);
     applyCoverCanvas(cv, src, Object.assign({}, opts, { coverKey: directUrl, coverSourceKind: 'url', coverSource: directUrl, paletteCanvas: opts.preparedCover && opts.preparedCover.palette }));

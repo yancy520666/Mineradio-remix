@@ -199,13 +199,45 @@ function setPerformanceBackgroundMode(mode, silent) {
     showToast(next === 'keep' ? '后台策略: 保持运行' : (next === 'release' ? '后台策略: 停止并释放' : '后台策略: 自动优化'));
   }
 }
+// Re-applies tier-dependent detail to live objects. New objects (lyric lines,
+// covers, album backgrounds) read performanceDetailProfile() when created.
+function applyPerformanceDetailProfile(previous) {
+  previous = previous || {};
+  if (typeof applyCoverParticleQualityBudget === 'function') applyCoverParticleQualityBudget();
+  if (typeof applyAmbientParticleBudget === 'function') {
+    if (typeof backgroundStarRiverParticles !== 'undefined') applyAmbientParticleBudget(backgroundStarRiverParticles, BACKGROUND_STAR_RIVER_COUNT);
+    if (typeof backCoverGroup !== 'undefined') applyAmbientParticleBudget(backCoverGroup, BACK_COVER_COUNT);
+    var river = typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.starRiver;
+    if (river) applyAmbientParticleBudget(river, river.geometry.getAttribute('seed').count);
+  }
+  if (typeof syncPerformanceGlassClasses === 'function') syncPerformanceGlassClasses();
+  if (previous.coverTextureSize && coverTextureSizeForResolution(fx.coverResolution) !== previous.coverTextureSize &&
+      typeof scheduleCoverResolutionReload === 'function') scheduleCoverResolutionReload();
+  if (previous.lyricClarity && typeof lyricTextureClarityScale === 'function') {
+    var clarity = lyricTextureClarityScale();
+    if (clarity !== previous.lyricClarity && typeof invalidateLyricQualityTextures === 'function') {
+      invalidateLyricQualityTextures('texture-clarity-change', { release: clarity <= 1 });
+    }
+  }
+  if (previous.backgroundSize && typeof albumCoverBackgroundTargetSize === 'function' &&
+      albumCoverBackgroundTargetSize() !== previous.backgroundSize &&
+      typeof customBackgroundUsesAlbumCover === 'function' && customBackgroundUsesAlbumCover()) {
+    cancelAlbumCoverBackgroundLoad();
+    if (typeof refreshCustomBackgroundAlbumMedia === 'function') refreshCustomBackgroundAlbumMedia();
+  }
+}
 function setPerformanceQualityMode(mode, silent) {
   var next = normalizePerformanceQuality(mode);
+  var previous = {
+    coverTextureSize: coverTextureSizeForResolution(fx.coverResolution),
+    lyricClarity: typeof lyricTextureClarityScale === 'function' ? lyricTextureClarityScale() : 0,
+    backgroundSize: typeof albumCoverBackgroundTargetSize === 'function' ? albumCoverBackgroundTargetSize() : 0
+  };
   fx.performanceQuality = next;
   if (window.MineradioSonicPerformance) MineradioSonicPerformance.qualityChanged();
   updatePerformanceControls();
   applyRendererPowerMode();
-  if (typeof applyCoverParticleQualityBudget === 'function') applyCoverParticleQualityBudget();
+  applyPerformanceDetailProfile(previous);
   saveLyricLayout({ user: true, reason: 'performanceQuality' });
   if (shelfManager && shelfManager.refreshQuality) shelfManager.refreshQuality();
   if (!silent) {

@@ -20053,3 +20053,17 @@ body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-
   #song-comments .detail-reply-compose { padding: 8px; }
   #song-comments .detail-reply-compose-actions { gap: 4px; }
 }
+
+/* 低画质：去掉背景模糊。动态画面上的 backdrop-filter 每帧都要重新取样模糊，
+   核显上开销最大；面板改用更实的底色保证可读。 */
+html.perf-glass-lite *:not(#mr-glass-a):not(#mr-glass-b):not(#mr-glass-c):not(#mr-glass-d),
+html.perf-glass-lite *:not(#mr-glass-a):not(#mr-glass-b):not(#mr-glass-c):not(#mr-glass-d)::before,
+html.perf-glass-lite *:not(#mr-glass-a):not(#mr-glass-b):not(#mr-glass-c):not(#mr-glass-d)::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.perf-glass-lite #search-box:not(#mr-glass-a):not(#mr-glass-b),
+html.perf-glass-lite #search-results:not(#mr-glass-a):not(#mr-glass-b),
+html.perf-glass-lite #bottom-bar:not(#mr-glass-a):not(#mr-glass-b) {
+  background-color: rgba(14, 16, 22, 0.62) !important;
+}
