@@ -902,7 +902,18 @@ function isVirtualMicOutputDevice(device) {
 function audioOutputDeviceStatusText() {
   var primary = audioOutputDeviceById(audioOutputDeviceId);
   if (audioOutputPrimaryRuntime && audioOutputPrimaryRuntime.deviceId === audioOutputDeviceId && audioOutputPrimaryRuntime.state === 'error') return '主监听切换失败，请重试连接';
-  return audioOutputDeviceId ? (primary ? '主监听：' + audioOutputDeviceLabel(primary, 0) : '主监听离线，临时使用系统默认') : '主监听：系统默认';
+  var systemDefault = audioOutputDeviceById(audioOutputDefaultDeviceId);
+  return audioOutputDeviceId ? (primary ? '主监听：' + audioOutputDeviceLabel(primary, 0) : '主监听离线，临时使用系统默认')
+    : '主监听：系统默认' + (systemDefault && systemDefault.label ? '（' + systemDefault.label + '）' : '');
+}
+// Music sent to a virtual cable as the main output goes straight into the
+// virtual microphone and is inaudible locally; that cable cannot be a mix target.
+function audioRoutePrimaryVirtualAlert() {
+  var primary = audioOutputDeviceById(effectiveAudioPrimaryId());
+  if (!primary || !isVirtualMicOutputDevice(primary)) return '';
+  var name = String(primary.label || '虚拟设备').replace(/\s*\(.*$/, '');
+  return '主监听是虚拟声卡「' + name + '」：音乐直接进入虚拟麦克风，你自己听不到，也不能再作为混音目标。请把主监听切到耳机或音箱'
+    + (audioOutputDeviceId ? '。' : '（Windows 默认播放设备当前就是它）。');
 }
 
 function audioOutputDeviceLabel(device, index) {
@@ -931,8 +942,10 @@ function renderAudioOutputDeviceUi() {
   });
   var primary = [{ deviceId: '', label: '系统默认' }].concat(outputs).map(function (device, index) {
     var id = device.deviceId, active = id === audioOutputDeviceId;
+    var systemDefault = !id && typeof audioOutputDeviceById === 'function' && audioOutputDeviceById(audioOutputDefaultDeviceId);
+    var hint = (device.offline ? '离线，等待恢复' : active ? '当前主监听' : '点击切换主监听') + (systemDefault && systemDefault.label ? ' · ' + systemDefault.label : '');
     return '<button type="button" class="audio-route-node output workflow-node' + (active ? ' active connected' : '') + '" data-output-primary="' + escHtml(id) + '" aria-pressed="' + active + '">' +
-      '<span class="flow-port in" data-output-primary-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + (device.offline ? '离线，等待恢复' : active ? '当前主监听' : '点击切换主监听') + '</small></span></button>';
+      '<span class="flow-port in" data-output-primary-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + escHtml(hint) + '</small></span></button>';
   }).join('');
   function routeRow(device, index) {
     var id = device.deviceId, disabled = id === effectiveAudioPrimaryId(), active = ids.indexOf(id) >= 0 && !disabled;
@@ -947,6 +960,7 @@ function renderAudioOutputDeviceUi() {
   }
   var virtual = outputs.filter(isVirtualMicOutputDevice);
   var speakers = outputs.filter(function (d) { return !isVirtualMicOutputDevice(d); });
+  var routeAlert = typeof audioRoutePrimaryVirtualAlert === 'function' ? audioRoutePrimaryVirtualAlert() : '';
   var focused = document.activeElement;
   if (body && body.contains(focused) && focused.matches('input,select,textarea,[data-route-mute],#audio-microphone-mixer button,#virtual-audio-setup-card button')) {
     if (!renderAudioOutputDeviceUi.focusRefreshBound) {
@@ -959,7 +973,8 @@ function renderAudioOutputDeviceUi() {
   if (body && audioRouteWorkflowDrag && body.contains(audioRouteWorkflowDrag.root)) cancelAudioRouteWorkflowDrag();
   if (body) body.innerHTML = '<div class="audio-route-graph"><svg id="audio-route-workflow-svg" class="workflow-link-layer audio-link-layer" aria-hidden="true"></svg>' +
     '<div class="audio-flow-source workflow-node"><span class="route-node-text"><b>Mineradio 音乐输出</b><small>同一音频流 · 跟随暂停、切歌和音效</small></span><span class="flow-port out" data-audio-route-source="player" title="拖到设备连接输出"></span></div>' +
-    '<div class="audio-route-status"><b>已选择 ' + count + ' 路</b><small>点击设备即可连接或断开，也可从音源拖线连接。</small></div>' +
+    '<div class="audio-route-status"><b>已选择 ' + count + ' 路</b><small>点击设备即可连接或断开，也可从音源拖线连接。</small>' +
+    (routeAlert ? '<p class="audio-route-alert" role="note">' + escHtml(routeAlert) + '</p>' : '') + '</div>' +
     '<div class="audio-route-board"><section class="route-lane primary"><div class="route-lane-head"><b>主监听</b><small>选择自己听音乐的设备</small></div><div class="route-node-grid">' + primary + '</div></section>' +
     '<section class="route-lane mirror"><div class="route-lane-head"><b>附加输出</b><small>可同时连接多个耳机、音箱或声卡</small></div><div class="route-node-grid">' + (speakers.map(routeRow).join('') || '<div class="audio-route-empty">暂无其他输出设备</div>') + '</div></section>' +
     '<section class="route-lane bridge"><div class="route-lane-head"><b>虚拟音频输出</b><small>支持同时连接多条虚拟声卡</small></div><div class="route-node-grid">' + (virtual.map(routeRow).join('') || '<div class="audio-route-empty">未检测到虚拟声卡，请安装 VB-Cable 或 Voicemeeter 后刷新。</div>') + '</div><p class="audio-route-note">选择虚拟声卡的播放端（如 CABLE Input），再在语音软件里选择对应录音端（CABLE Output）。普通实体麦克风无法直接接收播放音频。延迟补偿只增加所选输出的延迟，硬件延迟需按听感校准。</p></section></div></div>';
@@ -1222,6 +1237,12 @@ function disconnectAdditionalAudioRoutes() {
   clearAudioOutputMirrors(); renderAudioOutputDeviceUi();
 }
 
+// A MediaElementSource takes over the element's output: Chromium rejects its
+// setSinkId (AbortError) and the audible route is the AudioContext sink.
+function audioMediaRoutedThroughWebAudio(media) {
+  if (!media || typeof source === 'undefined' || typeof audioSourceMedia === 'undefined' || typeof audioReady === 'undefined') return false;
+  return !!(audioReady && source && audioSourceMedia === media && !source.__mineradioUsesCapture);
+}
 var audioOutputApplyQueue = Promise.resolve();
 var audioOutputSinkApplications = new WeakMap();
 var audioOutputSinkEpoch = 0;
@@ -1266,7 +1287,7 @@ async function applyAudioOutputDeviceNow(media, requestedId) {
     }
   }
   bindAudioOutputMirrorEvents(media);
-  mediaResult = await applySink(media, 'audio');
+  if (!(typeof audioMediaRoutedThroughWebAudio === 'function' && audioMediaRoutedThroughWebAudio(media))) mediaResult = await applySink(media, 'audio');
   contextResult = await applySink(audioCtx, 'audio-context');
   sfxResult = await applySink(uiSfxCtx, 'ui-sfx');
   if (typeof checkMicrophoneMixerDevices === 'function') checkMicrophoneMixerDevices();

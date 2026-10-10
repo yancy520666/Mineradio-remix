@@ -41,7 +41,10 @@ function microphoneMixerInputs() {
 }
 function microphoneMixerPrimaryIds() {
   var ids = [effectiveAudioPrimaryId()];
-  [audio, audioCtx].forEach(function (target) {
+  // A media element feeding Web Audio has no sink of its own (Chromium rejects
+  // its setSinkId), so its empty sinkId must not read as the system default.
+  var media = typeof audioMediaRoutedThroughWebAudio === 'function' && audioMediaRoutedThroughWebAudio(audio) ? null : audio;
+  [media, audioCtx].forEach(function (target) {
     if (!target || typeof target.sinkId !== 'string') return;
     ids.push(target.sinkId || audioOutputDefaultDeviceId);
   });
@@ -245,7 +248,12 @@ function renderMicrophoneMixerPanel() {
   if (state.reason || microphoneMixerDiscoveryMessage) messages.push(state.reason || microphoneMixerDiscoveryMessage);
   if (typeof audioOutputDeviceSnapshotKnown !== 'undefined' && !audioOutputDeviceSnapshotKnown) messages.push('输出设备列表未完整读取，请重新刷新接口');
   else if (!microphoneMixerTargets().length) messages.push('未检测到虚拟音频播放端，需要软件虚拟音频设备');
-  if (state.phase === 'running') messages.push('人声 + 音乐 · 关闭面板后继续混音，停用或退出软件时停止');
+  if (state.phase === 'running') {
+    // The playback end is chosen here; voice/game apps must pick its recording end.
+    var targetLabel = typeof audioOutputDeviceLabels !== 'undefined' && audioOutputDeviceLabels[state.target] || '';
+    var recordLabel = /\bcable\b/i.test(targetLabel) && /\binput\b/i.test(targetLabel) ? targetLabel.replace(/\s*\(.*$/, '').replace(/\binput\b/i, 'Output') : '对应的录音端';
+    messages.push('人声 + 音乐正在输出 · 在语音或游戏软件里把麦克风选为「' + recordLabel + '」· 关闭面板后继续混音，停用或退出软件时停止');
+  }
   else if (!microphoneMixerInputSnapshotKnown && !microphoneMixerDiscoveryMessage) messages.push('麦克风列表未完整读取，请点击「刷新麦克风」');
   var message = messages.join('；');
   panel.querySelector('[data-mixer-message]').textContent = message;

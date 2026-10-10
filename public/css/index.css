@@ -19904,3 +19904,18 @@ body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-
 @media (max-width: 720px) {
   #audio-output-workflow-modal #virtual-audio-setup-card { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Mixer head: setup status wraps below the buttons instead of pushing them
+   apart; buttons keep one row and one baseline whatever message appears. */
+#audio-output-workflow-modal #audio-microphone-mixer .audio-mixer-head { align-items: center; row-gap: 4px; }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-virtual-setup-entry { display: contents; }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-virtual-setup-entry button,
+#audio-output-workflow-modal #audio-microphone-mixer [data-mixer-enable] { flex: 0 0 auto; order: 2; }
+#audio-output-workflow-modal #audio-microphone-mixer .virtual-audio-entry-status { order: 3; flex: 1 0 100%; text-align: right; }
+#audio-output-workflow-modal #audio-microphone-mixer [data-mixer-discover] { margin-bottom: 10px; }
+#audio-output-workflow-modal #audio-microphone-mixer .audio-mixer-feedback { align-items: flex-start; }
+#audio-output-workflow-modal #audio-microphone-mixer [data-mixer-message] { line-height: 1.6; }
+#audio-output-workflow-modal #audio-microphone-mixer meter { margin-top: 6px; }
+/* The main output itself is a virtual cable: say so where the choice is made. */
+#audio-output-workflow-modal .audio-route-alert { margin: 0; padding: 8px 10px; border: 1px solid rgba(240, 176, 92, .38); border-radius: 10px; background: rgba(240, 176, 92, .08); color: #f1cf95; font-size: 11px; line-height: 1.6; }
+#audio-output-workflow-modal .audio-route-alert[hidden] { display: none !important; }
