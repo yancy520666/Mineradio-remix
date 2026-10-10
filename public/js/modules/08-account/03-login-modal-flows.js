@@ -138,11 +138,7 @@ function hasLoginWorkflowConnection(provider) {
 function markLoginWorkflowConnected(provider) {
   provider = normalizeLoginProviderKey(provider);
   loginWorkflowVerifiedSession[provider] = true;
-  if (!isAccountProviderExternallyVisible(provider)) {
-    var list = accountProviderVisibleList();
-    list.push(provider);
-    saveAccountProviderVisibleList(list);
-  }
+  autoShowAccountProviderOnFirstLogin(provider);
 }
 function setLoginAuthDrawerOpen(open) {
   var drawer = document.getElementById('login-auth-drawer');
