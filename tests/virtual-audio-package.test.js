@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
+const FAKE_TEMP_ROOT = path.join(path.parse(path.resolve(__dirname)).root, 'tmp', 'fake');
 const { DOWNLOAD_URL, ZIP_BYTES, ZIP_SHA256, SETUP_NAME, EXTRACTED_BYTES,
   DOWNLOAD_TIMEOUT_MS, CACHE_NAME, ARCHIVE_NAME, OWNER_MARKER, MAX_RETAINED_PACKAGES,
   PACKAGE_MANIFEST, createVirtualAudioPackagePreparer, verifyArchive } = require('../desktop/virtual-audio-package');
@@ -102,7 +103,7 @@ function fakeFilesystem() {
     nodes.set(name, node);
     return node;
   };
-  for (const name of ['/', '/tmp', '/tmp/fake']) put(name, 'directory');
+  for (const name of [path.parse(FAKE_TEMP_ROOT).root, path.dirname(FAKE_TEMP_ROOT), FAKE_TEMP_ROOT]) put(name, 'directory');
   const get = name => { if (!nodes.has(name)) throw fail('ENOENT', name); return nodes.get(name); };
   const stat = node => ({ dev: node.dev, ino: node.ino, size: node.data.length,
     isDirectory: () => node.type === 'directory', isFile: () => node.type === 'file',
@@ -199,7 +200,7 @@ function preparationFixture(archive = fixtureArchive(), routes = [], sharedFs) {
   const disk = sharedFs || fakeFilesystem();
   const network = fakeNetwork(archive.buffer, routes);
   const timers = fakeTimers();
-  const prepare = createVirtualAudioPackagePreparer({ filesystem: disk.filesystem, tempRoot: '/tmp/fake',
+  const prepare = createVirtualAudioPackagePreparer({ filesystem: disk.filesystem, tempRoot: FAKE_TEMP_ROOT,
     request: network.request, archivePolicy: archive.policy, setTimer: timers.setTimer, clearTimer: timers.clearTimer });
   return { archive, disk, network, timers, prepare };
 }
@@ -207,7 +208,7 @@ async function until(predicate) {
   for (let tries = 0; tries < 1000; tries++) { if (predicate()) return; await Promise.resolve(); }
   throw new Error('Synthetic asynchronous operation did not reach its expected state.');
 }
-const packageDirectories = disk => [...disk.nodes.keys()].filter(name => /\/pack45-[a-zA-Z0-9_-]+$/.test(name));
+const packageDirectories = disk => [...disk.nodes.keys()].filter(name => /^pack45-[a-zA-Z0-9_-]+$/.test(path.basename(name)));
 
 test('official package pins and complete license/readme manifest are immutable', () => {
   assert.equal(DOWNLOAD_URL, 'https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip');
@@ -320,7 +321,7 @@ test('preparation writes only verified fake text files into a unique exact-paylo
   await Promise.all([result.cleanup(), result.cleanup()]);
   await result.cleanup();
   assert.deepEqual(packageDirectories(f.disk), []);
-  assert.ok(f.disk.nodes.has('/tmp/fake/' + CACHE_NAME));
+  assert.ok(f.disk.nodes.has(path.join(FAKE_TEMP_ROOT, CACHE_NAME)));
 });
 
 test('at most two retained package slots survive and cleanup allows another reservation', async () => {
@@ -346,8 +347,8 @@ test('a concurrent or stale cache creation lock prevents additional reservations
 test('symlink parents and unowned pre-existing namespace roots are refused before network access', async () => {
   for (const kind of ['parent', 'root']) {
     const f = preparationFixture();
-    if (kind === 'parent') f.disk.put('/tmp/fake', 'symlink');
-    else f.disk.put('/tmp/fake/' + CACHE_NAME, 'directory');
+    if (kind === 'parent') f.disk.put(FAKE_TEMP_ROOT, 'symlink');
+    else f.disk.put(path.join(FAKE_TEMP_ROOT, CACHE_NAME), 'directory');
     await assert.rejects(f.prepare());
     assert.equal(f.network.calls.length, 0);
     assert.equal(f.disk.calls.filter(call => call[0] === 'unlink').length, 0);
@@ -426,7 +427,7 @@ for (const [name, route, code] of badResponses) test('download rejects ' + name 
   const archive = fixtureArchive();
   if (route.corrupt) route.chunks = [Buffer.alloc(archive.buffer.length)];
   const f = preparationFixture(archive, [route]);
-  const userFile = '/tmp/fake/user-file.txt'; f.disk.put(userFile, 'file', Buffer.from('untouched'));
+  const userFile = path.join(FAKE_TEMP_ROOT, 'user-file.txt'); f.disk.put(userFile, 'file', Buffer.from('untouched'));
   await assert.rejects(f.prepare(), { code });
   assert.equal(packageDirectories(f.disk).length, 0);
   assert.equal(f.disk.nodes.get(userFile).data.toString(), 'untouched');
@@ -447,7 +448,7 @@ test('cancellation before reservation, during download, and during extraction is
     const controller = new AbortController();
     const f = preparationFixture(undefined, point === 'download' ? [{ hang: true }] : []);
     if (point === 'before') controller.abort();
-    if (point === 'write') f.disk.state.writeHook = async name => { if (name.endsWith('/readme.txt')) controller.abort(); };
+    if (point === 'write') f.disk.state.writeHook = async name => { if (path.basename(name) === 'readme.txt') controller.abort(); };
     const pending = f.prepare({ signal: controller.signal });
     if (point === 'download') { await until(() => f.network.responses.length === 1); controller.abort(); }
     await assert.rejects(pending, { code: 'VIRTUAL_AUDIO_SETUP_CANCELLED', name: 'AbortError' });
@@ -466,11 +467,11 @@ test('progress callback cancellation stops the bounded response and thrown progr
 });
 test('failed fake file writes remove partial owned files and exclusive creation never overwrites a pre-existing symlink', async () => {
   const f = preparationFixture();
-  f.disk.state.writeHook = async name => { if (name.endsWith('/readme.txt')) throw new Error('synthetic disk failure'); };
+  f.disk.state.writeHook = async name => { if (path.basename(name) === 'readme.txt') throw new Error('synthetic disk failure'); };
   await assert.rejects(f.prepare(), /synthetic disk failure/);
   assert.equal(packageDirectories(f.disk).length, 0);
   const g = preparationFixture(); let link;
-  g.disk.state.openHook = name => { if (name.endsWith('/readme.txt')) { link = name; g.disk.put(name, 'symlink'); } };
+  g.disk.state.openHook = name => { if (path.basename(name) === 'readme.txt') { link = name; g.disk.put(name, 'symlink'); } };
   await assert.rejects(g.prepare(), error => error.code === 'EEXIST' && error.cleanupError.code === 'VIRTUAL_AUDIO_PACKAGE_DIRECTORY');
   assert.equal(g.disk.nodes.get(link).type, 'symlink');
   assert.ok(!g.disk.calls.some(call => call[0] === 'unlink' && call[1] === link));
