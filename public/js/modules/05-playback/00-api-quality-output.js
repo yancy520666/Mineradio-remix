@@ -841,6 +841,7 @@ function markAudioOutputMirrorRuntime(id, state, message) {
   message = String(message || '');
   if (prev.state === state && prev.message === message) return;
   audioOutputMirrorRuntime[id] = { state: state, message: message, at: Date.now() };
+  if (state === 'playing' && typeof audioOutputMirrorStall !== 'undefined') delete audioOutputMirrorStall[id];
   if (markAudioOutputMirrorRuntime.renderPending) return;
   markAudioOutputMirrorRuntime.renderPending = true;
   var schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (fn) { return setTimeout(fn, 16); };
@@ -950,7 +951,7 @@ function renderAudioOutputDeviceUi() {
   function routeRow(device, index) {
     var id = device.deviceId, disabled = id === effectiveAudioPrimaryId(), active = ids.indexOf(id) >= 0 && !disabled;
     var value = audioRouteSetting(id), rt = audioOutputMirrorRuntimeFor(id);
-    var warning = active && (device.offline || rt && /error|unsupported/.test(rt.state));
+    var warning = active && (device.offline || rt && /error|unsupported|stalled/.test(rt.state));
     return '<div class="audio-route-row' + (active ? ' connected' : '') + (warning ? ' warning' : '') + '">' +
       '<button type="button" class="audio-route-node mirror workflow-node' + (active ? ' active connected' : '') + '" data-output-mirror="' + escHtml(id) + '" aria-pressed="' + active + '"' + (disabled ? ' disabled' : '') + '>' +
       '<span class="flow-port in" data-output-mirror-target="' + escHtml(id) + '"></span><span class="route-node-text"><b>' + escHtml(audioOutputDeviceLabel(device, index)) + '</b><small>' + escHtml(audioOutputMirrorStatusText(id, active, disabled)) + '</small></span><span class="audio-route-toggle">' + (active ? '断开' : disabled ? '主监听' : '连接') + '</span></button>' +
@@ -967,6 +968,13 @@ function renderAudioOutputDeviceUi() {
       renderAudioOutputDeviceUi.focusRefreshBound = true;
       body.addEventListener('focusout', function () { requestAnimationFrame(renderAudioOutputDeviceUi); });
     }
+    // Keep the focused control, but never leave a row showing a stale state
+    // (a drag-connect keeps focus on the previous slider or mixer button).
+    if (typeof body.querySelectorAll === 'function') body.querySelectorAll('[data-output-mirror]').forEach(function (btn) {
+      var id = btn.getAttribute('data-output-mirror') || '', small = btn.querySelector('.route-node-text small');
+      var disabled = id === effectiveAudioPrimaryId(), active = ids.indexOf(id) >= 0 && !disabled;
+      if (small) small.textContent = audioOutputMirrorStatusText(id, active, disabled);
+    });
     if (typeof syncVirtualAudioSetupCard === 'function') syncVirtualAudioSetupCard({ routeOpen: true, enumerationComplete: audioOutputDeviceSnapshotKnown && audioOutputDeviceSnapshotObserved, outputs: audioOutputDevices });
     return;
   }
@@ -977,7 +985,7 @@ function renderAudioOutputDeviceUi() {
     (routeAlert ? '<p class="audio-route-alert" role="note">' + escHtml(routeAlert) + '</p>' : '') + '</div>' +
     '<div class="audio-route-board"><section class="route-lane primary"><div class="route-lane-head"><b>主监听</b><small>选择自己听音乐的设备</small></div><div class="route-node-grid">' + primary + '</div></section>' +
     '<section class="route-lane mirror"><div class="route-lane-head"><b>附加输出</b><small>可同时连接多个耳机、音箱或声卡</small></div><div class="route-node-grid">' + (speakers.map(routeRow).join('') || '<div class="audio-route-empty">暂无其他输出设备</div>') + '</div></section>' +
-    '<section class="route-lane bridge"><div class="route-lane-head"><b>虚拟音频输出</b><small>支持同时连接多条虚拟声卡</small></div><div class="route-node-grid">' + (virtual.map(routeRow).join('') || '<div class="audio-route-empty">未检测到虚拟声卡，请安装 VB-Cable 或 Voicemeeter 后刷新。</div>') + '</div><p class="audio-route-note">选择虚拟声卡的播放端（如 CABLE Input），再在语音软件里选择对应录音端（CABLE Output）。普通实体麦克风无法直接接收播放音频。延迟补偿只增加所选输出的延迟，硬件延迟需按听感校准。</p></section></div></div>';
+    '<section class="route-lane bridge"><div class="route-lane-head"><b>虚拟音频输出</b><small>把音乐送进语音、游戏软件</small></div><div class="route-node-grid">' + (virtual.map(routeRow).join('') || '<div class="audio-route-empty">没有找到虚拟声卡。安装 VB-CABLE 并重启电脑后再打开这里。</div>') + '</div><ol class="audio-route-steps"><li>点上面的 <b>CABLE Input</b> 连接。</li><li>在语音或游戏软件的麦克风设置里选 <b>CABLE Output</b>。</li></ol><p class="audio-route-note">这样对方只听得到音乐。想边说话边放歌，打开下方的「麦克风混音」。延迟一般不用改，只在这一路声音比你听到的早时调大。</p></section></div></div>';
   if (body && typeof mountMicrophoneMixerPanel === 'function') mountMicrophoneMixerPanel(body);
   if (typeof syncVirtualAudioSetupCard === 'function') syncVirtualAudioSetupCard({ routeOpen: true, enumerationComplete: audioOutputDeviceSnapshotKnown && audioOutputDeviceSnapshotObserved, outputs: audioOutputDevices });
   var subtitle = document.getElementById('audio-output-workflow-subtitle');
@@ -1175,7 +1183,31 @@ function syncAudioOutputMirrors(reason) {
       });
     }
   });
+  if (reason === 'clock' && audio && !audio.paused && !audio.ended && typeof checkStalledAudioOutputMirrors === 'function') checkStalledAudioOutputMirrors(ids);
   if (!audioOutputMirrorSyncTimer) audioOutputMirrorSyncTimer = setInterval(function () { syncAudioOutputMirrors('clock'); }, 2200);
+}
+// A route still "connecting" while music plays gets one silent rebuild, then a
+// plain message instead of an endless pending state.
+var audioOutputMirrorStall = Object.create(null);
+function checkStalledAudioOutputMirrors(ids) {
+  ids.forEach(function (id) {
+    var rt = audioOutputMirrorRuntimeFor(id);
+    if (!rt || !/^(sink-pending|sink-ready|play-pending|waiting)$/.test(rt.state) || Date.now() - rt.at < 6000) return;
+    var stall = audioOutputMirrorStall[id] || (audioOutputMirrorStall[id] = { retried: false, notified: false });
+    if (!stall.retried) {
+      stall.retried = true;
+      removeAudioOutputMirror(id);
+      markAudioOutputMirrorRuntime(id, 'sink-pending', '正在重新连接');
+      syncAudioOutputMirrors('stall-retry');
+      return;
+    }
+    var name = String((audioOutputDeviceById(id) || {}).label || '这个设备').replace(/\s*\(.*$/, '');
+    markAudioOutputMirrorRuntime(id, 'stalled', '连不上，可断开后重连，或用下方「麦克风混音」输出');
+    if (!stall.notified && typeof showToast === 'function') {
+      stall.notified = true;
+      showToast(name + ' 连接超时：断开后重新连接；仍不行请用「麦克风混音」输出到它');
+    }
+  });
 }
 function audioRouteVisibleIds() {
   var ids = audioRouteSelectedIds();
@@ -1340,6 +1372,7 @@ function toggleAudioOutputMirrorDevice(deviceId) {
   }
   var ids = audioRouteSelectedIds();
   var pos = ids.indexOf(deviceId);
+  if (typeof audioOutputMirrorStall !== 'undefined') delete audioOutputMirrorStall[deviceId];
   if (typeof microphoneMixerOwnsOutput === 'function' && microphoneMixerOwnsOutput(deviceId)) {
     stopMicrophoneMixer('');
     if (pos < 0) { renderAudioOutputDeviceUi(); return; }

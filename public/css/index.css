@@ -19919,3 +19919,7 @@ body.desktop-wallpaper-mode.desktop-wallpaper-interactive:not(.desktop-software-
 /* The main output itself is a virtual cable: say so where the choice is made. */
 #audio-output-workflow-modal .audio-route-alert { margin: 0; padding: 8px 10px; border: 1px solid rgba(240, 176, 92, .38); border-radius: 10px; background: rgba(240, 176, 92, .08); color: #f1cf95; font-size: 11px; line-height: 1.6; }
 #audio-output-workflow-modal .audio-route-alert[hidden] { display: none !important; }
+/* Virtual output how-to: two short steps, then one plain sentence. */
+#audio-output-workflow-modal .audio-route-steps { margin: 12px 0 0; padding-left: 20px; color: rgba(255,255,255,.86); font-size: 12px; line-height: 1.8; }
+#audio-output-workflow-modal .audio-route-steps b { color: #f1d59c; font-weight: 600; }
+#audio-output-workflow-modal .route-lane .audio-route-steps + .audio-route-note { margin-top: 4px; }
