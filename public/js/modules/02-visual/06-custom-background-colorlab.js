@@ -314,6 +314,24 @@ function bindColorLabRows() {
     });
   });
 }
+// The colour popups are lifted to <body> beside the console. Hovering them must
+// count as staying in the console, otherwise the console folds away mid-pick.
+function fxFloatingPopupContainsPoint(x, y) {
+  var ids = ['color-lab-pop', 'cover-color-pop'];
+  for (var i = 0; i < ids.length; i++) {
+    var pop = document.getElementById(ids[i]);
+    if (!pop || !pop.classList.contains('show')) continue;
+    var r = pop.getBoundingClientRect();
+    if (x >= r.left - 18 && x <= r.right + 18 && y >= r.top - 18 && y <= r.bottom + 18) return true;
+  }
+  return false;
+}
+function closeFxFloatingPopups() {
+  var colorPop = document.getElementById('color-lab-pop');
+  if (colorPop && colorPop.classList.contains('show')) closeColorLab();
+  var coverPop = document.getElementById('cover-color-pop');
+  if (coverPop && coverPop.classList.contains('show') && typeof closeCoverColorPicker === 'function') closeCoverColorPicker();
+}
 function repositionFxFloatingPanels() {
   var colorPop = document.getElementById('color-lab-pop');
   if (colorPop && colorPop.classList.contains('show') && colorLabState.picker) {

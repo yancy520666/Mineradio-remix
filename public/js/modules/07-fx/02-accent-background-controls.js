@@ -920,7 +920,7 @@ var SONIC_WORKSHOP_THEMES = {
   'ocean-deep': { label: '\u6df1\u6d77', color: '#1b6fb8', base: '#031025', warm: '#2e8ed4', cool: '#7fdcff', ripple: '#b7f5ff', peak: '#80b8ff' },
   'arctic-aurora': { label: '\u51b0\u84dd', color: '#79e1c4', base: '#05161d', warm: '#79e1c4', cool: '#99c4ff', ripple: '#e6fbff', peak: '#b7e6ff' },
   'cyber-forest': { label: '\u7fe0\u7eff', color: '#3fc78a', base: '#04150d', warm: '#3fc78a', cool: '#74f5ff', ripple: '#b9ffd8', peak: '#d1ffe9' },
-  'minimal-monochrome': { label: '\u6781\u7b80', color: '#d9dde3', base: '#0b0c0e', warm: '#d9dde3', cool: '#ffffff', ripple: '#ffffff', peak: '#f2f5f8' },
+  'minimal-monochrome': { label: '\u6708\u767d', color: '#d9dde3', base: '#0b0c0e', warm: '#d9dde3', cool: '#ffffff', ripple: '#ffffff', peak: '#f2f5f8' },
   'neon-tokyo': { label: '\u9713\u8679', color: '#ff4fb8', base: '#100018', warm: '#ff4fb8', cool: '#39d7ff', ripple: '#ffd6f2', peak: '#e8ff6e' },
   'golden-hour': { label: '\u91d1\u8272', color: '#e8b44c', base: '#160d02', warm: '#e8b44c', cool: '#89c8ff', ripple: '#fff0b8', peak: '#ffffff' },
   'ember-fire': { label: '\u70ed\u706b', color: '#f27a28', base: '#180603', warm: '#f27a28', cool: '#76c8ff', ripple: '#ffd2a1', peak: '#fff2cf' },
@@ -1231,7 +1231,10 @@ function updateSonicWorkshopColorControls() {
     if (coverBtn) coverBtn.classList.toggle('active', coverMode);
   });
   document.querySelectorAll('#sonic-workshop-theme-seg [data-sonic-workshop-theme]').forEach(function (btn) {
-    btn.classList.toggle('active', fx.sonicWorkshopColorMode === 'custom' && normalizeSonicWorkshopTheme(btn.getAttribute('data-sonic-workshop-theme')) === theme);
+    var key = btn.getAttribute('data-sonic-workshop-theme');
+    btn.classList.toggle('active', key === 'cover'
+      ? fx.sonicWorkshopColorMode !== 'custom'
+      : fx.sonicWorkshopColorMode === 'custom' && normalizeSonicWorkshopTheme(key) === theme);
   });
 }
 function pushSonicWorkshopColorChange(reason) {
@@ -1247,6 +1250,13 @@ function setSonicWorkshopRegionColorMode(id, mode, silent) {
   fx[item.modeKey] = mode === 'custom' ? 'custom' : 'cover';
   pushSonicWorkshopColorChange(item.id === 'theme' ? 'sonicWorkshopColorMode' : item.colorKey);
   if (!silent) showToast('\u97f3\u57df\u56de\u54cd\u00b7WE ' + item.label + ': ' + (fx[item.modeKey] === 'cover' ? '\u5c01\u9762\u53d6\u8272' : '\u56fa\u5b9a\u989c\u8272'));
+}
+// The cover theme follows the album cover in every region. Choosing a fixed
+// theme pins all regions, so returning to the cover must release them all.
+function setSonicWorkshopCoverTheme(silent) {
+  SONIC_WORKSHOP_COLOR_CONTROLS.forEach(function (item) { fx[item.modeKey] = 'cover'; });
+  pushSonicWorkshopColorChange('sonicWorkshopColorMode');
+  if (!silent) showToast('\u97f3\u57df\u56de\u54cd\u00b7WE: \u8ddf\u968f\u5c01\u9762\u6e10\u53d8');
 }
 function setSonicWorkshopColorMode(mode, silent) {
   setSonicWorkshopRegionColorMode('theme', mode, silent);

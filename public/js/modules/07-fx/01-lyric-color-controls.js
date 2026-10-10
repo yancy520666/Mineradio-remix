@@ -65,8 +65,6 @@ function updateLyricGlowControls() {
   var picker = document.getElementById('lyric-glow-picker');
   var value = document.getElementById('lyric-glow-value');
   var linkBtn = document.getElementById('lyric-glow-link-btn');
-  var glowEnableBtn = document.getElementById('lyric-glow-enable-btn');
-  var glowBeatBtn = document.getElementById('lyric-glow-beat-btn');
   var linked = fx.lyricGlowLinked !== false;
   var color = normalizeHexColor(fx.lyricGlowColor || '#9db8cf');
   var tone = lyricGlowControlTone();
@@ -77,7 +75,7 @@ function updateLyricGlowControls() {
   }
   if (picker) picker.style.setProperty('--lyric-glow-color', tone);
   if (value) {
-    value.textContent = linked ? '跟随高亮' : color.toUpperCase();
+    value.textContent = '溢光颜色 · ' + (linked ? '跟随高亮' : color.toUpperCase());
     value.style.setProperty('--lyric-glow-color', tone);
   }
   if (linkBtn) {
@@ -85,16 +83,5 @@ function updateLyricGlowControls() {
     linkBtn.style.setProperty('--lyric-glow-color', tone);
     linkBtn.textContent = linked ? '链接' : '独立';
     linkBtn.title = linked ? '点击后单独设置溢光颜色' : '点击后让溢光跟随高亮';
-  }
-  [glowEnableBtn, glowBeatBtn].forEach(function (btn) {
-    if (btn) btn.style.setProperty('--lyric-glow-color', tone);
-  });
-  if (glowEnableBtn) {
-    glowEnableBtn.classList.toggle('active', !!fx.lyricGlow);
-    glowEnableBtn.title = fx.lyricGlow ? '关闭歌词背后的溢光层' : '开启歌词背后的溢光层';
-  }
-  if (glowBeatBtn) {
-    glowBeatBtn.classList.toggle('active', !!fx.lyricGlowBeat);
-    glowBeatBtn.title = fx.lyricGlowBeat ? '后层溢光正在跟随鼓点' : '让后层溢光跟随鼓点';
   }
 }

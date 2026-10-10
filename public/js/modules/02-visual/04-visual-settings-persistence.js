@@ -227,8 +227,8 @@ function readSavedLyricLayout() {
     var savedGlassOffset = layoutNumber(raw.controlGlassChromaticOffset, fxDefaults.controlGlassChromaticOffset, 30, 140);
     var savedPlaylistPanelGlassBlur = clampRange(raw.playlistPanelGlassBlur == null ? fxDefaults.playlistPanelGlassBlur : Number(raw.playlistPanelGlassBlur), 14, 60);
     var savedPlaylistPanelGlassDensity = clampRange(raw.playlistPanelGlassDensity == null ? fxDefaults.playlistPanelGlassDensity : Number(raw.playlistPanelGlassDensity), 0.55, 1);
-    var savedPlaylistPanelOpenDuration = clampRange(raw.playlistPanelOpenDuration == null ? fxDefaults.playlistPanelOpenDuration : Number(raw.playlistPanelOpenDuration), 0.08, 0.72);
-    var savedPlaylistPanelCloseDuration = clampRange(raw.playlistPanelCloseDuration == null ? fxDefaults.playlistPanelCloseDuration : Number(raw.playlistPanelCloseDuration), 0.06, 0.48);
+    var savedPlaylistPanelOpenDuration = clampRange(raw.playlistPanelOpenDuration == null ? fxDefaults.playlistPanelOpenDuration : Number(raw.playlistPanelOpenDuration), 0.16, 1.2);
+    var savedPlaylistPanelCloseDuration = clampRange(raw.playlistPanelCloseDuration == null ? fxDefaults.playlistPanelCloseDuration : Number(raw.playlistPanelCloseDuration), 0.12, 0.9);
     var savedBgMode = /^(cover|custom)$/.test(String(raw.backgroundColorMode || '')) ? String(raw.backgroundColorMode) : '';
     var savedBgCustom = savedBgMode
       ? savedBgMode === 'custom'
@@ -821,8 +821,8 @@ function saveLyricLayout(opts) {
       controlGlassChromaticOffset: layoutNumber(fx.controlGlassChromaticOffset, fxDefaults.controlGlassChromaticOffset, 30, 140),
       playlistPanelGlassBlur: clampRange(fx.playlistPanelGlassBlur == null ? fxDefaults.playlistPanelGlassBlur : Number(fx.playlistPanelGlassBlur), 14, 60),
       playlistPanelGlassDensity: clampRange(fx.playlistPanelGlassDensity == null ? fxDefaults.playlistPanelGlassDensity : Number(fx.playlistPanelGlassDensity), 0.55, 1),
-      playlistPanelOpenDuration: clampRange(fx.playlistPanelOpenDuration == null ? fxDefaults.playlistPanelOpenDuration : Number(fx.playlistPanelOpenDuration), 0.08, 0.72),
-      playlistPanelCloseDuration: clampRange(fx.playlistPanelCloseDuration == null ? fxDefaults.playlistPanelCloseDuration : Number(fx.playlistPanelCloseDuration), 0.06, 0.48),
+      playlistPanelOpenDuration: clampRange(fx.playlistPanelOpenDuration == null ? fxDefaults.playlistPanelOpenDuration : Number(fx.playlistPanelOpenDuration), 0.16, 1.2),
+      playlistPanelCloseDuration: clampRange(fx.playlistPanelCloseDuration == null ? fxDefaults.playlistPanelCloseDuration : Number(fx.playlistPanelCloseDuration), 0.12, 0.9),
       backgroundColorCustom: fx.backgroundColorMode === 'custom' || !!fx.backgroundColorCustom,
       backgroundImage: fx.backgroundAlbumCover === true ? '' : normalizeCustomBackgroundImage(fx.backgroundImage),
       backgroundMedia: fx.backgroundAlbumCover === true ? null : normalizeCustomBackgroundMedia(fx.backgroundMedia || fx.backgroundImage),

@@ -18,6 +18,12 @@ function fxConsoleItem(ref, title, aliases, history) {
   };
 }
 
+// A small heading inside a group. Controls moved into the console leave the
+// classic panel's section labels behind, so long groups need their own.
+function fxConsoleSubhead(title) {
+  return { subhead: title };
+}
+
 var FX_CONSOLE_LAYOUT = [
   {
     key: 'home',
@@ -27,9 +33,6 @@ var FX_CONSOLE_LAYOUT = [
       ] },
       { key: 'archives', title: '用户存档', hint: '保存、应用和分享整套视觉参数', items: [
         fxConsoleItem('user-archive-grid', '用户存档', '方案 快照 预设码 应用 回退')
-      ] },
-      { key: 'reset', title: '恢复与整理', hint: '恢复全部默认参数', items: [
-        fxConsoleItem({ selector: '.fx-actions' }, '恢复默认', '重置 全部默认')
       ] }
     ]
   },
@@ -37,15 +40,19 @@ var FX_CONSOLE_LAYOUT = [
     key: 'interface',
     groups: [
       { key: 'background', title: '背景媒体', hint: '颜色、封面、图片、视频与 Wallpaper Engine', open: true, items: [
+        fxConsoleSubhead('背景底色'),
         fxConsoleItem('bg-color-picker', '背景颜色', '纯色 封面取色'),
         fxConsoleItem('bg-media-preview', '背景媒体', '封面 图片 视频 上传 裁切 清除', false),
+        fxConsoleSubhead('Wallpaper Engine'),
         fxConsoleItem('wallpaper-engine-value', 'Wallpaper Engine', '壁纸库 识别 导入 恢复原背景', false),
         fxConsoleItem('wallpaper-engine-mode-controls', 'WE 播放方式', '原生 实时 循环 视频 缓存', false),
         fxConsoleItem('wallpaper-engine-opacity', 'WE 壁纸透明度', 'Wallpaper Engine 背景强度'),
         fxConsoleItem('wallpaper-engine-position-x', 'WE 水平位置', 'Wallpaper Engine 左右 偏移'),
         fxConsoleItem('wallpaper-engine-position-y', 'WE 垂直位置', 'Wallpaper Engine 上下 偏移'),
         fxConsoleItem('wallpaper-engine-scale', 'WE 壁纸缩放', 'Wallpaper Engine 放大 缩小'),
+        fxConsoleSubhead('显示与裁切'),
         fxConsoleItem('fx-bgopacity', '背景透明度', '背景强度'),
+        fxConsoleItem('fx-bgglassopacity', '背景图模糊', '毛玻璃 磨砂 背景模糊 图片 视频 封面'),
         fxConsoleItem('fx-bgcropx', '裁切左右', '背景水平 位置'),
         fxConsoleItem('fx-bgcropy', '裁切上下', '背景垂直 位置'),
         fxConsoleItem('fx-bgzoom', '裁切缩放', '背景放大 缩小')
@@ -57,16 +64,18 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('home-icon-picker', '主页图标', 'Home 图标颜色'),
         fxConsoleItem('visual-icon-picker', '视觉图标', '控制台图标颜色')
       ] },
-      { key: 'glass', title: '玻璃与左栏', hint: '窗口玻璃质感和歌单栏唤出手感', items: [
+      { key: 'glass', title: '玻璃与歌单栏', hint: '窗口玻璃、Aero 水光和左侧歌单栏', items: [
+        fxConsoleSubhead('窗口玻璃'),
         fxConsoleItem('fx-windowbgopacity', '窗口背景透明', '窗口透明度'),
-        fxConsoleItem('fx-bgglassopacity', '毛玻璃透明', '玻璃 背景模糊'),
         fxConsoleItem('fx-glassaberration', '控制台玻璃色差', 'RGB 色散 玻璃质感'),
+        fxConsoleSubhead('Aero 水光主题'),
         fxConsoleItem('t-aeroWaterTheme', 'Aero 水光', '水光 水星子 弹性 按压 反光 Frutiger Aero Vista Win7 主题'),
         fxConsoleItem('aero-water-palette-seg', '水光颜色', '水色快门 白昼流星 夏末雨 最初水光 悠远青空 江海之色 透明 青色 蓝色 主题色 流星 涟漪'),
-        fxConsoleItem('fx-playlistblur', '左栏雾面', '歌单栏 模糊'),
-        fxConsoleItem('fx-playlistdensity', '左栏遮挡', '歌单栏 密度 透明'),
-        fxConsoleItem('fx-playlistopen', '左栏唤出', '打开速度 秒数'),
-        fxConsoleItem('fx-playlistclose', '左栏收起', '关闭速度 秒数')
+        fxConsoleSubhead('左侧歌单栏'),
+        fxConsoleItem('fx-playlistdensity', '歌单栏不透明度', '左栏 遮挡 密度 透明'),
+        fxConsoleItem('fx-playlistblur', '歌单栏透底模糊', '左栏 雾面 模糊'),
+        fxConsoleItem('fx-playlistopen', '歌单栏唤出时长', '左栏 打开速度 秒数'),
+        fxConsoleItem('fx-playlistclose', '歌单栏收起时长', '左栏 关闭速度 秒数')
       ] }
     ]
   },
@@ -82,24 +91,30 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-lyrictranslationscale', '译文字号', '翻译大小'),
         fxConsoleItem('fx-lyrictranslationopacity', '译文透明', '翻译透明度')
       ] },
-      { key: 'colors', title: '颜色与光效', hint: '文字、高亮、溢光和亮底可读性', items: [
+      { key: 'colors', title: '颜色与光效', hint: '文字颜色、跟唱高亮、歌词溢光和亮底可读性', items: [
+        fxConsoleSubhead('文字颜色'),
         fxConsoleItem('lyric-color-grid', '歌词颜色', '文字颜色 封面取色'),
         fxConsoleItem('lyric-color-picker', '歌词自定义颜色', '文字色轮'),
+        fxConsoleSubhead('跟唱高亮'),
         fxConsoleItem('lyric-highlight-picker', '跟唱高亮', '高亮颜色 逐字'),
-        fxConsoleItem('lyric-glow-picker', '歌词溢光颜色', '辉光 光晕 颜色'),
-        fxConsoleItem({ selector: '.lyric-glow-effect-row' }, '歌词溢光开关', '后层溢光 跟随鼓点'),
-        fxConsoleItem('fx-lyricglow', '溢光强度', '歌词辉光 强度'),
-        fxConsoleItem('fx-lyricbgadapt', '亮底避光', '亮背景 可读性 自动压光'),
-        fxConsoleItem('t-lyricGlow', '歌词溢光', '后层辉光 开关'),
-        fxConsoleItem('t-lyricGlowBeat', '鼓点溢光', '歌词辉光 跟随节拍'),
-        fxConsoleItem('t-lyricGlowParticles', '歌词光粒', '歌词粒子 光点')
+        fxConsoleSubhead('歌词溢光'),
+        fxConsoleItem('t-lyricGlow', '歌词溢光', '后层溢光 后层辉光 开关'),
+        fxConsoleItem('t-lyricGlowBeat', '溢光跟随鼓点', '鼓点溢光 歌词辉光 跟随节拍'),
+        fxConsoleItem('fx-lyricglow', '歌词溢光强度', '歌词辉光 强度'),
+        fxConsoleItem('lyric-glow-picker', '歌词溢光颜色', '辉光 光晕 颜色 链接 独立'),
+        fxConsoleItem('t-lyricGlowParticles', '歌词光粒', '歌词粒子 光点'),
+        fxConsoleSubhead('亮底可读性'),
+        fxConsoleItem('fx-lyricbgadapt', '亮底避光', '亮背景 可读性 自动压光')
       ] },
       { key: 'type', title: '字体与排版', hint: '字体、字重、大小、位置和角度', items: [
+        fxConsoleSubhead('字体与清晰度'),
         fxConsoleItem('lyric-texture-quality-seg', '歌词清晰度', '分辨率 纹理 1x 2x 3x 4x 标清 高清 超清 极致 低配 显存 放大 清楚'),
         fxConsoleItem('lyric-font-grid', '歌词字体', '黑体 宋体 楷宋 Serif Gothic 等宽 上传字体'),
+        fxConsoleSubhead('字形'),
         fxConsoleItem('fx-lyricspacing', '字间距', '文字间距'),
         fxConsoleItem('fx-lyriclineheight', '行距', '歌词行间距'),
         fxConsoleItem('fx-lyricweight', '字重', '粗细'),
+        fxConsoleSubhead('大小、位置与角度'),
         fxConsoleItem('fx-lyricscale', '歌词大小', '字号 缩放'),
         fxConsoleItem('fx-lyricx', '左右位置', '歌词水平'),
         fxConsoleItem('fx-lyricy', '上下位置', '歌词垂直 高度'),
@@ -107,22 +122,27 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-lyrictiltx', '上下旋转', '歌词俯仰'),
         fxConsoleItem('fx-lyrictilty', '左右旋转', '歌词侧旋')
       ] },
-      { key: 'motion', title: '歌词动画', hint: '滚动手感、上下文层次与故障效果', items: [
+      { key: 'motion', title: '歌词动画', hint: '动画风格、上下句层次、滚动跟随与暂停', items: [
+        fxConsoleSubhead('动画风格'),
         fxConsoleItem('lyric-motion-style-seg', '歌词动画', '漂浮 柔滑 玻璃 线光 故障'),
         fxConsoleItem('lyric-glitch-controls', '故障细节', '故障强度 切片 色散 触发速度 抖动 鼓点'),
+        fxConsoleSubhead('上下句'),
         fxConsoleItem('fx-lyriccontextopacity', '上下句清晰', '上下文透明度'),
         fxConsoleItem('fx-lyriccontextspread', '上下句间距', '上下文距离'),
         fxConsoleItem('fx-lyricedgefade', '边缘渐隐', '歌词边缘淡出'),
+        fxConsoleSubhead('滚动、跟随与暂停'),
         fxConsoleItem('fx-lyricmotionsoftness', '动画柔顺', '歌词滚动 丝滑 缓动'),
         fxConsoleItem('t-lyricVerticalFloat', '歌词上下浮动', '漂浮 垂直'),
         fxConsoleItem('t-lyricCameraLock', '歌词镜头绑定', '跟随镜头 锁定'),
         fxConsoleItem('t-lyricPauseHold', '暂停保留歌词', '暂停不隐藏')
       ] },
       { key: 'desktop', title: '桌面歌词', hint: '桌面层开关、位置、透明度和帧数', items: [
+        fxConsoleSubhead('开关与行为'),
         fxConsoleItem('t-desktopLyrics', '桌面歌词', '全屏置顶歌词'),
         fxConsoleItem('t-desktopLyricsClickThrough', '桌面歌词锁定', '鼠标穿透 防误触'),
         fxConsoleItem('t-desktopLyricsCinema', '桌面歌词电影震动', '桌面歌词 鼓点'),
         fxConsoleItem('t-desktopLyricsHighlight', '桌面歌词高亮跟随', '桌面逐字高亮'),
+        fxConsoleSubhead('外观与帧率'),
         fxConsoleItem('fx-desktoplyricssize', '桌面歌词大小', '桌面字号'),
         fxConsoleItem('fx-desktoplyricsopacity', '桌面歌词透明度', '桌面歌词透明'),
         fxConsoleItem('fx-desktoplyricsy', '桌面歌词高度', '桌面位置'),
@@ -140,20 +160,23 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-cineshake', '镜头晃动强度', '镜头晃动 强度'),
         fxConsoleItem('t-cinema', '动态镜头开关', '电影镜头 自动运镜')
       ] },
-      { key: 'particles', title: '粒子与光影', hint: '粒子尺寸、运动、扭曲和溢光', items: [
-        fxConsoleItem('t-float', '浮空粒子层', '漂浮粒子'),
-        fxConsoleItem('t-bloom', '粒子溢光', '粒子光晕'),
+      { key: 'particles', title: '粒子与光影', hint: '粒子效果开关、形态、颜色和溢光', items: [
+        fxConsoleSubhead('效果开关'),
+        fxConsoleItem('t-bloom', '粒子溢光', '粒子光晕 bloom'),
         fxConsoleItem('t-edge', '轮廓高亮', '边缘光'),
         fxConsoleItem('t-backgroundStarRiver', '背景星河', '星空 粒子背景'),
+        fxConsoleSubhead('粒子形态'),
         fxConsoleItem('fx-point', '粒子尺寸', '点大小'),
         fxConsoleItem('fx-speed', '运动速度', '粒子流速'),
         fxConsoleItem('fx-twist', '粒子扭曲', '旋转 扭曲'),
-        fxConsoleItem('fx-color', '色彩张力', '粒子颜色 饱和'),
-        fxConsoleItem('fx-bloom', '光晕强度', '溢光 bloom'),
         fxConsoleItem('fx-scatter', '离散感', '粒子散开'),
+        fxConsoleSubhead('颜色与光'),
+        fxConsoleItem('fx-color', '色彩张力', '粒子颜色 饱和'),
+        fxConsoleItem('fx-bloom', '粒子溢光强度', '光晕强度 溢光 bloom'),
         fxConsoleItem('fx-bgfade', '背景压暗', '背景压缩 暗度')
       ] },
       { key: 'sonic-terrain', title: '音域地形', hint: '地面形态、颜色和空间位置', preset: 7, presetLabel: '音域回响 · Sonic-Topography', items: [
+        fxConsoleSubhead('地形形态'),
         fxConsoleItem('fx-sonicamp', '地面起伏', '音域振幅'),
         fxConsoleItem('fx-sonicspeed', '起伏速度', '地形运动'),
         fxConsoleItem('fx-sonicdensity', '地形密度', '网格密度'),
@@ -161,6 +184,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-soniclower', '歌词避让', '地形降低'),
         fxConsoleItem('fx-sonicdepth', '地面远近', '地形景深'),
         fxConsoleItem('fx-sonicautorotate', '地形自转', '旋转速度'),
+        fxConsoleSubhead('地形配色'),
         fxConsoleItem('sonic-ground-base-picker', '地形暗部', '音域底色'),
         fxConsoleItem('sonic-ground-cool-picker', '冷色峰值', '音域冷色'),
         fxConsoleItem('sonic-ground-warm-picker', '暖色峰值', '音域暖色'),
@@ -204,7 +228,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('sonic-workshop-cool-picker', '上层高光', 'WE 冷色'),
         fxConsoleItem('sonic-workshop-ripple-picker', '波纹亮区', 'WE 波纹'),
         fxConsoleItem('sonic-workshop-peak-picker', '峰值高光', 'WE 高光'),
-        fxConsoleItem('sonic-workshop-theme-seg', 'WE 主题', '珊瑚 深海 冰蓝 翠绿 极简')
+        fxConsoleItem('sonic-workshop-theme-seg', 'WE 主题', '封面 珊瑚 深海 冰蓝 翠绿 月白 极简 黑白')
       ] }
     ]
   },
@@ -307,6 +331,9 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-wallpaperMode', '完整桌面模式', '完整 Mineradio 进入桌面层 Ctrl Shift M 切换操作层 本次启动有效', false),
         fxConsoleItem('wallpaper-fps-seg', '桌面壁纸帧率', '24 30 60 FPS'),
         fxConsoleItem('fx-wallpaperopacity', '桌面壁纸透明度', '桌面背景透明')
+      ] },
+      { key: 'reset', title: '恢复默认设置', hint: '把视觉控制台的全部参数恢复为默认值', items: [
+        fxConsoleItem({ selector: '.fx-actions' }, '恢复默认设置', '重置 全部默认 恢复与整理')
       ] }
     ]
   }
@@ -321,7 +348,7 @@ function fxConsoleResolveBlock(ref) {
   else if (ref && ref.element) el = ref.element;
   else if (ref && ref.selector) el = document.querySelector('#fx-panel ' + ref.selector) || document.querySelector(ref.selector);
   if (!el) return null;
-  var selector = '.fx-slider,.lyric-color-row,.lyric-color-grid,.fx-seg,.preset-grid,.user-archive-grid,.fx-font-grid,.fx-toggle,.lyric-glitch-controls,.lyric-glow-effect-row,.sonic-audio-monitor,.quality-preset-section,.audio-output-section,.cache-storage-panel,.memory-status-chip,.memory-status-sub,.memory-action-row,.fx-actions';
+  var selector = '.fx-slider,.lyric-color-row,.lyric-color-grid,.fx-seg,.preset-grid,.user-archive-grid,.fx-font-grid,.fx-toggle,.lyric-glitch-controls,.sonic-audio-monitor,.quality-preset-section,.audio-output-section,.cache-storage-panel,.memory-status-chip,.memory-status-sub,.memory-action-row,.fx-actions';
   if (el.matches && el.matches(selector)) return el;
   return el.closest ? (el.closest(selector) || el) : el;
 }
@@ -428,6 +455,17 @@ function updateFxConsolePresetHints() {
 }
 
 function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
+  if (item.subhead) {
+    var subhead = document.createElement('div');
+    subhead.className = 'fx-section-label fx-console-subhead';
+    subhead.textContent = item.subhead;
+    body.appendChild(subhead);
+    state.toggleGrid = null;
+    state.afterSubhead = true;
+    return;
+  }
+  var followsSubhead = !!state.afterSubhead;
+  state.afterSubhead = false;
   var node = fxConsoleResolveBlock(item.ref);
   if (!node) {
     console.warn('[FxConsole] control missing:', item.title, item.ref);
@@ -451,8 +489,9 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
   } else {
     state.toggleGrid = null;
     // Button groups carry no text of their own; the classic panel's section label
-    // stays behind when the control moves, so give it its console title instead.
-    if (node.classList.contains('fx-seg')) {
+    // stays behind when the control moves, so give it its console title instead
+    // (unless a group subheading right above already names it).
+    if (node.classList.contains('fx-seg') && !followsSubhead) {
       var label = document.createElement('div');
       label.className = 'fx-section-label fx-console-item-label';
       label.textContent = item.title;
@@ -482,7 +521,7 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
 }
 
 function fxConsoleFindUnclassifiedControls(roots) {
-  var blockSelector = '.fx-slider,.lyric-color-row,.lyric-color-grid,.fx-seg,.preset-grid,.user-archive-grid,.fx-font-grid,.fx-toggle,.lyric-glitch-controls,.lyric-glow-effect-row,.sonic-audio-monitor,.quality-preset-section,.audio-output-section,.cache-storage-panel,.memory-status-chip,.memory-status-sub,.memory-action-row,.fx-actions';
+  var blockSelector = '.fx-slider,.lyric-color-row,.lyric-color-grid,.fx-seg,.preset-grid,.user-archive-grid,.fx-font-grid,.fx-toggle,.lyric-glitch-controls,.sonic-audio-monitor,.quality-preset-section,.audio-output-section,.cache-storage-panel,.memory-status-chip,.memory-status-sub,.memory-action-row,.fx-actions';
   var blocks = [];
   roots.forEach(function (root) {
     if (!root || !root.isConnected) return;

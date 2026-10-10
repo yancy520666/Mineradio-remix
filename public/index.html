@@ -480,9 +480,9 @@
           step="1"><output></output></div>
       <div class="fx-slider"><label>左栏遮挡</label><input id="fx-playlistdensity" type="range" min="0.55" max="1"
           step="0.01"><output></output></div>
-      <div class="fx-slider"><label>左栏唤出</label><input id="fx-playlistopen" type="range" min="0.08" max="0.72"
+      <div class="fx-slider"><label>左栏唤出</label><input id="fx-playlistopen" type="range" min="0.16" max="1.2"
           step="0.01"><output></output></div>
-      <div class="fx-slider"><label>左栏收起</label><input id="fx-playlistclose" type="range" min="0.06" max="0.48"
+      <div class="fx-slider"><label>左栏收起</label><input id="fx-playlistclose" type="range" min="0.12" max="0.9"
           step="0.01"><output></output></div>
 
       <div class="fx-section-label">主控</div>
@@ -645,11 +645,12 @@
           onclick="setSonicWorkshopRegionColorMode('peak','cover')">&#x5c01;&#x9762;</button>
       </div>
       <div class="fx-seg sonic-workshop-theme-seg" id="sonic-workshop-theme-seg">
+        <button data-sonic-workshop-theme="cover" onclick="setSonicWorkshopCoverTheme()" title="主题与各区域颜色都随封面渐变">封面</button>
         <button data-sonic-workshop-theme="coral-mirage" onclick="setSonicWorkshopTheme('coral-mirage')">珊瑚</button>
         <button data-sonic-workshop-theme="ocean-deep" onclick="setSonicWorkshopTheme('ocean-deep')">深海</button>
         <button data-sonic-workshop-theme="arctic-aurora" onclick="setSonicWorkshopTheme('arctic-aurora')">冰蓝</button>
         <button data-sonic-workshop-theme="cyber-forest" onclick="setSonicWorkshopTheme('cyber-forest')">翠绿</button>
-        <button data-sonic-workshop-theme="minimal-monochrome" onclick="setSonicWorkshopTheme('minimal-monochrome')">极简</button>
+        <button data-sonic-workshop-theme="minimal-monochrome" onclick="setSonicWorkshopTheme('minimal-monochrome')">月白</button>
       </div>
 
       <div class="fx-fold" id="fx-lyric-fold">
@@ -679,12 +680,6 @@
             <div class="lyric-color-value" id="lyric-glow-value">跟随高亮</div>
             <button class="fx-mini-btn ghost active" id="lyric-glow-link-btn" type="button"
               onclick="toggleLyricGlowLink(event)">链接</button>
-          </div>
-          <div class="lyric-glow-effect-row">
-            <button class="fx-mini-btn ghost" id="lyric-glow-enable-btn" type="button"
-              onclick="toggleFx('lyricGlow')">后层溢光</button>
-            <button class="fx-mini-btn ghost" id="lyric-glow-beat-btn" type="button"
-              onclick="toggleFx('lyricGlowBeat')">跟随鼓点</button>
           </div>
           <div class="fx-section-label">歌词源</div>
           <div class="lyric-source-row">
@@ -805,7 +800,7 @@
             </div>
             <div class="fx-toggle" id="t-lyricGlow" onclick="toggleFx('lyricGlow')"><span>歌词溢光</span><span
                 class="dot"></span></div>
-            <div class="fx-toggle" id="t-lyricGlowBeat" onclick="toggleFx('lyricGlowBeat')"><span>鼓点溢光</span><span
+            <div class="fx-toggle" id="t-lyricGlowBeat" onclick="toggleFx('lyricGlowBeat')"><span>跟随鼓点</span><span
                 class="dot"></span></div>
             <div class="fx-toggle" id="t-lyricGlowParticles" onclick="toggleFx('lyricGlowParticles')">
               <span>歌词光粒</span><span class="dot"></span></div>

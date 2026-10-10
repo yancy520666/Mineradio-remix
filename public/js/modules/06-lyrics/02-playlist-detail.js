@@ -32,7 +32,7 @@ function scheduleQueuePanelVirtualRender() {
     queuePanelVirtualState.raf = 0;
     if (miniQueueOpen) renderMiniQueuePanel({ animate: false, scrollCurrent: false });
     if (queueViewTab === 'queue' && isPlaylistPanelVisibleForRender()) {
-      renderQueuePanel({ animate: false, scrollCurrent: false });
+      renderQueuePanel({ animate: false, scrollCurrent: false, virtualOnly: true });
     }
   });
 }

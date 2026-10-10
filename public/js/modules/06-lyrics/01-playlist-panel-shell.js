@@ -2,7 +2,7 @@
 function animateListItems(container, selector, opts) {
   if (!container || !window.gsap) return;
   opts = opts || {};
-  var items = Array.prototype.slice.call(container.querySelectorAll(selector));
+  var items = opts.targets || Array.prototype.slice.call(container.querySelectorAll(selector));
   if (!items.length) return;
   var limit = opts.limit || 18;
   var targets = items.slice(0, limit);
@@ -93,11 +93,29 @@ function bindSmoothQueueScrolling() {
     bindSmoothWheelScroll(document.getElementById(id));
   });
 }
+// Rows the user can actually see. The queue opens scrolled to the current song,
+// so the first DOM rows are usually above the view; animating those left only
+// the top two or three visible rows moving while the rest simply appeared.
+function visiblePanelListItems(listEl, selector, scroller, limit) {
+  var items = listEl.querySelectorAll(selector);
+  var view = (scroller || listEl).getBoundingClientRect();
+  var out = [];
+  for (var i = 0; i < items.length && out.length < limit; i++) {
+    var r = items[i].getBoundingClientRect();
+    if (!r.height || r.bottom < view.top + 2) continue;
+    if (r.top > view.bottom - 2) break;
+    out.push(items[i]);
+  }
+  return out;
+}
 function animateVisiblePanelList(listEl, selector, scroller, activeSelector, opts) {
   if (!listEl) return;
   opts = opts || {};
   requestAnimationFrame(function () {
-    animateListItems(listEl, selector, { x: -8, y: 6, stagger: 0.01, duration: 0.20, limit: 16 });
+    var targets = visiblePanelListItems(listEl, selector, scroller, 14);
+    // One continuous cascade: every visible row slides in from the panel's
+    // edge, top to bottom, finishing together with the panel's own glide.
+    if (targets.length) animateListItems(listEl, selector, { targets: targets, x: -22, y: 0, stagger: 0.026, duration: 0.42, ease: 'power3.out', limit: 14 });
     var active = activeSelector ? listEl.querySelector(activeSelector) : null;
     if (active && scroller && opts.scrollActive !== false) smoothScrollToItem(scroller, active, { duration: 0.32 });
   });
@@ -181,7 +199,8 @@ function setPlaylistPanelPinned(on, silent) {
 function togglePlaylistPanelPinned() {
   setPlaylistPanelPinned(!playlistPanelPinned);
 }
-function scrollPlaylistPanelToCurrent() {
+function scrollPlaylistPanelToCurrent(opts) {
+  opts = opts || {};
   var panel = document.getElementById('playlist-panel');
   var list = document.getElementById('queue-list');
   if (!panel || !list || queueViewTab !== 'queue') return;
@@ -190,7 +209,20 @@ function scrollPlaylistPanelToCurrent() {
   panel.__lastCurrentScrollAt = now;
   requestAnimationFrame(function () {
     renderQueuePanel({ animate: false, scrollCurrent: true });
-    smoothScrollToItem(panel, list.querySelector('.queue-item.now'), { duration: 0.28, align: 0.34 });
+    var current = list.querySelector('.queue-item.now');
+    if (opts.instant && current) {
+      // While the panel itself slides in, place the list directly: a fast
+      // scroll from the top rebuilt every virtual row each frame and threw
+      // away the rows' entrance animation.
+      var target = current.offsetTop - Math.max(0, (panel.clientHeight - current.offsetHeight) * 0.34);
+      target = Math.max(0, Math.min(target, panel.scrollHeight - panel.clientHeight));
+      if (window.gsap) window.gsap.killTweensOf(panel);
+      if (typeof panel.__syncSmoothWheelTarget === 'function') panel.__syncSmoothWheelTarget(target);
+      panel.scrollTop = target;
+      renderQueuePanel({ animate: false, scrollCurrent: false });
+      return;
+    }
+    smoothScrollToItem(panel, current, { duration: 0.28, align: 0.34 });
   });
 }
 function animatePlaylistPanelCurrentTab(panel, opts) {
@@ -211,7 +243,7 @@ function preparePlaylistPanelTabOnOpen(panel) {
   } else if (!playQueue.length && queueViewTab === 'queue') {
     switchPlaylistTab('playlists', { save: false, animate: false, refresh: false });
   }
-  if (queueViewTab === 'queue') scrollPlaylistPanelToCurrent();
+  if (queueViewTab === 'queue') scrollPlaylistPanelToCurrent({ instant: true });
   else if (queueViewTab === 'playlists' || queueViewTab === 'podcasts') refreshUserPlaylists();
 }
 function switchPlaylistTab(tab, opts) {
@@ -487,6 +519,12 @@ function renderQueuePanel(opts) {
   var total = playQueue.length;
   var panelScroller = document.getElementById('playlist-panel');
   var windowInfo = queuePanelVirtualWindow($ql, panelScroller, total, false, opts.scrollCurrent ? currentIdx : -1);
+  // Scrolling within the same virtual window needs no new rows; rebuilding
+  // them anyway churned the DOM every frame and cancelled row animations.
+  var windowKey = [windowInfo.start, windowInfo.end, currentIdx, total, queueHydrationFooterHtml(false)].join('|');
+  if (opts.virtualOnly && $ql.__queueWindowKey === windowKey && $ql.__queueRef === playQueue) return;
+  $ql.__queueWindowKey = windowKey;
+  $ql.__queueRef = playQueue;
   var visibleQueue = playQueue.slice(windowInfo.start, windowInfo.end);
   $ql.innerHTML = queueVirtualSpacerHtml(windowInfo.top) + visibleQueue.map(function (song, localIndex) {
     var i = windowInfo.start + localIndex;
