@@ -10,7 +10,7 @@ function cancelPlaylistReturnMotion() {
 }
 function playlistPanelTopInset(panel) {
   var header = panel.querySelector('.playlist-panel-sticky');
-  var toolbar = panel.querySelector('#pl-pane .queue-toolbar');
+  var toolbar = Array.prototype.find.call(panel.querySelectorAll('.queue-toolbar'), function (node) { return node.offsetHeight > 0; });
   var padding = parseFloat(getComputedStyle(panel).paddingTop) || 0;
   var headerBottom = header ? header.offsetHeight + padding + (parseFloat(getComputedStyle(header).top) || 0) : 0;
   panel.style.setProperty('--playlist-toolbar-top', Math.max(0, headerBottom + 8 - padding) + 'px');
@@ -18,14 +18,31 @@ function playlistPanelTopInset(panel) {
   return headerBottom + (toolbar && toolbar.offsetHeight ? toolbar.offsetHeight + 8 : 0) + 8;
 }
 function syncPlaylistPanelContentClip(panel) {
-  var list = panel.querySelector('#pl-list');
-  var toolbar = panel.querySelector('#pl-pane .queue-toolbar');
-  if (!list || !toolbar || !toolbar.offsetHeight) return;
+  if (!panel) return;
   var header = panel.querySelector('.playlist-panel-sticky');
-  var safeTop = Math.max(header ? header.getBoundingClientRect().bottom : 0, toolbar.getBoundingClientRect().bottom) + 8;
-  var clipTop = Math.max(0, Math.ceil(safeTop - list.getBoundingClientRect().top));
-  var clip = 'inset(' + clipTop + 'px 0px 0px)';
-  if (list.style.clipPath !== clip) list.style.clipPath = clip;
+  // Rectangles include the panel's zoom/scale; clip-path uses local CSS pixels.
+  var scale = panel.offsetHeight > 0 ? panel.getBoundingClientRect().height / panel.offsetHeight : 1;
+  if (!isFinite(scale) || scale <= 0) scale = 1;
+  var headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+  [
+    ['#queue-list', '#queue-pane .queue-toolbar'],
+    ['#pl-list', '#pl-pane .queue-toolbar'],
+    ['#podcast-list', '#podcast-pane .queue-toolbar']
+  ].forEach(function (selectors) {
+    var list = panel.querySelector(selectors[0]);
+    var toolbar = panel.querySelector(selectors[1]);
+    if (!list) return;
+    if (!toolbar || !toolbar.offsetHeight) {
+      if (list.style.clipPath) list.style.clipPath = '';
+      return;
+    }
+    var safeTop = Math.max(headerBottom, toolbar.getBoundingClientRect().bottom) + 8 * scale;
+    var clipTop = Math.max(0, Math.ceil((safeTop - list.getBoundingClientRect().top) / scale));
+    var clip = 'inset(' + clipTop + 'px 0px 0px)';
+    // Clip the list ancestor, including overscan, GSAP transforms and hit tests.
+    // Darkening the glass alone would still let rows paint beneath the controls.
+    if (list.style.clipPath !== clip) list.style.clipPath = clip;
+  });
 }
 function playlistCatalogScrollTarget(panel, key) {
   var list = document.getElementById('pl-list');
@@ -101,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (clipFrame) return;
     clipFrame = requestAnimationFrame(function () { clipFrame = 0; syncPlaylistPanelContentClip(panel); });
   }
-  panel.addEventListener('scroll', scheduleClip, { passive: true });
+  panel.addEventListener('scroll', function () { syncPlaylistPanelContentClip(panel); }, { passive: true });
   ['wheel', 'touchstart', 'pointerdown'].forEach(function (event) {
     panel.addEventListener(event, cancelPlaylistReturnMotion, { passive: true });
   });
@@ -112,11 +129,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var observer = new ResizeObserver(function () { playlistPanelTopInset(panel); scheduleClip(); });
     var header = panel.querySelector('.playlist-panel-sticky');
     if (header) observer.observe(header);
-    var toolbar = panel.querySelector('#pl-pane .queue-toolbar');
-    if (toolbar) observer.observe(toolbar);
+    observer.observe(panel);
+    Array.prototype.forEach.call(panel.querySelectorAll('.queue-toolbar, #queue-list, #pl-list, #podcast-list'), function (node) { observer.observe(node); });
   }
   new MutationObserver(function () {
     if (panel.classList.contains('playlist-panel-closing') || !panel.classList.contains('show') && !panel.classList.contains('peek')) cancelPlaylistReturnMotion();
+    playlistPanelTopInset(panel);
+    scheduleClip();
   }).observe(panel, { attributes: true, attributeFilter: ['class'] });
   playlistPanelTopInset(panel);
   scheduleClip();

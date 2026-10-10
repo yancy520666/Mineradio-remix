@@ -47,7 +47,7 @@ async function probe() {
   setForegroundFpsMode('30', true);
   await wait(1000);
   const eco = snapshot();
-  check(eco.config.profile.gridSize === 112, 'opt-in grid was not applied');
+  check(eco.config.profile.gridSize === 96, 'opt-in grid was not applied');
   check(eco.triangles < legacy.triangles / 4 && eco.width < legacy.width, 'actual GPU budget did not decrease');
   await until(() => MineradioSonicPerformance.snapshot().sample, 'iframe frame measurement did not arrive', 22000);
   const measured = MineradioSonicPerformance.snapshot().sample;
@@ -93,7 +93,7 @@ async function probe() {
   const restored = snapshot();
   setPerformanceQualityMode('balanced', true);
   await wait(1000);
-  check(snapshot().config.profile.gridSize === 160, 'manual quality selection was not applied');
+  check(snapshot().config.profile.gridSize === 128, 'manual quality selection was not applied');
 
   // Non-rendering script errors must not flash a failure, while an actual
   // drawing exception must show retry even after the first healthy frame.

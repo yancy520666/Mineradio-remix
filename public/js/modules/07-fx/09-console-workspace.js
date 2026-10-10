@@ -133,12 +133,12 @@ var FX_CONSOLE_LAYOUT = [
   {
     key: 'motion',
     groups: [
-      { key: 'base', title: '基础画面', hint: '整体律动、景深、封面和电影镜头', open: true, items: [
-        fxConsoleItem('fx-intensity', '律动强度', '音乐响应 节奏'),
-        fxConsoleItem('fx-depth', '画面景深', '立体感 深度'),
-        fxConsoleItem('fx-coverres', '封面清晰度', '粒子数量 分辨率'),
-        fxConsoleItem('fx-cineshake', '电影镜头', '镜头晃动 强度'),
-        fxConsoleItem('t-cinema', '电影镜头开关', '动态镜头')
+      { key: 'base', title: '封面粒子与镜头', hint: '调整封面粒子效果；立体起伏仅适用于丝绸', open: true, items: [
+        fxConsoleItem('fx-intensity', '粒子律动强度', '音乐响应 节奏'),
+        fxConsoleItem('fx-depth', '丝绸立体起伏', '立体感 深度'),
+        fxConsoleItem('fx-coverres', '封面粒子细节', '粒子数量 分辨率'),
+        fxConsoleItem('fx-cineshake', '镜头晃动强度', '镜头晃动 强度'),
+        fxConsoleItem('t-cinema', '动态镜头开关', '电影镜头 自动运镜')
       ] },
       { key: 'particles', title: '粒子与光影', hint: '粒子尺寸、运动、扭曲和溢光', items: [
         fxConsoleItem('t-float', '浮空粒子层', '漂浮粒子'),

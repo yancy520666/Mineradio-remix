@@ -21,6 +21,7 @@ function renderMyPodcastRadioItems(key, title, items) {
   if (!items.length) {
     $pod.innerHTML = '<div class="podcast-inline-head"><div class="pl-section-label">' + escHtml(title || '我的播客') + '</div><button class="fx-mini-btn ghost" data-podcast-back="1" style="height:24px;padding:0 9px;font-size:10.5px">返回</button></div>' +
       '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">暂无内容</div>';
+    if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
     return;
   }
   $pod.innerHTML = '<div class="podcast-inline-head"><div class="pl-section-label">' + escHtml(title || '我的播客') + '</div><button class="fx-mini-btn ghost" data-podcast-back="1" style="height:24px;padding:0 9px;font-size:10.5px">返回</button></div>' +
@@ -32,6 +33,7 @@ function renderMyPodcastRadioItems(key, title, items) {
         '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(r.name || '') + '</div><div class="pl-sub">' + escHtml((r.djName || r.artist || 'Podcast') + (r.programCount ? (' · ' + r.programCount + ' 集') : '')) + '</div></div>' +
         '</div>';
     }).join('');
+  if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
   animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
 var queueLoadRequestSerial = 0;

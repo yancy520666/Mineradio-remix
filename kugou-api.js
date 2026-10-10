@@ -47,15 +47,20 @@ function createKugouTtlCache(maxEntries, defaultTtlMs) {
         if (oldest) store.delete(oldest[0]);
       }
     },
+    delete(key) {
+      store.delete(key);
+      inflight.delete(key);
+    },
     async wrap(key, ttlMs, fn) {
       const cached = this.get(key);
       if (cached !== null) return cached;
       if (inflight.has(key)) return inflight.get(key);
       const startGeneration = generation;
       let promise;
-      promise = Promise.resolve().then(fn).then((value) => {
+      const isCurrent = () => startGeneration === generation && inflight.get(key) === promise;
+      promise = Promise.resolve().then(() => fn(isCurrent)).then((value) => {
         const resolvedTtl = typeof ttlMs === 'function' ? ttlMs(value) : ttlMs;
-        if (startGeneration === generation && resolvedTtl !== false) this.set(key, value, resolvedTtl);
+        if (isCurrent() && resolvedTtl !== false) this.set(key, value, resolvedTtl);
         return value;
       }).finally(() => {
         if (inflight.get(key) === promise) inflight.delete(key);
@@ -1408,10 +1413,13 @@ async function handleKugouSongUrl(params, cookie) {
     albumAudioId,
     effectiveQuality,
   ].join(':');
+  // Recovery must resolve a new signed URL rather than reload the retained one.
+  if (params.fresh === true) kugouSongUrlCache.delete(cacheKey);
   const cached = kugouSongUrlCache.get(cacheKey);
   if (cached) {
     return attachKugouPlaybackStatus(cached, cookie, auth, membership);
   }
+  return kugouSongUrlCache.wrap(cacheKey, false, async (isCacheCurrent) => {
   console.log('[KugouSongUrl] hash:', hash, 'album:', albumId, 'mix:', albumAudioId, 'auth:', auth.playbackReady ? 'ready' : 'guest', 'tier:', membership.vipLevel);
 
   const candidates = hashCandidatesFromSong({
@@ -1434,7 +1442,7 @@ async function handleKugouSongUrl(params, cookie) {
       qualityDowngraded: requestedQuality !== resolvedLevel,
     });
     if (payload) delete payload.__candidate;
-    kugouSongUrlCache.set(cacheKey, payload);
+    if (isCacheCurrent()) kugouSongUrlCache.set(cacheKey, payload);
     return attachKugouPlaybackStatus(payload, cookie, auth, membership);
   }
 
@@ -1525,6 +1533,7 @@ async function handleKugouSongUrl(params, cookie) {
     message: '酷狗暂未返回播放地址，请稍后重试',
   };
   return restrictedPlayback(restriction);
+  });
 }
 
 function decodeKugouLyricContent(content) {

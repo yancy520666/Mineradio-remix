@@ -677,6 +677,7 @@ function renderUserPlaylistsList(opts) {
     $pl.innerHTML = playlistCatalogSyncState && playlistCatalogSyncState.loading
       ? miniQueueSkeleton() + playlistCatalogFooterHtml()
       : (playlistCatalogFooterHtml() || '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">未找到歌单</div>');
+    if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
     return;
   }
   var panel = document.getElementById('playlist-panel');
@@ -728,11 +729,13 @@ function renderMyPodcastCollections(opts) {
   if (!$pod) return;
   if (!loginStatus.loggedIn) {
     $pod.innerHTML = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">登录后显示我的播客</div>';
+    if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
     return;
   }
   var items = myPodcastCollections || [];
   if (!items.length) {
     $pod.innerHTML = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">暂无播客数据</div>';
+    if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
     return;
   }
   $pod.innerHTML = items.map(function (pc) {
@@ -743,6 +746,7 @@ function renderMyPodcastCollections(opts) {
       '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(pc.title || '') + '</div><div class="pl-sub">' + (pc.count || 0) + ' 项 · ' + escHtml(pc.sub || '') + '</div></div>' +
       '</div>';
   }).join('');
+  if (typeof syncPlaylistPanelContentClip === 'function') syncPlaylistPanelContentClip(document.getElementById('playlist-panel'));
   if (opts.animate) animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
 document.getElementById('pl-list').addEventListener('click', function (e) {

@@ -812,10 +812,10 @@ function relabelFxPanelControls() {
   setFxSectionBefore('fx-shelfsummonopen', '歌单架唤出动画');
   setFxSectionBefore('cam-seg', '摄像头交互');
   setFxSectionBefore('fx-point', '粒子高级参数');
-  setFxSliderLabel('fx-intensity', '律动强度');
-  setFxSliderLabel('fx-depth', '画面景深');
-  setFxSliderLabel('fx-coverres', '封面清晰度');
-  setFxSliderLabel('fx-cineshake', '电影镜头');
+  setFxSliderLabel('fx-intensity', '粒子律动强度');
+  setFxSliderLabel('fx-depth', '丝绸立体起伏');
+  setFxSliderLabel('fx-coverres', '封面粒子细节');
+  setFxSliderLabel('fx-cineshake', '镜头晃动强度');
   setFxSliderLabel('fx-lyricglow', '溢光强度');
   setFxSliderLabel('fx-bgopacity', '背景透明度');
   setFxSliderLabel('fx-glassaberration', '玻璃色差');

@@ -111,16 +111,30 @@ function markVisualGuideSeen() {
   markStartupGuideSeen('visual');
 }
 var startupVisualGuideScheduled = false;
-function maybeRunStartupVisualGuide(source) {
-  if (visualGuideWasSeen() || visualGuideActive || startupVisualGuideScheduled || immersiveMode || playing) return false;
+var startupVisualGuideTimer = 0, visualGuideStartTimer = 0, visualGuideStartToken = 0;
+function cancelScheduledVisualGuideStart() {
+  visualGuideStartToken += 1;
+  clearTimeout(startupVisualGuideTimer);
+  clearTimeout(visualGuideStartTimer);
+  startupVisualGuideTimer = visualGuideStartTimer = 0;
+  startupVisualGuideScheduled = false;
+}
+function canRunStartupVisualGuide() {
+  if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing) return false;
   if (typeof originalProfileImportPending !== 'undefined' && originalProfileImportPending) return false;
+  var loginModal = document.getElementById('login-modal');
+  var profileModal = document.getElementById('original-profile-modal');
+  return !((loginModal && loginModal.classList.contains('show')) || (profileModal && profileModal.classList.contains('show')));
+}
+function maybeRunStartupVisualGuide(source) {
+  if (startupVisualGuideScheduled || visualGuideStartTimer || !canRunStartupVisualGuide()) return false;
   startupVisualGuideScheduled = true;
-  setTimeout(function () {
+  var token = visualGuideStartToken;
+  startupVisualGuideTimer = setTimeout(function () {
+    if (token !== visualGuideStartToken) return;
+    startupVisualGuideTimer = 0;
     startupVisualGuideScheduled = false;
-    if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing || originalProfileImportPending) return;
-    var loginModal = document.getElementById('login-modal');
-    var profileModal = document.getElementById('original-profile-modal');
-    if ((loginModal && loginModal.classList.contains('show')) || (profileModal && profileModal.classList.contains('show'))) return;
+    if (!canRunStartupVisualGuide()) return;
     startVisualGuide({ source: source || 'startup' });
   }, source === 'splash' ? 3600 : 1400);
   return true;
@@ -128,8 +142,15 @@ function maybeRunStartupVisualGuide(source) {
 function startVisualGuide(opts) {
   opts = opts || {};
   if (visualGuideActive) return;
+  cancelScheduledVisualGuideStart();
   if (document.body.classList.contains('splash-active')) {
-    setTimeout(function () { startVisualGuide(opts); }, 700);
+    var token = visualGuideStartToken;
+    visualGuideStartTimer = setTimeout(function () {
+      if (token !== visualGuideStartToken) return;
+      visualGuideStartTimer = 0;
+      if (!opts.manual && !canRunStartupVisualGuide()) return;
+      startVisualGuide(opts);
+    }, 700);
     return;
   }
   if (immersiveMode) setImmersiveMode(false);
@@ -167,6 +188,7 @@ function startVisualGuide(opts) {
     visualGuideResizeBound = true;
     window.addEventListener('resize', scheduleVisualGuidePositioning);
     window.addEventListener('scroll', positionVisualGuideStep, true);
+    document.addEventListener('visibilitychange', scheduleVisualGuidePositioning);
     // Panels that slide in can finish after the tracking window on a busy frame.
     document.addEventListener('transitionend', function (e) {
       if (visualGuideActive && !(e.target && e.target.closest && e.target.closest('#visual-guide'))) scheduleVisualGuidePositioning();
@@ -241,8 +263,9 @@ function scrollVisualGuideConsoleTarget(step) {
   }
   // Tab scroll restoration runs in a frame too. Scroll only this panel after it,
   // never scrollIntoView: that also scrolls the clipped desktop window shell.
+  var state = visualGuideState, revision = visualGuideStepRevision;
   requestAnimationFrame(function () {
-    if (!visualGuideActive || activeVisualGuideSteps()[visualGuideStep] !== step) return;
+    if (!visualGuideActive || visualGuideState !== state || visualGuideStepRevision !== revision) return;
     var panelRect = panel.getBoundingClientRect();
     var rowRect = row.getBoundingClientRect();
     var toolbar = panel.querySelector('.fx-console-toolbar');
@@ -415,30 +438,96 @@ function stopVisualGuideWire() {
     svg.style.opacity = '0';
   }
 }
-var visualGuidePositionFrame = 0;
-var visualGuidePositionUntil = 0;
+var visualGuidePositionFrame = 0, visualGuidePositionRetryTimer = 0;
+var visualGuidePositionToken = 0;
+var visualGuideStepRevision = 0, visualGuideContentRevision = -1;
+var visualGuideStepReady = false;
+function cancelVisualGuidePositioning() {
+  visualGuidePositionToken += 1;
+  if (visualGuidePositionFrame) cancelAnimationFrame(visualGuidePositionFrame);
+  clearTimeout(visualGuidePositionRetryTimer);
+  visualGuidePositionFrame = visualGuidePositionRetryTimer = 0;
+  visualGuideStepReady = false;
+}
+function visualGuideRectsMatch(a, b) {
+  return !!(a && b && ['left', 'top', 'right', 'bottom'].every(function (edge) {
+    return Math.abs(a[edge] - b[edge]) <= 1;
+  }));
+}
+function visualGuideLayoutIsSettled(layout) {
+  if (!layout || !layout.targetReady || visualGuideContentRevision !== visualGuideStepRevision) return false;
+  var ring = document.getElementById('visual-guide-ring');
+  var card = document.getElementById('visual-guide-card');
+  return !!(ring && card && !card.classList.contains('is-swapping') &&
+    visualGuideRectsMatch(layout.ring, ring.getBoundingClientRect()) &&
+    visualGuideRectsMatch(layout.card, card.getBoundingClientRect()));
+}
 function scheduleVisualGuidePositioning() {
-  if (!visualGuideActive) return;
-  // The login panel's open tween and lift run longer than a console slide.
-  var step = activeVisualGuideSteps()[visualGuideStep];
-  visualGuidePositionUntil = Math.max(visualGuidePositionUntil, performance.now() + (step && step.login ? 1300 : 900));
+  if (!visualGuideActive || document.hidden) {
+    cancelVisualGuidePositioning();
+    return;
+  }
+  visualGuideStepReady = false;
   if (visualGuidePositionFrame) return;
+  clearTimeout(visualGuidePositionRetryTimer);
+  visualGuidePositionRetryTimer = 0;
+  var token = ++visualGuidePositionToken, revision = -1, previous = null, stableFrames = 0, sampledFrames = 0;
   function track() {
+    if (token !== visualGuidePositionToken) return;
     visualGuidePositionFrame = 0;
-    if (!visualGuideActive) return;
-    positionVisualGuideStep();
+    if (!visualGuideActive || document.hidden) {
+      cancelVisualGuidePositioning();
+      return;
+    }
+    if (revision !== visualGuideStepRevision) {
+      revision = visualGuideStepRevision;
+      previous = null;
+      stableFrames = sampledFrames = 0;
+    }
+    var layout = positionVisualGuideStep();
+    // Positioning the login panel can itself request a fresh tracking pass.
+    if (token !== visualGuidePositionToken) return;
+    // Search glass can reveal on a later frame; a busy or occluded renderer
+    // must not consume a wall-clock window before the target even exists.
+    // Finish only after the real target and the rendered ring/card settle.
+    if (layout && layout.targetReady && (!previous || !previous.targetReady)) sampledFrames = 0;
+    sampledFrames += 1;
+    var stable = visualGuideLayoutIsSettled(layout) && previous &&
+      visualGuideRectsMatch(layout.ring, previous.ring) && visualGuideRectsMatch(layout.card, previous.card);
+    stableFrames = stable ? stableFrames + 1 : 0;
+    previous = layout;
+    visualGuideStepReady = stableFrames >= 3;
     var step = activeVisualGuideSteps()[visualGuideStep];
-    if (performance.now() < visualGuidePositionUntil || step && step.targetShelf) visualGuidePositionFrame = requestAnimationFrame(track);
+    if ((step && step.targetShelf && layout && layout.targetReady) || (!visualGuideStepReady && sampledFrames < 90)) {
+      visualGuidePositionFrame = requestAnimationFrame(track);
+    } else if (!visualGuideStepReady) {
+      // Missing, hidden or offscreen targets must not keep a foreground frame
+      // loop alive. Keep a cheap recovery check while this guide is visible;
+      // a newly measurable target gets a fresh rendered-frame settling budget.
+      visualGuidePositionRetryTimer = setTimeout(function () {
+        if (token !== visualGuidePositionToken) return;
+        visualGuidePositionRetryTimer = 0;
+        if (!visualGuideActive || document.hidden) {
+          cancelVisualGuidePositioning();
+          return;
+        }
+        visualGuidePositionFrame = requestAnimationFrame(track);
+      }, 500);
+    }
   }
   visualGuidePositionFrame = requestAnimationFrame(track);
 }
 function showVisualGuideStep(index) {
+  if (!visualGuideActive) return;
   var steps = activeVisualGuideSteps();
+  var revision = ++visualGuideStepRevision;
+  visualGuideStepReady = false;
   visualGuideStep = Math.max(0, Math.min(steps.length - 1, index));
   var step = steps[visualGuideStep];
   prepareVisualGuideStep(step);
   var guide = document.getElementById('visual-guide');
   var card = document.getElementById('visual-guide-card');
+  if (card) clearTimeout(card._guideSwapTimer);
   var isLast = visualGuideStep === steps.length - 1;
   if (guide) guide.setAttribute('data-step', step.key);
   var marks = document.querySelectorAll('#visual-guide-steps i');
@@ -454,7 +543,7 @@ function showVisualGuideStep(index) {
   if (prev) prev.hidden = visualGuideStep === 0;
   // Content cross-fades: out, swap, back in, while the spotlight glides.
   var apply = function () {
-    if (!visualGuideActive || activeVisualGuideSteps()[visualGuideStep] !== step) return;
+    if (!visualGuideActive || visualGuideStepRevision !== revision) return;
     var setText = function (id, text) { var el = document.getElementById(id); if (el) el.textContent = text || ''; };
     setText('visual-guide-index', String(visualGuideStep + 1).padStart(2, '0'));
     setText('visual-guide-kicker', step.kicker);
@@ -468,11 +557,11 @@ function showVisualGuideStep(index) {
       card.classList.toggle('is-hero', !!step.center);
       card.classList.remove('is-swapping');
     }
+    visualGuideContentRevision = revision;
     scheduleVisualGuidePositioning();
   };
   if (card && card.classList.contains('is-ready')) {
     card.classList.add('is-swapping');
-    clearTimeout(card._guideSwapTimer);
     card._guideSwapTimer = setTimeout(apply, 150);
   } else {
     if (card) card.classList.add('is-ready');
@@ -557,6 +646,7 @@ function positionVisualGuideStep() {
   if (!guide || !ring || !card) return;
   var step = activeVisualGuideSteps()[visualGuideStep];
   var rect = guideTargetRect(step);
+  var targetReady = !!(rect || step && step.center);
   var center = !rect || !!(step && step.center);
   rect = rect || { left: innerWidth / 2, top: innerHeight / 2, right: innerWidth / 2, bottom: innerHeight / 2 };
   var pad = center ? 0 : 6;
@@ -604,6 +694,10 @@ function positionVisualGuideStep() {
   }
   card.style.left = Math.round(spot.left) + 'px';
   card.style.top = Math.round(spot.top) + 'px';
+  return { targetReady: targetReady, ring: ringRect, card: {
+    left: Math.round(spot.left), top: Math.round(spot.top),
+    right: Math.round(spot.left) + cardW, bottom: Math.round(spot.top) + cardH
+  } };
 }
 // On short windows the login panel moves up so the card fits under the wires.
 // The mask's padding is transitioned, so the panel glides there; the card goes
@@ -665,6 +759,9 @@ function handleVisualGuideKey(e) {
 }
 function closeVisualGuide(markSeen, opts) {
   opts = opts || {};
+  cancelScheduledVisualGuideStart();
+  visualGuideStepRevision += 1;
+  cancelVisualGuidePositioning();
   var wasAutomatic = visualGuideState && visualGuideState.manual !== true;
   var guide = document.getElementById('visual-guide');
   visualGuideActive = false;
@@ -675,10 +772,6 @@ function closeVisualGuide(markSeen, opts) {
   }
   var card = document.getElementById('visual-guide-card');
   if (card) clearTimeout(card._guideSwapTimer);
-  if (typeof visualGuidePositionFrame !== 'undefined' && visualGuidePositionFrame) {
-    cancelAnimationFrame(visualGuidePositionFrame);
-    visualGuidePositionFrame = 0;
-  }
   if (card) card.classList.remove('is-ready', 'is-swapping', 'is-hero');
   renderVisualGuideDemo('');
   setVisualGuideShelfDemo(false);

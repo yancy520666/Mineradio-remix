@@ -1367,3 +1367,19 @@ test('wheel taken from Explorer is replayed into the unlocked desktop page with 
   assert.equal(sent.length, 2, 'a locked desktop leaves the wheel to Explorer');
   await runtime.disable();
 });
+
+test('desktop wheel preserves Windows zero-line and zero-character preferences', async () => {
+  const win = new FakeBrowserWindow();
+  const sent = [];
+  win.webContents.sendInputEvent = (event) => sent.push(event);
+  const { runtime, calls } = makeRuntime();
+  assert.equal((await runtime.enable(win)).ok, true);
+  const { onWheel } = calls.watcherStart[0];
+  const wheel = { delta: -120, lines: 0, x: 100, y: 100, width: 1920, height: 1080 };
+  onWheel({ ...wheel, horizontal: false });
+  onWheel({ ...wheel, horizontal: true });
+  assert.equal(sent.length, 0, 'do not dispatch zero-delta events to custom wheel handlers');
+  onWheel({ ...wheel, lines: 3, horizontal: false });
+  assert.equal(sent[0].deltaY, -100, 'the ordinary three-line distance remains unchanged');
+  await runtime.disable();
+});

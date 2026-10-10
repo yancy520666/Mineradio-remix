@@ -382,12 +382,15 @@ function renderDetailComments(comments) {
     var user = c.user || {};
     var avatar = user.avatar ? coverUrlWithSize(user.avatar, 64) : '';
     var like = commentLikeHtml(c);
-    var replies = typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c, like) : '';
-    return '<div class="comment-item' + (replies ? '' : ' is-compact') + '">' +
+    var replyTarget = typeof detailReplyTarget === 'function' ? detailReplyTarget(c) : null;
+    var replyButton = replyTarget ? detailReplyButtonHtml(replyTarget.key) : '';
+    var replies = typeof detailReplyControlsHtml === 'function' ? detailReplyControlsHtml(c, like, replyButton) : '';
+    return '<div class="comment-item' + (replies ? '' : ' is-compact') + (replyTarget ? ' is-replyable' : '') + '"' +
+      (replyTarget ? ' data-comment-reply-target="' + replyTarget.key + '"' : '') + '>' +
       (avatar ? (typeof commentAvatarHtml === 'function' ? commentAvatarHtml(user.avatar, 64, 'comment-avatar') : '<img class="comment-avatar" src="' + escHtml(coverProxySrc(avatar)) + '" alt="" loading="lazy">') : '<div class="comment-avatar"></div>') +
       '<div class="comment-main">' + commentHeadHtml(c) +
       '<div class="comment-text">' + commentContentHtml(c.content) + '</div>' +
-      (replies || '<div class="comment-actions"><span></span>' + like + '</div>') + '</div>' +
+      (replies || '<div class="comment-actions">' + (replyButton || '<span></span>') + like + '</div>') + '</div>' +
       '</div>';
   }).join('');
 }
@@ -437,6 +440,8 @@ function detailCommentsConfig(song) {
       readUrl: '/api/qq/song/comments?id=' + encodeURIComponent(qqId) + '&mid=' + encodeURIComponent(qqMid) + '&limit=30',
       writeUrl: '',
       canWrite: false,
+      canReply: true,
+      id: qqId || qqMid,
     };
   }
   if (provider === 'kugou') {
@@ -444,7 +449,7 @@ function detailCommentsConfig(song) {
       .find(function (value) { return /^\d+$/.test(String(value || '')); });
     return kugouId ? { provider: 'kugou', title: '酷狗音乐评论',
       readUrl: '/api/kugou/song/comments?id=' + encodeURIComponent(kugouId) + '&limit=30',
-      writeUrl: '', canWrite: false } : null;
+      writeUrl: '', canWrite: false, canReply: true, id: kugouId } : null;
   }
   if (provider === 'qishui') {
     var qishuiId = song.providerSongId || song.trackId || song.id || '';
@@ -454,6 +459,7 @@ function detailCommentsConfig(song) {
       readUrl: '/api/qishui/song/comments?id=' + encodeURIComponent(qishuiId) + '&limit=30',
       writeUrl: '/api/qishui/song/comments?id=' + encodeURIComponent(qishuiId),
       canWrite: true,
+      canReply: false,
       id: qishuiId,
     } : null;
   }
@@ -464,6 +470,7 @@ function detailCommentsConfig(song) {
       readUrl: '/api/song/comments?id=' + encodeURIComponent(song.id) + '&limit=30',
       writeUrl: '/api/song/comments?id=' + encodeURIComponent(song.id),
       canWrite: true,
+      canReply: true,
       id: song.id,
     };
   }
@@ -518,14 +525,19 @@ function detailCommentReadStore() {
   }
   return detailCommentReadStore.store;
 }
-function invalidateDetailCommentReadCache(provider) {
+function invalidateDetailCommentReadCache(provider, preservePending) {
   var store = detailCommentReadStore();
   store.cache.forEach(function (_, key) { if (!provider || key.indexOf(provider + '|') === 0) store.cache.delete(key); });
-  store.pending.forEach(function (task, key) { if ((!provider || key.indexOf(provider + '|') === 0) && task.controller) task.controller.abort(); });
+  store.pending.forEach(function (task, key) {
+    if (provider && key.indexOf(provider + '|') !== 0) return;
+    if (preservePending) { task.noCache = true; store.pending.delete(key); }
+    else if (task.controller) task.controller.abort();
+  });
 }
 // Only GETs use this owner lifecycle. Submitted comments/likes are never retried
 // or aborted when a panel closes. Cache scope is a non-secret authorization epoch.
 function resetGeneratedCommentCaches(reload) {
+  if (typeof resetDetailReplyComposer === 'function') resetDetailReplyComposer();
   if (typeof commentAvatarLoader !== 'undefined' && commentAvatarLoader.reset) commentAvatarLoader.reset();
   var store = detailCommentReadStore();
   store.generation++;
@@ -560,7 +572,7 @@ function readDetailComments(owner, url, firstPage) {
     // AbortController is present in Electron; the fallback still has a deadline.
     var signal = task.controller && task.controller.signal;
     task.promise = apiJson(url, { timeoutMs: 15000, signal: signal }).then(function (result) {
-      if (cacheGeneration === store.generation && firstPage && key && !(signal && signal.aborted) && providerAuthEpoch(provider) === epoch && result && !result.error && Array.isArray(result.comments)) {
+      if (!task.noCache && cacheGeneration === store.generation && firstPage && key && !(signal && signal.aborted) && providerAuthEpoch(provider) === epoch && result && !result.error && Array.isArray(result.comments)) {
         var size = JSON.stringify(result).length * 2;
         if (size <= 256 * 1024) store.cache.set(key, { result: result, expires: Date.now() + 15000, bytes: size });
         var bytes = 0; store.cache.forEach(function (entry) { bytes += entry.bytes; });
@@ -592,6 +604,7 @@ function readDetailComments(owner, url, firstPage) {
 }
 function loadDetailComments(song, seq) {
   if (seq !== trackDetailSeq) return Promise.resolve();
+  if (typeof resetDetailReplyComposer === 'function') resetDetailReplyComposer();
   cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   var config = detailCommentsConfig(song);
@@ -613,6 +626,7 @@ function loadDetailComments(song, seq) {
     '<span class="detail-comments-count" aria-live="polite"></span>' +
     '<button type="button" onclick="loadMoreDetailComments()">加载更多评论</button></div>';
   if (typeof bindDetailReplyControls === 'function') bindDetailReplyControls(target);
+  if (typeof bindDetailReplyComposer === 'function') bindDetailReplyComposer(target);
   bindDetailCommentLikes(target);
   return loadMoreDetailComments();
 }
@@ -641,6 +655,7 @@ function loadMoreDetailComments() {
   return readDetailComments(state, url, state.count === 0 && state.cursor === '' && state.offset === 0).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
+    if (state.config.provider === 'qq' && /^\d+$/.test(String(result.id || ''))) state.config.id = String(result.id);
     var fresh = result.comments.filter(function (c) {
       if (!c || !c.content) return false;
       var key = c.id != null && c.id !== '' ? 'id:' + c.id : JSON.stringify([c.user && c.user.id, c.time, c.content]);
@@ -774,6 +789,7 @@ function bindTrackDetailScrollers() {
 }
 function closeTrackDetailModal() {
   var closingSeq = ++trackDetailSeq;
+  if (typeof resetDetailReplyComposer === 'function') resetDetailReplyComposer();
   cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   closeGsapModal(document.getElementById('track-detail-modal'), function () {
@@ -881,6 +897,7 @@ function openTrackDetailModal(type, songOverride) {
   var title = song.name || '当前歌曲';
   var artists = currentArtistNames(song);
   var seq = ++trackDetailSeq;
+  if (typeof resetDetailReplyComposer === 'function') resetDetailReplyComposer();
   cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
   detailCommentSort = 'latest';

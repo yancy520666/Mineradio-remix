@@ -51,6 +51,9 @@ function replaceAudioElementForGraphRecovery(reason, opts) {
   var endedHandler = preservePlayback ? oldAudio.onended : null;
   var metadataHandler = preservePlayback ? oldAudio.onloadedmetadata : null;
   var queueItemKey = oldAudio.__mineradioQueueItemKey;
+  var trackToken = preservePlayback ? oldAudio.__mineradioTrackSwitchToken : undefined;
+  var startedToken = preservePlayback ? oldAudio.__mineradioPlaybackStartedToken : undefined;
+  var playbackExpected = preservePlayback ? oldAudio.__mineradioPlaybackExpected : undefined;
   try { oldAudio.pause(); } catch (e) { }
   disconnectAudioGraphNodes(false);
   try {
@@ -65,6 +68,13 @@ function replaceAudioElementForGraphRecovery(reason, opts) {
   audio.onended = endedHandler;
   audio.onloadedmetadata = metadataHandler;
   audio.__mineradioQueueItemKey = queueItemKey;
+  audio.__mineradioTrackSwitchToken = trackToken;
+  audio.__mineradioPlaybackStartedToken = startedToken;
+  audio.__mineradioPlaybackExpected = playbackExpected;
+  if (preservePlayback) {
+    audio.__mineradioLocalPlaybackStarted = oldAudio.__mineradioLocalPlaybackStarted;
+    audio.__mineradioLocalSkipOptions = oldAudio.__mineradioLocalSkipOptions;
+  }
   bindPlaybackProgressEvents(audio);
   applyVolumeToAudio();
   if (src) {
@@ -299,12 +309,33 @@ function resumeAudioAnalysis() {
   if (audioCtx && audioCtx.state === 'suspended') return audioCtx.resume().catch(function (e) { console.warn('audio context resume failed:', e); });
   return Promise.resolve();
 }
-async function ensurePlaybackAudioGraph(reason) {
-  if (!audio) return false;
+async function ensurePlaybackAudioGraph(reason, opts) {
+  opts = opts || {};
+  var expired = false;
+  function current() { return !expired && (typeof opts.isCurrent !== 'function' || opts.isCurrent()); }
+  function resume() {
+    if (!opts.timeoutMs) return resumeAudioAnalysis();
+    return new Promise(function (resolve) {
+      var done = false;
+      var timer = setTimeout(function () { expired = true; finish(false); }, Math.max(100, Number(opts.timeoutMs) || 1600));
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(ok);
+      }
+      Promise.resolve(resumeAudioAnalysis()).then(function () { finish(true); }, function () { finish(false); });
+    });
+  }
+  if (!audio || !current()) return false;
   if (!audioGraphHealthy()) initAudio();
-  await resumeAudioAnalysis();
+  if (!current()) return false;
+  await resume();
+  if (!current()) return false;
   if (!audioGraphHealthy()) initAudio();
-  await resumeAudioAnalysis();
+  if (!current()) return false;
+  await resume();
+  if (!current()) return false;
   if (!audioGraphHealthy()) console.warn('audio graph still unhealthy:', reason || 'playback');
   return audioGraphHealthy();
 }

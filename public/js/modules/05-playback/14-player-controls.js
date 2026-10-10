@@ -209,7 +209,7 @@ async function recoverCurrentTrackPlaybackFromFreshUrl(reason, opts) {
     return settleSourceFallbackTerminal(
       currentIdx,
       trackSwitchToken,
-      '当前歌曲重新取链后仍无法播放，已停止自动重试。',
+      '这首歌暂时无法恢复播放，已停止自动重试，请稍后再点播放。',
       { silent: false, sourceFallbackRecovery: recovery }
     );
   }
@@ -222,7 +222,7 @@ async function recoverCurrentTrackPlaybackFromFreshUrl(reason, opts) {
   var resumeAt = currentResumeSeconds(opts.resumeAt);
   try {
     if (!opts.silent && typeof showSourceFallbackNotice === 'function') {
-      showSourceFallbackNotice('播放恢复保护', '旧播放链接可能已失效，正在重新取链并回到原进度。');
+      showSourceFallbackNotice('正在恢复播放', '正在重新加载，将从原来的位置继续播放。');
     } else if (typeof showToast === 'function') {
       showToast('播放卡住，正在重新加载当前歌曲…');
     }
@@ -239,7 +239,7 @@ async function recoverCurrentTrackPlaybackFromFreshUrl(reason, opts) {
       return settleSourceFallbackTerminal(
         currentIdx,
         trackSwitchToken,
-        '当前歌曲重新取链后仍无法播放，已停止自动重试。',
+        '这首歌暂时无法恢复播放，已停止自动重试，请稍后再点播放。',
         { silent: false, sourceFallbackRecovery: recovery }
       );
     }
@@ -250,7 +250,7 @@ async function recoverCurrentTrackPlaybackFromFreshUrl(reason, opts) {
       settleSourceFallbackTerminal(
         currentIdx,
         trackSwitchToken,
-        '当前歌曲恢复失败，已停止自动重试。',
+        '这首歌暂时无法恢复播放，已停止自动重试，请稍后再点播放。',
         { silent: false, sourceFallbackRecovery: recovery }
       );
     }
@@ -261,13 +261,15 @@ async function recoverCurrentTrackPlaybackFromFreshUrl(reason, opts) {
   }
 }
 
-function playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey) {
+function playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey, authorization) {
   if (!isSameAudioPlaybackTarget(media, src)) return false;
   if (token !== trackSwitchToken || recoverySerial !== playbackResumeRecovery.serial) return false;
   var pausedByError = media.paused && media.error && media.__mineradioPlaybackStartedToken === token && media.__mineradioPlaybackExpected !== false;
   if ((media.paused && !pausedByError) || media.ended || media.seeking || media.__mineradioPlaybackExpected === false) return false;
   if (typeof pendingAudioPause !== 'undefined' && pendingAudioPause) return false;
   if (queueKey && String(media.__mineradioQueueItemKey || '') !== queueKey) return false;
+  if (authorization && typeof playbackQualityAuthorizationKey === 'function'
+    && playbackQualityAuthorizationKey(authorization.provider) !== authorization.key) return false;
   if (typeof playbackMediaMatchesCurrentQueueItem === 'function' && !playbackMediaMatchesCurrentQueueItem(media)) return false;
   return true;
 }
@@ -286,50 +288,68 @@ function schedulePlaybackStallRecovery(reason, opts) {
   if (!trackSwitchStallRecoveryAllowed(song, opts)) return;
   if (!canRefreshCurrentPlaybackUrlForResume(song)) return;
   var src = media.currentSrc || media.src || '';
+  var scheduledAt = performance.now();
   var watch = playbackResumeRecovery.watch;
   // Repeated buffering events must not postpone an already armed deadline.
   if (watch && watch.media === media && watch.src === src && watch.token === trackSwitchToken
-    && watch.serial === playbackResumeRecovery.serial && watch.remaining > 0) return;
+    && watch.serial === playbackResumeRecovery.serial && watch.remaining > 0
+    && scheduledAt - watch.startedAt < PLAYBACK_RESUME_STALL_DELAYS[PLAYBACK_RESUME_STALL_DELAYS.length - 1]) return;
   clearPlaybackResumeWatchdogs();
   playbackResumeRecovery.serial = (Number(playbackResumeRecovery.serial) || 0) + 1;
   var token = trackSwitchToken;
   var startTime = isFinite(media.currentTime) ? media.currentTime : 0;
   var recoverySerial = playbackResumeRecovery.serial;
-  watch = { media: media, src: src, token: token, serial: recoverySerial, lastTime: startTime, remaining: PLAYBACK_RESUME_STALL_DELAYS.length };
+  var provider = normalizePlaybackProvider(songProviderKey(song));
+  var authorization = typeof playbackQualityAuthorizationKey === 'function' ? { provider: provider, key: playbackQualityAuthorizationKey(provider) } : null;
+  watch = { media: media, src: src, token: token, serial: recoverySerial, lastTime: startTime,
+    startedAt: scheduledAt, lastObservedAt: scheduledAt, authorization: authorization, remaining: PLAYBACK_RESUME_STALL_DELAYS.length };
   playbackResumeRecovery.watch = watch;
   PLAYBACK_RESUME_STALL_DELAYS.forEach(function (delayMs) {
     var timerId = setTimeout(async function () {
       watch.remaining--;
-      if (!playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey)) return;
+      function ownerCurrent() { return playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey, authorization); }
+      function repairGraph(graphReason) {
+        if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'closed'
+          && typeof recoverPlaybackAfterBackground === 'function') return recoverPlaybackAfterBackground(graphReason);
+        return ensurePlaybackAudioGraph(graphReason, { timeoutMs: 1600, isCurrent: ownerCurrent });
+      }
+      if (!ownerCurrent()) return;
       var current = isFinite(media.currentTime) ? media.currentTime : 0;
       var minAdvance = delayMs > 2000 ? 0.28 : 0.08;
       if (current < watch.lastTime - 0.05 || current >= watch.lastTime + minAdvance) {
         watch.lastTime = current;
+        watch.lastObservedAt = performance.now();
         return;
       }
+      // Delayed Chromium timers can all run at once after sleep. They are one
+      // real observation, not several seconds of stalled playback.
+      if (performance.now() - watch.lastObservedAt < 800) return;
       var qishuiStartStall = isQishuiTrackStartStalled(song, opts, media, startTime, current);
       if (qishuiStartStall && delayMs < 3000) {
         try {
-          await ensurePlaybackAudioGraph('qishui-start-stall-before-nudge');
+          await repairGraph('qishui-start-stall-before-nudge');
+          if (!ownerCurrent()) return;
           ensureAudiblePlaybackGain('qishui-start-stall-before-nudge');
         } catch (nudgeGraphErr) {
           console.warn('[PlaybackResumeRecovery] qishui graph precheck failed:', nudgeGraphErr);
         }
-        if (!playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey)) return;
+        if (!ownerCurrent()) return;
         if (await nudgeQishuiTrackStart(media, src, token)) return;
         return;
       }
       if (delayMs < 3000 && media.readyState >= 2 && media.networkState !== media.NETWORK_NO_SOURCE) return;
       try {
-        await ensurePlaybackAudioGraph('resume-stall-before-refresh');
+        await repairGraph('resume-stall-before-refresh');
+        if (!ownerCurrent()) return;
         ensureAudiblePlaybackGain('resume-stall-before-refresh');
       } catch (graphErr) {
         console.warn('[PlaybackResumeRecovery] graph precheck failed:', graphErr);
       }
-      if (!playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey)) return;
+      if (!ownerCurrent()) return;
       current = isFinite(media.currentTime) ? media.currentTime : 0;
       if (current < watch.lastTime - 0.05 || current >= watch.lastTime + minAdvance) {
         watch.lastTime = current;
+        watch.lastObservedAt = performance.now();
         return;
       }
       qishuiStartStall = isQishuiTrackStartStalled(song, opts, media, startTime, current);
@@ -337,15 +357,85 @@ function schedulePlaybackStallRecovery(reason, opts) {
         resumeAt: qishuiStartStall ? qishuiTrackStartResumeSeconds(media, current, startTime) : (current || startTime),
         silent: opts.silent
       });
-      if (!playbackStallRecoveryOwnerStillCurrent(media, src, token, recoverySerial, queueKey)) return;
+      if (!ownerCurrent()) return;
       if (!recovered && qishuiStartStall) showQishuiTrackStartStallNotice();
     }, delayMs);
     playbackResumeRecovery.timerIds.push(timerId);
   });
 }
 
-function playbackAttemptStillCurrent(media, token) {
-  return !!(media && audio === media && token === trackSwitchToken);
+var playbackBackgroundResumeTask = null;
+function playbackBackgroundResumeTargetStillCurrent(media, src, token, queueKey, allowPausedReplacement, authorization) {
+  if (!src || !isSameAudioPlaybackTarget(media, src) || token !== trackSwitchToken) return false;
+  if (media.__mineradioPlaybackStartedToken !== token || media.__mineradioPlaybackExpected !== true) return false;
+  if (Number(media.__mineradioTrackSwitchToken) !== Number(token)) return false;
+  if (media.ended || media.seeking || (media.paused && !media.error && !allowPausedReplacement)) return false;
+  if (typeof pendingAudioPause !== 'undefined' && pendingAudioPause) return false;
+  if (!queueKey || String(media.__mineradioQueueItemKey || '') !== queueKey) return false;
+  if (authorization && typeof playbackQualityAuthorizationKey === 'function'
+    && playbackQualityAuthorizationKey(authorization.provider) !== authorization.key) return false;
+  return typeof playbackMediaMatchesCurrentQueueItem !== 'function' || playbackMediaMatchesCurrentQueueItem(media);
+}
+
+function recoverPlaybackAfterBackground(reason) {
+  var media = audio;
+  var src = media && (media.currentSrc || media.src || '') || '';
+  var token = trackSwitchToken;
+  var queueKey = String(media && media.__mineradioQueueItemKey || '');
+  if (!playbackBackgroundResumeTargetStillCurrent(media, src, token, queueKey, false)) return Promise.resolve(false);
+  var task = playbackBackgroundResumeTask;
+  if (task && task.token === token && task.src === src && task.queueKey === queueKey) return task.promise;
+  var watch = playbackResumeRecovery.watch;
+  if (watch && watch.media === media && watch.src === src && watch.token === token
+    && watch.serial === playbackResumeRecovery.serial && watch.remaining > 0
+    && performance.now() - watch.startedAt < PLAYBACK_RESUME_STALL_DELAYS[PLAYBACK_RESUME_STALL_DELAYS.length - 1]
+    && audioCtx && audioCtx.state === 'running' && audioGraphHealthy()) return Promise.resolve(true);
+  var song = playQueue[currentIdx];
+  var provider = canRefreshCurrentPlaybackUrlForResume(song) ? normalizePlaybackProvider(songProviderKey(song)) : '';
+  var authorization = provider && typeof playbackQualityAuthorizationKey === 'function' ? { provider: provider, key: playbackQualityAuthorizationKey(provider) } : null;
+  task = { media: media, src: src, token: token, queueKey: queueKey, authorization: authorization, promise: null };
+  playbackBackgroundResumeTask = task;
+  // Media buffering may emit only "waiting", or no fresh event after sleep.
+  // Reuse the finite progress checks; do not poll continuously in the background.
+  schedulePlaybackStallRecovery(reason || 'background-resume', { silent: true });
+  task.promise = (async function () {
+    try {
+      function ownerCurrent() { return playbackBackgroundResumeTargetStillCurrent(audio, src, token, queueKey, audio !== media, authorization); }
+      var graphReady = await ensurePlaybackAudioGraph(reason || 'background-resume', { timeoutMs: 1600, isCurrent: ownerCurrent });
+      var resumedMedia = audio;
+      var replaced = resumedMedia !== media;
+      if (!ownerCurrent()) return false;
+      if (!graphReady || (audioCtx && audioCtx.state !== 'running')) {
+        if (canRefreshCurrentPlaybackUrlForResume(song)) {
+          return await recoverCurrentTrackPlaybackFromFreshUrl('background-audio-output-unresponsive', { resumeAt: currentResumeSeconds(), silent: true });
+        }
+        return settleSourceFallbackTerminal(currentIdx, token, '音频输出暂时无法恢复，已停止自动重试，请重新点击播放。', { silent: false });
+      }
+      if (replaced) {
+        // A closed graph replaces its lifetime-bound Audio element. Continue
+        // only the playback that was already requested before the wake.
+        return await attemptAudioPlay({ silent: true, fade: false, expectedMedia: resumedMedia, expectedToken: token,
+          backgroundResumeOwner: { src: src, queueKey: queueKey, authorization: authorization } });
+      }
+      ensureAudiblePlaybackGain(reason || 'background-resume');
+      schedulePlaybackAnalyserRecovery(reason || 'background-resume');
+      schedulePlaybackStallRecovery(reason || 'background-resume', { silent: true });
+      return true;
+    } catch (err) {
+      console.warn('[PlaybackBackgroundResume]', reason || 'wake', err && (err.message || err));
+      return false;
+    } finally {
+      if (playbackBackgroundResumeTask === task) playbackBackgroundResumeTask = null;
+    }
+  })();
+  return task.promise;
+}
+
+function playbackAttemptStillCurrent(media, token, opts) {
+  if (!(media && audio === media && token === trackSwitchToken)) return false;
+  if (opts && opts.resumeRecovery && media.__mineradioPlaybackExpected === false) return false;
+  var backgroundOwner = opts && opts.backgroundResumeOwner;
+  return !backgroundOwner || playbackBackgroundResumeTargetStillCurrent(media, backgroundOwner.src, token, backgroundOwner.queueKey, true, backgroundOwner.authorization);
 }
 var AUDIO_PLAY_REQUEST_TIMEOUT_MS = 9000;
 function awaitMediaPlayWithTimeout(media, playPromise, token, timeoutMs) {
@@ -385,9 +475,11 @@ function playbackMediaMatchesCurrentQueueItem(media) {
 
 async function completeAudioPlayStart(opts, reason, expectedMedia, expectedToken) {
   opts = opts || {};
-  if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
-  await ensurePlaybackAudioGraph(reason || 'playback-started');
-  if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+  var graphRecoveryOptions = opts.resumeRecovery || opts.backgroundResumeOwner ? { timeoutMs: 1600, isCurrent: function () { return playbackAttemptStillCurrent(expectedMedia, expectedToken, opts) && expectedMedia.__mineradioPlaybackExpected !== false; } } : undefined;
+  if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
+  await ensurePlaybackAudioGraph(reason || 'playback-started', graphRecoveryOptions);
+  if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
+  if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
   if (expectedMedia.ended) return false;
   if (expectedMedia.paused) throw new Error('AUDIO_PLAY_STILL_PAUSED');
   expectedMedia.__mineradioPlaybackExpected = true;
@@ -475,10 +567,11 @@ async function resumePausedAudioFast(opts) {
 
 async function retryTrackSwitchAudioPlayOnce(opts, originalErr, expectedMedia, expectedToken) {
   var retryAudio = expectedMedia;
+  var graphRecoveryOptions = opts.resumeRecovery || opts.backgroundResumeOwner ? { timeoutMs: 1600, isCurrent: function () { return playbackAttemptStillCurrent(expectedMedia, expectedToken, opts) && expectedMedia.__mineradioPlaybackExpected !== false; } } : undefined;
   var retrySrc = retryAudio && (retryAudio.currentSrc || retryAudio.src || '');
   if (!retryAudio || !retrySrc) throw originalErr;
   await waitForAudioReadyToPlay(retryAudio, opts.manual ? 650 : 900);
-  if (!playbackAttemptStillCurrent(retryAudio, expectedToken) || !isSameAudioPlaybackTarget(retryAudio, retrySrc)) return null;
+  if (!playbackAttemptStillCurrent(retryAudio, expectedToken, opts) || !isSameAudioPlaybackTarget(retryAudio, retrySrc)) return null;
   if (retryAudio.error || retryAudio.readyState === 0 || retryAudio.networkState === retryAudio.NETWORK_EMPTY
     || retryAudio.networkState === retryAudio.NETWORK_NO_SOURCE || originalErr && originalErr.code === 'AUDIO_PLAY_TIMEOUT') {
     var retrySeconds = isFinite(retryAudio.currentTime) ? retryAudio.currentTime : 0;
@@ -487,12 +580,13 @@ async function retryTrackSwitchAudioPlayOnce(opts, originalErr, expectedMedia, e
   }
   if (!audioGraphHealthy()) initAudio();
   await applyAudioOutputDevice(retryAudio);
-  if (!playbackAttemptStillCurrent(retryAudio, expectedToken)) return null;
-  await ensurePlaybackAudioGraph('track-switch-retry-before-play');
-  if (!playbackAttemptStillCurrent(retryAudio, expectedToken)) return null;
+  if (!playbackAttemptStillCurrent(retryAudio, expectedToken, opts)) return null;
+  await ensurePlaybackAudioGraph('track-switch-retry-before-play', graphRecoveryOptions);
+  if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
+  if (!playbackAttemptStillCurrent(retryAudio, expectedToken, opts)) return null;
   var retryPlay = retryAudio.play();
   await awaitMediaPlayWithTimeout(retryAudio, retryPlay, expectedToken);
-  if (!playbackAttemptStillCurrent(retryAudio, expectedToken)) return null;
+  if (!playbackAttemptStillCurrent(retryAudio, expectedToken, opts)) return null;
   if (retryAudio.paused && !retryAudio.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
   return await completeAudioPlayStart(opts, 'track-switch-retry-started', retryAudio, expectedToken);
 }
@@ -501,12 +595,13 @@ async function attemptAudioPlay(opts) {
   opts = opts || {};
   var expectedMedia = opts.expectedMedia || audio;
   var expectedToken = opts.expectedToken == null ? trackSwitchToken : Number(opts.expectedToken);
+  var graphRecoveryOptions = opts.resumeRecovery || opts.backgroundResumeOwner ? { timeoutMs: 1600, isCurrent: function () { return playbackAttemptStillCurrent(expectedMedia, expectedToken, opts) && expectedMedia.__mineradioPlaybackExpected !== false; } } : undefined;
   // This request finishes the visual/lyric resume itself, once; the media
   // play/playing events it triggers must not repeat that work.
   var attemptMedia = expectedMedia;
   if (attemptMedia) attemptMedia.__mineradioPlayAttemptActive = (Number(attemptMedia.__mineradioPlayAttemptActive) || 0) + 1;
   try {
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     expectedMedia.__mineradioPlaybackExpected = true;
     var currentSongForResume = playQueue && currentIdx >= 0 && currentIdx < playQueue.length ? playQueue[currentIdx] : null;
     if (opts.manual && !opts.trackSwitch && !opts.resumeRecovery && audio && audio.src && audio.paused && !audio.ended && playbackResumePausedLongEnough(currentSongForResume)) {
@@ -517,7 +612,7 @@ async function attemptAudioPlay(opts) {
       });
       if (refreshedResume) return true;
     }
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     var fastResume = await resumePausedAudioFast(opts);
     if (fastResume === true) return true;
     // A closed AudioContext can replace the Audio element while preparing the
@@ -525,49 +620,54 @@ async function attemptAudioPlay(opts) {
     // queue and track-switch token still belong to the same song.
     if (audio !== expectedMedia && opts.manual && !opts.trackSwitch && expectedToken === trackSwitchToken
       && playbackMediaMatchesCurrentQueueItem(audio)) expectedMedia = audio;
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     if (opts.trackSwitch && expectedMedia.readyState < 2) {
       await waitForAudioReadyToPlay(expectedMedia, opts.manual ? 1200 : 1800);
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     }
     if (opts.manual && !opts.trackSwitch) {
-      await ensurePlaybackAudioGraph('manual-before-play');
+      await ensurePlaybackAudioGraph('manual-before-play', graphRecoveryOptions);
+      if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
       if (audio !== expectedMedia && expectedToken === trackSwitchToken
         && playbackMediaMatchesCurrentQueueItem(audio)) expectedMedia = audio;
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
       if (audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
     } else if (!audioGraphHealthy()) initAudio();
     if (opts.fade !== false) preparePlaybackFadeIn();
     if (opts.manual && !opts.trackSwitch) {
       await applyAudioOutputDevice(expectedMedia);
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
       var manualPlay = expectedMedia.play();
-      await ensurePlaybackAudioGraph('manual-after-play-request');
+      await ensurePlaybackAudioGraph('manual-after-play-request', graphRecoveryOptions);
+      if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
       await awaitMediaPlayWithTimeout(expectedMedia, manualPlay, expectedToken);
       if (expectedMedia.paused && !expectedMedia.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
     } else if (opts.trackSwitch) {
       await applyAudioOutputDevice(expectedMedia);
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
-      await ensurePlaybackAudioGraph(opts.manual ? 'manual-before-play' : 'track-switch-before-play');
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
+      await ensurePlaybackAudioGraph(opts.manual ? 'manual-before-play' : 'track-switch-before-play', graphRecoveryOptions);
+      if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
       var directPlay = expectedMedia.play();
       await awaitMediaPlayWithTimeout(expectedMedia, directPlay, expectedToken);
       if (expectedMedia.paused && !expectedMedia.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
     } else {
       await applyAudioOutputDevice(expectedMedia);
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
-      await ensurePlaybackAudioGraph(opts.startupAutoplay ? 'startup-before-play' : 'auto-before-play');
-      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
+      await ensurePlaybackAudioGraph(opts.startupAutoplay ? 'startup-before-play' : 'auto-before-play', graphRecoveryOptions);
+      if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
+      if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
       var autoPlay = expectedMedia.play();
-      await ensurePlaybackAudioGraph(opts.startupAutoplay ? 'startup-after-play-request' : 'auto-after-play-request');
+      await ensurePlaybackAudioGraph(opts.startupAutoplay ? 'startup-after-play-request' : 'auto-after-play-request', graphRecoveryOptions);
+      if (graphRecoveryOptions && audioCtx && audioCtx.state !== 'running') throw new Error('AUDIO_CONTEXT_NOT_RUNNING');
       await awaitMediaPlayWithTimeout(expectedMedia, autoPlay, expectedToken);
       if (expectedMedia.paused && !expectedMedia.ended) throw new Error('AUDIO_PLAY_STILL_PAUSED');
     }
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     expectedMedia.__mineradioLastPlayError = null;
     return await completeAudioPlayStart(opts, 'playback-started', expectedMedia, expectedToken);
   } catch (err) {
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     expectedMedia.__mineradioLastPlayError = err;
     if (opts.trackSwitch && expectedMedia && expectedMedia.src) {
       try {
@@ -584,7 +684,7 @@ async function attemptAudioPlay(opts) {
       var resumed = await recoverCurrentTrackPlaybackFromFreshUrl('play-rejected', { originalError: err, silent: opts.silent });
       if (resumed) return true;
     }
-    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
+    if (!playbackAttemptStillCurrent(expectedMedia, expectedToken, opts)) return false;
     restorePlaybackGain();
     playing = false; setPlayIcon(false);
     hideLoading();

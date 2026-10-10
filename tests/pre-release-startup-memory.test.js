@@ -17,6 +17,7 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
   const saved = new Map();
   const timers = [];
   const shown = [];
+  let positionCancellations = 0;
   const bodyClasses = new Set();
   const context = {
     localStorage: { getItem: (key) => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) },
@@ -27,7 +28,10 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
     immersiveMode: false,
     playing: false,
     originalProfileImportPending: false,
-    setTimeout: (fn) => { timers.push(fn); },
+    setTimeout: (fn) => { timers.push(fn); return fn; },
+    clearTimeout: (fn) => { const index = timers.indexOf(fn); if (index >= 0) timers.splice(index, 1); },
+    visualGuideStepRevision: 0,
+    cancelVisualGuidePositioning: () => { positionCancellations++; },
     document: {
       body: { classList: { remove: (...names) => names.forEach((name) => bodyClasses.delete(name)) } },
       getElementById: () => null,
@@ -56,6 +60,8 @@ test('fresh install runs visual guide once, then login; help can replay it', () 
 
   context.visualGuideState = { manual: false, searchWasPeek: false, fxWasPeek: false, plWasPeek: false, bottomWasVisible: false };
   context.closeVisualGuide(true);
+  assert.equal(positionCancellations, 1, 'closing must cancel active positioning');
+  assert.equal(context.visualGuideStepRevision, 1, 'closing invalidates old step callbacks');
   assert.equal(saved.get('guide-seen'), '1');
   assert.equal(shown[1], 'login');
   assert.equal(context.maybeRunStartupVisualGuide('splash'), false);

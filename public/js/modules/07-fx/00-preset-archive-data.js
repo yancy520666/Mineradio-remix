@@ -23,8 +23,8 @@ var presetIcons = [
   presetIconSvg('<rect x="3.5" y="7.5" width="13" height="13" rx="2.5"/><circle cx="20" cy="4" r="0.9" fill="currentColor" stroke="none"/><circle cx="16.2" cy="3.8" r="0.7" fill="currentColor" stroke="none"/><circle cx="20.2" cy="8.2" r="0.7" fill="currentColor" stroke="none"/>'),
   // 滚筒：透视隧道
   presetIconSvg('<circle cx="12" cy="12" r="9"/><circle cx="13.2" cy="10.8" r="5.4"/><circle cx="14.1" cy="9.9" r="2.1"/>'),
-  // 星球：带环行星
-  presetIconSvg('<circle cx="12" cy="12" r="5.5"/><path d="M6.6 10.1C3.5 11.6 2 13.3 2.6 14.5c.9 1.8 6 1.1 11.4-1.6s9.1-6.2 8.2-8c-.5-1.1-2.6-1.2-5.4-.4"/>'),
+  // 星球：背环由球体遮挡，前半环叠在球体上方
+  presetIconSvg('<defs><mask id="preset-planet-rear-ring" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="white" stroke="none"/><circle cx="12" cy="12" r="5.5" fill="black" stroke="black" stroke-width="1.6"/></mask></defs><ellipse cx="12" cy="12" rx="10.3" ry="3.5" transform="rotate(-25 12 12)" mask="url(#preset-planet-rear-ring)"/><circle cx="12" cy="12" r="5.5"/><path d="M1.7 12a10.3 3.5 0 0 0 20.6 0" transform="rotate(-25 12 12)"/>'),
   // 虚空：空环
   presetIconSvg('<circle cx="12" cy="12" r="8" stroke-dasharray="2.4 3"/>'),
   // 唱片：黑胶与纹路
