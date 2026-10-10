@@ -15,24 +15,6 @@ function hasActivePlaybackControls() {
   return !!(playing || (audio && !audio.paused) || hasPlaybackControlCandidate());
 }
 
-function desktopWallpaperKeepsPlayerConsoleVisible() {
-  var body = document.body;
-  if (!body
-    || !body.classList.contains('desktop-wallpaper-mode')
-    || !body.classList.contains('desktop-wallpaper-interactive')) return false;
-  // Home and the 3D shelf are complete Mineradio surfaces of their own. In the
-  // ordinary desktop stage, however, allowing the generic inactivity timer to
-  // hide the only player console makes the renderer look as if it fell behind
-  // the wallpaper/Explorer plane.
-  if (body.classList.contains('empty-home-active')
-    || body.classList.contains('home-controls-locked')) return false;
-  try {
-    return !isBottomControlsSuppressedForShelf();
-  } catch (_) {
-    return true;
-  }
-}
-
 function shouldShowHomeForPausedStartupRestore() {
   return !!(startupRestoreHomePending
     && restoredLastPlaybackSnapshot
@@ -53,7 +35,6 @@ function setControlsHidden(hidden) {
   var bar = document.getElementById('bottom-bar');
   if (!bar) return;
   if (hidden && typeof visualGuideKeepsBottomControlsVisible === 'function' && visualGuideKeepsBottomControlsVisible()) hidden = false;
-  if (hidden && desktopWallpaperKeepsPlayerConsoleVisible()) hidden = false;
   if (hidden && controlsRevealHoldUntil > performance.now()) hidden = false;
   if (hidden && (controlsHovering || miniQueueOpen || bottomControlsMenuActive())) hidden = false;
   bar.classList.toggle('soft-hidden', !!hidden && controlsAutoHide && bar.classList.contains('visible'));
@@ -117,11 +98,6 @@ function scheduleControlsHide(delay) {
   controlsHideTimer = null;
   if (!controlsAutoHide) return;
   if (typeof visualGuideKeepsBottomControlsVisible === 'function' && visualGuideKeepsBottomControlsVisible()) {
-    setControlsHidden(false);
-    return;
-  }
-  if (desktopWallpaperKeepsPlayerConsoleVisible()) {
-    controlsHideTimer = null;
     setControlsHidden(false);
     return;
   }

@@ -85,7 +85,7 @@ test('open source portal and quality handoff protect against expired hide timers
   const get = ctx.document.getElementById;
   ctx.document.getElementById = id => id === 'control-source-switcher' ? { classList: { contains: () => sourceOpen } }
     : id === 'quality-control' ? { classList: { contains: () => qualityOpen } } : get(id);
-  ctx.controlsRevealHoldUntil = 0; ctx.desktopWallpaperKeepsPlayerConsoleVisible = () => false;
+  ctx.controlsRevealHoldUntil = 0;
   loadFunctions(ctx, 'public/js/modules/01-scene/04-bottom-controls-cursor.js', ['bottomControlsMenuActive', 'setControlsHidden']);
   ctx.setControlsHidden(true); assert.equal(classes.has('soft-hidden'), false);
   sourceOpen = false; qualityOpen = true;
