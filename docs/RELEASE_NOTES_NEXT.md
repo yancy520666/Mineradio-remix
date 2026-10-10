@@ -641,3 +641,12 @@
 ### 2026-10-10：视觉控制台背景卡片图标重绘
 
 - `public/js/modules/07-fx/00-preset-archive-data.js`：13 张背景卡片右上角图标统一为 24 网格、1.6 圆头描边的线性图标（由 `presetIconSvg` 生成），每个图形对应背景主体：封面散粒子、透视隧道、带环行星、虚线空环、黑胶、星芒、骷髅、山形等高线、频谱柱、日冕月蚀、云与雨丝、蝴蝶、水母。替换原先多条波浪线堆叠、线宽不一的旧图标；卡片颜色与激活态样式不变。
+
+### 2026-10-10：完整桌面模式滚轮可在软件内滚动
+
+- 根因（本机 Windows 实测）：完整桌面模式把播放器 HWND 设为 Explorer `SHELLDLL_DefView` 的子窗口，输入队列与 Explorer 合并，`WM_MOUSEWHEEL` 被发给 Explorer 的焦点窗口（桌面图标 ListView），播放器既收不到原生滚轮，页面也没有 `wheel` 事件。此前怀疑的 Chromium `RerouteMouseWheel` 不是原因：实测播放器 HWND 及其父链都没有 `__HWND_MW_REROUTE_OK` 属性。直接向播放器 HWND 投递 `WM_MOUSEWHEEL`（普通窗口也一样）主进程能看到，但 Chromium 不生成页面事件，所以不能用投递补发。
+- 修复：已在运行的图标层守护进程（`desktop/desktop-native-icon-layer-runtime.js`）在独立线程装一个只处理 `WM_MOUSEWHEEL` / `WM_MOUSEHWHEEL` 的低级鼠标钩子。仅当指针在播放器 HWND 范围内、`WindowFromPoint` 是播放器本身或 Explorer 的图标层（不是其他程序窗口）、不在桌面图标矩形内、播放器可见且不是穿透（软件锁定）状态时，才拦下这次滚轮并写一行 `wheel` 消息；主进程用 `webContents.sendInputEvent` 回放。其他鼠标消息和不符合条件的滚轮原样交给系统。
+- 距离与坐标：按系统“每次滚动行数”换算为 Chromium 原生的 100/3 px 每行（本机 6 行即每格 200 px，与普通窗口一致）；钩子回调内临时切到 Per-Monitor V2 读取物理像素，再按桌面逻辑尺寸换算（125% 缩放下物理 295,1300 → 页面 236,1040）。携带 Shift / Ctrl / Alt 状态，横向滚轮方向按 Electron 约定反转。
+- 安全边界：写管道放在单独线程，钩子只 `TryAdd` 进有界队列，队列满时放行给 Explorer，不会因管道阻塞拖慢全系统鼠标；守护进程退出时卸载钩子，异常退出由系统自动卸载。不移动光标、不合成 `SendInput`、不处理 `WM_MOUSEMOVE`。`npm run check` 的光标守卫改为只允许这一处仅滚轮的钩子。
+- 原有左键拖动滚动兜底保留。
+- 验证：隔离配置真实 Explorer 桌面实测，`SendInput` 真实滚轮在播放器露出区域被转发、页面收到 `wheel`（deltaY 200），坐标换算正确；落在桌面图标上的滚轮不转发。新增 2 项回归测试；完整测试与静态检查通过。滚动手感、多显示器和图标显示/隐藏下的表现需维护者实机验收。

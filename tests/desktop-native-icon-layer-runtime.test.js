@@ -203,3 +203,28 @@ test('native desktop guard repairs physical bounds and watches Electron child re
   assert.match(script, /UnhookWinEvent\(_mainLocationHook\)/);
   assert.match(script, /DESKTOP_ICON_LAYER_BOUNDS_ACK_FAILED/);
 });
+
+test('native guard wheel lines reach onWheel and malformed ones are dropped', async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.stdin = new PassThrough();
+  const wheels = [];
+  const watcher = startNativeDesktopIconLayer({
+    iconHostWindowId: '8200',
+    listViewWindowId: '8300',
+    mainWindowId: '424242',
+    physicalBounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    onWheel: (wheel) => wheels.push(wheel),
+    spawnImpl: () => child,
+  });
+  child.stdout.write(`${JSON.stringify(layout())}\n`);
+  await watcher.ready;
+  const line = { ok: true, watcher: true, wheel: true, horizontal: false, delta: -120, lines: 3, x: 5, y: 6, width: 1920, height: 1080, shift: true, control: false, alt: false };
+  child.stdout.write(`${JSON.stringify(line)}\n${JSON.stringify({ ...line, x: 1920 })}\n${JSON.stringify({ ...line, delta: 0 })}\n`);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(wheels, [{ horizontal: false, delta: -120, lines: 3, x: 5, y: 6, width: 1920, height: 1080, shift: true, control: false, alt: false }]);
+  assert.equal(watcher.getLastLayout().controlSequence, 0, 'wheel lines are not layout acknowledgements');
+  assert.match(nativeIconLayerGuardCSharpSource(), /_wheelLines\.TryAdd\(line\)[\s\S]*SetWindowsHookEx\(WH_MOUSE_LL/);
+  child.emit('exit', 0, null);
+});

@@ -1000,6 +1000,10 @@ class FullDesktopModeRuntime {
         if (this.iconShapeWatcher !== watcher) return;
         this.handleWatchedIconLayout(layout);
       },
+      onWheel: (wheel) => {
+        if (this.iconShapeWatcher !== watcher) return;
+        this.forwardDesktopWheel(wheel);
+      },
       onError: (error) => {
         if (this.iconShapeWatcher !== watcher) return;
         this.iconShapeError = String(error && error.message || error || 'DESKTOP_ICON_WATCHER_FAILED');
@@ -1190,6 +1194,43 @@ class FullDesktopModeRuntime {
       pointerRoute: { ...this.pointerRoute },
       status: this.getStatus(reason),
     };
+  }
+
+  // Explorer owns wheel messages for this DefView child; the icon-layer guard
+  // takes the ones over Mineradio's pixels and they are replayed here. Native
+  // Chromium scrolls 100/3 px per line, so keep the same distance per notch.
+  forwardDesktopWheel(wheel) {
+    const win = this.window;
+    const webContents = win && win.webContents;
+    if (!wheel || !this.enabled || !this.interactive || this.pointerIgnoreMouseEvents === true
+      || this.iconLayerRestoreUnconfirmed || !this.isWindowAlive(win)
+      || !this.attachment || this.attachment.kind !== 'icon-host'
+      || !webContents || typeof webContents.sendInputEvent !== 'function') return false;
+    const bounds = this.attachment.bounds || {};
+    const scaleX = Number(bounds.width) > 0 ? bounds.width / wheel.width : 1;
+    const scaleY = Number(bounds.height) > 0 ? bounds.height / wheel.height : 1;
+    const ticks = wheel.delta / 120;
+    const lines = wheel.lines > 0 ? wheel.lines : 3;
+    const pixels = wheel.lines < 0
+      ? ticks * (wheel.horizontal ? bounds.width || 800 : bounds.height || 600) * 0.875
+      : ticks * lines * 100 / 3;
+    const modifiers = [];
+    if (wheel.shift) modifiers.push('shift');
+    if (wheel.control) modifiers.push('control');
+    if (wheel.alt) modifiers.push('alt');
+    safeCall(webContents, 'sendInputEvent', null, {
+      type: 'mouseWheel',
+      x: Math.round(wheel.x * scaleX),
+      y: Math.round(wheel.y * scaleY),
+      // Win32 HWHEEL is positive to the right; Electron's deltaX is the opposite.
+      deltaX: wheel.horizontal ? -pixels : 0,
+      deltaY: wheel.horizontal ? 0 : pixels,
+      wheelTicksX: wheel.horizontal ? -ticks : 0,
+      wheelTicksY: wheel.horizontal ? 0 : ticks,
+      canScroll: true,
+      modifiers,
+    });
+    return true;
   }
 
   requestKeyboardFocus(reason = 'desktop-keyboard-focus') {

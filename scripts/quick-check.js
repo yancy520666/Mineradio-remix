@@ -915,7 +915,15 @@ function checkDesktopWallpaperModeGuard() {
     || (mainText.match(/fullDesktopModeHostVisibilityTransitionDepth <= 0\) (?:suspend|resume)WallpaperEngineFor/g) || []).length < 2
     || !/consecutiveFollowFailures >= 8/.test(wallpaperEngineRuntimeText)
     || !/session\.dwmSurfaceDesktopIconLayering = enabled;[\s\S]{0,180}session\.dwmSurfaceReady !== true/.test(wallpaperEngineRuntimeText)
-    || /GetCursorPos|SetCursorPos|SendInput|SetWindowsHookEx|WM_MOUSEMOVE|EnableWindow/.test(fullDesktopRuntimeText + iconShapeRuntimeText + nativeIconLayerRuntimeText)) {
+    || /GetCursorPos|SetCursorPos|SendInput|SetWindowsHookEx|WM_MOUSEMOVE|EnableWindow/.test(fullDesktopRuntimeText + iconShapeRuntimeText)
+    || /GetCursorPos|SetCursorPos|SendInput|WM_MOUSEMOVE|EnableWindow/.test(nativeIconLayerRuntimeText)
+    // Explorer owns the DefView child's wheel: the guard may hook the
+    // low-level mouse only to take wheel messages over Mineradio's own pixels.
+    || (nativeIconLayerRuntimeText.match(/SetWindowsHookEx\(/g) || []).length !== 2
+    || !/SetWindowsHookEx\(WH_MOUSE_LL, WheelCallback,/.test(nativeIconLayerRuntimeText)
+    || !/code >= 0 && \(message == WM_MOUSEWHEEL \|\| message == WM_MOUSEHWHEEL\)/.test(nativeIconLayerRuntimeText)
+    || !/WS_EX_TRANSPARENT\) != 0\) return false/.test(nativeIconLayerRuntimeText)
+    || !/_wheelLines\.TryAdd\(line\)/.test(nativeIconLayerRuntimeText)) {
     fail('full desktop coexistence must preserve the visible Mineradio HUD, survive native watcher/DWM retries, and remain below the exactly restored Explorer icon plane');
   }
   if (!/id="desktop-mode-control-dock"/.test(htmlText)
@@ -1001,10 +1009,14 @@ function checkDesktopWallpaperModeGuard() {
     'Stop-Process',
     'wallpaper64',
   ];
+  // The wheel-only guard hook is pinned by the coexistence check above.
+  const cursorCheckedDesktopText = isolatedDesktopText
+    .replace('SetWindowsHookEx(int hookId, LowLevelMouseProc', 'WheelHookImport(')
+    .replace('SetWindowsHookEx(WH_MOUSE_LL, WheelCallback,', 'WheelHookInstall(');
   for (const marker of forbiddenCursorPaths) {
-    if (isolatedDesktopText.includes(marker)) fail(`full desktop mode must not take over or poll the Windows cursor: ${marker}`);
+    if (cursorCheckedDesktopText.includes(marker)) fail(`full desktop mode must not take over or poll the Windows cursor: ${marker}`);
   }
-  if (/\b(?:GetCursorPos|SetCursorPos|SendInput|ShowCursor|SetSystemCursor|SetWindowsHookEx|WM_MOUSEMOVE)\b/.test(isolatedDesktopText)) {
+  if (/\b(?:GetCursorPos|SetCursorPos|SendInput|ShowCursor|SetSystemCursor|SetWindowsHookEx|WM_MOUSEMOVE)\b/.test(cursorCheckedDesktopText)) {
     fail('full desktop mode must preserve the real Windows cursor and must not synthesize pointer input');
   }
   // Shared preparation now serves ordinary quit and pre-installer cleanup.
