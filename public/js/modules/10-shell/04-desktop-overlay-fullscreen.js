@@ -1203,22 +1203,24 @@ function ensureDesktopWallpaperFunctionalUi(reason) {
     if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(false);
     else body.classList.remove('home-controls-locked');
   }
-  if (typeof controlsHideTimer !== 'undefined' && controlsHideTimer) {
-    clearTimeout(controlsHideTimer);
-    controlsHideTimer = null;
-  }
-  if (typeof controlsRevealHoldUntil !== 'undefined') {
-    controlsRevealHoldUntil = Math.max(controlsRevealHoldUntil || 0, performance.now() + 900);
-  }
+  // This runs on every status and from a 320 ms health watch. Only bring the
+  // console back when it is missing; an auto-hidden (soft-hidden) console is
+  // the user's choice and reappears from the pointer like in a normal window.
   var bar = document.getElementById('bottom-bar');
-  if (bar) {
-    bar.classList.add('visible');
+  if (!bar) return false;
+  var wasVisible = bar.classList.contains('visible');
+  bar.classList.add('visible');
+  bar.style.pointerEvents = '';
+  if (!wasVisible) {
+    if (typeof controlsRevealHoldUntil !== 'undefined') {
+      controlsRevealHoldUntil = Math.max(controlsRevealHoldUntil || 0, performance.now() + 900);
+    }
     bar.classList.remove('soft-hidden');
-    bar.style.pointerEvents = '';
+    if (typeof setControlsHidden === 'function') setControlsHidden(false);
+    if (controlsAutoHide && typeof scheduleControlsHide === 'function') scheduleControlsHide(900);
   }
-  if (typeof setControlsHidden === 'function') setControlsHidden(false);
   if (typeof updateControlsChromeState === 'function') updateControlsChromeState();
-  return !!bar;
+  return true;
 }
 
 function revealDesktopWallpaperUiOnActivation(enabled, interactive) {

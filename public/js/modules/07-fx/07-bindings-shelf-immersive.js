@@ -768,6 +768,12 @@ function setImmersiveMode(on) {
 }
 
 function toggleImmersiveMode() {
+  // Full desktop mode keeps its console reachable and its health watch exits
+  // immersive within 320 ms, so entering it would only flash. Say so instead.
+  if (!immersiveMode && document.body.classList.contains('desktop-wallpaper-interactive')) {
+    if (typeof showToast === 'function') showToast('完整桌面模式下不使用全沉浸；取消控制条图钉即可自动隐藏');
+    return;
+  }
   setImmersiveMode(!immersiveMode);
 }
 
