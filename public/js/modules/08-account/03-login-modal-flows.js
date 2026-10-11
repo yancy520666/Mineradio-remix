@@ -1594,12 +1594,18 @@ async function openKugouSecurityVerification(data) {
     showToast('请在桌面版打开酷狗官方窗口完成安全验证');
     return false;
   }
+  var restriction = data && data.restriction || {};
+  var verificationUrl = data && data.verificationUrl || restriction.verificationUrl || '';
+  // Kugou risk control (30020) gives no page to open; a website login cannot clear it.
+  if (!verificationUrl) {
+    showToast('酷狗风控拦截了本次请求，请用酷狗 App 扫码重新登录后再试');
+    return false;
+  }
   kugouVerificationBusy = true;
   if (typeof kugouStatusVerificationPrompted !== 'undefined') kugouStatusVerificationPrompted = true;
   try {
-    var restriction = data && data.restriction || {};
     var result = await api.openKugouMusicLogin({ verification: true, nativeQr: false, inline: false,
-      verificationUrl: data && data.verificationUrl || restriction.verificationUrl || '' });
+      verificationUrl: verificationUrl });
     if (result && result.retryRequired) {
       showToast('验证窗口已关闭，请重试刚才的登录或播放');
     } else if (result && result.error) {

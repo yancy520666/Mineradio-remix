@@ -307,6 +307,8 @@ function kugouPlaybackRestriction(json, auth) {
       else if (/^(url|uri|link|redirecturl|redirecturi|redirectlink)$/i.test(normalizedKey)) fallbackUrls.push(value[key]);
     }));
     verificationUrl = (explicitUrls.length ? explicitUrls : fallbackUrls).map(validateKugouVerificationUrl).find(Boolean) || '';
+    // Without an official page this is risk control, not a challenge the user can open.
+    if (!verificationUrl) message = '酷狗风控拦截了本次请求，请用酷狗 App 扫码重新登录后再试';
   } else if (code === 30022) {
     category = 'client_only';
     message = '该酷狗歌曲仅支持官方客户端播放';
@@ -737,7 +739,15 @@ function extractKugouAuth(cookie) {
     .update('mineradio-kugou:' + String(userid || token || obj.KuGoo || obj.kugou || 'guest'))
     .digest('hex');
   const mid = String(obj.kg_mid || obj.KG_MID || obj.KUGOU_API_MID || obj.mid || fallbackMid).trim();
-  const dfid = String(obj.kg_dfid || obj.KG_DFID || obj.dfid || obj.DFID || '-').trim();
+  const rawDfid = String(obj.kg_dfid || obj.KG_DFID || obj.dfid || obj.DFID || '').trim();
+  // kg_dfid=- marks an unregistered device; Kugou answers such requests with
+  // 30020 "本次请求需要验证". Use a stable per-account id instead of '-'.
+  const dfid = rawDfid && rawDfid !== '-' ? rawDfid
+    : (userid || token ? kugouStableDfid(userid || token) : '-');
+  // App QR tokens are issued for appid 1005; website cookies (KuGoo compound,
+  // browser kg_dfid) belong to the web appid. Playback routes follow the source.
+  const credentialSource = obj.kg_src === 'app' ? 'app'
+    : (obj.kg_src === 'web' || obj.KuGoo || obj.kugou || obj.Kugou || (rawDfid && rawDfid !== '-') ? 'web' : 'app');
   const nickname = decodeKugouDisplayText(
     kugoo.NickName || kugoo.nickname || obj.NickName || obj.nickname || obj.UserName || obj.username || ''
   );
@@ -761,6 +771,7 @@ function extractKugouAuth(cookie) {
     token,
     mid,
     dfid,
+    credentialSource,
     nickname,
     avatar,
     vipType,
@@ -772,6 +783,14 @@ function extractKugouAuth(cookie) {
     loggedIn,
     playbackReady,
   };
+}
+
+function kugouStableDfid(seed) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = crypto.createHash('sha256').update('mineradio-kugou-dfid:' + String(seed)).digest();
+  let out = '';
+  for (let i = 0; i < 24; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
 }
 
 function kugouCookieUserId(obj) {
@@ -1026,18 +1045,22 @@ function normalizeKugouCookieInput(input) {
 
 function buildKugouRequestCookie(cookie) {
   const obj = kugouCookieObject(cookie);
-  const mid = obj.kg_mid || obj.KG_MID || extractKugouAuth(cookie).mid;
-  const dfid = obj.kg_dfid || obj.KG_DFID || '-';
+  const auth = extractKugouAuth(cookie);
+  const mid = obj.kg_mid || obj.KG_MID || auth.mid;
   const parts = [];
   if (cookie) parts.push(String(cookie).trim());
   if (!obj.kg_mid && !obj.KG_MID) parts.push('kg_mid=' + mid);
-  if (!obj.kg_dfid && !obj.KG_DFID) parts.push('kg_dfid=' + dfid);
   const merged = {};
   parts.join('; ').split(';').forEach(part => {
     const idx = part.indexOf('=');
     if (idx <= 0) return;
     merged[part.slice(0, idx).trim()] = part.slice(idx + 1).trim();
   });
+  delete merged.kg_src;
+  if (!merged.kg_dfid || merged.kg_dfid === '-') {
+    if (merged.KG_DFID && merged.KG_DFID !== '-') merged.kg_dfid = merged.KG_DFID;
+    else merged.kg_dfid = auth.dfid;
+  }
   return Object.keys(merged).map(k => `${k}=${merged[k]}`).join('; ');
 }
 
@@ -1235,7 +1258,7 @@ async function kugouPlayViaH5(hash, albumId, albumAudioId, cookie, requestedQual
   return restriction;
 }
 
-async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requestedQuality, membership, timeoutMs) {
+async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requestedQuality, membership, timeoutMs, freePart) {
   const auth = extractKugouAuth(cookie);
   membership = membership || normalizeKugouVipPayloadV2(null, auth);
   if (!auth.playbackReady) return null;
@@ -1262,7 +1285,8 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
     pid: 2,
     cmd: 26,
     pidversion: 3001,
-    IsFreePart: 0,
+    // 1 asks for the official preview clip; only requested after a full stream is refused.
+    IsFreePart: freePart ? 1 : 0,
     cdnBackup: 1,
     module: '',
   };
@@ -1288,7 +1312,9 @@ async function kugouPlayViaGateway(hash, albumId, albumAudioId, cookie, requeste
   const url = pickKugouPlayUrl(json);
   if (json && Number(json.status) === 1 && url) {
     const level = kugouQualityFromParam(quality, requestedQuality);
-    return { url, level, quality: level, trial: kugouPlaybackTrial(json), source: 'gateway' };
+    // The preview request's response carries no is_free_part flag (measured: a 60 s
+    // clip of a 308 s track came back unmarked), so trust what was requested.
+    return { url, level, quality: level, trial: !!freePart || kugouPlaybackTrial(json), source: freePart ? 'gateway-trial' : 'gateway' };
   }
   return restriction;
 }
@@ -1459,6 +1485,7 @@ async function handleKugouSongUrl(params, cookie) {
       restriction: details,
       ...(restriction.upstreamCode ? { upstreamCode: restriction.upstreamCode } : {}),
       ...(restriction.category === 'verification_required' ? { verificationUrl: details.verificationUrl } : {}),
+      routeTrace,
       requestedQuality,
       effectiveQuality,
       qualityDowngraded: requestedQuality !== effectiveQuality,
@@ -1468,20 +1495,32 @@ async function handleKugouSongUrl(params, cookie) {
 
   let lastRestriction = null;
   let trialCandidate = null;
+  // Route outcomes only (no URLs or credentials), so a late fallback's 30020
+  // cannot hide what the matching route actually answered.
+  const routeTrace = [];
   const deadline = Date.now() + KUGOU_PLAY_BUDGET_MS;
   const rememberRestriction = value => {
     if (!value || !value.restricted) return;
     if (!lastRestriction || value.category !== 'url_unavailable') lastRestriction = value;
   };
   for (const item of candidates) {
-    const attempts = [
-      timeout => kugouPlayViaH5(item.hash, albumId, albumAudioId, cookie, item.level, playbackMembership, timeout),
-      timeout => kugouPlayViaWeb(item.hash, albumId, albumAudioId, cookie, timeout),
-      timeout => kugouPlayViaMobile(item.hash, albumId, cookie, playbackMembership, timeout),
-      timeout => kugouPlayViaGateway(item.hash, albumId, albumAudioId, cookie, item.level, playbackMembership, timeout),
-      timeout => kugouPlayViaWeb(item.hash, albumId, albumAudioId, cookie, timeout, true),
-    ];
-    for (const run of attempts) {
+    // A challenge ends the request, so the first route must match the token's
+    // appid: App QR tokens go to the 1005 gateway, website cookies never do.
+    const routes = {
+      gateway: timeout => kugouPlayViaGateway(item.hash, albumId, albumAudioId, cookie, item.level, playbackMembership, timeout),
+      h5: timeout => kugouPlayViaH5(item.hash, albumId, albumAudioId, cookie, item.level, playbackMembership, timeout),
+      web: timeout => kugouPlayViaWeb(item.hash, albumId, albumAudioId, cookie, timeout),
+      mobile: timeout => kugouPlayViaMobile(item.hash, albumId, cookie, playbackMembership, timeout),
+      webRetry: timeout => kugouPlayViaWeb(item.hash, albumId, albumAudioId, cookie, timeout, true),
+      gatewayTrial: timeout => kugouPlayViaGateway(item.hash, albumId, albumAudioId, cookie, item.level, playbackMembership, timeout, true),
+    };
+    // wwwapi /play/songinfo answers 30020 even for guests, so it goes last;
+    // the mobile route still serves free songs without an account.
+    const order = auth.playbackReady && auth.credentialSource === 'app'
+      ? ['gateway', 'mobile', ...(playbackMembership.isVip ? [] : ['gatewayTrial']), 'web', 'webRetry']
+      : ['h5', 'mobile', 'web', 'webRetry'];
+    for (const routeName of order) {
+      const run = routes[routeName];
       const remaining = deadline - Date.now();
       if (remaining < 250) break;
       let result;
@@ -1490,14 +1529,25 @@ async function handleKugouSongUrl(params, cookie) {
       } catch (error) {
         // HTTP error bodies may still contain an explicit official challenge.
         const verification = kugouVerificationFromError(error, auth);
+        routeTrace.push({ route: routeName, level: item.level, outcome: verification ? 'verification_required' : 'error', code: (verification && verification.upstreamCode) || error.upstreamCode || undefined });
         if (verification) return restrictedPlayback(verification);
         // One unavailable endpoint must not prevent the remaining official routes.
         rememberRestriction({ restricted: true, category: 'url_unavailable', message: '酷狗播放接口暂时不可用，请稍后重试' });
         continue;
       }
+      routeTrace.push({ route: routeName, level: item.level,
+        outcome: result == null ? 'skipped' : (result.url ? (result.trial ? 'trial' : 'url') : (result.category || 'no_url')),
+        code: result && result.upstreamCode || undefined });
       // A security challenge terminates this request, including quality fallbacks
       // and any earlier preview. It must not be overwritten or bypassed.
-      if (result && result.category === 'verification_required') return restrictedPlayback(result);
+      if (result && result.category === 'verification_required') {
+        // A page-less 30020 from a late fallback route must not mask the real
+        // answer an earlier route already gave (e.g. the track needs VIP).
+        if (!result.verificationUrl && lastRestriction && lastRestriction.category !== 'url_unavailable') {
+          return restrictedPlayback(lastRestriction);
+        }
+        return restrictedPlayback(result);
+      }
       if (result && result.url) {
         const payload = {
           provider: 'kugou',

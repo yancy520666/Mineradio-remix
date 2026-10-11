@@ -49,6 +49,8 @@ function songResponse(extra) {
 
 test('current official songinfo route includes the H5 signature and stable web UUID', async () => {
   await withRequests(({ url }) => {
+    // Guests try the mobile route first; this case covers the website route after it.
+    if (url.hostname === 'm.kugou.com') return { body: { status: 0, error: 'fixture-no-url' } };
     assert.equal(url.hostname, 'wwwapi.kugou.com');
     assert.equal(url.pathname, '/play/songinfo');
     const params = Object.fromEntries(url.searchParams);
@@ -66,7 +68,7 @@ test('current official songinfo route includes the H5 signature and stable web U
     assert.equal(result.playable, true);
     assert.equal(result.trial, false);
     assert.equal(result.playbackSource, 'web');
-    assert.equal(calls.length, 1);
+    assert.equal(calls.length, 2);
   });
 });
 
@@ -169,6 +171,7 @@ test('a security challenge wins over an earlier official preview and JSON HTTP f
     await withRequests(({ url }) => {
       if (url.pathname === '/recharge/roleinfo') return membershipResponse();
       if (url.pathname === '/v5/url') return songResponse({ is_free_part: 1 });
+      if (url.hostname === 'm.kugou.com') return { body: { status: 0, error: 'fixture-no-url' } };
       assert.equal(url.hostname, 'wwwapi.kugou.com');
       return { statusCode, body: { status: 0, data: { error_code: 30020, challenge: { url: verificationUrl } } } };
     }, async calls => {
@@ -178,7 +181,7 @@ test('a security challenge wins over an earlier official preview and JSON HTTP f
       assert.equal(result.reason, 'verification_required');
       assert.equal(result.verificationUrl, verificationUrl);
       assert.equal(result.upstreamCode, 30020);
-      assert.equal(calls.filter(call => call.url.pathname !== '/recharge/roleinfo').length, 2);
+      assert.equal(calls.filter(call => call.url.pathname !== '/recharge/roleinfo').length, 3);
     });
   }
 });
@@ -536,5 +539,48 @@ test('Android tracker signs all parameters and does not request an unnecessary p
   }, async () => {
     const response = await kugou._test.kugouPlayViaGateway('signed', '1', '2', memberCookie, 'standard', { isVip: false }, 1000);
     assert.equal(response.trial, false);
+  });
+});
+
+test('App QR credentials never send the unregistered dfid and try the matching 1005 gateway first', async () => {
+  await withRequests(({ url }) => {
+    if (url.pathname === '/recharge/roleinfo') return membershipResponse();
+    return songResponse();
+  }, async calls => {
+    const legacyQrCookie = 'userid=123; token=fixture-token; kg_mid=fixture-mid; kg_dfid=-';
+    const result = await kugou.handleKugouSongUrl({ hash: 'app-song' }, legacyQrCookie);
+    assert.equal(result.playable, true);
+    const play = calls.filter(call => call.url.pathname !== '/recharge/roleinfo');
+    assert.equal(play[0].url.hostname, 'gateway.kugou.com');
+    assert.equal(play[0].url.searchParams.get('appid'), '1005');
+    for (const call of calls) {
+      assert.notEqual(call.url.searchParams.get('dfid'), '-');
+      assert.doesNotMatch(String(call.options.headers.Cookie || ''), /kg_dfid=-(;|$)/);
+    }
+  });
+});
+
+test('a page-less 30020 from the late website route does not hide an earlier VIP answer', async () => {
+  await withRequests(({ url }) => {
+    if (url.pathname === '/recharge/roleinfo') return { body: { status: 0 } };
+    if (url.hostname === 'm.kugou.com') return { body: { status: 0, error: '该歌曲需要付费购买' } };
+    if (url.hostname === 'wwwapi.kugou.com') return { body: { status: 0, err_code: 30020, error: '本次请求需要验证' } };
+    return { body: { status: 1, data: [] } };
+  }, async () => {
+    const appCookie = 'userid=123; token=fixture-token; kg_mid=fixture-mid; kg_src=app';
+    const result = await kugou.handleKugouSongUrl({ hash: 'vip-song', fresh: true }, appCookie);
+    assert.equal(result.playable, false);
+    assert.equal(result.reason, 'vip_required');
+    assert.ok(result.routeTrace.some(step => step.route === 'gatewayTrial'));
+  });
+});
+
+test('a URL from the explicit preview request is treated as a preview even without upstream flags', async () => {
+  await withRequests(() => songResponse(), async () => {
+    const appCookie = 'userid=123; token=fixture-token; kg_mid=fixture-mid; kg_src=app';
+    const preview = await kugou._test.kugouPlayViaGateway('h', '1', '2', appCookie, 'standard', { isVip: false }, 1000, true);
+    assert.equal(preview.trial, true);
+    const full = await kugou._test.kugouPlayViaGateway('h', '1', '2', appCookie, 'standard', { isVip: false }, 1000);
+    assert.equal(full.trial, false);
   });
 });

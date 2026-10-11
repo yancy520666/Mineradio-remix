@@ -1,14 +1,14 @@
 'use strict';
 
-// Official client QR contract, referenced from MakcRe/KuGouMusicApi (GPL-3.0).
+// Official client QR contract, referenced from MakcRe/KuGouMusicApi (MIT).
 // A website `t` cookie is not proof that cloudlist accepts the session.
 const https = require('https');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { getKugouVerificationChallenge } = require('./kugou-verification');
 
-function requestQr(path, params, mid) {
-  const query = { dfid: '-', mid, uuid: '-', appid: 1005, clientver: 20489,
+function requestQr(path, params, mid, dfid) {
+  const query = { dfid: dfid || '-', mid, uuid: '-', appid: 1005, clientver: 20489,
     clienttime: Math.floor(Date.now() / 1000), srcappid: 2919, ...params };
   const salt = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
   query.signature = crypto.createHash('md5').update(salt + Object.keys(query).sort()
@@ -46,6 +46,9 @@ function createKugouNativeQrSession(options) {
   const request = options.request || requestQr;
   const renderQr = options.renderQr || (url => QRCode.toDataURL(url, { width: 240, margin: 2 }));
   const mid = crypto.randomBytes(16).toString('hex');
+  // Never '-': Kugou treats that as an unregistered device and demands verification.
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const dfid = Array.from(crypto.randomBytes(24), b => alphabet[b % alphabet.length]).join('');
   let stopped = false, busy = false, generation = 0, key = '', image = '', expired = false, started = 0, failures = 0;
   const finish = result => { if (!stopped) { stop(); options.finish(result); } };
   async function refresh() {
@@ -53,7 +56,7 @@ function createKugouNativeQrSession(options) {
     key = ''; expired = false;
     try {
       const data = await request('/v2/qrcode', { appid: 1001, type: 1, plat: 4,
-        qrcode_txt: 'https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1005&' }, mid);
+        qrcode_txt: 'https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1005&' }, mid, dfid);
       if (stopped || epoch !== generation) return;
       const challenge = getKugouVerificationChallenge(data);
       if (challenge) { finish({ ...challenge, inline: true }); return; }
@@ -74,7 +77,7 @@ function createKugouNativeQrSession(options) {
     const epoch = generation;
     busy = true;
     try {
-      const data = await request('/v2/get_userinfo_qrcode', { plat: 4, qrcode: key }, mid);
+      const data = await request('/v2/get_userinfo_qrcode', { plat: 4, qrcode: key }, mid, dfid);
       if (stopped || epoch !== generation) return;
       const challenge = getKugouVerificationChallenge(data);
       if (challenge) { finish({ ...challenge, inline: true }); return; }
@@ -86,7 +89,7 @@ function createKugouNativeQrSession(options) {
         if (!/^[1-9]\d{0,19}$/.test(userid) || !token || token.length > 2048 || /[;\r\n]/.test(token)) {
           finish({ ok: false, inline: true, error: 'KUGOU_QR_AUTH_INCOMPLETE' }); return;
         }
-        finish({ ok: true, cookie: 'userid=' + userid + '; token=' + token + '; kg_mid=' + mid + '; kg_dfid=-' });
+        finish({ ok: true, cookie: 'userid=' + userid + '; token=' + token + '; kg_mid=' + mid + '; kg_dfid=' + dfid + '; kg_src=app' });
       } else if (status === 0 || Date.now() - started > 180000) {
         expired = true; options.notify({ stage: 'qr', image, expired: true });
       } else if (status === 2) options.notify({ stage: 'scanned' });

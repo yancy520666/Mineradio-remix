@@ -61,7 +61,9 @@ process.env.MINERADIO_STARTUP_QA_USER_DATA = userData;
 if (!visible) process.env.MINERADIO_STARTUP_QA_HIDDEN = '1';
 
 process.on('exit', () => { try { fs.rmSync(temp, { recursive: true, force: true }); } catch (_) {} });
+// --allow-fonts reproduces font-loading timing on a machine that can reach Google Fonts.
 app.on('browser-window-created', (_event, win) => {
+  if (arg('allow-fonts')) return;
   win.webContents.session.webRequest.onBeforeRequest(
     { urls: ['https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'] },
     (_details, callback) => callback({ cancel: true }));

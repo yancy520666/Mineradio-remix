@@ -141,11 +141,17 @@ async function warmStartupLyrics(song) {
   if (typeof lyricQueuePrefetchCandidate !== 'function' || !lyricQueuePrefetchCandidate(song)) return;
   var cacheRead = {};
   var cached = await readPersistentLyricCache(song, cacheRead);
-  if (cached) return;
-  var response = await apiJson(lyricEndpointForSong(song), { timeoutMs: 6500 });
-  var merged = mergeInlineLyricResponseForSong(song, response || {});
+  var merged = cached;
+  if (!merged) {
+    var response = await apiJson(lyricEndpointForSong(song), { timeoutMs: 6500 });
+    merged = mergeInlineLyricResponseForSong(song, response || {});
+  }
   var state = parseLyricResponseToOriginalState(song, merged);
-  if (state && state.usableLyric) writePersistentLyricCache(song, merged, cacheRead);
+  if (!cached && state && state.usableLyric) writePersistentLyricCache(song, merged, cacheRead);
+  // Fetch this song's lyric font files now, so the first Play draws in the final font.
+  if (state && state.usableLyric && typeof preloadLyricFontsForCurrentLyrics === 'function') {
+    await preloadLyricFontsForCurrentLyrics(state.lines, state.translationLines);
+  }
 }
 async function runStartupPlaybackWarmup() {
   var song = Array.isArray(playQueue) && currentIdx >= 0 ? playQueue[currentIdx] : null;

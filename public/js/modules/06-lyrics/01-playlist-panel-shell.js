@@ -172,6 +172,8 @@ function closePlaylistPanelSoft(reason) {
   panel.classList.add('playlist-panel-closing');
   panel.classList.remove('peek', 'show');
   markPlaylistPanelMotion(panel, playlistPanelMotionMs('close'));
+  // Window leave / blur closes without a pointer move; bring the lyrics back with the panel.
+  if (typeof focusHover !== 'undefined' && focusHover.wantType === 'queue' && typeof setFocusZone === 'function') setFocusZone(null, true);
   setTimeout(function () { panel.classList.remove('playlist-panel-closing'); }, playlistPanelMotionMs('close') + 80);
   return true;
 }

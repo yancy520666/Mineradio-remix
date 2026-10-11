@@ -29,23 +29,32 @@ test('security challenge opens a visible official window and never treats close 
 test('concurrent challenges share one window and a failure permits a later explicit retry', async () => {
   let finish;
   const { c, calls } = harness(() => new Promise(resolve => { finish = resolve; }));
-  const pending = c.openKugouSecurityVerification({});
-  assert.equal(await c.openKugouSecurityVerification({}), false);
+  const challenge = { verificationUrl: 'https://www.kugou.com/check' };
+  const pending = c.openKugouSecurityVerification(challenge);
+  assert.equal(await c.openKugouSecurityVerification(challenge), false);
   assert.equal(calls.length, 1);
   finish({ error: 'failed' }); await pending;
   assert.equal(c.kugouVerificationBusy, false);
 });
+test('risk control without an official page does not open the website login', async () => {
+  const { c, calls, messages } = harness(async () => ({ ok: true }));
+  assert.equal(await c.openKugouSecurityVerification({ restriction: { category: 'verification_required' } }), false);
+  assert.equal(calls.length, 0);
+  assert.match(messages[0], /扫码/);
+  assert.equal(c.kugouVerificationBusy, false);
+});
 test('bridge exception and browser-only mode do not leave verification busy', async () => {
   const { c, messages } = harness(async () => { throw new Error('offline'); });
-  await c.openKugouSecurityVerification({});
+  await c.openKugouSecurityVerification({ verificationUrl: 'https://www.kugou.com/check' });
   assert.equal(c.kugouVerificationBusy, false);
   c.window.desktopWindow = null;
   await c.openKugouSecurityVerification({});
   assert.match(messages.at(-1), /桌面版/);
 });
-test('foreground Kugou verification is handled before automatic source fallback', () => {
+test('foreground Kugou verification with an official page is handled before automatic source fallback', () => {
   const source = fs.readFileSync('public/js/modules/05-playback/13-playback-start-audio.js', 'utf8');
-  const start = source.indexOf("if (isKugouPlayback && playbackRestrictionRawCategory(song, data) === 'verification_required')");
+  // Page-less 30020 (risk control) intentionally falls through to auto-fallback.
+  const start = source.indexOf("if (isKugouPlayback && kugouChallengeUrl && playbackRestrictionRawCategory(song, data) === 'verification_required')");
   assert.ok(start > 0);
   const end = source.indexOf('var fallbackResult = await tryAutoPlaybackFallback', start);
   assert.ok(end > start);

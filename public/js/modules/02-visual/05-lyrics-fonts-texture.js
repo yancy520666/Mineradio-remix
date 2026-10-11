@@ -218,15 +218,148 @@ function lyricFontFacesAffectLyrics(faces) {
   }
   return false;
 }
-function handleLyricFontFacesLoaded(faces) {
-  if (!lyricFontFacesAffectLyrics(faces)) return;
-  lyricFontLoadGeneration += 1;
+// Noto Sans SC arrives as ~100 unicode-range files per weight, requested as new
+// characters are drawn. Measured on first play: 5 batches in 10 s, each one
+// rebuilding the visible lyric (the "flashes several times" plus its cost).
+// So: request every file a song's lyrics need at once when the lyrics are set,
+// and rebuild only for faces that cover this song's characters, once per batch.
+var lyricFontPreloadKey = '';
+var lyricFontPreloadPromise = null;
+var lyricFontPreloadPending = false;
+var lyricFontRefreshAfterPreload = false;
+var lyricFontPreloadSettledAt = 0;
+// Set when the lyrics were drawn only after their preload finished (see renderLyricsAfterFonts).
+var lyricFontDrawnAfterPreload = false;
+var LYRIC_FONT_EVENT_GRACE_MS = 250;
+function lyricFontPreloadText(lines, translationLines) {
+  var seen = Object.create(null), out = '';
+  if (!lines) {
+    lines = typeof lyricsLines !== 'undefined' ? lyricsLines : [];
+    translationLines = typeof lyricsTranslationLines !== 'undefined' ? lyricsTranslationLines : [];
+  }
+  [lines, translationLines || []].forEach(function (lines) {
+    (lines || []).forEach(function (line) {
+      var text = String(line && (line.text || '') + (line.translation || '') || '');
+      for (var i = 0; i < text.length && out.length < 6000; i++) {
+        var ch = text.charAt(i);
+        if (!seen[ch] && ch.trim()) { seen[ch] = 1; out += ch; }
+      }
+    });
+  });
+  return out;
+}
+// Main lines use the lyric weight; context lines 650 (drawn with the 700 file).
+function lyricFontDrawWeights() {
+  var main = lyricFontWeightValue();
+  return main === 650 ? [main] : [main, 650];
+}
+// True when every font file the current lyrics need is already loaded.
+function lyricFontsReadyForCurrentLyrics() {
+  if (typeof document === 'undefined' || !document.fonts || typeof document.fonts.check !== 'function') return true;
+  var chars = lyricFontPreloadText();
+  if (!chars) return true;
+  try {
+    return lyricFontDrawWeights().every(function (weight) { return document.fonts.check(lyricFontCss(48, weight), chars); });
+  } catch (e) { return true; }
+}
+// Lines default to the current song's; the startup warmup passes the restored song's.
+function preloadLyricFontsForCurrentLyrics(lines, translationLines) {
+  if (typeof document === 'undefined' || !document.fonts || typeof document.fonts.load !== 'function') return null;
+  var chars = lyricFontPreloadText(lines, translationLines);
+  if (!chars) return null;
+  var weights = lyricFontDrawWeights();
+  var key = String(fx && fx.lyricFont) + '|' + weights.join(',') + '|' + chars;
+  if (key === lyricFontPreloadKey && lyricFontPreloadPromise) return lyricFontPreloadPromise;
+  lyricFontPreloadKey = key;
+  lyricFontPreloadPending = true;
+  var promise = Promise.all(weights.map(function (weight) {
+    return document.fonts.load(lyricFontCss(48, weight), chars).catch(function () { return []; });
+  }));
+  // Font files that never answer must not hold refreshes back forever.
+  var settled = Promise.race([promise, new Promise(function (resolve) { setTimeout(resolve, 4000); })]);
+  lyricFontPreloadPromise = settled.then(function () {
+    if (lyricFontPreloadPromise !== guarded) return;
+    lyricFontPreloadPending = false;
+    lyricFontPreloadSettledAt = performance.now();
+    if (lyricFontRefreshAfterPreload) { lyricFontRefreshAfterPreload = false; runLyricFontLoadRefresh(); }
+  });
+  var guarded = lyricFontPreloadPromise;
+  return guarded;
+}
+function parseFontFaceUnicodeRange(range) {
+  var out = [];
+  String(range || '').split(',').forEach(function (part) {
+    var m = part.trim().match(/^U\+([0-9a-f?]+)(?:-([0-9a-f]+))?$/i);
+    if (!m) return;
+    var lo = parseInt(m[1].replace(/\?/g, '0'), 16), hi = m[2] ? parseInt(m[2], 16) : parseInt(m[1].replace(/\?/g, 'f'), 16);
+    if (isFinite(lo) && isFinite(hi)) out.push([lo, hi]);
+  });
+  return out;
+}
+// False only when every loaded face is limited to characters this song's lyrics never use.
+function lyricFontFaceWeightUsed(face, weights) {
+  var raw = String(face && face.weight || '');
+  var parts = raw.split(/\s+/).map(Number).filter(isFinite);
+  if (!parts.length) return true;
+  var lo = parts[0], hi = parts.length > 1 ? parts[1] : parts[0];
+  return weights.some(function (w) { return w >= lo - 100 && w <= hi + 100; });
+}
+function lyricFontFacesCoverCurrentLyrics(faces) {
+  if (!faces || !faces.length) return true;
+  var chars = lyricFontPreloadText();
+  if (!chars) return false;
+  var weights = lyricFontDrawWeights();
+  for (var i = 0; i < faces.length; i++) {
+    if (!lyricFontFaceWeightUsed(faces[i], weights)) continue;
+    var ranges = parseFontFaceUnicodeRange(faces[i] && faces[i].unicodeRange);
+    if (!ranges.length) return true;
+    for (var c = 0; c < chars.length; c++) {
+      var code = chars.codePointAt(c);
+      for (var r = 0; r < ranges.length; r++) if (code >= ranges[r][0] && code <= ranges[r][1]) return true;
+    }
+  }
+  return false;
+}
+function runLyricFontLoadRefresh() {
   if (lyricFontLoadRefreshTimer) clearTimeout(lyricFontLoadRefreshTimer);
   lyricFontLoadRefreshTimer = setTimeout(function () {
     lyricFontLoadRefreshTimer = 0;
     if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('lyric-font-loaded', { release: true });
     if (typeof refreshCurrentLyricStyle === 'function') refreshCurrentLyricStyle();
   }, 60);
+}
+function handleLyricFontFacesLoaded(faces) {
+  if (!lyricFontFacesAffectLyrics(faces)) return;
+  if (!lyricFontFacesCoverCurrentLyrics(faces)) return;
+  // The preload's own files report in just after it resolves; lyrics drawn after
+  // that already use them, so nothing is stale.
+  if (lyricFontDrawnAfterPreload && !lyricFontPreloadPending && performance.now() - lyricFontPreloadSettledAt < LYRIC_FONT_EVENT_GRACE_MS) return;
+  lyricFontLoadGeneration += 1;
+  if (lyricFontPreloadPending) { lyricFontRefreshAfterPreload = true; return; }
+  runLyricFontLoadRefresh();
+}
+// Draws new lyrics once their font files are in (at most LYRIC_FONT_FIRST_DRAW_WAIT_MS),
+// instead of drawing a fallback face and rebuilding when the real one arrives.
+var LYRIC_FONT_FIRST_DRAW_WAIT_MS = 350;
+var lyricFontRenderToken = 0;
+function renderLyricsAfterFonts(renderOptions) {
+  var token = ++lyricFontRenderToken;
+  lyricFontDrawnAfterPreload = false;
+  var wait = lyricFontsReadyForCurrentLyrics() ? null : preloadLyricFontsForCurrentLyrics();
+  if (!wait) {
+    preloadLyricFontsForCurrentLyrics();
+    renderLyrics(renderOptions || {});
+    return;
+  }
+  var done = false;
+  function run(afterFonts) {
+    if (done || token !== lyricFontRenderToken) return;
+    done = true;
+    lyricFontDrawnAfterPreload = !!afterFonts;
+    renderLyrics(renderOptions || {});
+  }
+  wait.then(function () { run(true); });
+  setTimeout(function () { run(false); }, LYRIC_FONT_FIRST_DRAW_WAIT_MS);
 }
 if (typeof document !== 'undefined' && document.fonts && document.fonts.addEventListener) {
   document.fonts.addEventListener('loadingdone', function (event) {

@@ -1328,7 +1328,8 @@ function applyLyricsState(lines, hasNativeKaraoke, timingSource, translationLine
   lyricsTranslationLines = cloneLyricLines(prepared.translationLines);
   lyricsTranslationSource = prepared.translationSource;
   lyricsLines = cloneLyricLines(prepared.lines);
-  renderLyrics(renderOptions || {});
+  if (typeof renderLyricsAfterFonts === 'function') renderLyricsAfterFonts(renderOptions);
+  else renderLyrics(renderOptions || {});
   updateCustomLyricControls();
 }
 function applyOriginalLyricsState(renderOptions) {
@@ -1379,7 +1380,8 @@ function applyCustomLyricState(song, silent, renderOptions) {
   lyricsTranslationLines = cloneLyricLines(prepared.translationLines);
   lyricsTranslationSource = prepared.translationSource;
   lyricsLines = cloneLyricLines(prepared.lines);
-  renderLyrics(renderOptions || {});
+  if (typeof renderLyricsAfterFonts === 'function') renderLyricsAfterFonts(renderOptions);
+  else renderLyrics(renderOptions || {});
   updateCustomLyricControls();
   return true;
 }

@@ -380,7 +380,8 @@ async function testKugouPlaybackEntitlementBoundary() {
   });
   assert.strictEqual(ordinaryPlaybackRequests, 0, 'ordinary member track must be blocked before URL resolution');
 
-  const freeCookie = 'userid=71002; token=free-fixture-token; kg_mid=free-mid';
+  // Website credentials: this case covers the H5 route's entitlement parameters.
+const freeCookie = 'userid=71002; token=free-fixture-token; kg_mid=free-mid; kg_src=web';
   let freeQuality = '';
   let freePart = '';
   await withHttpsMock(({ url }) => {

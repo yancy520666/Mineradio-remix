@@ -508,6 +508,7 @@ function awaitSourceFallbackBudget(promise, recovery) {
 function sourceFallbackProviderTitle(provider) {
   if (provider === 'qq') return 'QQ 音乐';
   if (provider === 'kugou') return '酷狗音乐';
+  if (provider === 'qishui') return '汽水音乐';
   return '网易云';
 }
 function sourceFallbackProviderReady(provider) {
@@ -1005,7 +1006,7 @@ async function playQishuiFullSourceCandidate(found, song, idx, token, opts) {
   idx = currentIdx;
   var originalSong = playQueue[idx];
   var candidate = cloneSong(found.candidate);
-  candidate.autoFallbackFrom = 'qishui';
+  candidate.autoFallbackFrom = normalizePlaybackProvider(songProviderKey(song)) || 'qishui';
   var committedCandidate = hydrateCustomCover(candidate);
   playQueue[idx] = committedCandidate;
   safeRenderQueuePanel('qishui-trial-upgrade', { scrollCurrent: miniQueueOpen });
@@ -1043,7 +1044,11 @@ async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
   }
   if (!trialQueueInvocationStillCurrent()) return false;
   if (opts.fallbackDepth > 0 || opts.qishuiTrialUpgradeTried) return null;
-  if (!song || !data || !data.trial || normalizePlaybackProvider(songProviderKey(song)) !== 'qishui') return null;
+  // Any platform's preview: a full version on another logged-in, authorized
+  // platform is preferred over staying on this platform's trial clip.
+  var trialProvider = song ? normalizePlaybackProvider(songProviderKey(song)) : '';
+  if (!song || !data || !data.trial || !trialProvider || song.type === 'local' || song.type === 'podcast') return null;
+  var trialLabel = sourceFallbackProviderTitle(trialProvider);
   var providers = alternatePlaybackProviders(song);
   if (!providers.length) { endQishuiPlaybackProgress(token); return null; }
   var expectedSec = Number(data.fullDuration) || songDurationSecondsForMatch(song);
@@ -1071,7 +1076,7 @@ async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
       return null;
     }
     updateQishuiPlaybackProgress(token, '正在查找完整版本',
-      '《' + songTitle + '》在汽水音乐只有试听片段，正在从 ' + providers.map(sourceFallbackProviderTitle).join('、') + ' 查找完整版本…');
+      '《' + songTitle + '》在' + trialLabel + '只有试听片段，正在从 ' + providers.map(sourceFallbackProviderTitle).join('、') + ' 查找完整版本…');
     var deadline = Date.now() + QISHUI_TRIAL_UPGRADE_BUDGET_MS;
     var prefetched = takeQishuiFullSourcePrefetch(song, expectedSec, providers);
     found = prefetched ? await qishuiTrialUpgradeWithinBudget(prefetched, deadline) : null;
@@ -1084,7 +1089,7 @@ async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
     }
     if (!found) {
       qishuiTrialUpgradeMisses[missKey] = Date.now();
-      endQishuiPlaybackProgress(token, '未找到完整版本', '《' + songTitle + '》将播放汽水音乐的试听片段。', { onlyIfShown: true });
+      endQishuiPlaybackProgress(token, '未找到完整版本', '《' + songTitle + '》将播放' + trialLabel + '的试听片段。', { onlyIfShown: true });
       return null;
     }
   }
@@ -1095,14 +1100,14 @@ async function tryQishuiTrialFullSourceUpgrade(song, data, idx, token, opts) {
   if (outcome.started) {
     rememberQishuiFullSource(song, found, expectedSec);
     var finalTitle = '已切换到完整版本';
-    var finalBody = '《' + songTitle + '》在汽水音乐只有试听片段，已改用 ' + targetLabel + ' 的完整版本播放。';
+    var finalBody = '《' + songTitle + '》在' + trialLabel + '只有试听片段，已改用 ' + targetLabel + ' 的完整版本播放。';
     if (!endQishuiPlaybackProgress(token, finalTitle, finalBody) && !opts.startupAutoplay) {
       showSourceFallbackNotice(finalTitle, finalBody);
     }
     return true;
   }
   // The candidate failed to start; the nested attempt restored the queue
-  // item. Play the original Qishui preview without searching again.
+  // item. Play the original preview without searching again.
   forgetQishuiFullSource(song);
   endQishuiPlaybackProgress(token);
   idx = outcome.index;

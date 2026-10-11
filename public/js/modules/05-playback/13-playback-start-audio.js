@@ -1398,7 +1398,10 @@ async function playQueueAt(idx, opts) {
       }
       var retryPlaybackOpts = Object.assign({}, opts, { resumeAt: opts.resumeAt != null ? opts.resumeAt : restoreResumeAt });
       if (!data || !data.url) {
-        if (isKugouPlayback && playbackRestrictionRawCategory(song, data) === 'verification_required') {
+        // A page-less 30020 is risk control with nothing to open; let auto-fallback
+        // try other logged-in platforms instead of stopping here.
+        var kugouChallengeUrl = data && (data.verificationUrl || data.restriction && data.restriction.verificationUrl);
+        if (isKugouPlayback && kugouChallengeUrl && playbackRestrictionRawCategory(song, data) === 'verification_required') {
           hideLoading();
           forcePlaybackControlsInteractive();
           markQueueItemPlaybackFailed(idx);
@@ -1419,7 +1422,7 @@ async function playQueueAt(idx, opts) {
         if (!opts.suppressPlayFailureNotice) showPlaybackLoadFailure(song, idx, token, new Error(data && (data.message || data.reason) || '平台没有返回可播放地址'), retryPlaybackOpts);
         return false;
       }
-      if (data.trial && isQishuiPlayback && !albumGaplessHandoff && typeof tryQishuiTrialFullSourceUpgrade === 'function') {
+      if (data.trial && !albumGaplessHandoff && typeof tryQishuiTrialFullSourceUpgrade === 'function') {
         var trialUpgrade = await tryQishuiTrialFullSourceUpgrade(song, data, idx, token, retryPlaybackOpts);
         if (trialUpgrade !== null) return trialUpgrade === true;
         if (token !== trackSwitchToken) return;

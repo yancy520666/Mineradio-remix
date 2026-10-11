@@ -79,13 +79,13 @@ function customBackgroundAlbumCoverSource() {
   } catch (e) { }
   if (!src) {
     try {
-      if (typeof currentCoverSource !== 'undefined' && currentCoverSource && currentCoverSource.src) src = String(currentCoverSource.src || '');
+      if (typeof currentCoverSource !== 'undefined' && currentCoverSource) src = realImageSourceUrl(currentCoverSource.src);
     } catch (e2) { }
   }
   if (!src) {
     try {
       var thumb = document.getElementById('thumb-cover');
-      src = thumb && (thumb.currentSrc || thumb.src || thumb.getAttribute('src')) || '';
+      src = thumb && String(thumb.getAttribute('src') || '').trim() ? realImageSourceUrl(thumb.currentSrc || thumb.src) : '';
     } catch (e3) { }
   }
   if (!src) {
@@ -971,14 +971,22 @@ function sonicWorkshopCurrentCoverKey() {
     return '';
   }
 }
+// An image whose src is empty resolves .src to the page's own address; sending
+// that to the cover proxy requested the page itself (a 502 on every start).
+function realImageSourceUrl(src) {
+  src = String(src || '').trim();
+  if (!src) return '';
+  try { if (src === String(location.href) || new URL(src, location.href).href === String(location.href)) return ''; } catch (e) { }
+  return src;
+}
 function sonicWorkshopCurrentCoverDomSource() {
   try {
-    if (typeof currentCoverSource !== 'undefined' && currentCoverSource && currentCoverSource.src) return String(currentCoverSource.src || '');
+    if (typeof currentCoverSource !== 'undefined' && currentCoverSource && realImageSourceUrl(currentCoverSource.src)) return String(currentCoverSource.src);
   } catch (e) { }
   try {
     var thumb = document.getElementById('thumb-cover');
-    var thumbSrc = thumb && (thumb.currentSrc || thumb.src || thumb.getAttribute('src'));
-    if (thumbSrc) return String(thumbSrc);
+    var thumbSrc = thumb && String(thumb.getAttribute('src') || '').trim() ? realImageSourceUrl(thumb.currentSrc || thumb.src) : '';
+    if (thumbSrc) return thumbSrc;
   } catch (e) { }
   try {
     var bg = document.getElementById('album-bg');
