@@ -223,6 +223,10 @@ app.whenReady().then(async () => {
   const before = await win.webContents.mainFrame.executeJavaScript('(' + prepareCoverQuality.toString() + ')()');
   assert.deepEqual(before.thumbnail, [400, 400]);
   assert(before.fallback.includes('400y400') && !before.fallback.includes('2048y2048'));
+  // The 400px cover shows first; the 2048px request may start a moment later on slow runners.
+  // Wait for it, then give a duplicate request time to appear before counting.
+  for (const until = Date.now() + 5000; pendingLargeCovers.length < 1 && Date.now() < until;) await new Promise(resolve => setTimeout(resolve, 30));
+  await new Promise(resolve => setTimeout(resolve, 300));
   assert.equal(pendingLargeCovers.length, 1, 'Control refreshes must reuse the in-flight large cover');
   const shotDir = process.env.MINERADIO_COVER_QA_SHOTS;
   if (shotDir) {
