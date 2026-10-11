@@ -124,7 +124,7 @@ function applyRemixUpdateState(state) {
   // What the release says matters, not how updating works: show its 更新重点.
   if (Array.isArray(state.highlights)) {
     updatePreviewState.notes = updatePreviewState.updateAvailable
-      ? state.highlights.slice(0, 4).map(function (text) { return String(text || '').slice(0, 40); }).filter(Boolean)
+      ? state.highlights.slice(0, 12).map(function (text) { return String(text || '').slice(0, 40); }).filter(Boolean)
       : [];
   } else if (!updatePreviewState.updateAvailable) updatePreviewState.notes = [];
   if (Number.isFinite(Number(state.downloadBytes))) updatePreviewState.downloadBytes = Number(state.downloadBytes) || 0;
@@ -169,7 +169,7 @@ function applyLatestUpdateInfo(data) {
   updatePreviewState.errorReason = '';
   updatePreviewState.hero = release.summary
     || (updatePreviewState.updateAvailable ? '发现新版本，建议更新。' : '当前版本已是最新。');
-  updatePreviewState.notes = Array.isArray(release.notes) ? release.notes.slice(0, 4) : [];
+  updatePreviewState.notes = Array.isArray(release.notes) ? release.notes.slice(0, 12) : [];
   renderUpdatePreviewPanel();
   setUpdatePreviewVisible(updatePreviewState.updateAvailable || updatePreviewState.preview);
 }
@@ -234,6 +234,9 @@ function renderUpdatePreviewPanel() {
     var autoHighlights = updatePreviewState.autoMode;
     list.hidden = !notes.length && autoHighlights;
     if (list.classList) list.classList.toggle('highlights', autoHighlights);
+    // More than four highlights scroll inside the dialog instead of growing it.
+    if (list.classList) list.classList.toggle('scrollable', autoHighlights && notes.length > 4);
+    list.scrollTop = 0;
     var shown = notes.length ? notes : (autoHighlights ? [] : ['更新检测已就绪']);
     list.innerHTML = shown.map(function (text, i) {
       return '<div class="update-item"><span class="update-item-dot" data-index="'

@@ -54,6 +54,7 @@ function highlightLine(item) {
   if (!bold) text = text.split(/[：:。]/)[0];
   return text.length > 40 ? text.slice(0, 39) + '…' : text;
 }
+const UPDATE_HIGHLIGHT_LIMIT = 12;
 function extractReleaseHighlights(notes) {
   let source = notes;
   if (Array.isArray(notes)) source = notes.map(item => (item && item.note) || '').join('\n');
@@ -65,7 +66,8 @@ function extractReleaseHighlights(notes) {
   const items = (text) => isHtml
     ? (text.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [])
     : text.split('\n').filter(line => /^\s*[-*]\s+/.test(line)).map(line => line.replace(/^\s*[-*]\s+/, ''));
-  const picked = section ? items(section).slice(0, 4) : items(source).slice(0, 3);
+  // The dialog scrolls, so show the whole 更新重点 section; the cap only guards odd notes.
+  const picked = section ? items(section).slice(0, UPDATE_HIGHLIGHT_LIMIT) : items(source).slice(0, 3);
   return picked.map(highlightLine).filter(Boolean);
 }
 

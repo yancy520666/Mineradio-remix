@@ -20079,3 +20079,19 @@ html.control-glass-svg-ok #playlist-panel.playlist-panel-closing {
 #fx-panel .fx-console-subhead:has(+ [hidden]) {
   display: none !important;
 }
+
+/* 更新弹窗：更新重点超过四条时在列表内滚动（约显示四条半，提示还有更多），底部渐隐。 */
+#update-modal .update-list.highlights.scrollable {
+  max-height: 172px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+}
+#update-modal .update-list.highlights.scrollable .update-item:last-child { padding-bottom: 16px }
+/* 与歌单栏一致的细滚动条，不显示系统箭头（设置 scrollbar-width 会让下面的写法失效）。 */
+#update-modal .update-list.highlights.scrollable::-webkit-scrollbar { width: 3px }
+#update-modal .update-list.highlights.scrollable::-webkit-scrollbar-button { display: none; height: 0 }
+#update-modal .update-list.highlights.scrollable::-webkit-scrollbar-thumb { background: rgba(244, 210, 138, .32); border-radius: 3px }
+#update-modal .update-list.highlights.scrollable::-webkit-scrollbar-track { background: transparent }

@@ -135,8 +135,10 @@ test('the update dialog gets only the release highlights as short plain text', (
   assert.deepEqual(extractReleaseHighlights(markdown), ['第一项重点', '第二项']);
   const html = '<h2>本版重点</h2><ul><li><strong>旧标题 &amp; 也能识别</strong>：说明</li><li><strong><img src=x onerror=alert(1)>脚本</strong></li></ul><h2>其他</h2><ul><li>x</li></ul>';
   assert.deepEqual(extractReleaseHighlights(html), ['旧标题 & 也能识别', '脚本'], 'markup is reduced to text');
-  const many = '## 更新重点\n' + Array.from({ length: 8 }, (_, i) => '- **重点' + i + '**').join('\n');
-  assert.equal(extractReleaseHighlights(many).length, 4);
+  const many = '## 更新重点\n' + Array.from({ length: 10 }, (_, i) => '- **重点' + i + '**').join('\n');
+  assert.equal(extractReleaseHighlights(many).length, 10, 'the dialog scrolls, so every highlight is kept');
+  const huge = '## 更新重点\n' + Array.from({ length: 30 }, (_, i) => '- **重点' + i + '**').join('\n');
+  assert.equal(extractReleaseHighlights(huge).length, 12);
   assert.equal(extractReleaseHighlights('- ' + '长'.repeat(80)).length > 0, true);
   assert.ok(extractReleaseHighlights('- ' + '长'.repeat(80))[0].length <= 40);
   assert.deepEqual(extractReleaseHighlights(null), []);
