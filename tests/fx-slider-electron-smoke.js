@@ -55,11 +55,13 @@ async function exercise(fixtureBase64) {
   fx.backgroundAlbumCover = false;
   document.body.classList.remove('wallpaper-engine-active');
   applyCustomBackground();
-  const video = document.getElementById('custom-bg-video');
+  // The new video decodes in its own element and takes over the custom-bg-video id once it
+  // fades in; until then the id belongs to a placeholder that never loads.
+  let video = document.getElementById('custom-bg-video');
   const deadline = Date.now() + 5000;
-  while (video.readyState < 2) {
+  while (!(video = document.getElementById('custom-bg-video')) || video.readyState < 2) {
     if (Date.now() > deadline) throw new Error('Fixture video failed to decode: ' + JSON.stringify({ bytes: blob.size,
-      error: video.error && video.error.message, src: video.getAttribute('src'), reads: counts.blobReads }));
+      error: video && video.error && video.error.message, src: video && video.getAttribute('src'), reads: counts.blobReads }));
     await sleep(20);
   }
   const initialSource = video.getAttribute('src');
@@ -141,15 +143,21 @@ async function exercise(fixtureBase64) {
   fx.backgroundMedia = { type: 'video', id: 'pending-b' };
   applyCustomBackground();
   const pendingReads = counts.blobReads;
+  // Each source decodes in a new element that takes over the id; always read the live one.
+  const liveVideo = () => document.getElementById('custom-bg-video');
+  const firstVideo = video;
   pending['pending-b'](blob);
-  await sleep(40);
-  const latestSource = video.getAttribute('src');
+  for (const until = Date.now() + 5000; Date.now() < until; await sleep(20)) {
+    const live = liveVideo();
+    if (live && live !== firstVideo && live.readyState >= 2) break;
+  }
+  const latestSource = liveVideo() && liveVideo().getAttribute('src');
   pending['pending-a'](blob);
-  await sleep(30);
-  const staleLoadIgnored = video.getAttribute('src') === latestSource && latestSource !== initialSource;
+  await sleep(400);
+  const staleLoadIgnored = !!latestSource && liveVideo() && liveVideo().getAttribute('src') === latestSource && latestSource !== initialSource;
   fx.backgroundMedia = null;
   applyCustomBackground();
-  const videoCleared = !video.getAttribute('src') && !customBgObjectUrl;
+  const videoCleared = !(liveVideo() && liveVideo().getAttribute('src')) && !customBgObjectUrl;
   return { inputCount, dragging, settled, sameVideoSource, videoDecoded,
     untouched, savedUntouched: saved.depth, finalValues, savedValues, restoredValues, liveLineStep, expectedLineStep,
     coverBuildsBeforeCommit, coverBuildsAfterCommit, pendingReads, staleLoadIgnored, videoCleared };

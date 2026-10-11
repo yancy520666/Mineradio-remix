@@ -69,7 +69,18 @@ if (!process.argv.includes('--child')) {
     for (const active of [false, true]) {
       await win.webContents.executeJavaScript(`fixtureBands=${active
         ? '{subBass:.6,bass:.6,lowMid:.6,mid:.6,highMid:.6,presence:.6,brilliance:.6}' : '{}'};`);
+      // Columns grow in over ~1.1 s once the scene is ready (and settle flat when silent),
+      // so wait for the samples to reach their state instead of a fixed delay; slow CI
+      // runners became ready late and were sampled mid-rise.
       await new Promise(resolve => setTimeout(resolve, 1600));
+      let previousMean = -1;
+      for (let waited = 0; waited < 6000; waited += 100) {
+        const mean = await win.webContents.executeJavaScript('window.fixtureSamples ? fixtureSamples.reduce((s,v)=>s+v,0)/fixtureSamples.length : 0');
+        if (active ? mean > 0.05 && Math.abs(mean - previousMean) < 1e-4 : mean === 0) break;
+        previousMean = mean;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      await new Promise(resolve => setTimeout(resolve, 300));
       const bitmap = (await win.webContents.capturePage()).toBitmap();
       let sum = 0, bright = 0;
       for (let i = 0; i < bitmap.length; i += 4) {

@@ -38,12 +38,14 @@ if (!process.argv.includes('--child')) {
   require('../desktop/main');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   app.whenReady().then(async () => {
+    // mainFrame.executeJavaScript runs immediately; webContents.executeJavaScript waits for the
+    // page to stop loading, which on slow CI runners outlasted this deadline.
     const deadline = Date.now() + 30000;
     let win, ready;
     while (Date.now() < deadline) {
       win = BrowserWindow.getAllWindows()[0];
       if (win && /^http:\/\/127\.0\.0\.1:/.test(win.webContents.getURL())) {
-        ready = await win.webContents.executeJavaScript('typeof startVisualGuide === "function" && typeof splashStartedAt !== "undefined" && splashStartedAt !== null && document.readyState !== "loading"').catch(() => false);
+        ready = await win.webContents.mainFrame.executeJavaScript('typeof startVisualGuide === "function" && typeof splashStartedAt !== "undefined" && splashStartedAt !== null && document.readyState !== "loading"').catch(() => false);
         if (ready) break;
       }
       await sleep(50);
@@ -51,23 +53,23 @@ if (!process.argv.includes('--child')) {
     assert(ready, 'renderer did not initialize');
     assert(win.isVisible(), 'a single launch must show the native window');
     assert(firstShowMs !== null, 'first launch must not require second-instance activation');
-    const intro = await win.webContents.executeJavaScript('({started: splashStartedAt, age: performance.now() - splashStartedAt, pending: document.documentElement.classList.contains("splash-intro-pending"), ready: splashReadyToEnter})');
+    const intro = await win.webContents.mainFrame.executeJavaScript('({started: splashStartedAt, age: performance.now() - splashStartedAt, pending: document.documentElement.classList.contains("splash-intro-pending"), ready: splashReadyToEnter})');
     assert(intro.started !== null && !intro.pending);
     if (intro.age < 1500) assert.equal(intro.ready, false, 'entry must wait for the upstream 1.5s gate');
     await sleep(Math.max(0, 1600 - intro.age));
-    while (Date.now() < deadline && !await win.webContents.executeJavaScript('splashReadyToEnter')) await sleep(100);
-    const entry = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, duration: getComputedStyle(el).animationDuration, age: performance.now() - splashStartedAt, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState}))}; })()');
+    while (Date.now() < deadline && !await win.webContents.mainFrame.executeJavaScript('splashReadyToEnter')) await sleep(100);
+    const entry = await win.webContents.mainFrame.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, duration: getComputedStyle(el).animationDuration, age: performance.now() - splashStartedAt, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState}))}; })()');
     assert(entry.ready, 'entry must be available without waiting for the entire logo');
     assert.equal(entry.duration, '3.75s', 'logo keeps the 0.72x intro pace');
     if (entry.age < 3600) assert(entry.animations.some(a => a.playState === 'running'), 'logo should continue after entry becomes available');
     await sleep(Math.max(0, 5400 - entry.age));
     // CSS and the script clock start with the page, as in upstream.
-    while (Date.now() < deadline && !await win.webContents.executeJavaScript('document.querySelector(".splash-word-radio").getAnimations().every(a => a.playState === "finished")')) await sleep(100);
-    const logo = await win.webContents.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, opacity: getComputedStyle(el).opacity, animation: getComputedStyle(el).animationName, playState: getComputedStyle(el).animationPlayState, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState})), classes: document.documentElement.className}; })()');
+    while (Date.now() < deadline && !await win.webContents.mainFrame.executeJavaScript('document.querySelector(".splash-word-radio").getAnimations().every(a => a.playState === "finished")')) await sleep(100);
+    const logo = await win.webContents.mainFrame.executeJavaScript('(() => { const el = document.querySelector(".splash-word-radio"); return {ready: splashReadyToEnter, opacity: getComputedStyle(el).opacity, animation: getComputedStyle(el).animationName, playState: getComputedStyle(el).animationPlayState, animations: el.getAnimations().map(a => ({currentTime: a.currentTime, playState: a.playState})), classes: document.documentElement.className}; })()');
     assert(logo.ready);
     assert.equal(Number(logo.opacity), 1, 'complete logo must be visible after its original timeline');
     assert(logo.animations.every(a => a.playState === 'finished'), 'logo must finish when the user stays on the splash');
-    const guides = await win.webContents.executeJavaScript(`(() => {
+    const guides = await win.webContents.mainFrame.executeJavaScript(`(() => {
       const before = startupGuideWasSeen('visual');
       dismissSplash({instant: true});
       startVisualGuide({manual: ${mode === 'restart'}});
@@ -76,7 +78,7 @@ if (!process.argv.includes('--child')) {
     assert.equal(guides.before, mode === 'restart');
     assert(guides.active && guides.seen, 'guide is recorded when displayed and remains manually accessible');
     assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'user', 'onboarding-state.json'))).visual, true);
-    const queueButton = await win.webContents.executeJavaScript(`(() => {
+    const queueButton = await win.webContents.mainFrame.executeJavaScript(`(() => {
       closeVisualGuide(false); revealBottomControls(1500);
       const button=document.getElementById('mini-queue-btn'),svg=button.querySelector('svg');
       const b=button.getBoundingClientRect(),v=svg.getBoundingClientRect(),ink=svg.getBBox();

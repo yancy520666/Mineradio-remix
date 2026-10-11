@@ -42,9 +42,12 @@ async function prepareCoverQuality() {
     await new Promise(resolve => setTimeout(resolve, 30));
   }
   setCustomBackgroundAlbumCover(true, true);
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // The cover decodes in its own <img> surface and takes over once ready; --custom-bg-image
+  // is no longer used for the picture.
+  const shown = () => (customBgSurfaceState.active && customBgSurfaceState.active.node.getAttribute('src')) || '';
+  for (let attempt = 0; attempt < 100 && !shown(); attempt++) await new Promise(resolve => setTimeout(resolve, 30));
   return { thumbnail: [thumb.naturalWidth, thumb.naturalHeight],
-    fallback: document.getElementById('custom-bg').style.getPropertyValue('--custom-bg-image'),
+    fallback: shown(),
     canvasResolution: fx.coverResolution };
 }
 
@@ -57,11 +60,17 @@ async function finishCoverQuality() {
   const image = new Image(); image.src = source; await image.decode();
   const layer = document.getElementById('custom-bg');
   const result = { background: [image.naturalWidth, image.naturalHeight],
-    applied: layer.style.getPropertyValue('--custom-bg-image').includes(source),
+    applied: await (async () => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (customBgSurfaceState.active && customBgSurfaceState.active.node.getAttribute('src') === source) return true;
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      return false;
+    })(),
     thumbnail: document.getElementById('thumb-cover').naturalWidth, canvasResolution: fx.coverResolution };
   fx.backgroundGlassOpacity = 1; applyCustomBackground();
   result.glassBlur = layer.style.getPropertyValue('--custom-bg-glass-blur');
-  result.glassSourceUnchanged = layer.style.getPropertyValue('--custom-bg-image').includes(source);
+  result.glassSourceUnchanged = !!customBgSurfaceState.active && customBgSurfaceState.active.node.getAttribute('src') === source;
   fx.backgroundGlassOpacity = 0; applyCustomBackground();
   return result;
 }
@@ -88,9 +97,11 @@ async function exercise() {
   const previousLayerActive = document.body.classList.contains('wallpaper-engine-dwm-active');
   setCustomBackgroundAlbumCover(true, true);
   const stopped = await stopPromise;
-  // The cover layer fades in; wait for its real rendered state, not font timing.
-  for (let attempt = 0; attempt < 40; attempt++) {
-    if (Number(getComputedStyle(document.getElementById('custom-bg'), '::before').opacity) > 0) break;
+  // The cover decodes in its own <img> surface and fades in; wait for that real rendered state.
+  const coverNode = () => customBgSurfaceState.active && customBgSurfaceState.active.node;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const node = coverNode();
+    if (node && node.getAttribute('src') === cover && Number(getComputedStyle(node).opacity) > 0) break;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   const result = {
@@ -100,8 +111,8 @@ async function exercise() {
     engineVisible: document.body.classList.contains('wallpaper-engine-active'),
     dwmVisible: document.body.classList.contains('wallpaper-engine-dwm-active'),
     coverSelected: document.body.classList.contains('custom-background-album-cover'),
-    coverSourceCorrect: document.getElementById('custom-bg').style.getPropertyValue('--custom-bg-image').includes(cover),
-    coverOpacity: getComputedStyle(document.getElementById('custom-bg'), '::before').opacity,
+    coverSourceCorrect: !!coverNode() && coverNode().getAttribute('src') === cover,
+    coverOpacity: coverNode() ? getComputedStyle(coverNode()).opacity : '0',
   };
   // A late ready callback from the outgoing layer must not resurrect it.
   wallpaperEngineLayerReady('dwm', wallpaperEngineLayerToken - 1);

@@ -107,7 +107,10 @@ async function probe(live) {
     check(more.querySelectorAll('.comment-item').length === (hasHot ? 29 : 30), 'First normal page lost or duplicated');
     if (hasHot) check(more.querySelector('h3').textContent.startsWith('更多评论'), 'More comments need a distinct heading');
     else check(more.querySelector('h3').textContent.startsWith('评论'), 'No empty hot heading on Qishui');
-    check(target.querySelectorAll('.comment-replies-toggle').length === target.querySelectorAll('.comment-item').length - 2,
+    // With the reply composer, zero/unknown counts keep a hidden toggle (shown once a reply is posted);
+    // count what is actually visible, so a display rule overriding [hidden] still fails here.
+    const visibleToggles = [...target.querySelectorAll('.comment-replies-toggle')].filter(el => !el.hidden && getComputedStyle(el).display !== 'none');
+    check(visibleToggles.length === target.querySelectorAll('.comment-item').length - 2,
       'Unknown and zero reply counts must not show expanders');
     const replyToggle = target.querySelector('.comment-replies-toggle');
     const region = replyToggle.closest('[data-reply-key]');
