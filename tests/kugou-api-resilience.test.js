@@ -584,3 +584,20 @@ test('a URL from the explicit preview request is treated as a preview even witho
     assert.equal(full.trial, false);
   });
 });
+
+test('a page-less 30020 after an official preview keeps the preview instead of reporting VIP', async () => {
+  await withRequests(({ url }) => {
+    if (url.pathname === '/recharge/roleinfo') return { body: { status: 0 } };
+    if (url.hostname === 'm.kugou.com') return { body: { status: 0, error: '该歌曲需要付费购买' } };
+    if (url.hostname === 'wwwapi.kugou.com') return { body: { status: 0, err_code: 30020, error: '本次请求需要验证' } };
+    if (url.pathname === '/v5/url') {
+      return url.searchParams.get('IsFreePart') === '1' ? songResponse() : { body: { status: 0, error: 'no url' } };
+    }
+    return { body: { status: 1, data: [] } };
+  }, async () => {
+    const appCookie = 'userid=123; token=fixture-token; kg_mid=fixture-mid; kg_src=app';
+    const result = await kugou.handleKugouSongUrl({ hash: 'vip-preview', fresh: true }, appCookie);
+    assert.equal(result.playable, true);
+    assert.equal(result.trial, true);
+  });
+});

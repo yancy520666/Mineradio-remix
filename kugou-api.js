@@ -1498,6 +1498,7 @@ async function handleKugouSongUrl(params, cookie) {
   // Route outcomes only (no URLs or credentials), so a late fallback's 30020
   // cannot hide what the matching route actually answered.
   const routeTrace = [];
+  let stopRoutes = false;
   const deadline = Date.now() + KUGOU_PLAY_BUDGET_MS;
   const rememberRestriction = value => {
     if (!value || !value.restricted) return;
@@ -1543,8 +1544,11 @@ async function handleKugouSongUrl(params, cookie) {
       if (result && result.category === 'verification_required') {
         // A page-less 30020 from a late fallback route must not mask the real
         // answer an earlier route already gave (e.g. the track needs VIP).
-        if (!result.verificationUrl && lastRestriction && lastRestriction.category !== 'url_unavailable') {
-          return restrictedPlayback(lastRestriction);
+        // Stop asking, but keep what was already obtained: an official preview
+        // from an earlier route still plays (measured: Windy Hill lost its preview here).
+        if (!result.verificationUrl && (trialCandidate || (lastRestriction && lastRestriction.category !== 'url_unavailable'))) {
+          stopRoutes = true;
+          break;
         }
         return restrictedPlayback(result);
       }
@@ -1572,7 +1576,7 @@ async function handleKugouSongUrl(params, cookie) {
       }
       rememberRestriction(result);
     }
-    if (Date.now() >= deadline) break;
+    if (stopRoutes || Date.now() >= deadline) break;
   }
   if (trialCandidate) {
     const accepted = rememberKugouSongUrl(trialCandidate);
