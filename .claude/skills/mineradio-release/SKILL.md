@@ -5,7 +5,7 @@ description: Prepare and validate a Mineradio Remix release — bump the version
 
 # Mineradio Remix release
 
-The maintainer publishes; you prepare and verify a **draft**. `RELEASE.md` has the background. Ask before pushing, before deleting an existing draft, and never edit a published Release without explicit consent.
+The maintainer publishes; you prepare and verify a **draft**. `docs/releases/RELEASING.md` has the background. Ask before pushing, before deleting an existing draft, and never edit a published Release without explicit consent.
 
 ## 0. Preconditions
 
@@ -18,12 +18,12 @@ The maintainer publishes; you prepare and verify a **draft**. `RELEASE.md` has t
 - `package.json` `version`
 - `package-lock.json` top-level `version` **and** `packages[""].version`
 - `public/index.html` `#update-modal-version` text
-- `RELEASE.md` (current version, tag, asset and notes file names)
+- `docs/releases/RELEASING.md` (current version, tag, asset and notes file names)
 - `.github/workflows/release-windows.yml`: tag example, and the **upgrade baseline** = the previous public release (`$baseline`, `gh release download/view vX.Y.Z`) so the check is the upgrade users actually take
 
 ## 2. Notes
 
-- Create `docs/releases/RELEASE_NOTES_v<ver>.md` from the last section of `docs/RELEASE_NOTES_NEXT.md`. It becomes the Release body: no relative links, plain user language.
+- Create `docs/releases/RELEASE_NOTES_v<ver>.md` from the last section of `docs/releases/RELEASE_NOTES_NEXT.md`. It becomes the Release body: no relative links, plain user language.
 - Start with `## 更新重点` — 3–4 items, each `- **短语**：说明`. The in-app update dialog shows only those bold phrases.
 - Then grouped sections (播放 / 界面 / 账号 / 本地曲库 / 性能 / 网络与安全), an install/upgrade paragraph, known notes.
 - README: badge, “下载与安装”, move “下个版本（开发中）” items into a “<ver> 更新内容” section.
@@ -50,4 +50,4 @@ The publish job runs only if tests, build and the real install → upgrade → r
 
 - Never rerun the workflow for that tag from a later `main` (it would ship unreleased work). Later fixes get a new version.
 - README: current version in download section; RELEASE_NOTES_NEXT gets a fresh “<ver> 之后的改动” section.
-- Update `.claude/HANDOFF.md` version table.
+- Update `.claude/STATUS.md` version table.

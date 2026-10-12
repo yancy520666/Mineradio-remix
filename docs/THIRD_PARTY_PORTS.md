@@ -136,7 +136,7 @@ This attribution concerns those adapter changes only. The pre-existing
 `qishui-audio-decryptor/` entered this repository in initialization commit
 `345dbb2`; its separate provenance and redistribution terms, and those of the
 retained `qishui-auth-v6/` Web resources, remain unverified. See the
-[scoped audit](NEXT_PATH_AUDIT.md). Existing files have not been removed.
+source review. Existing files have not been removed.
 
 ## Kugou client QR and personal cloudlist request reference
 

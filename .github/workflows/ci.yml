@@ -25,6 +25,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - run: node scripts/check-public-files.js
       - run: npm ci
       - run: npm test
       - run: npm run check

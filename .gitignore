@@ -78,7 +78,7 @@ screenshots/
 .codex/
 .claude/*
 !.claude/CLAUDE.md
-!.claude/HANDOFF.md
+!.claude/STATUS.md
 !.claude/skills/
 .claude/skills/**/settings.local.json
 .claude/skills/**/sessions/
@@ -98,3 +98,21 @@ credentials.json
 # Personal AI instructions
 CLAUDE.local.md
 AGENTS.local.md
+
+# Local development history and generated audit evidence
+qa/
+docs/qa/
+docs/QA_*
+docs/*_VALIDATION.md
+docs/*_AUDIT*.md
+docs/*MUTATION_RESULTS*
+docs/*GREP_RESULTS*
+docs/history-preservation-*
+.claude/HANDOFF.md
+
+# Public documentation allowlist; keep raw development records local
+docs/*
+!docs/releases/
+!docs/assets/
+!docs/THIRD_PARTY_PORTS.md
+!docs/SUPPORT.md

@@ -259,7 +259,7 @@ npm run test:electron
 npm run build:win
 ```
 
-发布流程见 [RELEASE.md](./RELEASE.md)。
+发布流程见 [发布流程](./docs/releases/RELEASING.md)。
 
 ---
 
@@ -269,10 +269,8 @@ npm run build:win
 | --- | --- |
 | [2.5.0 更新说明](./docs/releases/RELEASE_NOTES_v2.5.0.md) | 当前版本 |
 | [2.4.2 更新说明](./docs/releases/RELEASE_NOTES_v2.4.2.md) | 上一版本 |
-| [版本更新技术说明](./docs/RELEASE_NOTES_NEXT.md) | 2.3.0 起各项改动的技术细节与验证记录 |
-| [CHANGELOG](./CHANGELOG.md) | 2.2.3 及更早版本的变更 |
-| [网络兼容验证](./docs/NETWORK_COMPATIBILITY_VALIDATION.md) | DNS、代理 IP 兼容范围与验证结果 |
-| [汽水播放验证](./docs/QISHUI_PLAYBACK_VALIDATION.md) | 汽水音乐回退播放的验证记录 |
+| [下个版本](./docs/releases/RELEASE_NOTES_NEXT.md) | 尚未发布的产品改动 |
+| [CHANGELOG](./docs/releases/CHANGELOG.md) | 早期版本的变更记录 |
 | [支持说明](./docs/SUPPORT.md) | 问题反馈 |
 | [安全策略](./SECURITY.md) | 安全问题报告方式 |
 

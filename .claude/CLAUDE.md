@@ -1,6 +1,6 @@
 # Mineradio Remix — 给 AI 的项目约定
 
-Windows x64 Electron 音乐播放器，基于原版 Mineradio 2.2.0 继续维护（GPL-3.0-only）。本文的命令和代码路径以仓库根目录为准。当前状态与未完成事项见 [HANDOFF.md](HANDOFF.md)，先读它。
+Windows x64 Electron 音乐播放器，基于原版 Mineradio 2.2.0 继续维护（GPL-3.0-only）。本文的命令和代码路径以仓库根目录为准。当前状态与未完成事项见 [STATUS.md](STATUS.md)，先读它。
 
 ## 与维护者协作
 
@@ -30,9 +30,9 @@ npm run test:electron  # 隔离 Electron 冒烟测试
 
 ## 工作约定
 
-- 新改动写进 `docs/RELEASE_NOTES_NEXT.md` 末尾的“最新公开版本之后的改动”一节；README 的“下个版本（开发中）”同步一句话摘要，不要写成已发布安装包具备的内容。
+- 新改动写进 `docs/releases/RELEASE_NOTES_NEXT.md` 末尾的“最新公开版本之后的改动”一节；README 的“下个版本（开发中）”同步一句话摘要，不要写成已发布安装包具备的内容。
 - 面向用户的版本说明 `docs/releases/RELEASE_NOTES_v<版本>.md` 以 `## 更新重点` 开头（每条 `- **短语**：说明`），更新弹窗会只提取这些加粗短语。
-- 发版走 `.claude/skills/mineradio-release`（流程细节在 `RELEASE.md`）。
+- 发版走 `.claude/skills/mineradio-release`（流程细节在 `docs/releases/RELEASING.md`）。
 - `public/js/modules/` 是按顺序加载的经典脚本（非 React），全局变量共享；新逻辑注意加载顺序与 `typeof fn === 'function'` 防护。
 - 样式表 `public/css/index.css` 有多层 `!important` 主题覆盖；新样式追加在文件末尾，用 `#playlist-panel …` 等足够具体的选择器。
 
@@ -51,7 +51,7 @@ npm run test:electron  # 隔离 Electron 冒烟测试
 ## AI 文件目录
 
 - `.claude/CLAUDE.md`：项目约定与开发边界。
-- `.claude/HANDOFF.md`：当前状态、未完成事项与交接记录。
+- `.claude/STATUS.md`：当前状态、未完成事项与交接记录。
 - `.claude/skills/`：本项目的界面验证、发版 skill。
 - 根目录 `AGENTS.md`：其他 AI 工具的读取入口。
 
