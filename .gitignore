@@ -73,3 +73,22 @@ screenshots/
 .local/qishui-native/
 
 .qq-native-device.json
+
+# AI private state (shared project skills remain public)
+.codex/
+.claude/*
+!.claude/skills/
+.claude/skills/**/settings.local.json
+.claude/skills/**/sessions/
+.claude/skills/**/memory/
+
+# Local-only evidence, transcripts and credentials
+.local/
+*.jsonl
+*.log.gz
+auth.json
+credentials.json
+*.pem
+*.pfx
+*.p12
+*.key
