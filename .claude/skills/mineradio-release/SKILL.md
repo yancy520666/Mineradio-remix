@@ -9,7 +9,7 @@ The maintainer publishes; you prepare and verify a **draft**. `RELEASE.md` has t
 
 ## 0. Preconditions
 
-- Working tree clean; `npm test`, `npm run check`, `npm run test:electron` pass locally (if `playlist-interaction` fails, rerun it alone; see CLAUDE.md).
+- Working tree clean; `npm test`, `npm run check`, `npm run test:electron` pass locally (if `playlist-interaction` fails, rerun it alone; see .claude/CLAUDE.md).
 - Mention the open licensing item (`qishui-audio-decryptor/`, `qishui-auth-v6/`) — the maintainer decides; do not claim compliance.
 - Agree the version number with the maintainer (feature release → minor, fixes only → patch).
 
@@ -50,4 +50,4 @@ The publish job runs only if tests, build and the real install → upgrade → r
 
 - Never rerun the workflow for that tag from a later `main` (it would ship unreleased work). Later fixes get a new version.
 - README: current version in download section; RELEASE_NOTES_NEXT gets a fresh “<ver> 之后的改动” section.
-- Update `docs/AI_REVIEW_HANDOFF.md` version table.
+- Update `.claude/HANDOFF.md` version table.
