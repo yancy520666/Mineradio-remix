@@ -9,7 +9,7 @@ if (!process.argv.includes('--child')) {
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
   try {
     const run = require('node:child_process').spawnSync(require('electron'), [__filename, '--child', temp, ...process.argv.slice(2)], {
-      cwd: path.join(__dirname, '..'), env, encoding: 'utf8', timeout: 60000, windowsHide: true,
+      cwd: path.join(__dirname, '..'), env, encoding: 'utf8', timeout: 90000, windowsHide: true,
     });
     assert.equal(run.status, 0, run.stdout + run.stderr + String(run.error || ''));
     const evidence = run.stdout.split('\n').find(line => line.startsWith('HOME_CARD_HOVER:'));
@@ -36,7 +36,7 @@ if (!process.argv.includes('--child')) {
   require('../desktop/main');
   require('./helpers/electron-frames').keepTestWindowFramesRunning(app);
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-  setTimeout(() => { console.error('hover check timed out'); app.exit(2); }, 50000).unref();
+  setTimeout(() => { console.error('hover check timed out'); app.exit(2); }, 80000).unref();
   app.whenReady().then(async () => {
     let win;
     for (let i = 0; i < 120; i++) {
@@ -48,6 +48,12 @@ if (!process.argv.includes('--child')) {
     const evaluate = script => win.webContents.mainFrame.executeJavaScript(script);
     win.webContents.debugger.attach('1.3');
     const mouse = (x,y) => win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseMoved',x,y});
+    const click = async (x, y) => {
+      await mouse(x, y);
+      for (const type of ['mousePressed', 'mouseReleased']) {
+        await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+      }
+    };
     await evaluate(`(() => {
       dismissSplash({instant:true}); markStartupGuideSeen('login'); startupLoginGuideShown=true; closeLoginModal();
       markVisualGuideSeen(); closeVisualGuide(true);
@@ -59,13 +65,26 @@ if (!process.argv.includes('--child')) {
     const snapshots = `(() => {
       const rect = node => { const r=node.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };
       const grid=document.querySelector('#empty-home .home-quick-grid');
-      return {height:innerHeight,grid:rect(grid),cards:Array.from(grid.querySelectorAll('.home-card')).map(node=>{
+      return {home:emptyHomeActive,opacity:Math.min(Number(getComputedStyle(grid).opacity),Number(getComputedStyle(document.getElementById('empty-home')).opacity)),height:innerHeight,grid:rect(grid),cards:Array.from(grid.querySelectorAll('.home-card')).map(node=>{
         const r=rect(node), css=getComputedStyle(node);
         return {rect:r,hover:node.matches(':hover'),transform:css.transform,animation:css.animationName,
+          hitTarget:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.className,
           hit:node.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};
       })};
     })()`;
     const results = [];
+    const settleHome = async () => {
+      let previous = '', stable = 0;
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const layout = await evaluate(snapshots);
+        const geometry = JSON.stringify(layout.cards.map(card => card.rect));
+        stable = layout.home && layout.opacity > 0.999 && geometry === previous ? stable + 1 : 0;
+        if (stable >= 3) return layout;
+        previous = geometry;
+        await wait(100);
+      }
+      throw new Error('Home entrance did not settle');
+    };
     // A flat bright background exposes shadows leaking across the card gaps.
     const checkGaps = async (layout, background) => {
       await evaluate(`(() => {
@@ -79,31 +98,37 @@ if (!process.argv.includes('--child')) {
         return true;
       })()`);
       await wait(350);
-      const captured = await win.webContents.capturePage();
-      const bitmap = captured.toBitmap(), imageSize = captured.getSize();
-      const scale = imageSize.height / layout.height;
       const expected = background.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
-      const samples = [];
-      for (let index = 1; index < layout.cards.length; index++) {
-        const left = layout.cards[index-1].rect, right = layout.cards[index].rect;
-        if (Math.abs(left.y-right.y) > 1) continue;
-        const x = (left.x + left.width + right.x) / 2;
-        for (const fraction of [0.2, 0.5, 0.8]) {
-          const y = right.y + right.height * fraction;
-          const offset = (Math.floor(y*scale)*imageSize.width + Math.floor(x*scale))*4;
-          const pixel = [bitmap[offset+2],bitmap[offset+1],bitmap[offset]];
-          assert(pixel.every((value,i) => Math.abs(value-expected[i]) <= 3),
-            'Card gap darkens the background: '+JSON.stringify({background,x,y,pixel,expected}));
-          samples.push(pixel);
+      let samples, mismatch;
+      // capturePage can still contain the previous background's frame.
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const captured = await win.webContents.capturePage();
+        const bitmap = captured.toBitmap(), imageSize = captured.getSize();
+        const scale = imageSize.height / layout.height;
+        samples = []; mismatch = null;
+        for (let index = 1; index < layout.cards.length; index++) {
+          const left = layout.cards[index-1].rect, right = layout.cards[index].rect;
+          if (Math.abs(left.y-right.y) > 1) continue;
+          const x = (left.x + left.width + right.x) / 2;
+          for (const fraction of [0.2, 0.5, 0.8]) {
+            const y = right.y + right.height * fraction;
+            const offset = (Math.floor(y*scale)*imageSize.width + Math.floor(x*scale))*4;
+            const pixel = [bitmap[offset+2],bitmap[offset+1],bitmap[offset]];
+            if (!pixel.every((value,i) => Math.abs(value-expected[i]) <= 3)) mismatch = {background,x,y,pixel,expected};
+            samples.push(pixel);
+          }
         }
+        if (!mismatch) break;
+        await wait(100);
       }
+      assert(!mismatch, 'Card gap darkens the background: '+JSON.stringify(mismatch));
       assert(samples.length > 0, 'No visible card gaps were checked');
       return {background,samples};
     };
     for (const size of [[1280,820],[1280,1080],[960,740]]) {
       win.setSize(...size);
-      await mouse(1,1); await wait(650);
-      const before = await evaluate(snapshots);
+      await mouse(1,1);
+      const before = await settleHome();
       for (let index=0; index<before.cards.length; index++) {
         const card = before.cards[index].rect;
         await mouse(card.x+card.width/2,card.y+card.height/2);
@@ -136,6 +161,34 @@ if (!process.argv.includes('--child')) {
         await wait(350);
         fs.writeFileSync(path.join(directory,'home-hover-'+size.join('x')+'.png'),(await win.webContents.capturePage()).toPNG());
       }
+    }
+    // Re-entry used to leave visible cards out of Chromium's hit-test tree
+    // when the animated regions lived inside a paint-contained, forced layer.
+    win.setSize(1280, 820);
+    for (let cycle = 0; cycle < 8; cycle++) {
+      const home = await evaluate(`(() => { const r=document.getElementById('home-btn').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+      await click(home.x, home.y);
+      await wait(cycle % 2 ? 1100 : 50);
+      await click(home.x, home.y);
+      await wait(1400);
+      const layout = await settleHome();
+      assert(layout.home && layout.cards.every(card => card.hit), 'Home return leaves cards unclickable: '+JSON.stringify({cycle,layout}));
+      // Exercise actual mouse dispatch without starting playback or opening a file picker.
+      await evaluate(`(() => {
+        window.__qaHomeClicks=[];
+        document.querySelectorAll('#empty-home .home-quick-grid > .home-card').forEach((node,index) => {
+          node.__qaOriginalClick=node.onclick;
+          node.onclick=() => window.__qaHomeClicks.push(index);
+        }); return true;
+      })()`);
+      for (const card of layout.cards) await click(card.rect.x+card.rect.width/2, card.rect.y+card.rect.height/2);
+      const clicks = await evaluate(`(() => {
+        document.querySelectorAll('#empty-home .home-quick-grid > .home-card').forEach(node => {
+          node.onclick=node.__qaOriginalClick; delete node.__qaOriginalClick;
+        }); return window.__qaHomeClicks;
+      })()`);
+      assert.deepEqual(clicks, [0,1,2,3], 'Home cards must receive native clicks after every return');
+      results.push({cycle,homeClicks:clicks});
     }
     console.log('HOME_CARD_HOVER:'+JSON.stringify(results)); app.exit(0);
   }).catch(error => { console.error(error.stack || String(error)); app.exit(1); });

@@ -1382,24 +1382,36 @@ function animateHomeDashboardEntrance(opts) {
   stopHomeDashboardEntrance();
   // The home container already fades when the fast-skip visibility gate is
   // released. Extra glass layers here make that first paint more expensive.
-  if (opts.fastSkip) return;
+  if (opts.fastSkip || !window.gsap || typeof cssCubicBezierEase !== 'function') return;
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Animate three regions, rather than promoting every glass button to its
   // own moving layer during the first home paint.
   var nodes = document.querySelectorAll('#empty-home .home-hero, #empty-home .home-grid, #home-insight-dock');
-  // Read the resting transforms together before starting compositor animations.
+  // Read the resting transforms together before writing animated styles.
   var poses = Array.prototype.map.call(nodes, function (node) { return getComputedStyle(node).transform; });
   Array.prototype.forEach.call(nodes, function (node, index) {
-    if (typeof node.animate !== 'function') return;
     var rest = poses[index] === 'none' ? '' : poses[index];
     var delay = reduced ? 0 : Math.min(index * 90, 270);
-    // Opacity and movement get separate curves. An expo-out fade is almost fully
-    // visible within 100 ms, which reads as the cards popping in.
-    homeDashboardEntranceAnimations.push(node.animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: reduced ? 200 : 820, delay: delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' }));
-    if (!reduced) homeDashboardEntranceAnimations.push(node.animate([
-      { transform: rest + ' translateY(14px)' }, { transform: rest || 'none' }
-    ], { duration: 980, delay: delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+    var previousOpacity = node.style.opacity;
+    var previousTransform = node.style.transform;
+    var state = { opacity: 0, lift: 14 };
+    var restore = function () {
+      node.style.opacity = previousOpacity;
+      if (!reduced) node.style.transform = previousTransform;
+    };
+    // Native compositor animations can leave this contained dashboard visible
+    // but absent from hit testing after Home re-entry. Update styles on the main
+    // thread with the existing GSAP clock, keeping the same curves and timing.
+    var paintOpacity = function () { node.style.opacity = String(state.opacity); };
+    var paintLift = function () { node.style.transform = rest + ' translateY(' + state.lift + 'px)'; };
+    paintOpacity();
+    if (!reduced) paintLift();
+    var timeline = window.gsap.timeline({ delay: delay / 1000, onComplete: restore });
+    timeline.to(state, { opacity: 1, duration: reduced ? 0.2 : 0.82,
+      ease: cssCubicBezierEase(0.4, 0, 0.2, 1), onUpdate: paintOpacity }, 0);
+    if (!reduced) timeline.to(state, { lift: 0, duration: 0.98,
+      ease: cssCubicBezierEase(0.16, 1, 0.3, 1), onUpdate: paintLift }, 0);
+    homeDashboardEntranceAnimations.push({ cancel: function () { timeline.kill(); restore(); } });
   });
 }
 function renderHomeDashboard() {

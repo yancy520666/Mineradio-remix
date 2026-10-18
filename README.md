@@ -14,6 +14,10 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 ---
 
+## 下个版本（开发中）
+
+修复点击 Home 返回首页后，入口卡片偶尔无法点击的问题。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)
