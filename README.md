@@ -1,7 +1,7 @@
 # Mineradio Remix
 
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D6)
-![Version](https://img.shields.io/badge/version-2.5.0-8A2BE2)
+![Version](https://img.shields.io/badge/version-2.6.0-8A2BE2)
 ![License](https://img.shields.io/badge/license-GPL--3.0--only-blue)
 
 **一款把歌词、封面和音乐做成舞台的 Windows 桌面播放器。**
@@ -10,7 +10,7 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 本仓库由 **[yancy520666](https://github.com/yancy520666)** 维护。
 
-> **[下载最新版 →](https://github.com/yancy520666/Mineradio-remix/releases/latest)**　·　[2.5.0 更新说明](./docs/releases/RELEASE_NOTES_v2.5.0.md)　·　[从源码运行](#从源码运行)
+> **[下载最新版 →](https://github.com/yancy520666/Mineradio-remix/releases/latest)**　·　[2.6.0 更新说明](./docs/releases/RELEASE_NOTES_v2.6.0.md)　·　[从源码运行](#从源码运行)
 
 ---
 
@@ -19,7 +19,7 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 - [为什么选 Remix](#为什么选-remix)
 - [和原版对比](#和原版对比)
 - [下载与安装](#下载与安装)
-- [2.5.0 更新内容](#250-更新内容)
+- [2.6.0 更新内容](#260-更新内容)
 - [更多改进](#更多改进)
 - [已知限制](#已知限制)
 - [从源码运行](#从源码运行)
@@ -79,7 +79,7 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 ## 和原版对比
 
-| | 原版 2.2.0 | Remix 2.5.0 |
+| | 原版 2.2.0 | Remix 2.6.0 |
 | --- | --- | --- |
 | 维护状态 | 已停止维护 | 持续更新，每版经过自动测试与真实安装 / 升级 / 卸载验证 |
 | 后台与长时间播放 | 唤醒后可能无声、AutoMix 第三首失败 | 自动恢复，崩溃后回到原进度 |
@@ -96,9 +96,9 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 ## 下载与安装
 
-当前版本 **2.5.0**，Windows x64。
+当前版本 **2.6.0**，Windows x64。
 
-1. 在 [最新 Release](https://github.com/yancy520666/Mineradio-remix/releases/latest) 下载 `Mineradio-Remix-2.5.0-Setup.exe`；
+1. 在 [最新 Release](https://github.com/yancy520666/Mineradio-remix/releases/latest) 下载 `Mineradio-Remix-2.6.0-Setup.exe`；
 2. 对照同页 `SHA256SUMS.txt` 核对文件；
 3. 运行安装。已有 Remix 可直接覆盖安装，配置保留；2.2.4 及以上也可在软件内收到更新提示后直接升级。
 
@@ -108,20 +108,18 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 ---
 
-## 2.5.0 更新内容
+## 2.6.0 更新内容
 
-完整说明见 [2.5.0 更新说明](./docs/releases/RELEASE_NOTES_v2.5.0.md)。
+完整说明见 [2.6.0 更新说明](./docs/releases/RELEASE_NOTES_v2.6.0.md)。
 
-- **搜索更快更全**：各平台结果先到先显示，按账户顺序优先；新增歌手、专辑、歌单、用户分类，支持拼音首字母搜索歌曲。
-- **多路音频输出与麦克风混音**：播放声音可同时送到多个设备和虚拟声卡，可把麦克风人声与音乐混合后给语音软件。
-- **完整桌面模式可用**：播放器嵌在桌面时，修复不能全屏问题，以及鼠标滚轮可以直接在软件里滚动。
-- **优化客户端登录**：QQ 音乐、网易云、酷狗、汽水优先 App 扫码，修复扫码面板无法正常显示bug；可从浏览器导入登录数据，可拖线单独退出某个平台。
-- **歌单架重做**：优化歌词翻转动画，更显丝滑优雅；优化操作逻辑，左侧歌单与右侧歌单架同时只开一个；提升歌单架清晰度上限，歌单架清晰度将跟随整体画质调整。
-- **播放与切歌更顺**：暂停、继续即时响应，优化切歌动画，优化拖动进度条长距离直达过程中动效；启动后第一次点播放不再卡顿、歌词不再闪烁。
-- **试听自动换完整版**：任何平台只给试听片段时，优先改用其他已登录平台的完整版本；酷狗，QQ不登录也能播放免费歌曲。
-- **Aero 水光主题**：新增可选的水光玻璃主题，提供三种颜色与按压特效，默认关闭。
-- **歌手详情与音质预设**：歌手页显示最新专辑并可展开全部；新增一键音质预设和分平台默认音质。
-- **汽水音乐可以正常播放**：修复之前汽水音乐登录后无法正常播放问题。
+- **详情页互相跳转**：歌单、歌曲、歌手、专辑详情可以关联跳转，新增返回按钮，回到上一页时保留已加载的列表和滚动位置。
+- **歌手页加载全部歌曲**：网易云、QQ 的歌手详情不再只显示前 36 首，向下滚动自动加载更多，失败可点击重试。
+- **首页入场更柔和**：开场期间提前加载首屏封面，卡片区域依次缓入，搜索栏随之淡入，不再突然弹出。
+- **歌单架操作更稳**：展开时不再先闪一下再播放动画，鼠标移出后能可靠收起；右键展开后拖动只旋转背景，歌词和歌单架保持固定。
+- **歌词光晕对齐**：长歌词的光晕不再被压扁或错位，歌单架展开过渡中与文字同步移动。
+- **滚轮缩放与镜头恢复**：歌词和译文随镜头等比放大，退出歌单架或详情页后恢复打开前的距离与角度。
+- **切回播放器更可靠**：修复 Alt+Tab 或最小化恢复后空格误触标题栏按钮，以及后台恢复后歌词没有重新挂载的问题。
+- **缓存歌曲更不易卡顿**：播放器进程默认提高到“高于正常”优先级，电脑被编译等任务占满时也更流畅。
 
 ---
 
@@ -267,8 +265,8 @@ npm run build:win
 
 | 文档 | 内容 |
 | --- | --- |
-| [2.5.0 更新说明](./docs/releases/RELEASE_NOTES_v2.5.0.md) | 当前版本 |
-| [2.4.2 更新说明](./docs/releases/RELEASE_NOTES_v2.4.2.md) | 上一版本 |
+| [2.6.0 更新说明](./docs/releases/RELEASE_NOTES_v2.6.0.md) | 当前版本 |
+| [2.5.0 更新说明](./docs/releases/RELEASE_NOTES_v2.5.0.md) | 上一版本 |
 | [下个版本](./docs/releases/RELEASE_NOTES_NEXT.md) | 尚未发布的产品改动 |
 | [CHANGELOG](./docs/releases/CHANGELOG.md) | 早期版本的变更记录 |
 | [支持说明](./docs/SUPPORT.md) | 问题反馈 |

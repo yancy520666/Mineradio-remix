@@ -2,6 +2,7 @@
 
 当前公开版本为 **2.5.0**。下载与安装包校验文件见 [GitHub Releases](https://github.com/yancy520666/Mineradio-remix/releases)。
 
+- [2.6.0](RELEASE_NOTES_v2.6.0.md)
 - [2.5.0](RELEASE_NOTES_v2.5.0.md)
 - [2.4.2](RELEASE_NOTES_v2.4.2.md)
 - [2.4.1](RELEASE_NOTES_v2.4.1.md)
