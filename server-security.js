@@ -1,0 +1,185 @@
+'use strict';
+
+// Based on upstream PR #304, with DNS results pinned to each socket.
+const dns = require('dns').promises;
+const net = require('net');
+const http = require('http');
+const https = require('https');
+const { Readable } = require('stream');
+const { resolveMusicDns } = require('./music-dns');
+const MUSIC_DNS_HOSTS = ['music.126.net', 'music.163.com', 'qqmusic.qq.com', 'qqmusic.gtimg.cn', 'y.gtimg.cn', 'qlogo.cn', 'kugou.com', 'kugoucdn.com', 'kgimg.com'];
+function isMusicDnsHost(host) { return MUSIC_DNS_HOSTS.some(domain => host === domain || host.endsWith('.' + domain)); }
+function isFakeIpAddress(address) { return net.isIPv4(address) && /^198\.(18|19)\./.test(address); }
+const SAFE_COVER_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp']);
+const blockedV4 = new net.BlockList();
+for (const [address, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3]]) blockedV4.addSubnet(address, prefix);
+const globalV6 = new net.BlockList();
+globalV6.addSubnet('2000::', 3, 'ipv6');
+const blockedV6 = new net.BlockList();
+for (const [address, prefix] of [['2001::', 32], ['2001:db8::', 32], ['2002::', 16]]) blockedV6.addSubnet(address, prefix, 'ipv6');
+function hostname(value) { return String(value || '').toLowerCase().replace(/^\[|\]$/g, ''); }
+function isBlockedIpAddress(value) {
+  const ip = hostname(value);
+  if (net.isIPv4(ip)) return blockedV4.check(ip);
+  if (net.isIPv6(ip)) return !globalV6.check(ip, 'ipv6') || blockedV6.check(ip, 'ipv6');
+  return true;
+}
+function isTrustedLocalApiRequest(req) {
+  try {
+    const host = new URL('http://' + req.headers.host);
+    if (String(req.headers.host).toLowerCase() !== host.host) return false;
+    if (!['localhost', '127.0.0.1', '::1'].includes(hostname(host.hostname)) || host.username || host.password || host.pathname !== '/') return false;
+    if (req.socket.localPort && Number(host.port || 80) !== req.socket.localPort) return false;
+    const peer = hostname(req.socket.remoteAddress);
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer)) return false;
+    const site = String(req.headers['sec-fetch-site'] || '');
+    if (site && site !== 'same-origin' && site !== 'none') return false;
+    if (req.headers.origin && (new URL(req.headers.origin).origin !== host.origin || new URL(req.headers.origin).origin !== req.headers.origin)) return false;
+    if (!req.headers.origin && req.headers.referer && new URL(req.headers.referer).origin !== host.origin) return false;
+    return true;
+  } catch (_) { return false; }
+}
+function proxyError(code) { return Object.assign(new Error(code), { code }); }
+async function resolvePublicTarget(value, lookup = dns.lookup, musicLookup = resolveMusicDns) {
+  let url;
+  try { url = new URL(value); } catch (_) { throw proxyError('INVALID_PROXY_URL'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw proxyError('INVALID_PROXY_URL');
+  const host = hostname(url.hostname);
+  if (host === 'localhost' || host.endsWith('.localhost')) throw proxyError('UNSAFE_PROXY_URL');
+  let addresses;
+  try { addresses = net.isIP(host) ? [{ address: host, family: net.isIP(host) }] : await lookup(host, { all: true, verbatim: true }); }
+  catch (_) { throw proxyError('PROXY_DNS_FAILED'); }
+  if (addresses.length && addresses.some(item => isFakeIpAddress(item.address))
+      && addresses.every(item => isFakeIpAddress(item.address) || !isBlockedIpAddress(item.address))
+      && !net.isIP(host) && isMusicDnsHost(host) && process.env.MINERADIO_MUSIC_DOH !== '0') {
+    try { addresses = await musicLookup(host); }
+    catch (_) { throw proxyError('PROXY_DNS_FAILED'); }
+  }
+  if (!addresses.length || addresses.some(item => isBlockedIpAddress(item.address))) throw proxyError('UNSAFE_PROXY_URL');
+  // Validate every DNS result before choosing one; never fall back to a fresh,
+  // unchecked lookup. Prefer IPv4 but retain IPv6 for networks that need it.
+  addresses = addresses.filter((item, index, all) => all.findIndex(other => other.address === item.address) === index)
+    .sort((a, b) => a.family - b.family);
+  return { url, addresses, address: addresses[0].address, family: addresses[0].family };
+}
+const RETRYABLE_PROXY_ERRORS = new Set(['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'PROXY_TIMEOUT']);
+async function requestPinned(target, options = {}) {
+  const limit = ['GET', 'HEAD'].includes(options.method || 'GET') ? 4 : 1;
+  const addresses = (target.addresses || [{ address: target.address, family: target.family }]).slice(0, limit);
+  const deadline = Date.now() + 9000;
+  for (let index = 0; index < addresses.length; index++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw proxyError('PROXY_TIMEOUT');
+    try {
+      return await requestPinnedAddress({ ...target, ...addresses[index] }, options,
+        index < addresses.length - 1 ? Math.min(2500, remaining) : remaining);
+    } catch (error) {
+      if (options.signal && options.signal.aborted || !RETRYABLE_PROXY_ERRORS.has(error.code) || index === addresses.length - 1) throw error;
+    }
+  }
+  throw proxyError('PROXY_DNS_FAILED');
+}
+function requestPinnedAddress(target, options, headerTimeout) {
+  return new Promise((resolve, reject) => {
+    let headerTimer;
+    const request = (target.url.protocol === 'https:' ? https : http).request(target.url, {
+      method: options.method || 'GET', headers: options.headers, agent: false, signal: options.signal,
+      lookup: (_host, lookupOptions, callback) => lookupOptions.all
+        ? callback(null, [{ address: target.address, family: target.family }])
+        : callback(null, target.address, target.family),
+    }, response => {
+      clearTimeout(headerTimer);
+      try {
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(response.headers)) if (value != null) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
+        const noBody = options.method === 'HEAD' || [204, 205, 304].includes(response.statusCode);
+        if (noBody) response.resume();
+        resolve(new Response(noBody ? null : Readable.toWeb(response), { status: response.statusCode, headers }));
+      } catch (error) { response.destroy(); request.destroy(); reject(error); }
+    });
+    request.setTimeout(9000, () => request.destroy(proxyError('PROXY_TIMEOUT')));
+    headerTimer = setTimeout(() => request.destroy(proxyError('PROXY_TIMEOUT')), headerTimeout);
+    request.on('error', error => { clearTimeout(headerTimer); reject(error); });
+    request.end();
+  });
+}
+async function fetchPublicResource(value, options = {}, dependencies = {}) {
+  const resolveTarget = dependencies.resolveTarget || resolvePublicTarget;
+  const send = dependencies.request || requestPinned;
+  let target = await resolveTarget(value);
+  for (let redirects = 0; redirects <= 5; redirects++) {
+    const response = await send(target, options);
+    if (![301, 302, 303, 307, 308].includes(response.status) || !response.headers.get('location')) return response;
+    if (response.body) await response.body.cancel();
+    if (redirects === 5) throw proxyError('PROXY_REDIRECT_LIMIT');
+    target = await resolveTarget(new URL(response.headers.get('location'), target.url).href);
+  }
+}
+// A failed or incomplete transport must never look like a valid empty mutation.
+function readBoundedRequestBody(req, options = {}) {
+  const maxBytes = options.maxBytes == null ? 8 * 1024 * 1024 : options.maxBytes;
+  const timeoutMs = options.timeoutMs == null ? 30000 : options.timeoutMs;
+  return new Promise((resolve, reject) => {
+    let chunks = [];
+    let bytes = 0;
+    let settled = false;
+    let timer;
+    const fail = (code, statusCode, cause) => {
+      const error = Object.assign(new Error(code), { code, statusCode });
+      if (cause) error.cause = cause;
+      return error;
+    };
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      req.removeListener('data', onData);
+      req.removeListener('end', onEnd);
+      req.removeListener('error', onError);
+      req.removeListener('aborted', onAbort);
+      req.removeListener('close', onClose);
+      chunks = [];
+      if (error) reject(error); else resolve(value);
+    };
+    const stop = error => {
+      finish(error);
+      // Match the existing oversize connection-close behavior without retaining
+      // buffers/listeners or allowing route code to act on a synthetic {} body.
+      if (typeof req.destroy === 'function' && !req.destroyed) req.destroy();
+    };
+    const onData = chunk => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += buffer.length;
+      if (bytes > maxBytes) { stop(fail('REQUEST_BODY_TOO_LARGE', 413)); return; }
+      chunks.push(buffer);
+    };
+    const onEnd = () => {
+      const raw = Buffer.concat(chunks, bytes).toString('utf8');
+      if (!raw) { finish(null, {}); return; }
+      try { finish(null, JSON.parse(raw)); }
+      catch (_) {
+        // Retain the existing JSON/form URL-encoded request contract.
+        const params = new URLSearchParams(raw);
+        const out = {};
+        params.forEach((value, key) => { Object.defineProperty(out, key, { value, enumerable: true, configurable: true, writable: true }); });
+        finish(null, out);
+      }
+    };
+    const onError = error => finish(fail('REQUEST_BODY_READ_FAILED', 400, error));
+    const onAbort = () => finish(fail('REQUEST_BODY_ABORTED', 400));
+    const onClose = () => finish(fail('REQUEST_BODY_PREMATURE_CLOSE', 400));
+    if (req.destroyed || req.aborted || req.readableEnded) {
+      finish(fail('REQUEST_BODY_UNAVAILABLE', 400));
+      return;
+    }
+    req.on('data', onData);
+    req.once('end', onEnd);
+    req.once('error', onError);
+    req.once('aborted', onAbort);
+    req.once('close', onClose);
+    timer = setTimeout(() => stop(fail('REQUEST_BODY_TIMEOUT', 408)), timeoutMs);
+    if (timer.unref) timer.unref();
+  });
+}
+
+module.exports = { SAFE_COVER_CONTENT_TYPES, isTrustedLocalApiRequest, isBlockedIpAddress, resolvePublicTarget, requestPinned, fetchPublicResource, readBoundedRequestBody };

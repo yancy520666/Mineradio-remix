@@ -1,0 +1,382 @@
+// ============================================================
+var shelfPinnedOpen = false;
+var shelfManager = null;
+function shouldBindSideShelfToCover(guidePreview, contentOpen) {
+  // An explicitly opened shelf has the same fixed composition as its details.
+  // Only the passive preview follows the background cover's rotation.
+  return !shelfPinnedOpen && !contentOpen && ((!guidePreview && shelfAlwaysVisible()) || shelfVisibility > 0.06);
+}
+// Share of the viewport height each shelf texture's width covers at rest. Measured in
+// the real player; it does not depend on aspect because the camera's vertical FOV is fixed.
+var SHELF_TEXTURE_VIEWPORT = { card: 0.43, panel: 0.85, row: 0.92 };
+function shelfTextureQualityProfile() {
+  var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
+  if (quality === 'ultra') return { maxScale: 2, anisotropy: 8 };
+  if (quality === 'high') return { maxScale: 1.5, anisotropy: 4 };
+  return { maxScale: 1, anisotropy: quality === 'balanced' ? 2 : 1 };
+}
+function syncShelfCanvasQuality(target, logicalWidth, logicalHeight, viewportFraction) {
+  var quality = shelfTextureQualityProfile();
+  var capabilities = renderer.capabilities;
+  // Aim for ~1.5 texels per on-screen pixel; the tier only caps it. These textures
+  // have no mipmaps, so enlarging an already dense one adds shimmer, not detail.
+  var screenPx = viewportFraction * Math.max(1, innerHeight) * renderer.getPixelRatio();
+  var wanted = Math.max(1, Math.round(screenPx * 1.5 / logicalWidth * 2) / 2);
+  var scale = Math.min(quality.maxScale, wanted, capabilities.maxTextureSize / Math.max(logicalWidth, logicalHeight));
+  var width = Math.max(1, Math.round(logicalWidth * scale));
+  var height = Math.max(1, Math.round(logicalHeight * scale));
+  var resized = target.canvas.width !== width || target.canvas.height !== height;
+  if (resized) {
+    // Reallocate GPU storage only when the density step changes; keep the mesh and interaction state.
+    target.texture.dispose();
+    target.canvas.width = width;
+    target.canvas.height = height;
+  }
+  var anisotropy = Math.min(quality.anisotropy, Math.max(1, capabilities.getMaxAnisotropy()));
+  var changed = resized || target.texture.anisotropy !== anisotropy;
+  target.texture.anisotropy = anisotropy;
+  target.textureScale = width / logicalWidth;
+  // Layout and hit areas stay in logical pixels, independent of texture density.
+  target.canvas.getContext('2d').setTransform(width / logicalWidth, 0, 0, height / logicalHeight, 0, 0);
+  if (changed) { target.drawKey = ''; target.texture.needsUpdate = true; }
+  return changed;
+}
+var shelfOpenAnimAt = -10;
+var shelfHoverCue = { target: 0, value: 0, x: 0, y: 0, lastAt: 0, enteredAt: 0, zoneActive: false, guide: false };
+var shelfVisibility = 0;  // 0..1, 侧栏自动隐藏的整体透明度系数
+var shelfPlaybackSwitchGuardUntil = 0;
+var shelfPlaybackSwitchGuardUntil = 0;
+function shelfPlaybackSwitchGuardActive(now) {
+  return (now || performance.now()) < shelfPlaybackSwitchGuardUntil;
+}
+function markShelfPlaybackSwitchGuard(ms) {
+  shelfPlaybackSwitchGuardUntil = Math.max(shelfPlaybackSwitchGuardUntil, performance.now() + Math.max(220, ms || 980));
+  shelfHoverCue.target = 0;
+  shelfHoverCue.value = 0;
+  shelfHoverCue.zoneActive = false;
+  shelfHoverCue.enteredAt = 0;
+  shelfHoverCue.guide = false;
+  shelfVisibility = 0;
+  if (typeof setShelfHoverTabVisible === 'function') setShelfHoverTabVisible(false);
+  if (shelfManager && shelfManager.clearSelected) shelfManager.clearSelected();
+  if (typeof setFocusZone === 'function') setFocusZone(null, true);
+}
+function isPortraitShelfViewport() {
+  return innerHeight > innerWidth * 1.08;
+}
+function shelfLayoutProfile() {
+  var portrait = isPortraitShelfViewport();
+  var narrow = !portrait && innerWidth < 980;
+  var skullShelf = shouldUseSkullSafeShelfCamera();
+  var detailScale = portrait ? clampRange(innerWidth / 820, 0.70, 0.86) : (narrow ? 0.92 : 1.04);
+  var shelfCtl = shelfSettings();
+  var detailCtl = shelfDetailSettings();
+  return {
+    portrait: portrait,
+    narrow: narrow,
+    sideX: (skullShelf ? (portrait ? 0.22 : (narrow ? 0.46 : 0.76)) : (portrait ? 1.56 : (narrow ? 2.48 : 3.18))) + shelfCtl.x,
+    sideY: (skullShelf ? (portrait ? -0.22 : (narrow ? -0.30 : -0.34)) : 0) + shelfCtl.y,
+    sideXStep: skullShelf ? (portrait ? 0.018 : 0.034) : (portrait ? 0.018 : 0.040),
+    sideYStep: skullShelf ? (portrait ? 0.46 : 0.62) : (portrait ? 0.52 : 0.68),
+    sideZ: (skullShelf ? (portrait ? 0.86 : 0.92) : (portrait ? 0.78 : 0.86)) + shelfCtl.z,
+    sideZStep: skullShelf ? (portrait ? 0.108 : 0.158) : (portrait ? 0.118 : 0.170),
+    sideEntryX: skullShelf ? (portrait ? 0.30 : 0.50) : (portrait ? 0.38 : 0.82),
+    sideDetailShift: skullShelf ? (portrait ? 0.00 : 0.00) : (portrait ? 0.38 : 0.82),
+    sideScale: (skullShelf ? (portrait ? 0.84 : (narrow ? 1.04 : 1.22)) : (portrait ? 0.70 : (narrow ? 0.86 : 1))) * shelfCtl.size,
+    sideRotY: (skullShelf ? (portrait ? -0.085 : -0.190) : (portrait ? 0.12 : 0.28)) + shelfCtl.angle,
+    sideRotX: skullShelf ? (portrait ? 0.018 : 0.030) : (portrait ? 0.022 : 0.042),
+    stageX: shelfCtl.x,
+    stageXStep: portrait ? 0.92 : (narrow ? 1.22 : 1.55),
+    stageY: (portrait ? -2.46 : -2.20) + shelfCtl.y,
+    stageZ: (portrait ? 0.84 : 1.0) + shelfCtl.z,
+    stageScale: (portrait ? 0.72 : (narrow ? 0.86 : 1)) * shelfCtl.size,
+    detail: {
+      x: (skullShelf ? (portrait ? 0.16 : (narrow ? 0.40 : 0.64)) : (portrait ? 0.38 : (narrow ? 0.96 : 1.28))) + shelfCtl.x * 0.62 + detailCtl.x,
+      y: (skullShelf ? (portrait ? -0.40 : -0.68) : (portrait ? 0.10 : 0.18)) + shelfCtl.y * 0.55 + detailCtl.y,
+      z: (skullShelf ? (portrait ? 1.10 : 1.22) : (portrait ? 1.28 : 1.36)) + shelfCtl.z * 0.45 + detailCtl.z,
+      rx: (skullShelf ? (portrait ? 0.006 : 0.014) : (portrait ? -0.004 : -0.008)) + detailCtl.rx,
+      ry: (skullShelf ? (portrait ? -0.070 : -0.165) : (portrait ? 0.00 : 0.020)) + shelfCtl.angle * 0.55 + detailCtl.ry,
+      scale: (skullShelf ? detailScale * (portrait ? 0.88 : 1.02) : detailScale) * shelfCtl.size * detailCtl.scale,
+      rowStep: (skullShelf ? (portrait ? 0.37 : 0.43) : (portrait ? 0.36 : 0.42)) * detailCtl.rowGap,
+      openDuration: detailCtl.openDuration,
+      closeDuration: detailCtl.closeDuration,
+      rowDuration: detailCtl.rowDuration,
+      intro: detailCtl.intro,
+      parallax: detailCtl.parallax,
+      rowScale: skullShelf ? (portrait ? 0.90 : 1.02) : (portrait ? 0.88 : (narrow ? 0.96 : 1.00))
+    }
+  };
+}
+// Rest pose of the centred side-shelf card once every animation has settled. placeCard's side branch is
+// the live version of these two numbers; the lyrics line up against the rest pose instead of the moving
+// meshes, so opening, scrolling or a camera glide never drag them around.
+// Wallpaper presets keep their own base yaw (0.12 at the stock angle) but still follow the 侧向角度 slider.
+function shelfSideRestYaw(layout, wallpaperPose) {
+  return wallpaperPose ? 0.12 + shelfSettings().angle - fxDefaults.shelfAngleY * Math.PI / 180 : layout.sideRotY;
+}
+function shelfSideRestScale(layout, wallpaperPose, skullPose) {
+  return 1.12 * layout.sideScale * (wallpaperPose ? 1.22 : (skullPose ? 1.04 : 1));
+}
+function shelfHotZoneWidth() {
+  var ratio = isPortraitShelfViewport() ? 0.26 : 0.18;
+  return Math.min(isPortraitShelfViewport() ? 280 : 360, Math.max(148, innerWidth * ratio));
+}
+function shelfPreviewUseZoneWidth() {
+  return Math.min(820, Math.max(shelfHotZoneWidth(), innerWidth * 0.56));
+}
+function shelfWheelZoneWidth() {
+  var portrait = isPortraitShelfViewport();
+  var ratioWidth = innerWidth * (portrait ? 0.24 : 0.18);
+  return Math.min(portrait ? 280 : 360, Math.max(shelfHotZoneWidth(), ratioWidth));
+}
+// 3D 歌单架 / 详情行 / 详情面板的屏幕命中判断：按四边形实际投影到屏幕的形状判断，
+// 只在边缘外 pad 像素内才算命中。以前用的是外接矩形再加 28~72px，卡片带角度时
+// 外接矩形比真实卡片大得多，点旁边空白也会点进歌单架。
+function screenQuadHit(mesh, halfW, halfH, sx, sy, pad) {
+  if (!mesh || typeof camera === 'undefined' || !camera) return null;
+  var corners = [
+    new THREE.Vector3(-halfW, -halfH, 0),
+    new THREE.Vector3(halfW, -halfH, 0),
+    new THREE.Vector3(halfW, halfH, 0),
+    new THREE.Vector3(-halfW, halfH, 0)
+  ];
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  var pts = [];
+  mesh.updateMatrixWorld(true);
+  for (var i = 0; i < 4; i++) {
+    corners[i].applyMatrix4(mesh.matrixWorld).project(camera);
+    var x = (corners[i].x + 1) * innerWidth / 2;
+    var y = (1 - corners[i].y) * innerHeight / 2;
+    pts.push([x, y]);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  if (!isFinite(minX + maxX + minY + maxY)) return null;
+  pad = pad == null ? 10 : pad;
+  if (sx < minX - pad || sx > maxX + pad || sy < minY - pad || sy > maxY + pad) return null;
+  var sign = 0, inside = true, nearest = Infinity;
+  for (var e = 0; e < 4; e++) {
+    var a = pts[e], b = pts[(e + 1) % 4];
+    var ex = b[0] - a[0], ey = b[1] - a[1];
+    var cross = ex * (sy - a[1]) - ey * (sx - a[0]);
+    if (cross !== 0) {
+      var cs = cross > 0 ? 1 : -1;
+      if (!sign) sign = cs; else if (sign !== cs) inside = false;
+    }
+    var len2 = ex * ex + ey * ey;
+    var t = len2 > 0 ? Math.max(0, Math.min(1, ((sx - a[0]) * ex + (sy - a[1]) * ey) / len2)) : 0;
+    var dx = sx - (a[0] + ex * t), dy = sy - (a[1] + ey * t);
+    nearest = Math.min(nearest, Math.sqrt(dx * dx + dy * dy));
+  }
+  if (!inside && nearest > pad) return null;
+  return {
+    x: clampRange((sx - minX) / Math.max(1, maxX - minX), 0, 1),
+    y: 1 - clampRange((sy - minY) / Math.max(1, maxY - minY), 0, 1)
+  };
+}
+function isShelfClickZone(e) {
+  var edge = shelfPinnedOpen ? Math.min(390, Math.max(210, innerWidth * 0.22)) : shelfHotZoneWidth();
+  return e.clientX > innerWidth - edge && e.clientY > 130 && e.clientY < innerHeight - 150;
+}
+function isShelfPreviewUseZone(e) {
+  var edge = shelfPreviewUseZoneWidth();
+  return e.clientX > innerWidth - edge && e.clientY > 96 && e.clientY < innerHeight - 96;
+}
+function isShelfWheelZone(e) {
+  var edge = shelfWheelZoneWidth();
+  return e.clientX > innerWidth - edge && e.clientY > 116 && e.clientY < innerHeight - 116;
+}
+function canUseSideShelfWithoutPinnedOpen() {
+  return !!shelfAlwaysVisible();
+}
+function shelfPreviewIsVisible() {
+  if (shelfPlaybackSwitchGuardActive()) return false;
+  return shelfHoverCue.guide || shelfHoverCue.zoneActive || shelfHoverCue.target > 0 || shelfHoverCue.value > 0.10 || shelfVisibility > 0.12;
+}
+function shelfAutoHiddenInputReady() {
+  if (shelfPlaybackSwitchGuardActive()) return false;
+  if (shelfPinnedOpen || shelfAlwaysVisible()) return true;
+  if (shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return true;
+  return !!(shelfHoverCue.guide || shelfHoverCue.zoneActive || shelfHoverCue.value > 0.18 || shelfVisibility > 0.16);
+}
+function canShowShelfHoverCueAt(e) {
+  if (!e) return false;
+  if (shelfPlaybackSwitchGuardActive()) return false;
+  if (!shelfHoverCue.guide) return false;
+  if (document.body.classList.contains('splash-active')) return false;
+  if (visualGuideActive || emptyHomeActive || homeForcedOpen) return false;
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
+  if (shelfPinnedOpen) return false;
+  if (shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return false;
+  if (isPointerOverUi(e)) return false;
+  if (isShelfClickZone(e)) return true;
+  return shelfPreviewIsVisible() && isShelfPreviewUseZone(e);
+}
+function shelfCueRect() {
+  var w = shelfHotZoneWidth();
+  var top = Math.max(136, innerHeight * 0.22);
+  var h = Math.min(390, innerHeight - top - 142);
+  return { left: innerWidth - w, top: top, width: w, height: h, right: innerWidth, bottom: top + h };
+}
+function shelfCueCenter() {
+  var r = shelfCueRect();
+  return { x: r.left + r.width * 0.58, y: r.top + r.height * 0.50 };
+}
+function setShelfGuideCueActive(on) {
+  shelfHoverCue.guide = !!on;
+  if (on) {
+    var c = shelfCueCenter();
+    shelfHoverCue.target = 1;
+    shelfHoverCue.value = Math.max(shelfHoverCue.value, 0.72);
+    shelfHoverCue.x = c.x;
+    shelfHoverCue.y = c.y;
+    shelfHoverCue.lastAt = performance.now();
+  } else {
+    shelfHoverCue.target = 0;
+  }
+}
+function updateShelfHoverCueFromPointer(e) {
+  if (shelfPlaybackSwitchGuardActive()) {
+    shelfHoverCue.target = 0;
+    shelfHoverCue.value = 0;
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+    shelfHoverCue.guide = false;
+    return;
+  }
+  if (!e) {
+    if (!shelfHoverCue.guide) shelfHoverCue.target = 0;
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+    return;
+  }
+  var active = false;
+  var inZone = canShowShelfHoverCueAt(e);
+  if (inZone && !shelfHoverCue.zoneActive) {
+    shelfHoverCue.zoneActive = true;
+    shelfHoverCue.enteredAt = performance.now();
+  } else if (!inZone) {
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+  }
+  active = inZone;
+  if (!shelfHoverCue.guide) shelfHoverCue.target = active ? 1 : 0;
+  shelfHoverCue.x = e.clientX;
+  shelfHoverCue.y = e.clientY;
+  shelfHoverCue.lastAt = performance.now();
+}
+function tickShelfHoverCue(dt) {
+  if (shelfPlaybackSwitchGuardActive()) {
+    shelfHoverCue.target = 0;
+    shelfHoverCue.value = 0;
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+    shelfHoverCue.guide = false;
+    return 0;
+  }
+  if (!shelfHoverCue.guide && shelfHoverCue.zoneActive) {
+    var heldPointer = { clientX: shelfHoverCue.x, clientY: shelfHoverCue.y };
+    if (canShowShelfHoverCueAt(heldPointer)) {
+      if (performance.now() - shelfHoverCue.enteredAt > 260) shelfHoverCue.target = 1;
+    } else {
+      shelfHoverCue.zoneActive = false;
+      shelfHoverCue.enteredAt = 0;
+      shelfHoverCue.target = 0;
+    }
+  }
+  if (!shelfHoverCue.guide && !shelfHoverCue.zoneActive && performance.now() - shelfHoverCue.lastAt > 650) shelfHoverCue.target = 0;
+  var target = shelfHoverCue.guide ? 1 : shelfHoverCue.target;
+  var summon = shelfSummonSettings();
+  var duration = target > shelfHoverCue.value
+    ? Math.max(0.05, summon.openDuration * 0.50)
+    : Math.max(0.05, summon.closeDuration * 0.50);
+  shelfHoverCue.value += (target - shelfHoverCue.value) * durationEaseFactor(duration, dt);
+  if (shelfHoverCue.value < 0.006 && !target) shelfHoverCue.value = 0;
+  return shelfHoverCue.value;
+}
+function setShelfPinnedOpen(open, immediate, persist) {
+  var nextOpen = !!open;
+  if (!nextOpen && shelfPinnedOpen && !(shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent())) {
+    var restored = typeof restoreShelfReturnView === 'function' && restoreShelfReturnView();
+    if (!restored && typeof startPanelViewRecenter === 'function') startPanelViewRecenter('shelf-close');
+  }
+  if (nextOpen && typeof suppressBottomControlsForShelf === 'function') suppressBottomControlsForShelf(980);
+  // Open the scroll-tick audio context inside the opening gesture so the first scrolls are not silent.
+  if (nextOpen && typeof ensureUiSfxContext === 'function') ensureUiSfxContext();
+  if (nextOpen && !shelfPinnedOpen) {
+    if (typeof rememberShelfReturnView === 'function') rememberShelfReturnView();
+    // 左侧歌单和右侧歌单架不同时展开：先把左侧面板收起来。
+    if (typeof yieldLeftPanelToShelf === 'function') yieldLeftPanelToShelf();
+    // Card clicks and other direct opens turn a dragged view back at the same time.
+    if (typeof startPanelViewRecenter === 'function') startPanelViewRecenter('shelf-pin');
+    var nowT = uniforms && uniforms.uTime ? uniforms.uTime.value : performance.now() / 1000;
+    var previewVisible = shelfHoverCue.guide || shelfHoverCue.value > 0.28 || shelfVisibility > 0.20;
+    if (!previewVisible && shelfManager && shelfManager.resetToStart) shelfManager.resetToStart();
+    var summon = shelfSummonSettings();
+    shelfOpenAnimAt = previewVisible ? nowT - summon.openDuration : nowT;
+    shelfHoverCue.target = 0;
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+  }
+  if (nextOpen !== shelfPinnedOpen && typeof markRenderInteraction === 'function') markRenderInteraction('shelf-pin', 1100);
+  shelfPinnedOpen = nextOpen;
+  if (fx) fx.shelfPinnedOpen = nextOpen;
+  if (!nextOpen) {
+    updateShelfHoverCueFromPointer(null);
+    shelfHoverCue.target = 0;
+    shelfHoverCue.value = 0;
+    shelfHoverCue.zoneActive = false;
+    shelfHoverCue.enteredAt = 0;
+    shelfHoverCue.guide = false;
+    shelfVisibility = 0;
+    if (typeof setShelfHoverTabVisible === 'function') setShelfHoverTabVisible(false);
+    if (shelfManager && shelfManager.clearSelected) shelfManager.clearSelected();
+  }
+  var hint = document.getElementById('hint');
+  if (hint) hint.classList.toggle('shelf-hidden', shelfPinnedOpen || !!(shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()));
+  if (nextOpen && typeof setPeek === 'function') setPeek(document.getElementById('search-area'), false, 'search');
+  if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility({ forceLoad: false });
+  if (shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return;
+  if (typeof setFocusZone === 'function') setFocusZone(shelfPinnedOpen ? 'shelf-side' : null, immediate);
+  if (!nextOpen && typeof restoreBottomControlsAfterShelfExit === 'function') {
+    requestAnimationFrame(function () { restoreBottomControlsAfterShelfExit('shelf-pin-close'); });
+  }
+  if (persist !== false) {
+    if (typeof scheduleLyricLayoutSave === 'function') scheduleLyricLayoutSave(220, { user: true, reason: 'shelfPinnedOpen' });
+    else saveLyricLayout({ user: true, reason: 'shelfPinnedOpen' });
+  }
+}
+function clearShelfPreviewOnPointerExit(e) {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return;
+  var keepQueueFocus = typeof isFullscreenPlaylistQueueFocusLockedAtEdge === 'function' && isFullscreenPlaylistQueueFocusLockedAtEdge(e);
+  var hasContent = shelfManager.hasOpenContent && shelfManager.hasOpenContent();
+  updateShelfHoverCueFromPointer(null);
+  shelfHoverCue.target = 0;
+  shelfHoverCue.value = 0;
+  shelfHoverCue.zoneActive = false;
+  shelfHoverCue.enteredAt = 0;
+  if (typeof setShelfHoverTabVisible === 'function') setShelfHoverTabVisible(false);
+  if (shelfManager && shelfManager.clearSelected) shelfManager.clearSelected();
+  // Leaving the window ends hover/drag, not an explicitly opened shelf.
+  if (typeof orbit !== 'undefined') orbit.rotating = false;
+  if (typeof particlePointerSpin !== 'undefined') particlePointerSpin.active = false;
+  if (typeof particleSpin !== 'undefined') particleSpin.vx = particleSpin.vy = 0;
+  if (shelfPinnedOpen || hasContent) return;
+  shelfVisibility = 0;
+  if (typeof setFocusZone === 'function') setFocusZone(keepQueueFocus ? 'queue' : null, keepQueueFocus);
+}
+function suppressShelfPreviewForPlaybackSwitch() {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return;
+  if (shelfPinnedOpen || (shelfManager.hasOpenContent && shelfManager.hasOpenContent())) return;
+  markShelfPlaybackSwitchGuard(1120);
+  updateShelfHoverCueFromPointer(null);
+  shelfHoverCue.target = 0;
+  shelfHoverCue.value = 0;
+  shelfHoverCue.zoneActive = false;
+  shelfHoverCue.enteredAt = 0;
+  shelfHoverCue.guide = false;
+  shelfVisibility = 0;
+  if (typeof setShelfHoverTabVisible === 'function') setShelfHoverTabVisible(false);
+  if (shelfManager && shelfManager.clearSelected) shelfManager.clearSelected();
+  if (typeof setFocusZone === 'function') setFocusZone(null, true);
+}

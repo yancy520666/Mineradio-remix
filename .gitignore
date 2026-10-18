@@ -1,0 +1,113 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-*/
+out/
+release/
+releases/
+win-unpacked/
+*.exe
+*.msi
+*.blockmap
+*.zip
+*.7z
+*.asar
+
+# User data and private state
+.cookie
+.qq-cookie
+.kugou-cookie
+.kugou-vip-evidence.json
+.qishui-cookie
+.qishui-token
+.qishui-oauth.json
+.qishui-qr-identity.json
+.qishui-qr-login.json
+.spotify-credentials.json
+spotify-credentials.json
+.spotify-token.json
+spotify-token.json
+listen-sync-journal.json
+login-easter-egg.json
+login-easter-egg-state.json
+current-fx-autosave.json
+cache-settings.json
+desktop-behavior.json
+cuefield-feedback.jsonl
+startup-state.json
+Partitions/
+Network/
+Local State
+updates/
+backups/
+*.log
+*.tmp
+*.cache
+.env
+.env.*
+
+# Local development noise
+.DS_Store
+Thumbs.db
+desktop.ini
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Historical local experiment files
+public/index.*.html
+!public/index.html
+
+# Screenshots and transient verification artifacts
+.playwright-cli/
+output/
+tmp/
+*.png.tmp
+verification/
+screenshots/
+
+# Personal official SDK bridge; never include these files in Git or distributable builds
+.qishui-native-local.json
+.local/qishui-native/
+
+.qq-native-device.json
+
+# AI private state (only shared project rules and skills remain public)
+.codex/
+.claude/
+AGENTS.md
+
+# Local-only evidence, transcripts and credentials
+.local/
+*.jsonl
+*.log.gz
+auth.json
+credentials.json
+*.pem
+*.pfx
+*.p12
+*.key
+
+# Personal AI instructions
+CLAUDE.local.md
+AGENTS.local.md
+
+# Local development history and generated audit evidence
+qa/
+docs/qa/
+docs/QA_*
+docs/*_VALIDATION.md
+docs/*_AUDIT*.md
+docs/*MUTATION_RESULTS*
+docs/*GREP_RESULTS*
+docs/history-preservation-*
+.claude/HANDOFF.md
+
+# Public documentation allowlist; keep raw development records local
+docs/*
+!docs/releases/
+!docs/assets/
+!docs/THIRD_PARTY_PORTS.md
+!docs/SUPPORT.md

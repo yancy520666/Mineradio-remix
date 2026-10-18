@@ -1,0 +1,146 @@
+{
+  "name": "mineradio-remix",
+  "productName": "Mineradio Remix",
+  "version": "2.5.0",
+  "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
+  "author": "yancy520666",
+  "contributors": [
+    { "name": "Codex" },
+    { "name": "Claude" }
+  ],
+  "license": "GPL-3.0-only",
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/run-tests.js",
+    "check": "node scripts/quick-check.js",
+    "test:electron": "node scripts/run-electron-smoke.js",
+    "start": "electron .",
+    "build:win": "electron-builder --win nsis",
+    "build:win:dir": "electron-builder --win dir",
+    "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.mineradio.remix",
+    "productName": "Mineradio Remix",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/after-pack.js",
+    "toolsets": {
+      "winCodeSign": "1.1.0"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "build/**/*",
+      "cuefield/**/*",
+      "server.js",
+      "server-security.js",
+      "music-dns.js",
+      "audio-spill-relay.js",
+      "cover-cache.js",
+      "generated-cache-pruner.js",
+      "netease-like-cache.js",
+      "cookie-storage.js",
+      "*-api.js",
+      "qishui-auth-v6.js",
+      "qishui-qr-login.js",
+      "qishui-auth-v6/**/*",
+      "qishui-audio-decryptor/**/*",
+      "dj-analyzer.js",
+      "LICENSE",
+      "NOTICE.md",
+      "docs/THIRD_PARTY_PORTS.md",
+      "package.json",
+      "!desktop/wallpaper-preload.js",
+      "!public/wallpaper.html",
+      "!public/index.*.html",
+      "public/index.html"
+    ],
+    "asar": false,
+    "win": {
+      "executableName": "MineradioRemix",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Mineradio Remix",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer-remix.nsh",
+      "artifactName": "Mineradio-Remix-${version}-Setup.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "yancy520666",
+        "repo": "Mineradio-remix"
+      }
+    ]
+  },
+  "mineradio": {
+    "update": {
+      "provider": "github",
+      "owner": "yancy520666",
+      "repo": "Mineradio-remix",
+      "preview": false,
+      "preferMirrors": true,
+      "mirrors": [
+        "https://gh.llkk.cc/",
+        "https://ghfast.top/",
+        "https://gh-proxy.com/"
+      ]
+    }
+  },
+  "dependencies": {
+    "@yakult-green-tea/qq-music-api": "3.1.3",
+    "electron-updater": "6.8.10",
+    "gsap": "^3.15.0",
+    "mpg123-decoder": "^1.0.3",
+    "music-metadata": "11.16.0",
+    "NeteaseCloudMusicApi": "^4.32.0",
+    "qrcode": "^1.5.4"
+  },
+  "overrides": {
+    "axios": "1.20.0",
+    "body-parser": "1.20.6",
+    "music-metadata": "11.16.0",
+    "proxy-addr@^2": "2.0.8",
+    "js-yaml@^4": "4.3.2",
+    "qs@^6": "6.16.0",
+    "fast-uri@^3": "3.1.8",
+    "@xmldom/xmldom@~0.8": "0.8.15",
+    "brace-expansion@^1": "1.1.21",
+    "brace-expansion@^2": "2.1.7",
+    "brace-expansion@^5": "5.0.12",
+    "undici@^6": "6.28.1",
+    "undici@^7": "7.29.1",
+    "ip-address@^10": "10.7.1",
+    "get-uri@6.0.5": {
+      "basic-ftp": "6.2.1"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.10.0",
+    "electron-builder": "^26.15.3",
+    "rcedit": "^5.0.2"
+  }
+}

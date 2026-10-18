@@ -1,0 +1,135 @@
+name: Build Remix Windows release draft
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft version, for example v2.5.0
+        required: true
+      ref:
+        description: Commit SHA to validate and build (manual draft preparation)
+        required: true
+        default: main
+      prepare_draft:
+        description: Upload validated assets to a draft Release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      version: ${{ steps.source.outputs.version }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
+          persist-credentials: false
+      - name: Verify tag and package version
+        id: source
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ($env:RELEASE_TAG -ne "v$version") { throw "Tag $env:RELEASE_TAG does not match package version $version" }
+          if ($env:GITHUB_EVENT_NAME -eq 'push' -and -not (git tag --list $env:RELEASE_TAG)) { throw "Tag $env:RELEASE_TAG does not exist" }
+          $sha = git rev-parse HEAD
+          $existing = @(git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG" "refs/tags/$env:RELEASE_TAG^{}")
+          $peeled = $existing | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+          $tagLine = if ($peeled) { $peeled } else { $existing | Select-Object -First 1 }
+          if ($tagLine -and ($tagLine -split '\s+')[0] -ne $sha) { throw 'Existing version tag points to different source; increment the version instead of replacing it.' }
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run regression tests
+        run: npm test
+      - name: Check source and runtime guards
+        run: npm run check
+      - name: Check Electron startup and recovery
+        run: npm run test:electron
+      - name: Build Windows installer and update metadata
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        shell: pwsh
+        run: '& .\node_modules\.bin\electron-builder.cmd --win nsis --publish never'
+      - name: Verify real install, upgrade, restart and uninstall
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $baseline = 'Mineradio-Remix-2.5.0-Setup.exe'
+          gh release download v2.5.0 --repo yancy520666/Mineradio-remix --pattern $baseline --dir verification/baseline
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline installer download failed' }
+          $release = gh release view v2.5.0 --repo yancy520666/Mineradio-remix --json assets | ConvertFrom-Json
+          $asset = $release.assets | Where-Object { $_.name -eq $baseline }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath "verification/baseline/$baseline").Hash.ToLowerInvariant()
+          if ($asset.digest -ne "sha256:$hash") { throw 'Baseline installer checksum mismatch' }
+          $version = node -p "require('./package.json').version"
+          & ./scripts/verify-windows-installer.ps1 -Installer "dist/Mineradio-Remix-$version-Setup.exe" -BaselineInstaller "verification/baseline/$baseline"
+      - name: Create SHA-256 manifest
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem dist -File | Where-Object { $_.Name -match '^Mineradio-Remix-.*-Setup\.exe$|^latest\.yml$|\.blockmap$' }
+          if (-not ($files | Where-Object { $_.Name -match '^Mineradio-Remix-.*-Setup\.exe$' })) { throw 'Installer missing' }
+          if (-not ($files | Where-Object { $_.Name -eq 'latest.yml' })) { throw 'latest.yml missing' }
+          $lines = $files | ForEach-Object { $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant(); "$hash  $($_.Name)" }
+          $lines | Set-Content -Path dist/SHA256SUMS.txt -Encoding utf8
+      - name: Save build and installer evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: remix-windows-validation
+          path: |
+            dist/INSTALLER_VALIDATION.json
+            dist/SHA256SUMS.txt
+            dist/Mineradio-Remix-*-Setup.exe
+            dist/latest.yml
+            dist/*.blockmap
+
+  publish-draft:
+    needs: windows-release
+    if: github.event_name == 'push' || inputs.prepare_draft
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Read validated release notes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.windows-release.outputs.sha }}
+          persist-credentials: false
+      - name: Download validated assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: remix-windows-validation
+          path: dist
+      - name: Create draft Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          draft: true
+          prerelease: false
+          body_path: docs/releases/RELEASE_NOTES_v${{ needs.windows-release.outputs.version }}.md
+          target_commitish: ${{ needs.windows-release.outputs.sha }}
+          files: |
+            dist/Mineradio-Remix-*-Setup.exe
+            dist/*.blockmap
+            dist/latest.yml
+            dist/SHA256SUMS.txt

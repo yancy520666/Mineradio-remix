@@ -1,0 +1,506 @@
+function unlockCenteredView() {
+  orbit.centerLocked = false;
+}
+
+function clearCenteredViewOffsets() {
+  pointerTarget.x = 0;
+  pointerTarget.y = 0;
+  pointerParallax.x = 0;
+  pointerParallax.y = 0;
+  mouseWorld.set(-999, -999, 0);
+  mouseActive = false;
+  headParallax.x = 0;
+  headParallax.y = 0;
+  headParallax.active = false;
+  headNeutral = null;
+  if (typeof gestureRotation !== 'undefined') {
+    gestureRotation.x = 0;
+    gestureRotation.y = 0;
+  }
+  if (typeof particleSpin !== 'undefined') {
+    particleSpin.vx = 0;
+    particleSpin.vy = 0;
+  }
+  if (typeof pinchState !== 'undefined') pinchState.active = false;
+  if (typeof particlePointerSpin !== 'undefined') particlePointerSpin.active = false;
+  if (typeof resetParticleRotationTarget === 'function') resetParticleRotationTarget(false);
+  if (typeof uniforms !== 'undefined' && uniforms.uHandActive) {
+    uniforms.uHandActive.value = 0;
+    uniforms.uHandXY.value.set(-999, -999);
+    if (uniforms.uGestureGrip) uniforms.uGestureGrip.value = 0;
+  }
+}
+
+// ---------- 打开歌单架 / 左侧歌单前的视角回正 ----------
+// 拖动画面转的是封面和歌词本身（gestureRotation），歌单架却固定在世界坐标里，
+// 歌词的“让位”偏移又沿着已转过的歌词坐标轴走，所以转过之后再打开会错位。
+// 打开前先把这份转角平滑归零（按最近的整圈换算，绝不多转一圈），再展开面板。
+var panelViewRecenter = { active: false, start: 0, duration: 0, fromX: 0, fromY: 0 };
+var panelViewRecenterOpenTimer = 0;
+var shelfReturnView = null;
+function rememberShelfReturnView() {
+  if (shelfReturnView) return;
+  shelfReturnView = {
+    preset: fx.preset, centered: orbit.centerLocked,
+    theta: orbit.userTheta, phi: orbit.userPhi, radius: orbit.userRadius,
+    x: orbit.centerLocked ? 0 : gestureRotation.x,
+    y: orbit.centerLocked ? 0 : gestureRotation.y,
+    skullZoom: typeof skullWheelZoomTarget === 'undefined' ? 0 : skullWheelZoomTarget
+  };
+}
+function restoreShelfReturnView() {
+  var saved = shelfReturnView;
+  shelfReturnView = null;
+  if (!saved || saved.preset !== fx.preset) return false;
+  orbit.rotating = false;
+  orbit.recentering = false;
+  orbit.recenterStartedAt = 0;
+  orbit.centerLocked = saved.centered;
+  orbit.userTheta = saved.theta;
+  orbit.userPhi = saved.phi;
+  orbit.userRadius = saved.radius;
+  if (typeof particlePointerSpin !== 'undefined') particlePointerSpin.active = false;
+  if (typeof skullWheelZoomTarget !== 'undefined') skullWheelZoomTarget = saved.skullZoom;
+  startPanelViewRecenter('shelf-return', saved);
+  return true;
+}
+var PANEL_VIEW_RECENTER_MIN_ANGLE = 0.035;
+function wrapViewAngle(angle) {
+  angle = Number(angle) || 0;
+  return angle - Math.round(angle / (Math.PI * 2)) * Math.PI * 2;
+}
+function rebaseViewRotationAxis(axis) {
+  if (typeof particles === 'undefined' || !particles) return;
+  var offset = Math.round((Number(particles.rotation[axis]) || 0) / (Math.PI * 2)) * Math.PI * 2;
+  if (!offset) return;
+  particles.rotation[axis] -= offset;
+  if (typeof bloomParticles !== 'undefined' && bloomParticles) bloomParticles.rotation[axis] -= offset;
+  if (typeof floatGroup !== 'undefined' && floatGroup) floatGroup.rotation[axis] -= offset;
+  if (typeof backCoverGroup !== 'undefined' && backCoverGroup) backCoverGroup.rotation[axis] -= offset;
+  if (typeof skullParticleGroup !== 'undefined' && skullParticleGroup) skullParticleGroup.rotation[axis] -= offset;
+}
+function panelViewRotationAngle() {
+  if (typeof particles === 'undefined' || !particles) return 0;
+  var gx = typeof gestureRotation !== 'undefined' ? wrapViewAngle(gestureRotation.x) : 0;
+  var gy = typeof gestureRotation !== 'undefined' ? wrapViewAngle(gestureRotation.y) : 0;
+  return Math.max(
+    Math.abs(wrapViewAngle(particles.rotation.x)), Math.abs(wrapViewAngle(particles.rotation.y)),
+    orbit.centerLocked ? 0 : Math.abs(gx), orbit.centerLocked ? 0 : Math.abs(gy)
+  );
+}
+// Starts the recenter and returns how long an explicit open should wait (ms).
+function startPanelViewRecenter(reason, targetRotation) {
+  if (typeof particles === 'undefined' || !particles) return 0;
+  // Never fight a drag that is still in progress.
+  if (orbit.rotating) return 0;
+  // Rebase even when the visible angle is tiny, otherwise normal follow spins
+  // an almost-complete turn backwards after gestureRotation is reset.
+  rebaseViewRotationAxis('x');
+  rebaseViewRotationAxis('y');
+  var toX = targetRotation ? wrapViewAngle(targetRotation.x) : 0;
+  var toY = targetRotation ? wrapViewAngle(targetRotation.y) : 0;
+  var angle = targetRotation
+    ? Math.max(Math.abs(wrapViewAngle(particles.rotation.x - toX)), Math.abs(wrapViewAngle(particles.rotation.y - toY)))
+    : panelViewRotationAngle();
+  if (typeof particleSpin !== 'undefined') { particleSpin.vx = 0; particleSpin.vy = 0; }
+  if (angle < PANEL_VIEW_RECENTER_MIN_ANGLE) {
+    panelViewRecenter.active = false;
+    if (typeof gestureRotation !== 'undefined') { gestureRotation.x = toX; gestureRotation.y = toY; }
+    return 0;
+  }
+  if (typeof gestureRotation !== 'undefined') { gestureRotation.x = toX; gestureRotation.y = toY; }
+  var duration = Math.round(clampRange(220 + angle * 110, 240, 460));
+  panelViewRecenter.active = true;
+  panelViewRecenter.start = performance.now();
+  panelViewRecenter.duration = duration;
+  panelViewRecenter.toX = toX;
+  panelViewRecenter.toY = toY;
+  panelViewRecenter.fromX = toX + wrapViewAngle(particles.rotation.x - toX);
+  panelViewRecenter.fromY = toY + wrapViewAngle(particles.rotation.y - toY);
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('panel-view-recenter', duration + 260);
+  // Open once most of the turn is done; the last few degrees settle while the panel slides in.
+  return Math.round(duration * 0.55);
+}
+// Applied by the main loop instead of the usual slow follow while a recenter runs.
+function applyPanelViewRecenter(now) {
+  if (!panelViewRecenter.active || typeof particles === 'undefined' || !particles) return false;
+  if (orbit.rotating) { panelViewRecenter.active = false; return false; }
+  var t = clamp01((now - panelViewRecenter.start) / Math.max(1, panelViewRecenter.duration));
+  // easeInOutCubic: starts gently from the user's angle and lands without a bump.
+  var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  particles.rotation.x = panelViewRecenter.fromX * (1 - e) + (panelViewRecenter.toX || 0) * e;
+  particles.rotation.y = panelViewRecenter.fromY * (1 - e) + (panelViewRecenter.toY || 0) * e;
+  if (t >= 1) panelViewRecenter.active = false;
+  return true;
+}
+function cancelPanelOpenAfterRecenter() {
+  if (!panelViewRecenterOpenTimer) return false;
+  clearTimeout(panelViewRecenterOpenTimer);
+  panelViewRecenterOpenTimer = 0;
+  if (typeof shelfPinnedOpen !== 'undefined' && !shelfPinnedOpen) restoreShelfReturnView();
+  return true;
+}
+function openPanelAfterViewRecenter(reason, open) {
+  cancelPanelOpenAfterRecenter();
+  if (reason === 'shelf-context') rememberShelfReturnView();
+  var wait = startPanelViewRecenter(reason);
+  if (wait <= 0) { open(); return; }
+  panelViewRecenterOpenTimer = setTimeout(function () {
+    panelViewRecenterOpenTimer = 0;
+    open();
+  }, wait);
+}
+
+// ---------- 左侧歌单栏的镜头让位 ----------
+// 歌词随镜头左移让出歌单栏。原先这段镜头走每帧固定比例的追随，时长与歌单栏的
+// 唤出 / 收起时长无关，收起时还比面板晚约 0.1 秒才开始。现在按歌单栏自己的时长计时：
+// 唤出与面板同一条“先快后慢”曲线；收起见下方说明。
+function cssCubicBezierEase(x1, y1, x2, y2) {
+  function axis(a, b, t) { return ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t; }
+  function slope(a, b, t) { return 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a; }
+  return function (x) {
+    x = clamp01(x);
+    var t = x;
+    for (var i = 0; i < 6; i++) {
+      var d = slope(x1, x2, t);
+      if (Math.abs(d) < 1e-6) break;
+      t = clamp01(t - (axis(x1, x2, t) - x) / d);
+    }
+    return axis(y1, y2, t);
+  };
+}
+var QUEUE_FOCUS_OPEN_EASE = cssCubicBezierEase(0.16, 1, 0.3, 1);
+// 面板收起曲线 (.55,0,.8,.25) 后段几乎满速，镜头照搬会让歌词急停；这条曲线同样慢起步、
+// 后段跟上面板，时长多 10%，面板滑出时歌词正好落位。
+var QUEUE_FOCUS_CLOSE_EASE = cssCubicBezierEase(0.85, 0, 0.5, 1);
+var QUEUE_FOCUS_CLOSE_STRETCH = 1.1;
+var queueFocusTween = { active: false, start: 0, duration: 0, opening: true, theta: 0, phi: 0, radius: 0, lx: 0, ly: 0, lz: 0 };
+function startQueueFocusTween(opening) {
+  var ms = typeof playlistPanelMotionMs === 'function' ? playlistPanelMotionMs(opening ? 'open' : 'close') : (opening ? 560 : 340);
+  if (!opening) ms = Math.round(ms * QUEUE_FOCUS_CLOSE_STRETCH);
+  queueFocusTween.active = true;
+  queueFocusTween.start = performance.now();
+  queueFocusTween.duration = Math.max(1, ms);
+  queueFocusTween.opening = !!opening;
+  queueFocusTween.theta = orbit.theta;
+  queueFocusTween.phi = orbit.phi;
+  queueFocusTween.radius = orbit.radius;
+  queueFocusTween.lx = orbit.lookAt.x;
+  queueFocusTween.ly = orbit.lookAt.y;
+  queueFocusTween.lz = orbit.lookAt.z;
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', ms + 400);
+}
+// Places the camera along the panel-timed curve toward the live target; false once finished.
+function applyQueueFocusTween(targetTheta, targetPhi, targetRadius, tLookAt) {
+  if (!queueFocusTween.active) return false;
+  if (orbit.rotating || (orbit.focus.active && orbit.focus.type !== 'queue')) { queueFocusTween.active = false; return false; }
+  var t = clamp01((performance.now() - queueFocusTween.start) / queueFocusTween.duration);
+  var e = (queueFocusTween.opening ? QUEUE_FOCUS_OPEN_EASE : QUEUE_FOCUS_CLOSE_EASE)(t);
+  orbit.theta = queueFocusTween.theta + (targetTheta - queueFocusTween.theta) * e;
+  orbit.phi = queueFocusTween.phi + (targetPhi - queueFocusTween.phi) * e;
+  orbit.radius = queueFocusTween.radius + (targetRadius - queueFocusTween.radius) * e;
+  orbit.lookAt.set(
+    queueFocusTween.lx + (tLookAt.x - queueFocusTween.lx) * e,
+    queueFocusTween.ly + (tLookAt.y - queueFocusTween.ly) * e,
+    queueFocusTween.lz + (tLookAt.z - queueFocusTween.lz) * e
+  );
+  if (t >= 1) queueFocusTween.active = false;
+  return true;
+}
+
+function updateCamera() {
+  if (applyFreeCameraToCamera()) return;
+  if (orbit.recentering) {
+    var recenterThetaDelta = shortestAngleDelta(orbit.userTheta, orbit.baselineTheta);
+    var recenterPhiDelta = orbit.baselinePhi - orbit.userPhi;
+    var recenterRadiusDelta = orbit.baselineRadius - orbit.userRadius;
+    var recenterDistance = Math.sqrt(
+      recenterThetaDelta * recenterThetaDelta +
+      recenterPhiDelta * recenterPhiDelta +
+      Math.pow(recenterRadiusDelta / Math.max(1, orbit.baselineRadius), 2)
+    );
+    var recenterEase = clampRange(0.050 + recenterDistance * 0.080, 0.052, 0.135);
+    orbit.userTheta += recenterThetaDelta * recenterEase;
+    orbit.userPhi += recenterPhiDelta * recenterEase;
+    orbit.userRadius += recenterRadiusDelta * recenterEase;
+    var visualThetaTarget = orbit.baselineTheta + orbit.cineTheta;
+    var visualPhiTarget = Math.max(orbit.minPhi, Math.min(orbit.maxPhi, orbit.baselinePhi + orbit.cinePhi));
+    var visualRadiusTarget = Math.max(orbit.minRadius, Math.min(orbit.maxRadius, orbit.baselineRadius + orbit.cineRadius));
+    var visualSettled = Math.abs(shortestAngleDelta(orbit.theta, visualThetaTarget)) < 0.0016 &&
+      Math.abs(orbit.phi - visualPhiTarget) < 0.0016 &&
+      Math.abs(orbit.radius - visualRadiusTarget) < 0.018;
+    var recenterTimedOut = orbit.recenterStartedAt && performance.now() - orbit.recenterStartedAt > 1800;
+    if (Math.abs(recenterThetaDelta) < 0.0012 &&
+      Math.abs(recenterPhiDelta) < 0.0012 &&
+      Math.abs(recenterRadiusDelta) < 0.014 &&
+      (visualSettled || recenterTimedOut)) {
+      settleOrbitRecenterTarget();
+    }
+  }
+
+  // v8: focus 优先, 否则用 user + cine 复合姿态
+  var fa = orbit.focus.active;
+  var fa = orbit.focus.active;
+  var targetTheta, targetPhi, targetRadius, tLookAt;
+  if (fa) {
+    targetTheta = orbit.focus.theta;
+    targetPhi = orbit.focus.phi;
+    targetRadius = orbit.focus.radius;
+    tLookAt = orbit.focus.lookAt;
+  } else if (orbit.centerLocked) {
+    targetTheta = orbit.baselineTheta + orbit.cineTheta;
+    targetPhi = Math.max(orbit.minPhi, Math.min(orbit.maxPhi, orbit.baselinePhi + orbit.cinePhi));
+    targetRadius = Math.max(orbit.minRadius, Math.min(orbit.maxRadius, orbit.baselineRadius + orbit.cineRadius));
+    tLookAt = ZERO_VEC;
+  } else {
+    targetTheta = orbit.userTheta + orbit.cineTheta;
+    targetPhi = Math.max(orbit.minPhi, Math.min(orbit.maxPhi, orbit.userPhi + orbit.cinePhi));
+    targetRadius = Math.max(orbit.minRadius, Math.min(orbit.maxRadius, orbit.userRadius + orbit.cineRadius));
+    tLookAt = ZERO_VEC;
+  }
+  // 丝滑变速: 线性 lerp 自然给出 "快→慢" 缓出曲线
+  var focusEase = fa ? 0.16 : 0.10;
+  var radiusEase = fa ? 0.12 : 0.07;
+  var shelfFocusType = /^shelf-/.test(String(orbit.focus.type || ''));
+  if (beatCam.punch > 0.01) {
+    focusEase = Math.max(focusEase, 0.12 + beatCam.punch * 0.12);
+    radiusEase = Math.max(radiusEase, 0.09 + beatCam.punch * 0.12);
+  }
+  if (!fa && !shelfFocusType && typeof readSonicLyricLookAtTarget === 'function' && typeof SONIC_CAMERA_LYRIC_LOOK_AT !== 'undefined' && readSonicLyricLookAtTarget(SONIC_CAMERA_LYRIC_LOOK_AT)) {
+    tLookAt = SONIC_CAMERA_LYRIC_LOOK_AT;
+    focusEase = Math.max(focusEase, 0.115);
+    radiusEase = Math.max(radiusEase, 0.082);
+  }
+  if (shelfFocusType) {
+    var shelfFocusWanted = typeof focusHover !== 'undefined' && focusHover ? focusHover.wantType : null;
+    var shelfFocusMovingIn = fa;
+    var shelfFocusMovingOut = !fa && !shelfFocusWanted;
+    if (shelfFocusMovingIn || shelfFocusMovingOut) {
+      var shelfMotion = shelfSummonSettings();
+      var shelfCameraSpeed = shelfFocusMovingIn ? shelfMotion.cameraEnterSpeed : shelfMotion.cameraExitSpeed;
+      focusEase = clampRange(focusEase * shelfCameraSpeed, 0.018, 0.42);
+      radiusEase = clampRange(radiusEase * shelfCameraSpeed, 0.014, 0.36);
+    }
+  }
+  if (!applyQueueFocusTween(targetTheta, targetPhi, targetRadius, tLookAt)) {
+    orbit.theta += (targetTheta - orbit.theta) * focusEase;
+    orbit.phi += (targetPhi - orbit.phi) * focusEase;
+    orbit.radius += (targetRadius - orbit.radius) * radiusEase;
+    orbit.lookAt.x += (tLookAt.x - orbit.lookAt.x) * focusEase;
+    orbit.lookAt.y += (tLookAt.y - orbit.lookAt.y) * focusEase;
+    orbit.lookAt.z += (tLookAt.z - orbit.lookAt.z) * focusEase;
+  }
+  if (shelfFocusType && !fa) {
+    var shelfFocusLookDx = tLookAt.x - orbit.lookAt.x;
+    var shelfFocusLookDy = tLookAt.y - orbit.lookAt.y;
+    var shelfFocusLookDz = tLookAt.z - orbit.lookAt.z;
+    if (Math.abs(shortestAngleDelta(orbit.theta, targetTheta)) < 0.003 &&
+      Math.abs(orbit.phi - targetPhi) < 0.003 &&
+      Math.abs(orbit.radius - targetRadius) < 0.030 &&
+      shelfFocusLookDx * shelfFocusLookDx + shelfFocusLookDy * shelfFocusLookDy + shelfFocusLookDz * shelfFocusLookDz < 0.0009) {
+      orbit.focus.type = null;
+    }
+  }
+
+  var cy = Math.cos(orbit.phi), sy = Math.sin(orbit.phi);
+  var ct = Math.cos(orbit.theta), st = Math.sin(orbit.theta);
+  camera.position.set(
+    orbit.lookAt.x + orbit.radius * cy * st,
+    orbit.lookAt.y + orbit.radius * sy,
+    orbit.lookAt.z + orbit.radius * cy * ct
+  );
+  camera.lookAt(orbit.lookAt);
+  var cameraShake = clampRange(Number(fx.cinemaShake) || 0, 0, 1.8);
+  camera.rotation.z += beatCam.rollKick * cameraShake;
+
+  var cameraPunch = Math.max(camPunch * 0.55, beatCam.punch * 0.54 + beatCam.radiusKick * 0.16) * cameraShake;
+  var targetFOV = BASE_FOV - cameraPunch * (djMode.active ? 2.62 : 2.35);
+  var fovEase = targetFOV < camera.fov ? 0.24 : 0.12;
+  camera.fov += (targetFOV - camera.fov) * fovEase;
+  camera.updateProjectionMatrix();
+  camPunch *= 0.86;
+}
+
+// 焦点跟拍 (hover 0.5s 后镜头移到目标)
+var focusHover = { wantType: null, pendingTimer: null, exitTimer: null };
+function shouldUseWallpaperSafeShelfCamera() {
+  return !!(fx && Number(fx.preset) === 5);
+}
+function shouldUseSkullSafeShelfCamera() {
+  return !!(fx && Number(fx.preset) === SKULL_PRESET_INDEX);
+}
+function shouldUseWallpaperLyricCameraLock() {
+  return !!(fx && Number(fx.preset) === 5 && fx.lyricCameraLock);
+}
+function requestStageLyricCameraSnap(frames) {
+  if (typeof stageLyrics === 'undefined' || !stageLyrics) return;
+  stageLyrics.snapCameraLockFrames = Math.max(stageLyrics.snapCameraLockFrames || 0, frames || 8);
+}
+function shouldDimWallpaperForShelf() {
+  if (!shouldUseWallpaperSafeShelfCamera()) return false;
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
+  if (shelfPinnedOpen) return true;
+  return !!(shelfManager.hasOpenContent && shelfManager.hasOpenContent());
+}
+function shouldOffsetLyricsForShelfDetail() {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
+  return !!(shelfManager.hasOpenContent && shelfManager.hasOpenContent());
+}
+function shouldAvoidStageLyricsForShelf() {
+  if (!shelfManager || !shelfManager.getMode || shelfManager.getMode() !== 'side') return false;
+  if (shelfAlwaysVisible()) return true;
+  if (shelfPinnedOpen) return true;
+  if (shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return true;
+  return !!(shelfVisibility > 0.24 || (shelfHoverCue && shelfHoverCue.value > 0.28));
+}
+// The pose the camera settles on for a side-shelf focus (null for other types). Shared by the live
+// focus below and by the lyrics, which line up against the settled view instead of the gliding one.
+function shelfFocusPose(type, shelfProfile) {
+  shelfProfile = shelfProfile || shelfLayoutProfile();
+  var portrait = shelfProfile.portrait;
+  var wallpaper = shouldUseWallpaperSafeShelfCamera();
+  if (type === 'shelf-side') {
+    if (wallpaper) return { theta: portrait ? 0.18 : 0.24, phi: portrait ? 0.00 : 0.02, radius: portrait ? 5.74 : 5.32,
+      x: portrait ? 1.04 : 2.24, y: -0.08, z: 0.78, punch: 0.28, snapLyrics: true };
+    // 侧栏 (右): 近一点、侧一点，让歌单架打开时有明确的镜头推近。
+    return { theta: portrait ? 0.24 : 0.42, phi: portrait ? -0.06 : -0.12, radius: portrait ? 5.28 : 4.20,
+      x: portrait ? 1.08 : 2.32, y: portrait ? -0.18 : -0.10, z: 0.72, punch: 0.82, snapLyrics: false };
+  }
+  if (type === 'shelf-detail') {
+    if (wallpaper) return { theta: portrait ? 0.16 : 0.26, phi: portrait ? -0.02 : 0.02, radius: portrait ? 5.88 : 5.18,
+      x: portrait ? 0.72 : 2.28, y: portrait ? -0.36 : -0.32, z: 0.84, punch: 0.30, snapLyrics: true };
+    return { theta: portrait ? 0.16 : 0.34, phi: portrait ? -0.03 : -0.06, radius: portrait ? 5.90 : 4.86,
+      x: portrait ? 0.62 : 1.74, y: portrait ? -0.08 : 0.02, z: 0.82, punch: 0.38, snapLyrics: false };
+  }
+  return null;
+}
+function activateFocusZone(type) {
+  // The camera glides to the panel over ~0.5 s; keep that glide at the display rate.
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', 900);
+  unlockCenteredView();
+  var queueEntering = type === 'queue' && !(orbit.focus.active && orbit.focus.type === 'queue');
+  orbit.focus.active = true;
+  orbit.focus.type = type;
+  if (queueEntering) startQueueFocusTween(true);
+  else if (type !== 'queue') queueFocusTween.active = false;
+  var shelfProfile = shelfLayoutProfile();
+  var shelfPose = shelfFocusPose(type, shelfProfile);
+  if (shelfPose) {
+    orbit.focus.theta = shelfPose.theta;
+    orbit.focus.phi = shelfPose.phi;
+    orbit.focus.radius = shelfPose.radius;
+    orbit.focus.lookAt.set(shelfPose.x, shelfPose.y, shelfPose.z);
+    camPunch = Math.max(camPunch, shelfPose.punch);
+    if (shelfPose.snapLyrics) requestStageLyricCameraSnap(10);
+  } else if (type === 'shelf-stage') {
+    // 舞台: 居中仰拍
+    orbit.focus.theta = 0.0;
+    orbit.focus.phi = shelfProfile.portrait ? -0.24 : -0.32;
+    orbit.focus.radius = shelfProfile.portrait ? 4.8 : 3.8;
+    orbit.focus.lookAt.set(0, shelfProfile.portrait ? -1.86 : -1.7, 0.8);
+  } else if (type === 'queue') {
+    // 队列在左侧 HTML 面板, 相机微微左移 + 抬升
+    orbit.focus.theta = 0.40;
+    orbit.focus.phi = 0.05;
+    orbit.focus.radius = 5.8;
+    orbit.focus.lookAt.set(-1.2, 0, 0);
+  }
+}
+function setFocusZone(type, immediate) {
+  if (type && !shouldUseShelfDynamicCamera(type)) {
+    if (/^shelf-/.test(String(orbit.focus.type || ''))) orbit.focus.active = false;
+    type = null;
+  }
+  if (focusHover.wantType === type) {
+    if (type === 'queue' && immediate) {
+      if (focusHover.exitTimer) { clearTimeout(focusHover.exitTimer); focusHover.exitTimer = null; }
+      if (focusHover.pendingTimer) { clearTimeout(focusHover.pendingTimer); focusHover.pendingTimer = null; }
+      if (!orbit.focus.active || orbit.focus.type !== type) activateFocusZone(type);
+    }
+    return;
+  }
+  focusHover.wantType = type;
+  if (focusHover.pendingTimer) { clearTimeout(focusHover.pendingTimer); focusHover.pendingTimer = null; }
+  if (focusHover.exitTimer) { clearTimeout(focusHover.exitTimer); focusHover.exitTimer = null; }
+  if (!type) {
+    // 立刻退出 focus, 让相机回主姿态 (但插值是平滑的)
+    // 歌单栏：与面板同时开始收起（面板的隐藏延迟），面板已直接收起时立即返回。
+    var leavingQueue = orbit.focus.type === 'queue';
+    var exitDelay = leavingQueue
+      ? (immediate ? 0 : (typeof PLAYLIST_PANEL_HIDE_DELAY !== 'undefined' ? PLAYLIST_PANEL_HIDE_DELAY : PEEK_HIDE_DELAY))
+      : 120;
+    focusHover.exitTimer = setTimeout(function () {
+      focusHover.exitTimer = null;
+      if (!focusHover.wantType) {
+        if (orbit.focus.active && typeof markRenderInteraction === 'function') markRenderInteraction('camera-focus', 900);
+        var wasQueue = orbit.focus.active && orbit.focus.type === 'queue';
+        orbit.focus.active = false;
+        if (wasQueue) startQueueFocusTween(false);
+      }
+    }, exitDelay);
+    return;
+  }
+  if (immediate) {
+    activateFocusZone(type);
+    return;
+  }
+  // 延迟 500ms 激活
+  focusHover.pendingTimer = setTimeout(function () {
+    focusHover.pendingTimer = null;
+    if (focusHover.wantType !== type) return;
+    activateFocusZone(type);
+  }, 260);
+}
+
+// 电影镜头 v8: 振幅大幅减小, 节拍 punch 加冷却 + 强度门槛
+//   - cineTheta/Phi 是非常缓慢的低频漂移, 不再让人 motion sick
+//   - punch zoom 只在 真·强主拍 触发, 至少间隔 0.45s, 振幅 ×0.5
+var lastCamPunchAt = -10;
+var CAM_PUNCH_MIN_INTERVAL = 0.45;     // 秒
+var CAM_PUNCH_BEAT_THRESHOLD = 0.55;   // 必须够强才触发
+function updateCinema(dt) {
+  cinemaT += dt;
+  updateBeatCamera(dt);
+  if (!fx.cinema) {
+    orbit.cineTheta *= 0.95;
+    orbit.cinePhi *= 0.95;
+    orbit.cineRadius *= 0.95;
+    return;
+  }
+  var damp = orbit.rotating ? 0.25 : 1.0;
+  // v8: 振幅减半, 周期更长 (更优雅)
+  var dj = djMode.active;
+  var shake = clampRange(Number(fx.cinemaShake) || 0, 0, 1.8);
+  var beatDamp = (orbit.focus.active ? (dj ? 0.66 : 0.55) : (dj ? 1.12 : 1.0)) * shake;
+  var idleDamp = damp * (dj ? 0.72 : 1.0) * shake;
+  orbit.cineTheta = Math.sin(cinemaT * 0.08) * 0.012 * idleDamp + beatCam.thetaKick * beatDamp;
+  orbit.cinePhi = Math.sin(cinemaT * 0.06 + 1.0) * 0.010 * idleDamp + beatCam.phiKick * beatDamp;
+  orbit.cineRadius = Math.sin(cinemaT * 0.04 + 2.0) * 0.080 * idleDamp - beatCam.radiusKick * beatDamp * (dj ? 1.22 : 1.18);
+}
+updateCamera();
+
+function recenterCamera() {
+  orbit.centerLocked = true;
+  orbit.recentering = true;
+  orbit.recenterStartedAt = performance.now();
+  dampCameraImpulseForRecenter(0.32);
+  clearCenteredViewOffsets();
+  if (typeof skullWheelZoomTarget !== 'undefined') {
+    skullWheelZoomTarget = 0;
+    if (!(fx && fx.preset === SKULL_PRESET_INDEX)) skullWheelZoom = 0;
+  }
+  // 同时解除任何镜头跟拍
+  if (focusHover) {
+    focusHover.wantType = null;
+    if (focusHover.pendingTimer) { clearTimeout(focusHover.pendingTimer); focusHover.pendingTimer = null; }
+    if (focusHover.exitTimer) { clearTimeout(focusHover.exitTimer); focusHover.exitTimer = null; }
+  }
+  orbit.focus.active = false;
+  if (fx && fx.preset === SKULL_PRESET_INDEX) {
+    resetSkullPresetView(false, { smooth: true, keepLyricLock: true });
+  } else {
+    resetSkullPresetView(true);
+  }
+  if (!(fx && fx.preset === SKULL_PRESET_INDEX) && ((fx && fx.lyricCameraLock) || shouldUseWallpaperLyricCameraLock())) requestStageLyricCameraSnap(14);
+  showToast('视角回正');
+}
