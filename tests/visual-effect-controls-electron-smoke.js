@@ -151,6 +151,11 @@ async function exercise() {
   const glow = { edges: glowEdges, dimensions: [glowTexture.image.width, glowTexture.image.height],
     coreAlpha: glowPixels.getImageData(Math.floor(glowTexture.image.width / 2), Math.floor(glowTexture.image.height / 2), 1, 1).data[3] };
   glowTexture.dispose();
+  const radial = beginLyricGlowTextureBuild('爱', 128, 128, ['爱'], 133, 1, [{ scale: 1, alpha: 1 }], 0, null, 1);
+  for (let i = 0; i < 8; i++) drawLyricGlowRadialPass(radial, i, i + 1);
+  const radialPixels = radial.ctx.getImageData(0, 0, radial.W, radial.H).data;
+  glow.radialPeak = 0;
+  for (let i = 3; i < radialPixels.length; i += 4) glow.radialPeak = Math.max(glow.radialPeak, radialPixels[i]);
   return { edge, bloom, cinema, lyrics, scope, glow };
 }
 
@@ -191,6 +196,7 @@ app.whenReady().then(async () => {
   }
   assert.deepEqual(result.glow.dimensions, [500, 328], 'avoid growing every resident row texture');
   assert(result.glow.coreAlpha > 250, 'single-character glow still draws its bright centre');
+  assert(result.glow.radialPeak > 20 && result.glow.radialPeak < 100, 'angular samples share their light gain instead of clipping into an opaque block');
 }).then(() => finish(0)).catch(error => { console.error(error.stack); finish(1); });
 
 function finish(code) {

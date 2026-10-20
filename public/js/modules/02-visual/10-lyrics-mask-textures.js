@@ -874,7 +874,9 @@ function drawLyricGlowRadialPass(state, start, end) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.filter = 'blur(' + Math.max(0.8, 8 * pixelScale).toFixed(2) + 'px)';
-  ctx.globalAlpha = 0.26;
+  // The eight angular samples share one light contribution. Applying the
+  // full gain to every sample clips alpha into a flat, glyph-sized block.
+  ctx.globalAlpha = 0.26 / 8;
   ctx.fillStyle = '#fff';
   for (var ri = start; ri < end; ri++) {
     var ang = ri / 8 * Math.PI * 2;
