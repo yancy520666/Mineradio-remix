@@ -153,6 +153,9 @@ var LOCAL_BEATMAP_STORE_KEY = 'mineradio-local-beatmaps-v1';
 var LOCAL_BEAT_PREF_STORE_KEY = 'mineradio-local-beatmap-prefs-v1';
 var LOCAL_BEAT_COMBOS = ['', 'downbeat', 'push', 'drop', 'rebound', 'accent'];
 var HOTKEY_ACTIONS = [
+  { key: 'focusSearch', label: '打开搜索', category: '导航', local: 'Tab', global: '', globalAllowed: false,
+    hint: '页面空白处生效；表单和按钮内仍保留 Tab 焦点切换。' },
+  { key: 'goHome', label: '返回首页', category: '导航', local: 'Home', global: '', globalAllowed: false },
   { key: 'togglePlay', label: '播放 / 暂停', category: '播放', local: 'Space', global: 'Ctrl+Alt+Space' },
   { key: 'prevTrack', label: '上一首', category: '播放', local: 'ArrowLeft', global: 'Ctrl+Alt+ArrowLeft' },
   { key: 'nextTrack', label: '下一首', category: '播放', local: 'ArrowRight', global: 'Ctrl+Alt+ArrowRight' },
@@ -160,7 +163,14 @@ var HOTKEY_ACTIONS = [
   { key: 'volumeDown', label: '音量降低', category: '音量', local: 'ArrowDown', global: 'Ctrl+Alt+ArrowDown' },
   { key: 'toggleFullscreen', label: '全屏', category: '窗口', local: 'KeyF', global: 'Ctrl+Alt+KeyF' },
   { key: 'toggleDesktopInteraction', label: '切换完整桌面模式', category: '窗口', local: '', global: 'Ctrl+Shift+KeyM' },
-  { key: 'toggleDesktopLyrics', label: '桌面歌词', category: '歌词', local: 'Alt+KeyL', global: 'Ctrl+Alt+KeyL' }
+  { key: 'toggleDesktopLyrics', label: '桌面歌词', category: '歌词', local: 'Alt+KeyL', global: 'Ctrl+Alt+KeyL' },
+  { key: 'toggleLyrics', label: '歌词面板', category: '歌词', local: 'KeyL', global: '', globalAllowed: false },
+  { key: 'toggleConsole', label: '视觉控制台', category: '窗口', local: 'KeyP', global: '', globalAllowed: false },
+  { key: 'toggleImmersive', label: '沉浸模式', category: '窗口', local: 'KeyI', global: '', globalAllowed: false },
+  { key: 'toggleFreeCamera', label: '切换自由镜头', category: '镜头', local: 'KeyR', global: '', globalAllowed: false },
+  { key: 'resetCamera', label: '镜头回正', category: '镜头', local: 'KeyK', global: '', globalAllowed: false },
+  { key: 'prevShelf', label: '上一组歌单', category: '歌单架', local: 'BracketLeft', localAliases: ['PageUp'], global: '', globalAllowed: false },
+  { key: 'nextShelf', label: '下一组歌单', category: '歌单架', local: 'BracketRight', localAliases: ['PageDown'], global: '', globalAllowed: false }
 ];
 var hotkeyCaptureState = null;
 var hotkeyGlobalStatus = {};

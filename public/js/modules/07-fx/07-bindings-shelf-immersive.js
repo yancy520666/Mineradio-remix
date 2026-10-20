@@ -1,6 +1,7 @@
 function bindFxPanel() {
   liftFxFloatingPopups();
   relabelFxPanelControls();
+  ensureHotkeySettingsButton();
   organizeFxPanel();
   bindHotkeySettings();
   bindCloseBehaviorControls();

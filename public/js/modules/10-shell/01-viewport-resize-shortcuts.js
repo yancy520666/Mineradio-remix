@@ -33,20 +33,7 @@ window.addEventListener('resize', function () {
 document.addEventListener('keydown', function (e) {
   if (e.defaultPrevented || isKeyboardUiTarget(e.target)) return;
   if (handleConfiguredLocalHotkey(e)) return;
-  if (shouldSuppressDefaultConfiguredHotkey(e)) return;
-  if (e.code === 'Space') {
-    e.preventDefault();
-    e.stopPropagation();
-    if (freeCamera && freeCamera.active) return;
-    if (e.repeat) return;
-    togglePlay();
-  }
-  else if (e.code === 'Home') { e.preventDefault(); goHome(); }
-  else if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByKeyboard(0.05); }
-  else if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByKeyboard(-0.05); }
-  else if (e.code === 'ArrowRight') nextTrack(true);
-  else if (e.code === 'ArrowLeft') prevTrack(true);
-  else if (e.code === 'Escape') {
+  if (e.code === 'Escape') {
     if (immersiveMode) {
       e.preventDefault();
       setImmersiveMode(false);
@@ -85,13 +72,6 @@ document.addEventListener('keydown', function (e) {
     if (shelfManager && shelfManager.hasOpenContent()) { safeShelfCloseContent('escape-key'); return; }
     closeLoginModal(); closeUserModal(); toggleFxPanel(false); togglePlaylistPanel(false);
   }
-  else if (e.code === 'KeyL') { if (!immersiveMode) toggleLyricsPanel(); }
-  else if (e.code === 'KeyP') {
-    if (!immersiveMode && diyPlayerMode) toggleFxPanelFromUser();
-    else if (!immersiveMode) showToast('开启 DIY 玩家模式后可打开视觉控制台');
-  }
-  else if (e.code === 'KeyI') toggleImmersiveMode();
-  else if (e.code === 'KeyF') toggleFullscreen();
 });
 
 // ============================================================

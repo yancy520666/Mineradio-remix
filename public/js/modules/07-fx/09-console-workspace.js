@@ -297,6 +297,9 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-startupFastSkip', '秒启动跳过启动页', '快速启动'),
         fxConsoleItem('startup-resume-mode-seg', '恢复播放位置', '按上次进度 重播整首')
       ] },
+      { key: 'shortcuts', title: '快捷键', hint: '自定义按键，留空即可停用', items: [
+        fxConsoleItem('hotkey-settings-panel', '快捷键管理', '键盘 按键 Tab 搜索 改键 停用 全局 热键', false)
+      ] },
       { key: 'output', title: '音质与输出', hint: '默认播放音质、输出设备和提示音音量', items: [
         fxConsoleItem('playback-quality-preset-panel', '音质预设', '音质 默认音质 省流 均衡 无损 最高 Hi-Res 母带 臻音 320k 128k 网易云 QQ 酷狗', false),
         fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false),
@@ -1086,12 +1089,12 @@ function fxConsoleRegisterHotkeySearchEntry() {
   if (!hotkey || hotkey.getAttribute('data-fx-console-entry')) return;
   var entry = {
     id: 'fx-console-entry-' + (fxConsoleRegistry.length + 1),
-    title: '热键设置',
+    title: '快捷键管理',
     aliases: '快捷键 局内热键 全局热键 键盘',
     tab: 'system',
     tabLabel: '系统',
-    group: 'startup',
-    groupLabel: '启动与退出',
+    group: 'shortcuts',
+    groupLabel: '快捷键',
     history: false,
     element: hotkey
   };

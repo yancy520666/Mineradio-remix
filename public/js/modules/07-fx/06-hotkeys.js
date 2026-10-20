@@ -10,10 +10,13 @@ function readHotkeySettings() {
   var defaults = getHotkeyDefaults();
   try {
     var raw = JSON.parse(localStorage.getItem(HOTKEY_SETTINGS_STORE_KEY) || '{}') || {};
-    return {
-      local: Object.assign({}, defaults.local, raw.local || {}),
-      global: Object.assign({}, defaults.global, raw.global || {})
-    };
+    ['local', 'global'].forEach(function (scope) {
+      HOTKEY_ACTIONS.forEach(function (action) {
+        var saved = raw[scope] && raw[scope][action.key];
+        if (typeof saved === 'string') defaults[scope][action.key] = saved;
+      });
+    });
+    return defaults;
   } catch (e) {
     return defaults;
   }
@@ -59,8 +62,28 @@ function hotkeyDisplayPart(part) {
 }
 function formatHotkey(hotkey) {
   hotkey = String(hotkey || '').trim();
-  if (!hotkey) return '未设置';
+  if (!hotkey) return '已停用';
   return hotkey.split('+').map(hotkeyDisplayPart).join(' + ');
+}
+function localHotkeyBindings(action) {
+  var binding = hotkeySettings.local[action.key] || '';
+  return binding ? [binding].concat(binding === action.local ? action.localAliases || [] : []) : [];
+}
+function syncSearchShortcutTabOrder() {
+  var area = document.getElementById('search-area');
+  if (!area) return;
+  var hidden = !area.classList.contains('peek') && hotkeySettings.local.focusSearch !== 'Tab';
+  area.querySelectorAll('input, button, a[href], [tabindex]').forEach(function (node) {
+    if (hidden && !node.hasAttribute('data-shortcut-tabindex')) {
+      node.setAttribute('data-shortcut-tabindex', node.getAttribute('tabindex') || '');
+      node.setAttribute('tabindex', '-1');
+    } else if (!hidden && node.hasAttribute('data-shortcut-tabindex')) {
+      var previous = node.getAttribute('data-shortcut-tabindex');
+      if (previous === '') node.removeAttribute('tabindex');
+      else node.setAttribute('tabindex', previous);
+      node.removeAttribute('data-shortcut-tabindex');
+    }
+  });
 }
 function hotkeyToAccelerator(hotkey) {
   var parts = String(hotkey || '').split('+').filter(Boolean);
@@ -83,14 +106,37 @@ function hotkeyToAccelerator(hotkey) {
 function hotkeyDuplicateMap(scope) {
   var map = {};
   var source = (hotkeySettings && hotkeySettings[scope]) || {};
-  Object.keys(source).forEach(function (action) {
-    var key = String(source[action] || '').trim();
-    if (!key) return;
-    map[key] = (map[key] || 0) + 1;
+  HOTKEY_ACTIONS.forEach(function (action) {
+    if (scope === 'global' && action.globalAllowed === false) return;
+    var keys = scope === 'local' ? localHotkeyBindings(action) : [source[action.key]];
+    keys.forEach(function (key) { if (key) map[key] = (map[key] || 0) + 1; });
   });
   return map;
 }
 function executeHotkeyAction(actionKey, source) {
+  if (actionKey === 'focusSearch') {
+    if (immersiveMode) return;
+    var input = document.getElementById('search-input');
+    setPeek(document.getElementById('search-area'), true, 'search');
+    if (input) input.focus({ preventScroll: true });
+    return;
+  }
+  if (actionKey === 'goHome') return goHome();
+  if (actionKey === 'toggleLyrics') { if (!immersiveMode) toggleLyricsPanel(); return; }
+  if (actionKey === 'toggleConsole') {
+    if (!immersiveMode && diyPlayerMode) toggleFxPanelFromUser();
+    else if (!immersiveMode) showToast('开启 DIY 玩家模式后可打开视觉控制台');
+    return;
+  }
+  if (actionKey === 'toggleImmersive') return toggleImmersiveMode();
+  if (actionKey === 'toggleFreeCamera') return toggleFreeCamera();
+  if (actionKey === 'resetCamera') {
+    if (freeCamera && (freeCamera.active || freeCamera.locked)) resetFreeCameraToDefault();
+    else { recenterCamera(); showToast('镜头已回正'); }
+    return;
+  }
+  if (actionKey === 'prevShelf') { if (shelfManager) shelfManager.prev(); return; }
+  if (actionKey === 'nextShelf') { if (shelfManager) shelfManager.next(); return; }
   if (actionKey === 'togglePlay') return togglePlay();
   if (actionKey === 'prevTrack') return prevTrack(true);
   if (actionKey === 'nextTrack') return nextTrack(true);
@@ -124,31 +170,22 @@ function desktopInteractionHotkeyHint() {
   return binding ? ('按 ' + formatHotkey(binding) + ' 进入 / 退出完整桌面模式') : '可在热键设置中配置完整桌面模式切换';
 }
 function handleConfiguredLocalHotkey(e) {
-  if (!hotkeySettings || !hotkeySettings.local || isTypingTarget(e.target)) return false;
+  if (e.defaultPrevented || e.isComposing || !hotkeySettings || !hotkeySettings.local || isKeyboardUiTarget(e.target)) return false;
   if (hotkeyCaptureState || document.getElementById('hotkey-modal') && document.getElementById('hotkey-modal').classList.contains('show')) return false;
-  if (freeCamera && freeCamera.active && /^(KeyW|KeyA|KeyS|KeyD|KeyQ|KeyE|Space|ShiftLeft|ShiftRight|ControlLeft|ControlRight)$/.test(e.code)) return false;
+  if (freeCamera && freeCamera.active && /^(KeyW|KeyA|KeyS|KeyD|KeyQ|KeyE|Space|ShiftLeft|ShiftRight|ControlLeft|ControlRight)$/.test(e.code) && hotkeySettings.local.toggleFreeCamera !== normalizeHotkeyEvent(e)) return false;
   var combo = normalizeHotkeyEvent(e);
   if (!combo) return false;
   var duplicate = hotkeyDuplicateMap('local');
   for (var i = 0; i < HOTKEY_ACTIONS.length; i++) {
     var action = HOTKEY_ACTIONS[i];
-    if (hotkeySettings.local[action.key] !== combo) continue;
+    if (localHotkeyBindings(action).indexOf(combo) < 0) continue;
     e.preventDefault();
     e.stopPropagation();
     if (e.repeat && !/^volume/.test(action.key)) return true;
     if (duplicate[combo] > 1) return true;
+    if (action.key !== 'togglePlay') markRenderInteraction('keyboard', 700);
     executeHotkeyAction(action.key, 'local');
     return true;
-  }
-  return false;
-}
-function shouldSuppressDefaultConfiguredHotkey(e) {
-  if (!hotkeySettings || !hotkeySettings.local) return false;
-  var combo = normalizeHotkeyEvent(e);
-  if (!combo) return false;
-  for (var i = 0; i < HOTKEY_ACTIONS.length; i++) {
-    var action = HOTKEY_ACTIONS[i];
-    if (action.local === combo && hotkeySettings.local[action.key] !== combo) return true;
   }
   return false;
 }
@@ -163,10 +200,16 @@ function ensureHotkeySettingsButton() {
   btn.id = 'hotkey-settings-btn';
   btn.type = 'button';
   btn.className = 'fx-mini-btn ghost';
-  btn.textContent = '热键';
-  btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openHotkeySettings(); });
+  btn.textContent = '快捷键';
+  btn.addEventListener('click', openHotkeySettings);
   actions.appendChild(btn);
   head.appendChild(actions);
+  var entry = document.createElement('div');
+  entry.id = 'hotkey-settings-panel';
+  entry.className = 'fx-shortcut-entry';
+  entry.innerHTML = '<div><strong>让按键顺手一点</strong><p>调整搜索、播放和镜头操作；清空按键即可停用。</p></div><button type="button" class="fx-mini-btn">管理快捷键 <span aria-hidden="true">→</span></button>';
+  entry.querySelector('button').addEventListener('click', openHotkeySettings);
+  panel.appendChild(entry);
 }
 function ensureHotkeyModal() {
   var modal = document.getElementById('hotkey-modal');
@@ -176,20 +219,20 @@ function ensureHotkeyModal() {
   modal.className = 'hotkey-modal';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
-  modal.setAttribute('aria-label', '热键设置');
+  modal.setAttribute('aria-label', '快捷键管理');
   modal.innerHTML =
     '<div class="hotkey-dialog">' +
     '<div class="hotkey-head">' +
-    '<div><div class="hotkey-title">热键设置</div><div class="hotkey-sub">局内热键只在 Mineradio 窗口内生效；全局热键会向系统注册，并检测是否被占用。</div></div>' +
+    '<div><div class="hotkey-title">快捷键管理</div><div class="hotkey-sub">点击按键后直接录入，修改自动保存。清空后，该功能的快捷键即停用。</div></div>' +
     '<button class="hotkey-close" type="button" data-hotkey-close aria-label="关闭">×</button>' +
     '</div>' +
     '<div class="hotkey-toolbar">' +
-    '<div class="hotkey-tabs"><button type="button" data-hotkey-scope="local" class="active">局内热键</button><button type="button" data-hotkey-scope="global">全局热键</button></div>' +
-    '<div class="hotkey-note">按 Backspace / Delete 可清空当前功能热键</div>' +
+    '<div class="hotkey-tabs"><button type="button" data-hotkey-scope="local" class="active">应用内</button><button type="button" data-hotkey-scope="global">全局</button></div>' +
+    '<div class="hotkey-note" id="hotkey-scope-note">仅在当前窗口内生效</div>' +
     '</div>' +
     '<div id="hotkey-local-section" class="hotkey-section active"></div>' +
     '<div id="hotkey-global-section" class="hotkey-section"></div>' +
-    '<div class="hotkey-capture-tip" id="hotkey-capture-tip">正在录入组合键，按 Esc 取消。</div>' +
+    '<div class="hotkey-capture-tip" id="hotkey-capture-tip" role="status" aria-live="polite">点击按键开始录入 · Esc 取消 · Delete / Backspace 清空</div><div class="hotkey-footnote">Esc 保留为关闭 / 返回；自由镜头中的移动按键保持原有操作。</div>' +
     '</div>';
   document.body.appendChild(modal);
   modal.addEventListener('click', function (e) {
@@ -198,17 +241,22 @@ function ensureHotkeyModal() {
     if (scopeBtn) setHotkeyModalScope(scopeBtn.getAttribute('data-hotkey-scope'));
     var bindBtn = e.target.closest('[data-hotkey-bind]');
     if (bindBtn) startHotkeyCapture(bindBtn.getAttribute('data-hotkey-action'), bindBtn.getAttribute('data-hotkey-bind'));
+    var clearBtn = e.target.closest('[data-hotkey-clear]');
+    if (clearBtn) { hotkeyCaptureState = null; setHotkeyBinding(clearBtn.getAttribute('data-hotkey-action'), clearBtn.getAttribute('data-hotkey-clear'), ''); }
     var resetBtn = e.target.closest('[data-hotkey-reset]');
     if (resetBtn) resetHotkeyBinding(resetBtn.getAttribute('data-hotkey-action'), resetBtn.getAttribute('data-hotkey-reset'));
   });
   return modal;
 }
 function hotkeyStatusMarkup(scope, actionKey, binding, duplicate) {
-  if (!binding) return '<span class="hotkey-status">未设置</span>';
-  if (duplicate && duplicate[binding] > 1) return '<span class="hotkey-status conflict"><span class="source-icon">!</span>Mineradio 内部重复</span>';
-  if (scope === 'local') return '<span class="hotkey-status ok">可用</span>';
+  if (!binding) return '<span class="hotkey-status">已停用</span>';
+  var keys = scope === 'local' ? localHotkeyBindings(hotkeyActionMeta(actionKey)) : [binding];
+  if (duplicate && keys.some(function (key) { return duplicate[key] > 1; })) return '<span class="hotkey-status conflict">按键重复，已暂停</span>';
+  if (scope === 'local') return '<span class="hotkey-status ok">已启用</span>';
+  if (hotkeyCaptureState) return '<span class="hotkey-status">录入时暂停</span>';
   var status = hotkeyGlobalStatus[actionKey];
-  if (!status) return '<span class="hotkey-status">待检测</span>';
+  var api = getDesktopWindowApi();
+  if (!status) return '<span class="hotkey-status">' + (api && typeof api.configureGlobalHotkeys === 'function' ? '检测中' : '桌面端可用') + '</span>';
   if (status.ok) return '<span class="hotkey-status ok">可用</span>';
   var source = status.conflict && status.conflict.sourceName || '系统 / 其他软件';
   return '<span class="hotkey-status conflict"><span class="source-icon">!</span>' + escHtml(source) + '</span>';
@@ -220,18 +268,21 @@ function renderHotkeyScope(scope) {
   var html = '';
   var groups = {};
   HOTKEY_ACTIONS.forEach(function (action) {
+    if (scope === 'global' && action.globalAllowed === false) return;
     (groups[action.category] = groups[action.category] || []).push(action);
   });
   Object.keys(groups).forEach(function (category) {
     html += '<div class="hotkey-group"><div class="hotkey-group-title">' + escHtml(category) + '</div>';
     groups[category].forEach(function (action) {
       var binding = (hotkeySettings[scope] && hotkeySettings[scope][action.key]) || '';
+      var capturing = hotkeyCaptureState && hotkeyCaptureState.scope === scope && hotkeyCaptureState.action === action.key;
+      var keys = binding ? binding.split('+').map(function (part) { return '<kbd>' + escHtml(hotkeyDisplayPart(part)) + '</kbd>'; }).join('<span class="hotkey-plus">+</span>') : '<span class="hotkey-empty">未设置</span>';
       html += '<div class="hotkey-row">' +
-        '<div class="hotkey-name">' + escHtml(action.label) + '</div>' +
-        '<button class="hotkey-key' + (hotkeyCaptureState && hotkeyCaptureState.scope === scope && hotkeyCaptureState.action === action.key ? ' capturing' : '') + '" type="button" data-hotkey-bind="' + scope + '" data-hotkey-action="' + action.key + '">' + escHtml(hotkeyCaptureState && hotkeyCaptureState.scope === scope && hotkeyCaptureState.action === action.key ? '按下组合键...' : formatHotkey(binding)) + '</button>' +
-        '<button class="hotkey-reset" type="button" data-hotkey-reset="' + scope + '" data-hotkey-action="' + action.key + '">默认</button>' +
-        hotkeyStatusMarkup(scope, action.key, binding, duplicate) +
-        '</div>';
+        '<div class="hotkey-name">' + escHtml(action.label) + (action.hint ? '<small>' + escHtml(action.hint) + '</small>' : '') + (scope === 'local' && binding === action.local && action.localAliases ? '<small>也可使用 ' + escHtml(action.localAliases.map(hotkeyDisplayPart).join(' / ')) + '</small>' : '') + '</div>' +
+        '<button class="hotkey-key' + (capturing ? ' capturing' : '') + '" type="button" aria-label="修改' + escHtml(action.label) + '快捷键，当前' + escHtml(formatHotkey(binding)) + '" data-hotkey-bind="' + scope + '" data-hotkey-action="' + action.key + '">' + (capturing ? '请按下按键…' : keys) + '</button>' +
+        '<div class="hotkey-row-actions"><button class="hotkey-clear" type="button" title="清空并停用" aria-label="停用' + escHtml(action.label) + '快捷键" data-hotkey-clear="' + scope + '" data-hotkey-action="' + action.key + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>' +
+        '<button class="hotkey-reset" type="button" title="恢复默认：' + escHtml(formatHotkey(action[scope])) + '" aria-label="恢复' + escHtml(action.label) + '默认快捷键" data-hotkey-reset="' + scope + '" data-hotkey-action="' + action.key + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg></button></div>' +
+        hotkeyStatusMarkup(scope, action.key, binding, duplicate) + '</div>';
     });
     html += '</div>';
   });
@@ -239,10 +290,16 @@ function renderHotkeyScope(scope) {
 }
 function renderHotkeySettings() {
   var modal = ensureHotkeyModal();
+  var focused = document.activeElement;
+  var focusAction = focused && focused.getAttribute('data-hotkey-action');
+  var focusKind = focusAction && ['bind', 'clear', 'reset'].find(function (kind) { return focused.hasAttribute('data-hotkey-' + kind); });
+  var focusScope = focusKind && focused.getAttribute('data-hotkey-' + focusKind);
   var active = modal.getAttribute('data-scope') || 'local';
   modal.classList.toggle('capturing', !!hotkeyCaptureState);
   modal.querySelectorAll('[data-hotkey-scope]').forEach(function (btn) {
-    btn.classList.toggle('active', btn.getAttribute('data-hotkey-scope') === active);
+    var selected = btn.getAttribute('data-hotkey-scope') === active;
+    btn.classList.toggle('active', selected);
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
   var local = document.getElementById('hotkey-local-section');
   var global = document.getElementById('hotkey-global-section');
@@ -250,11 +307,20 @@ function renderHotkeySettings() {
   if (global) global.classList.toggle('active', active === 'global');
   renderHotkeyScope('local');
   renderHotkeyScope('global');
+  document.getElementById('hotkey-scope-note').textContent = active === 'local' ? '仅在当前窗口内生效' : '切换到其他软件后也能使用';
+  document.getElementById('hotkey-capture-tip').textContent = hotkeyCaptureState ? '正在录入：' + hotkeyActionMeta(hotkeyCaptureState.action).label + ' · Esc 取消 · Delete / Backspace 清空' : '点击按键开始录入 · 右侧 × 停用 · ↶ 恢复默认';
+  if (focusAction && focusScope === active) {
+    var nextFocus = modal.querySelector('[data-hotkey-' + focusKind + '="' + focusScope + '"][data-hotkey-action="' + focusAction + '"]');
+    if (nextFocus) nextFocus.focus({ preventScroll: true });
+  }
 }
 function setHotkeyModalScope(scope) {
   var modal = ensureHotkeyModal();
+  var wasCapturing = !!hotkeyCaptureState;
+  hotkeyCaptureState = null;
   modal.setAttribute('data-scope', scope === 'global' ? 'global' : 'local');
   renderHotkeySettings();
+  if (wasCapturing) registerGlobalHotkeys();
 }
 function openHotkeySettings() {
   var modal = ensureHotkeyModal();
@@ -265,33 +331,45 @@ function openHotkeySettings() {
   if (typeof activateModalAccessibility === 'function') activateModalAccessibility(modal);
 }
 function closeHotkeySettings() {
+  var wasCapturing = !!hotkeyCaptureState;
   hotkeyCaptureState = null;
   var modal = document.getElementById('hotkey-modal');
   if (modal) {
     modal.classList.remove('show', 'capturing');
     if (typeof deactivateModalAccessibility === 'function') deactivateModalAccessibility(modal);
   }
+  if (wasCapturing) registerGlobalHotkeys();
 }
 function startHotkeyCapture(action, scope) {
+  var meta = hotkeyActionMeta(action);
+  if (!meta || scope !== 'local' && scope !== 'global' || scope === 'global' && meta.globalAllowed === false) return;
   hotkeyCaptureState = { action: action, scope: scope === 'global' ? 'global' : 'local' };
   var modal = ensureHotkeyModal();
   modal.setAttribute('data-scope', hotkeyCaptureState.scope);
   renderHotkeySettings();
+  registerGlobalHotkeys();
 }
 function setHotkeyBinding(action, scope, value) {
+  var meta = hotkeyActionMeta(action);
+  if (!meta || scope !== 'local' && scope !== 'global' || scope === 'global' && meta.globalAllowed === false) return;
   if (!hotkeySettings) hotkeySettings = getHotkeyDefaults();
   if (!hotkeySettings[scope]) hotkeySettings[scope] = {};
   hotkeySettings[scope][action] = value || '';
   saveHotkeySettings();
+  syncSearchShortcutTabOrder();
+  updateCameraHotkeyHint();
   renderHotkeySettings();
-  if (scope === 'global') registerGlobalHotkeys();
+  registerGlobalHotkeys();
 }
 function resetHotkeyBinding(action, scope) {
   var meta = hotkeyActionMeta(action);
   if (!meta) return;
+  hotkeyCaptureState = null;
   setHotkeyBinding(action, scope, scope === 'global' ? meta.global : meta.local);
 }
+var hotkeyRegistrationGeneration = 0;
 function registerGlobalHotkeys() {
+  var generation = ++hotkeyRegistrationGeneration;
   var api = getDesktopWindowApi && getDesktopWindowApi();
   if (!api || typeof api.configureGlobalHotkeys !== 'function') {
     hotkeyGlobalStatus = {};
@@ -302,11 +380,13 @@ function registerGlobalHotkeys() {
   var bindings = [];
   HOTKEY_ACTIONS.forEach(function (action) {
     var key = hotkeySettings.global && hotkeySettings.global[action.key];
-    if (!key || duplicate[key] > 1) return;
+    if (hotkeyCaptureState || action.globalAllowed === false || !key || duplicate[key] > 1) return;
     var accelerator = hotkeyToAccelerator(key);
     if (accelerator) bindings.push({ action: action.key, accelerator: accelerator });
   });
+  hotkeyGlobalStatus = {};
   return api.configureGlobalHotkeys(bindings).then(function (res) {
+    if (generation !== hotkeyRegistrationGeneration) return;
     var next = {};
     (res && res.results || []).forEach(function (item) {
       next[item.action] = item;
@@ -314,20 +394,40 @@ function registerGlobalHotkeys() {
     hotkeyGlobalStatus = next;
     renderHotkeySettings();
   }).catch(function () {
+    if (generation !== hotkeyRegistrationGeneration) return;
     hotkeyGlobalStatus = {};
+    bindings.forEach(function (binding) {
+      hotkeyGlobalStatus[binding.action] = { ok: false, conflict: { sourceName: '检测失败，请重新打开' } };
+    });
     renderHotkeySettings();
   });
 }
+function updateCameraHotkeyHint() {
+  var hint = document.getElementById('free-camera-hint');
+  if (!hint) return;
+  var toggle = hotkeySettings.local.toggleFreeCamera;
+  var reset = hotkeySettings.local.resetCamera;
+  hint.textContent = '自由镜头 · ' + (toggle ? formatHotkey(toggle) + ' 固定/退出 · ' : '') + 'WASD 移动 · 鼠标转向 · Shift 加速 · Space/Ctrl 升降 · Q/E 轻微旋转 · 滚轮景深' + (reset ? ' · ' + formatHotkey(reset) + ' 回正' : '');
+}
 var globalHotkeyListenerBound = false;
+var searchHotkeyObserver = null;
 function bindHotkeySettings() {
   ensureHotkeySettingsButton();
   ensureHotkeyModal();
+  syncSearchShortcutTabOrder();
+  updateCameraHotkeyHint();
+  var searchArea = document.getElementById('search-area');
+  if (searchArea && !searchHotkeyObserver) {
+    searchHotkeyObserver = new MutationObserver(syncSearchShortcutTabOrder);
+    searchHotkeyObserver.observe(searchArea, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
+  }
   if (!globalHotkeyListenerBound) {
     var api = getDesktopWindowApi && getDesktopWindowApi();
     if (api && typeof api.onGlobalHotkey === 'function') {
       globalHotkeyListenerBound = true;
       api.onGlobalHotkey(function (payload) {
-        if (!payload || !payload.action) return;
+        var meta = payload && hotkeyActionMeta(payload.action);
+        if (hotkeyCaptureState || !meta || meta.globalAllowed === false || !hotkeySettings.global[meta.key]) return;
         executeHotkeyAction(payload.action, 'global');
       });
     }
@@ -349,6 +449,7 @@ document.addEventListener('keydown', function (e) {
   if (e.code === 'Escape') {
     hotkeyCaptureState = null;
     renderHotkeySettings();
+    registerGlobalHotkeys();
     return;
   }
   if (e.code === 'Backspace' || e.code === 'Delete') {

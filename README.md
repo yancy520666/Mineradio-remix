@@ -24,6 +24,8 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 搜索栏悬停热区与展开位置对齐，避免移到窗口按钮或 DIY 开关时误展开。
 
+新增快捷键管理，可改键、清空停用或恢复默认，默认保留现有配置；搜索 Tab 也可单独调整。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)

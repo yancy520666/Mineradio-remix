@@ -19,7 +19,7 @@ var calls = [], freeCamera = {active:false,locked:false,keys:{}}, immersiveMode=
 var desktopRuntimeState={fullscreen:false}, desktopFullscreenActive=false;
 function escHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 var shelfManager={hasOpenContent:()=>false,next:()=>calls.push('shelfNext'),prev:()=>calls.push('shelfPrev')};
-function handleConfiguredLocalHotkey(){return false} function shouldSuppressDefaultConfiguredHotkey(){return false}
+var hotkeyCaptureState=null; function handleConfiguredLocalHotkey(){return false}
 function markRenderInteraction(){} function togglePlay(){calls.push('togglePlay')}
 function nextTrack(){calls.push('nextTrack')} function prevTrack(){calls.push('prevTrack')} function adjustVolumeByKeyboard(){calls.push('volume')}
 function goHome(){calls.push('home')} function toggleFreeCamera(){calls.push('camera')} function resetFreeCameraToDefault(){} function recenterCamera(){} function showToast(){}
@@ -41,6 +41,9 @@ app.whenReady().then(async () => {
   await evaluate(`document.getElementById('splash').style.display='none';document.body.classList.remove('splash-active');document.getElementById('loading-overlay').style.display='none';`);
   if (process.argv.includes('--gsap')) await evaluate(read('public/vendor/gsap.min.js') + ';void 0;');
   await evaluate(globals + keyboard.slice(0,keyboard.indexOf('function readCustomCoverMap(')) + modalSource + read('public/js/modules/04-shelf/06-keyboard-camera-events.js') + read('public/js/modules/10-shell/01-viewport-resize-shortcuts.js'));
+  const stores=read('public/js/modules/00-state/00-core-stores.js');
+  const hotkeyState=stores.slice(stores.indexOf('var HOTKEY_ACTIONS = ['),stores.indexOf('var diyPlayerMode ='));
+  await evaluate(`var HOTKEY_SETTINGS_STORE_KEY='fixture-hotkeys';function getDesktopWindowApi(){return null}`+hotkeyState+read('public/js/modules/07-fx/06-hotkeys.js')+`;var hotkeySettings=readHotkeySettings();`);
   async function key(keyCode) {
     win.webContents.sendInputEvent({type:'keyDown',keyCode});
     if (keyCode === 'Space') win.webContents.sendInputEvent({type:'char',keyCode:' '});
@@ -76,9 +79,7 @@ app.whenReady().then(async () => {
   const peekUnfocused=await evaluate(`document.getElementById('search-area').classList.contains('peek')`);assert.equal(peekUnfocused,false);
   await evaluate(`document.getElementById('search-area').classList.add('peek');document.getElementById('upload-btn').focus();setPeek(document.getElementById('search-area'),false,'search');`);await wait(240);
   const peekExplicitClose=await evaluate(`document.getElementById('search-area').classList.contains('peek')`);assert.equal(peekExplicitClose,false);
-  const stores=read('public/js/modules/00-state/00-core-stores.js');
-  const hotkeyState=stores.slice(stores.indexOf('var HOTKEY_ACTIONS = ['),stores.indexOf('var diyPlayerMode ='));
-  await evaluate(`var HOTKEY_SETTINGS_STORE_KEY='fixture-hotkeys',globalHotkeyListenerBound=false;function getDesktopWindowApi(){return null}`+hotkeyState+read('public/js/modules/07-fx/06-hotkeys.js')+`;var hotkeySettings=readHotkeySettings();document.getElementById('search-area').classList.add('peek');document.getElementById('upload-btn').focus();openHotkeySettings();`);await wait(90);
+  await evaluate(`document.getElementById('search-area').classList.add('peek');document.getElementById('upload-btn').focus();openHotkeySettings();`);await wait(90);
   const hotkeyOpening=await evaluate(`({active:document.activeElement.id,role:document.getElementById('hotkey-modal').getAttribute('role'),dialogs:document.querySelectorAll('#hotkey-modal [role="dialog"]').length})`);assert.equal(hotkeyOpening.active,'hotkey-modal');assert.equal(hotkeyOpening.role,'dialog');assert.equal(hotkeyOpening.dialogs,0);
   const hotkeyShot=path.join(profile,'hotkey-fixture.png');fs.writeFileSync(hotkeyShot,(await win.webContents.capturePage()).toPNG());
   await evaluate(`(()=>{var list=modalFocusableElements(document.getElementById('hotkey-modal'));list[list.length-1].focus()})()`);await key('Tab');
