@@ -69,6 +69,13 @@ function localHotkeyBindings(action) {
   var binding = hotkeySettings.local[action.key] || '';
   return binding ? [binding].concat(binding === action.local ? action.localAliases || [] : []) : [];
 }
+function preventDisabledTabFocus(e) {
+  if (!e || e.code !== 'Tab' && e.key !== 'Tab' || e.ctrlKey || e.altKey || e.metaKey || hotkeyCaptureState) return false;
+  if (!hotkeySettings || !hotkeySettings.local || hotkeySettings.local.focusSearch) return false;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  return true;
+}
 function syncSearchShortcutTabOrder() {
   var area = document.getElementById('search-area');
   if (!area) return;
@@ -207,7 +214,7 @@ function ensureHotkeySettingsButton() {
   var entry = document.createElement('div');
   entry.id = 'hotkey-settings-panel';
   entry.className = 'fx-shortcut-entry';
-  entry.innerHTML = '<div><strong>让按键顺手一点</strong><p>调整搜索、播放和镜头操作；清空按键即可停用。</p></div><button type="button" class="fx-mini-btn">管理快捷键 <span aria-hidden="true">→</span></button>';
+  entry.innerHTML = '<span>应用内与全局快捷键</span><button type="button" class="fx-mini-btn" aria-label="管理快捷键">管理</button>';
   entry.querySelector('button').addEventListener('click', openHotkeySettings);
   panel.appendChild(entry);
 }

@@ -30,7 +30,8 @@ function isPlaybackSpaceKey(e) {
   );
 }
 document.addEventListener('keydown', function (e) {
-  consumeFreeCameraKeyEvent(e, true);
+  if (consumeFreeCameraKeyEvent(e, true)) return;
+  preventDisabledTabFocus(e);
 }, true);
 document.addEventListener('keyup', function (e) {
   consumeFreeCameraKeyEvent(e, false);

@@ -47,6 +47,18 @@ function togglePlay(){calls.push('play')}function toggleFreeCamera(){calls.push(
   await key('Tab');
   const disabled = await evaluate(`({active:document.activeElement.id,peek:document.getElementById('search-area').classList.contains('peek'),tabIndex:document.getElementById('search-input').tabIndex})`);
   assert.equal(disabled.peek, false); assert.notEqual(disabled.active, 'search-input'); assert.equal(disabled.tabIndex, -1);
+  assert.equal(disabled.active, '', 'disabled Tab leaves body focus unchanged');
+  for (const id of ['before', 'search-input']) {
+    await evaluate(`document.getElementById('${id}').focus()`);
+    await key('Tab'); assert.equal(await evaluate('document.activeElement.id'), id);
+    await key('Tab', ['shift']); assert.equal(await evaluate('document.activeElement.id'), id);
+  }
+  await evaluate(`document.getElementById('before').focus();openHotkeySettings();document.querySelector('[data-hotkey-close]').focus()`);
+  await key('Tab', ['shift']);
+  assert.equal(await evaluate(`document.activeElement.hasAttribute('data-hotkey-close')`), true, 'disabled Tab also bypasses modal focus wrapping');
+  await evaluate(`startHotkeyCapture('focusSearch','local')`); await key('Tab');
+  assert.equal(await evaluate('hotkeySettings.local.focusSearch'), 'Tab', 'disabled Tab can still be recorded again');
+  await evaluate(`closeHotkeySettings()`);
   await evaluate(`setHotkeyBinding('focusSearch','local','Ctrl+KeyJ');document.activeElement.blur();`);
   await key('J', ['control']);
   assert.equal(await evaluate('document.activeElement.id'), 'search-input');

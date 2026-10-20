@@ -90,6 +90,7 @@ function initModalAccessibility() {
     var mask = activeModalMask();
     if (!mask) return;
     if (mask.id === 'hotkey-modal' && typeof hotkeyCaptureState !== 'undefined' && hotkeyCaptureState) return;
+    if (typeof preventDisabledTabFocus === 'function' && preventDisabledTabFocus(e)) return;
     if (e.key === 'Escape' && closeModalFromKeyboard(mask)) {
       e.preventDefault(); e.stopImmediatePropagation(); return;
     }

@@ -13498,27 +13498,24 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 20px 18px;
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 14px;
-  background: rgba(255,255,255,.025);
-}
-
-.fx-shortcut-entry strong {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.fx-shortcut-entry p {
-  margin: 7px 0 0;
-  color: rgba(255,255,255,.55);
+  gap: 16px;
+  padding: 6px 2px;
+  min-height: 40px;
   font-size: 12px;
-  line-height: 1.65;
+  color: rgba(255,255,255,.8);
+}
+
+.fx-shortcut-entry > span {
+  min-width: 0;
+  line-height: 1.5;
 }
 
 .fx-shortcut-entry button {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-width: 60px;
+  min-height: 30px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 .hotkey-modal {
@@ -13824,10 +13821,6 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   }
   .hotkey-note {
     display: none;
-  }
-  .fx-shortcut-entry {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }
 

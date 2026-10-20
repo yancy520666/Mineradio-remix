@@ -153,8 +153,8 @@ var LOCAL_BEATMAP_STORE_KEY = 'mineradio-local-beatmaps-v1';
 var LOCAL_BEAT_PREF_STORE_KEY = 'mineradio-local-beatmap-prefs-v1';
 var LOCAL_BEAT_COMBOS = ['', 'downbeat', 'push', 'drop', 'rebound', 'accent'];
 var HOTKEY_ACTIONS = [
-  { key: 'focusSearch', label: '打开搜索', category: '导航', local: 'Tab', global: '', globalAllowed: false,
-    hint: '页面空白处生效；表单和按钮内仍保留 Tab 焦点切换。' },
+  { key: 'focusSearch', label: '搜索与焦点切换', category: '导航', local: 'Tab', global: '', globalAllowed: false,
+    hint: '清空后，Tab 和 Shift+Tab 也不再切换焦点。' },
   { key: 'goHome', label: '返回首页', category: '导航', local: 'Home', global: '', globalAllowed: false },
   { key: 'togglePlay', label: '播放 / 暂停', category: '播放', local: 'Space', global: 'Ctrl+Alt+Space' },
   { key: 'prevTrack', label: '上一首', category: '播放', local: 'ArrowLeft', global: 'Ctrl+Alt+ArrowLeft' },

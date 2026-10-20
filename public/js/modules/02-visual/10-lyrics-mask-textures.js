@@ -883,25 +883,45 @@ function drawLyricGlowRadialPass(state, start, end) {
   ctx.restore();
 }
 
-function finishLyricGlowTexturePixels(state) {
-  var ctx = state.ctx;
+function applyLyricGlowEdgeFade(ctx, width, height) {
+  // Fade by distance from the lyric's centre line. Independent X/Y fades
+  // leave a rectangular footprint around short lines, especially one glyph.
   ctx.save();
   ctx.globalCompositeOperation = 'destination-in';
-  var xMask = ctx.createLinearGradient(0, 0, state.W, 0);
-  xMask.addColorStop(0.00, 'rgba(255,255,255,0)');
-  xMask.addColorStop(0.10, 'rgba(255,255,255,1)');
-  xMask.addColorStop(0.90, 'rgba(255,255,255,1)');
-  xMask.addColorStop(1.00, 'rgba(255,255,255,0)');
-  ctx.fillStyle = xMask;
-  ctx.fillRect(0, 0, state.W, state.H);
-  var yMask = ctx.createLinearGradient(0, 0, 0, state.H);
-  yMask.addColorStop(0.00, 'rgba(255,255,255,0)');
-  yMask.addColorStop(0.16, 'rgba(255,255,255,1)');
-  yMask.addColorStop(0.84, 'rgba(255,255,255,1)');
-  yMask.addColorStop(1.00, 'rgba(255,255,255,0)');
-  ctx.fillStyle = yMask;
-  ctx.fillRect(0, 0, state.W, state.H);
+  if (height > width) {
+    ctx.transform(0, 1, 1, 0, 0, 0);
+    var swap = width; width = height; height = swap;
+  }
+  var radius = height * 0.5;
+  // Integer paint boundaries avoid partially compositing a seam between caps.
+  var left = Math.floor(radius), right = Math.ceil(width - radius);
+  function alphaAt(distance) {
+    var t = clampRange((distance - 0.42) / 0.58, 0, 1);
+    return 'rgba(255,255,255,' + (1 - t * t * (3 - 2 * t)).toFixed(4) + ')';
+  }
+  function paintRegion(x, w, gradient) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, 0, w, height);
+    ctx.clip();
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, 0, w, height);
+    ctx.restore();
+  }
+  var middle = ctx.createLinearGradient(0, 0, 0, height);
+  for (var i = 10; i >= 0; i--) middle.addColorStop((1 - i / 10) * 0.5, alphaAt(i / 10));
+  for (var j = 1; j <= 10; j++) middle.addColorStop(0.5 + j / 20, alphaAt(j / 10));
+  paintRegion(left, right - left, middle);
+  [radius, width - radius].forEach(function (center, index) {
+    var cap = ctx.createRadialGradient(center, radius, 0, center, radius, radius);
+    for (var k = 0; k <= 10; k++) cap.addColorStop(k / 10, alphaAt(k / 10));
+    paintRegion(index ? right : 0, index ? width - right : left, cap);
+  });
   ctx.restore();
+}
+
+function finishLyricGlowTexturePixels(state) {
+  applyLyricGlowEdgeFade(state.ctx, state.W, state.H);
   var tex = new THREE.CanvasTexture(state.canvas);
   tex.userData = tex.userData || {};
   tex.userData.__mineradioLyricOwned = true;

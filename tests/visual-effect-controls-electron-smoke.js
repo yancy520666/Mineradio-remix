@@ -135,7 +135,23 @@ async function exercise() {
   document.getElementById('t-lyricGlowParticles').click();
   for (let i = 0; i < 180; i++) updateStageLyrics3D(1 / 60);
   lyrics.offOpacity = getLyricSparkOpacity(data);
-  return { edge, bloom, cinema, lyrics, scope };
+  const glowEdges = [[500, 328], [501, 329], [2401, 329], [329, 501]].map(([width, height]) => {
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
+    applyLyricGlowEdgeFade(ctx, width, height);
+    const alpha = (x, y) => ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3];
+    const short = Math.min(width, height);
+    return { width, height, corner: alpha(short * 0.1, short * 0.1),
+      center: alpha(width / 2, height / 2),
+      ink: alpha(height < width ? height / 2 : width / 2, height < width ? height / 2 : width / 2),
+      edge: alpha(width / 2, 1) };
+  });
+  const glowTexture = makeLyricGlowTexture('爱', 128, 128, ['爱'], 133, 1, [{ scale: 1, alpha: 1 }], 0, null, 1);
+  const glowPixels = glowTexture.image.getContext('2d');
+  const glow = { edges: glowEdges, dimensions: [glowTexture.image.width, glowTexture.image.height],
+    coreAlpha: glowPixels.getImageData(Math.floor(glowTexture.image.width / 2), Math.floor(glowTexture.image.height / 2), 1, 1).data[3] };
+  glowTexture.dispose();
+  return { edge, bloom, cinema, lyrics, scope, glow };
 }
 
 app.whenReady().then(async () => {
@@ -167,6 +183,14 @@ app.whenReady().then(async () => {
   assert(result.lyrics.hiddenDuringPreview && result.lyrics.restoredAfterPreview);
   assert.equal(result.scope.edgeDisabled, 'true'); assert.equal(result.scope.bloomDisabled, 'true');
   assert(result.scope.savedPreferenceRetained && result.scope.restored && result.scope.bloomSliderDisabled && result.scope.sliderRestored);
+  for (const sample of result.glow.edges) {
+    assert.equal(sample.corner, 0, 'glow texture corners must be transparent');
+    assert.equal(sample.center, 255, 'edge fade must preserve the glyph core');
+    assert.equal(sample.ink, 255, 'rounded-cap joins must not introduce dark seams');
+    assert(sample.edge <= 2, 'glow must approach transparency smoothly at its boundary');
+  }
+  assert.deepEqual(result.glow.dimensions, [500, 328], 'avoid growing every resident row texture');
+  assert(result.glow.coreAlpha > 250, 'single-character glow still draws its bright centre');
 }).then(() => finish(0)).catch(error => { console.error(error.stack); finish(1); });
 
 function finish(code) {

@@ -182,3 +182,23 @@ test('recording temporarily unregisters system shortcuts and completion restores
   await h.context.registerGlobalHotkeys();
   assert.equal(registrations[1].length, 8);
 });
+
+test('clearing the Tab action also stops native focus traversal on the page and controls', () => {
+  const h = harness(); h.context.hotkeySettings.local.focusSearch = '';
+  for (const element of [target('BODY'), target('BUTTON', true), target('INPUT')]) {
+    for (const shiftKey of [false, true]) {
+      const e = h.dispatch(element, 'Tab', { shiftKey });
+      assert.equal(e.defaultPrevented, true); assert.equal(e.immediateStopped, true);
+    }
+  }
+  assert.equal(h.dispatch(target('INPUT'), 'Tab', { ctrlKey: true }).defaultPrevented, false);
+  h.context.hotkeyCaptureState = { action: 'focusSearch', scope: 'local' };
+  assert.equal(h.context.preventDisabledTabFocus({ code: 'Tab' }), false, 'recording Tab remains possible');
+});
+
+test('Tab can still be reassigned to another action without restoring native focus traversal', () => {
+  const h = harness(); h.context.hotkeySettings.local.focusSearch = '';
+  h.context.hotkeySettings.local.togglePlay = 'Tab';
+  const e = h.dispatch(target('BODY'), 'Tab');
+  assert.equal(e.defaultPrevented, true); assert.deepEqual(h.calls, ['togglePlay']);
+});
