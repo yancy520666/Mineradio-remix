@@ -2310,8 +2310,9 @@ function checkSearchGlassEntranceGuard() {
   const peekText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '02-peek-panels-upload.js'), 'utf8');
   const searchPillDirectSvg = /html\.control-glass-svg-ok\s+\.search-mode-tabs button,[ \t]*\r?\nhtml\.control-glass-svg-ok\s+\.search-history-chip\s*\{[\s\S]{0,260}backdrop-filter:\s*url\(#mineradio-search-pill-glass-filter\)\s+saturate\(1\)\s*!important[\s\S]{0,220}-webkit-backdrop-filter:\s*url\(#mineradio-search-pill-glass-filter\)\s+saturate\(1\)\s*!important/.test(cssText);
   const searchAreaKeepsGlassComposited =
-    /#search-area\s*\{[\s\S]{0,120}top:\s*-76px[\s\S]{0,220}transition:\s*top\s+\.45s[\s\S]{0,120}opacity\s+\.35s/.test(cssText) &&
-    /#search-area\.peek\s*\{[\s\S]{0,80}top:\s*24px[\s\S]{0,80}opacity:\s*1[\s\S]{0,80}pointer-events:\s*auto/.test(cssText) &&
+    /#search-area\s*\{[\s\S]{0,80}--search-peek-top:\s*24px/.test(cssText) &&
+    /#search-area\s*\{[\s\S]{0,160}top:\s*-76px[\s\S]{0,220}transition:\s*top\s+\.45s[\s\S]{0,120}opacity\s+\.35s/.test(cssText) &&
+    /#search-area\.peek\s*\{[\s\S]{0,80}top:\s*var\(--search-peek-top\)[\s\S]{0,80}opacity:\s*1[\s\S]{0,80}pointer-events:\s*auto/.test(cssText) &&
     !/Search entrance mirrors the bottom player reveal|#search-box\s*>\s*\*/.test(cssText);
   const searchBoxUsesSavedRgbGlassSurface =
     /#search-box\s*\{[\s\S]{0,90}overflow:\s*visible[\s\S]{0,60}isolation:\s*isolate/.test(cssText) &&

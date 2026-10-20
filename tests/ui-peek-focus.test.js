@@ -13,6 +13,31 @@ function fixture() {
   loadFunctions(context,'public/js/modules/10-shell/02-peek-panels-upload.js',['shouldPreservePeekFocus','setPeek']);
   return {context,panel,control,classes,handlers,flush:()=>timers.splice(0).forEach(fn=>fn())};
 }
+
+test('search trigger follows the final bar position through hiding, animation and UI scaling', () => {
+  for (const [top, scale] of [[34, 1], [32, 1], [24, 1], [58, 1], [34, 1.25]]) {
+    const area = { offsetWidth: 620, getBoundingClientRect: () => ({ left: 170, right: 170 + 620 * scale, width: 620 * scale, top: -92 }) };
+    const ctx = vm.createContext({ document: { getElementById: () => ({ getBoundingClientRect: () => ({ height: 58 * scale }) }) },
+      getComputedStyle: () => ({ getPropertyValue: () => top + 'px' }) });
+    loadFunctions(ctx, 'public/js/modules/10-shell/02-peek-panels-upload.js', ['searchPeekTargetRect']);
+    const result = ctx.searchPeekTargetRect(area);
+    assert.equal(result.top, top * scale);
+    assert.equal(result.bottom, (top + 58) * scale);
+    assert.equal(result.left, 170);
+    area.getBoundingClientRect = () => ({ left: 170, right: 170 + 620 * scale, width: 620 * scale, top: 5 });
+    assert.equal(ctx.searchPeekTargetRect(area).top, top * scale, 'animation must not move the activation area');
+  }
+});
+
+test('window controls, fullscreen DIY and account controls cannot own the search hover trigger', () => {
+  const ctx = vm.createContext({});
+  loadFunctions(ctx, 'public/js/modules/10-shell/02-peek-panels-upload.js', ['isSearchPeekChromeTarget']);
+  for (const owner of ['.desktop-window-controls', '#fullscreen-diy-zone', '#top-right']) {
+    assert.equal(ctx.isSearchPeekChromeTarget({ closest: selectors => selectors.split(', ').includes(owner) ? {} : null }), true);
+  }
+  assert.equal(ctx.isSearchPeekChromeTarget({ closest: () => null }), false);
+  assert.equal(ctx.isSearchPeekChromeTarget(null), false);
+});
 test('pointer-auto-hide does not remove a panel when focus enters before its timer fires',()=>{
   const f=fixture();f.context.setPeek(f.panel,false,'search',true);f.context.document.activeElement=f.control;f.flush();assert(f.classes.has('peek'));
 });

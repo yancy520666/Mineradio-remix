@@ -423,6 +423,21 @@ window.addEventListener('blur', function () {
   if (playlistPanelPinned) return;
   setTimeout(function () { closePlaylistPanelSoft('window-blur'); }, 60);
 });
+function searchPeekTargetRect(area) {
+  var rect = area.getBoundingClientRect();
+  var box = document.getElementById('search-box');
+  var top = parseFloat(getComputedStyle(area).getPropertyValue('--search-peek-top'));
+  if (!isFinite(top)) top = 24;
+  // The hidden bar is above the viewport. Use its final CSS position instead
+  // of its moving rect, so entering the lower half does not miss the trigger.
+  var scale = area.offsetWidth > 0 ? rect.width / area.offsetWidth : 1;
+  top *= scale;
+  return { left: rect.left, right: rect.right, top: top,
+    bottom: top + (box ? box.getBoundingClientRect().height : 58 * scale) };
+}
+function isSearchPeekChromeTarget(target) {
+  return !!(target && target.closest && target.closest('.desktop-window-controls, #fullscreen-diy-zone, #top-right'));
+}
 window.addEventListener('mousemove', function (e) {
   var sa = document.getElementById('search-area');
   var fp = document.getElementById('fx-panel');
@@ -463,15 +478,18 @@ window.addEventListener('mousemove', function (e) {
   }
   updateShelfHoverCueFromPointer(e);
   updateShelfCardHoverSelection(e);
-  // 搜索 (上): 顶部 48px 内进入; 已显示时鼠标在 280px 内保留
+  // 搜索: 只在展开后的搜索框范围内触发，避开窗口按钮和 DIY 开关。
   var saOn = sa.classList.contains('peek');
   var saRect = sa.getBoundingClientRect();
+  var searchTarget = searchPeekTargetRect(sa);
+  var overSearchChrome = isSearchPeekChromeTarget(e.target);
+  var inSearchTrigger = !overSearchChrome && ex >= searchTarget.left && ex <= searchTarget.right && ey >= searchTarget.top && ey <= searchTarget.bottom;
   var searchFocused = sa.contains(document.activeElement);
   var uploadTip = document.getElementById('upload-tip');
   var uploadTipOpen = !!(uploadTip && uploadTip.classList.contains('show'));
   var uploadImportOpen = typeof isUploadImportActive === 'function' && isUploadImportActive();
-  var inSearchPanel = saOn && ex >= saRect.left - 24 && ex <= saRect.right + 24 && ey >= saRect.top - 22 && ey <= saRect.bottom + 42;
-  if (ey < 66 || inSearchPanel || searchFocused || uploadTipOpen || uploadImportOpen) setPeek(sa, true, 'search');
+  var inSearchPanel = !overSearchChrome && saOn && ex >= saRect.left - 24 && ex <= saRect.right + 24 && ey >= saRect.top - 22 && ey <= saRect.bottom + 42;
+  if (inSearchTrigger || inSearchPanel || searchFocused || uploadTipOpen || uploadImportOpen) setPeek(sa, true, 'search');
   else if ((saOn || isSearchPeekRevealPending()) && !emptyHomeActive) setPeek(sa, false, 'search', true);
   // 控制台: 右下角触发；一旦面板出现，就按真实面板矩形保留显示
   var fpOn = fp.classList.contains('peek') || fp.classList.contains('show');

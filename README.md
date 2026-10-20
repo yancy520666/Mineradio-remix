@@ -22,6 +22,8 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 搜索框右侧新增一键清空按钮，清空后可直接继续输入。
 
+搜索栏悬停热区与展开位置对齐，避免移到窗口按钮或 DIY 开关时误展开。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)

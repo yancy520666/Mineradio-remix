@@ -714,15 +714,16 @@ body.desktop-shell #desktop-titlebar #update-entry:hover {
 }
 
 body.desktop-shell #search-area {
+  --search-peek-top: 34px;
   top: -92px
 }
 
 body.desktop-shell #search-area.peek {
-  top: 34px
+  top: var(--search-peek-top)
 }
 
-body.desktop-shell #search-area.stage-mode.peek {
-  top: 32px
+body.desktop-shell #search-area.stage-mode {
+  --search-peek-top: 32px
 }
 
 body.desktop-shell #top-right {
@@ -804,8 +805,8 @@ body.fullscreen-diy-peek #fullscreen-diy-btn,
   transform: translateY(0) scale(1)
 }
 
-body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #search-area.peek {
-  top: 24px
+body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #search-area {
+  --search-peek-top: 24px
 }
 
 body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #top-right {
@@ -818,8 +819,8 @@ body.desktop-shell:is(.desktop-fullscreen, .desktop-wallpaper-interactive) #top-
     top: 58px
   }
 
-  body.desktop-shell #search-area.peek {
-    top: 58px
+  body.desktop-shell #search-area {
+    --search-peek-top: 58px
   }
 }
 
@@ -1795,6 +1796,7 @@ body.startup-fast-skip-revealing #bottom-bar {
 /* ---------- 顶部搜索 (半隐藏) ---------- */
 #search-area {
   --search-offset: 0px;
+  --search-peek-top: 24px;
   position: fixed;
   z-index: 10;
   top: -76px;
@@ -1814,7 +1816,7 @@ body.startup-fast-skip-revealing #bottom-bar {
 }
 
 #search-area.peek {
-  top: 24px;
+  top: var(--search-peek-top);
   opacity: 1;
   pointer-events: auto
 }
@@ -1823,8 +1825,8 @@ body.startup-fast-skip-revealing #bottom-bar {
   width: min(360px, 52vw)
 }
 
-#search-area.stage-mode.peek {
-  top: 18px
+#search-area.stage-mode {
+  --search-peek-top: 18px
 }
 
 #search-stack {
@@ -2244,6 +2246,7 @@ body.simple-mode #fx-panel {
 html.simple-mode-preload #search-area,
 body.simple-mode #search-area {
   --search-offset: 0;
+  --search-peek-top: 24px;
   left: 50%;
   width: min(620px, calc(100vw - 56px));
   transform: translateX(-50%);
@@ -2251,11 +2254,11 @@ body.simple-mode #search-area {
 }
 
 body.simple-mode #search-area.peek {
-  top: 24px
+  top: var(--search-peek-top)
 }
 
-body.desktop-shell.simple-mode #search-area.peek {
-  top: 34px
+body.desktop-shell.simple-mode #search-area {
+  --search-peek-top: 34px
 }
 
 html.simple-mode-preload #search-stack,
@@ -2310,12 +2313,12 @@ body.simple-mode .mini-queue-popover {
     width: calc(100vw - 28px)
   }
 
-  body.desktop-shell.simple-mode #search-area.peek {
-    top: 58px
+  body.desktop-shell.simple-mode #search-area {
+    --search-peek-top: 58px
   }
 
   body.simple-mode #search-area.peek {
-    top: 24px
+    top: var(--search-peek-top)
   }
 }
 
