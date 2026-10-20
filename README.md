@@ -20,6 +20,8 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 修复歌曲评论分类混排，补齐网易云默认推荐，并分别适配各平台的热门、最新和置顶评论。
 
+搜索框右侧新增一键清空按钮，清空后可直接继续输入。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)

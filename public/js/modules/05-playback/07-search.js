@@ -44,10 +44,27 @@ var searchMusicRenderState = {
 var $input = document.getElementById('search-input');
 var $results = document.getElementById('search-results');
 var $loading = document.getElementById('loading-overlay');
+function syncSearchClearButton() {
+  var button = document.getElementById('search-clear-btn');
+  if (button) button.hidden = !$input || !$input.value.length;
+}
+function clearSearchInput() {
+  if (!$input) return;
+  // Finish an active IME session before clearing its committed text.
+  if (searchInputComposing) $input.blur();
+  searchInputComposing = false;
+  $input.value = '';
+  clearSearchResults();
+  var alreadyFocused = document.activeElement === $input;
+  syncSearchClearButton();
+  $input.focus({ preventScroll: true });
+  if (alreadyFocused && !renderSearchHistory() && searchMode === 'podcast') loadPodcastHot();
+}
 function setSearchHistorySurface(on) {
   if ($results) $results.classList.toggle('search-history-surface', !!on);
 }
 function syncSearchAreaResultState() {
+  syncSearchClearButton();
   var searchArea = document.getElementById('search-area');
   if (!searchArea || !$results) return;
   var hasVisibleResults = $results.classList.contains('show') && $results.children.length > 0;
@@ -460,6 +477,16 @@ if (searchBoxEl) {
   searchBoxEl.addEventListener('click', function () {
     if ($input) $input.focus();
   });
+}
+var searchClearButton = document.getElementById('search-clear-btn');
+if (searchClearButton) {
+  searchClearButton.addEventListener('pointerdown', function (e) {
+    if (e.button === 0) e.preventDefault();
+  });
+  searchClearButton.addEventListener('click', clearSearchInput);
+  $input.addEventListener('input', syncSearchClearButton);
+  $input.addEventListener('focus', syncSearchClearButton);
+  syncSearchClearButton();
 }
 $input.addEventListener('keydown', function (e) {
   if (searchInputComposing || e.isComposing || e.keyCode === 229) return;
