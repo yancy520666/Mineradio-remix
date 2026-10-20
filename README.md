@@ -18,6 +18,8 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 修复点击 Home 返回首页后，入口卡片偶尔无法点击的问题。
 
+修复歌曲评论分类混排，补齐网易云默认推荐，并分别适配各平台的热门、最新和置顶评论。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)

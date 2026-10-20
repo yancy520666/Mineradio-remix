@@ -49,19 +49,11 @@ async function handleKugouComments(id, cookie, limit = 30, offset = 0, sort = 'l
     commentResources.set(String(id), resource);
   }
   params.childrenid = resource.childrenid;
-  // sort "hot" pages the most-liked list itself instead of newest plus a hot preview.
   const byHot = sort === 'hot';
-  const [json, hotJson] = await Promise.all([
-    kugouGatewayRequest(byHot ? '/mcomment/r/v1/rank/topliked' : '/mcomment/r/v1/rank/newest', { cookie, method: 'POST', params }),
-    !offset && !byHot ? kugouGatewayRequest('/mcomment/r/v1/rank/topliked', {
-      cookie, method: 'POST', params: { ...params, p: 1, pagesize: 10 },
-    }) : Promise.resolve(null),
-  ]);
+  const json = await kugouGatewayRequest(byHot ? '/mcomment/r/v1/rank/topliked' : '/mcomment/r/v1/rank/newest', { cookie, method: 'POST', params });
   const data = commentResponse(json);
-  const hotData = hotJson && commentResponse(hotJson);
-  if (!Array.isArray(data.list) || (hotData && !Array.isArray(hotData.list))) throw new Error('KUGOU_COMMENTS_INVALID_RESPONSE');
+  if (!Array.isArray(data.list)) throw new Error('KUGOU_COMMENTS_INVALID_RESPONSE');
   const normal = data.list;
-  const hot = hotData ? hotData.list : [];
   const total = Number(data.count || data.total || 0) || 0;
   const nextOffset = offset + limit;
   const more = data.has_more == null ? data.hasMore : data.has_more;
@@ -69,7 +61,7 @@ async function handleKugouComments(id, cookie, limit = 30, offset = 0, sort = 'l
     ? (total > 0 ? nextOffset < total : normal.length >= limit)
     : more === true || more === 1 || more === '1');
   return { provider: 'kugou', id: String(id), total, nextOffset, hasMore,
-    comments: hot.map(c => mapKugouComment(c, true)).concat(normal.map(c => mapKugouComment(c, false)))
+    comments: normal.map(c => mapKugouComment(c, byHot))
       .filter(c => c.content) };
 }
 

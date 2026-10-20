@@ -7139,7 +7139,9 @@ const server = http.createServer(async (req, res) => {
       const cursor = url.searchParams.get('cursor') || '';
       if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
       if (cursor.length > 256) { sendJSON(res, { error: 'Invalid comment cursor', comments: [] }, 400); return; }
-      sendJSON(res, await handleNeteaseCommentPage(id, userCookie, limit, cursor, url.searchParams.get('sort') === 'hot' ? 'hot' : 'latest'));
+      const sort = url.searchParams.get('sort');
+      sendJSON(res, await handleNeteaseCommentPage(id, userCookie, limit, cursor,
+        sort === 'hot' || sort === 'latest' ? sort : 'recommend'));
     } catch (err) {
       console.error('[SongComments]', err);
       sendJSON(res, { error: err.message, comments: [] }, 500);

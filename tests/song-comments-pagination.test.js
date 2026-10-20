@@ -31,7 +31,7 @@ function renderer() {
   loadFunctions(ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js',
     ['detailCommentsConfig', 'renderDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'closeTrackDetailModal',
       'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'neteaseEmojiId', 'commentContentHtml', 'bindDetailCommentLikes',
-      'detailCommentsSortable', 'cancelDetailCommentReads', 'detailCommentReadStore', 'invalidateDetailCommentReadCache', 'readDetailComments']);
+      'detailCommentsSortable', 'detailCommentSortOptions', 'resolveDetailCommentSort', 'cancelDetailCommentReads', 'detailCommentReadStore', 'invalidateDetailCommentReadCache', 'readDetailComments']);
   return { ctx, requests, list, button, label, hotList, normalList, hotSection, normalSection, empty };
 }
 
@@ -42,7 +42,7 @@ test('comment pages retain the first normal page, deduplicate, retry and ignore 
     const initial = ctx.loadDetailComments({ id: 'song-a', mixSongId: '123', provider }, 1);
     await ctx.loadMoreDetailComments();
     assert.equal(requests.length, 1, 'duplicate clicks cannot request another page');
-    assert.match(requests[0].url, byOffset ? /limit=30&offset=0$/ : /limit=30&cursor=$/);
+    assert.match(requests[0].url, byOffset ? /limit=30&offset=0&sort=latest$/ : /limit=30&cursor=&sort=latest$/);
     requests[0].resolve({ comments: [{ ...comment(500), isHot: true }, ...batch(0), comment(500)], hasMore: true, nextOffset: 30, nextCursor: 'c1' });
     await initial;
     assert.equal(ctx.detailCommentsState.count, 31);
@@ -86,7 +86,7 @@ test('cursor platforms advance encoded cursors and stop when the server repeats 
   requests[0].resolve({ comments: batch(0), nextCursor: 'next/+?', hasMore: true });
   await first;
   const next = ctx.loadMoreDetailComments();
-  assert.match(requests[1].url, /cursor=next%2F%2B%3F$/);
+  assert.match(requests[1].url, /cursor=next%2F%2B%3F(?:&sort=latest)?$/);
   requests[1].resolve({ comments: [comment(30)], nextCursor: 'next/+?', hasMore: true });
   await next;
   assert.equal(ctx.detailCommentsState.count, 31);
@@ -124,7 +124,7 @@ function listBackend(extra) {
 }
 const neteaseRaw = id => ({ commentId: id, content: 'Comment ' + id, likedCount: 5, replyCount: 3 });
 
-test('Netease lists hot comments once, then pages newest comments by cursor with reply counts', async () => {
+test('Netease newest requests only time order with reply counts and service cursors', async () => {
   const calls = [];
   const ctx = listBackend({
     mapNeteaseComment: c => ({ id: String(c.commentId), content: c.content, replyCount: c.replyCount, likedCount: c.likedCount }),
@@ -135,19 +135,19 @@ test('Netease lists hot comments once, then pages newest comments by cursor with
         hasMore: true, cursor: hot ? 'normalHot#1' : String(1000 - options.pageNo), totalCount: 99 } } };
     },
   });
-  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '');
-  assert.deepEqual(calls.map(c => [c.sortType, c.pageNo]), [[2, 1], [3, 1]]);
-  assert.deepEqual(JSON.parse(JSON.stringify(first.comments.map(c => [c.id, c.isHot, c.replyCount]))), [['h', true, 3], ['n1', false, 3]]);
+  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '', 'latest');
+  assert.deepEqual(calls.map(c => [c.sortType, c.pageNo]), [[3, 1]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(first.comments.map(c => [c.id, c.isHot, c.replyCount]))), [['n1', false, 3]]);
   assert.equal(first.nextCursor, JSON.stringify({ p: 2, c: '999' }));
-  const next = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor);
-  assert.deepEqual(calls.slice(2).map(c => [c.sortType, c.pageNo, c.cursor]), [[3, 2, '999']]);
+  const next = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor, 'latest');
+  assert.deepEqual(calls.slice(1).map(c => [c.sortType, c.pageNo, c.cursor]), [[3, 2, '999']]);
   assert(next.comments.every(c => c.isHot === false));
   for (const bad of ['{"p":2,"c":"9;1"}', 'nope', '{"p":0,"c":"1"}']) {
     await assert.rejects(ctx.handleNeteaseCommentPage('186016', '', 30, bad), /Invalid comment cursor/);
   }
 });
 
-test('QQ lists hot and newest comments with reply counts, badges and a sequence cursor', async () => {
+test('QQ newest never requests a hot preview and retains replies, badges and cursors', async () => {
   const payloads = [];
   const raw = (id, seq) => ({ CmId: id, Content: 'Comment ' + id, PraiseNum: 7, IsPraised: 1, ReplyCnt: 165, PubTime: 10, SeqNo: seq,
     VipIcon: 'http://y.qq.com/mediastyle/lv-icon/v10/vip/1x/svip8.png', Nick: 'L', EncryptUin: 'u' });
@@ -160,9 +160,11 @@ test('QQ lists hot and newest comments with reply counts, badges and a sequence 
     return result;
   };
   const first = await ctx.handleQQCommentPage('97773', 30, '', request);
+  assert.equal(payloads[0].hot, undefined);
+  assert.equal(payloads[0].latest.param.WithHot, 0);
   assert.equal(payloads[0].latest.param.PageSize, 25, 'the service rejects pages above 25');
   assert.deepEqual(JSON.parse(JSON.stringify(first.comments.map(c => [c.id, c.isHot, c.replyCount, c.liked]))),
-    [['h', true, 165, true], ['n0', false, 165, true]]);
+    [['n0', false, 165, true]]);
   assert.match(first.comments[0].vip.icon, /^https:/);
   const next = await ctx.handleQQCommentPage('97773', 30, first.nextCursor, request);
   assert.equal(payloads[1].hot, undefined);
@@ -184,25 +186,94 @@ test('QQ supports a saved MID and reports upstream failures instead of showing n
   assert.equal(ctx.detailCommentsConfig({ provider: 'kugou', id: 'only-hash' }), null);
 });
 
-test('hot comments have their own section and later pages append only to more comments', async () => {
+test('Netease recommendation uses the installed offset builder, even when response time cursors repeat', async () => {
+  const provider = require('NeteaseCloudMusicApi/module/comment_new');
+  const calls = [];
+  const ctx = listBackend({ mapNeteaseComment: c => ({ id: c.commentId, content: c.content }),
+    comment_new: options => provider({ ...options }, async (_route, data) => {
+      calls.push({ ...data });
+      return { body: { code: 200, data: { comments: [neteaseRaw(data.pageNo)], cursor: '123', hasMore: true } } };
+    }) });
+  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '');
+  const next = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor, 'recommend');
+  assert.deepEqual(calls.map(c => [c.sortType, c.pageNo, c.cursor]), [[99, 1, 0], [99, 2, 30]]);
+  assert.equal(next.hasMore, true);
+  assert.equal(next.nextCursor, '{"p":3,"c":"60"}');
+});
+
+test('QQ separates pinned and editorial boosts from popular comments without changing the raw page cursor', async () => {
+  const ctx = listBackend({ safeVipIcon: () => '' });
+  const payloads = [];
+  const request = async payload => {
+    payloads.push(payload);
+    return { latest: { code: 0, data: { CommentList: { HasMore: 1, Comments: [
+      { CmId: 'pin', Content: 'Pinned', PraiseNum: 84, State: 4, HotScore: '1099511627860', SeqNo: '10' },
+      { CmId: 'editor', Content: 'Featured', PraiseNum: 22322, State: 3, HotScore: '68719499058', SeqNo: '20' },
+      { CmId: 'popular', Content: 'Popular', PraiseNum: 264299, State: 3, HotScore: '264299', SeqNo: '30' },
+    ] } } } };
+  };
+  const first = await ctx.handleQQCommentPage('97773', 25, '', request, 'hot');
+  assert.equal(payloads[0].latest.method, 'GetHotCommentList');
+  assert.deepEqual(Array.from(first.comments, c => c.isFeatured), [true, true, false]);
+  assert.equal(first.nextCursor, '{"p":1,"c":"30"}');
+  const next = await ctx.handleQQCommentPage('97773', 25, first.nextCursor, request, 'hot');
+  assert.equal(payloads[1].latest.param.LastCommentSeqNo, '30');
+  assert.equal(next.hasMore, false, 'a repeated raw cursor must stop pagination');
+  const f = renderer(); f.ctx.detailCommentSort = 'hot';
+  const load = f.ctx.loadDetailComments({ id: '97773', provider: 'qq' }, 1);
+  f.requests[0].resolve(first); await load;
+  assert.match(f.hotSection.heading.textContent, /置顶与精选/);
+  assert.match(f.hotList.innerHTML, /Pinned/);
+  assert.match(f.hotList.innerHTML, /Featured/);
+  assert.doesNotMatch(f.normalList.innerHTML, /Pinned|Featured/);
+  assert.match(f.normalList.innerHTML, /Popular/);
+  assert.equal(f.ctx.detailCommentsState.cursor, first.nextCursor);
+});
+
+test('provider defaults and switches expose only supported categories with independent recommendation pages', async () => {
+  const f = renderer();
+  loadFunctions(f.ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js', ['renderDetailCommentSort', 'setDetailCommentSort']);
+  f.ctx.document.querySelectorAll = () => [];
+  assert.equal(f.ctx.resolveDetailCommentSort({ provider: 'netease' }, ''), 'recommend');
+  assert.equal(f.ctx.resolveDetailCommentSort({ provider: 'qq' }, 'recommend'), 'hot');
+  assert.equal(f.ctx.resolveDetailCommentSort({ provider: 'kugou' }, ''), 'hot');
+  assert.equal(f.ctx.renderDetailCommentSort({ provider: 'qishui' }), '');
+  for (const provider of ['qq', 'kugou']) assert.doesNotMatch(f.ctx.renderDetailCommentSort({ provider }), /data-comment-sort="recommend"/);
+  const song = { id: '186016', provider: 'netease' };
+  f.ctx.detailCommentSong = song; f.ctx.detailCommentSort = '';
+  assert.match(f.ctx.renderDetailCommentSort({ provider: 'netease' }), /data-comment-sort="recommend" aria-pressed="true"/);
+  const recommended = f.ctx.loadDetailComments(song, 1);
+  assert.match(f.requests[0].url, /sort=recommend$/);
+  f.requests[0].resolve({ comments: [comment('recommended')], nextCursor: '30', hasMore: true }); await recommended;
+  assert.equal(f.normalSection.heading.textContent, '推荐评论 · 1');
+  const next = f.ctx.loadMoreDetailComments();
+  assert.match(f.requests[1].url, /cursor=30&sort=recommend$/);
+  const latest = f.ctx.setDetailCommentSort('latest');
+  assert.equal(f.requests[1].opts.signal.aborted, true);
+  assert.match(f.requests[2].url, /cursor=&sort=latest$/);
+  f.requests[1].resolve({ comments: [comment('stale-recommend')], hasMore: false });
+  f.requests[2].resolve({ comments: [comment('newest')], hasMore: false });
+  await Promise.all([next, latest]);
+  assert.equal(f.normalSection.heading.textContent, '最新评论 · 1');
+  assert.doesNotMatch(f.list.innerHTML, /recommended|stale-recommend/);
+});
+
+test('newest renders one time list even when entries carry legacy hot markers', async () => {
   const { ctx, requests, hotList, normalList, hotSection, normalSection } = renderer();
   const first = ctx.loadDetailComments({ id: 'song', provider: 'netease' }, 1);
   requests[0].resolve({ comments: [{ ...comment('hot'), isHot: true }, comment('hot'), comment('normal')],
     hasMore: true, nextCursor: 'c1' });
   await first;
-  assert.equal(hotSection.hidden, false);
+  assert.equal(hotSection.hidden, true);
   assert.equal(normalSection.hidden, false);
-  assert.equal(hotSection.heading.textContent, '热门评论 · 1');
-  assert.equal(normalSection.heading.textContent, '更多评论 · 1');
-  assert.match(hotList.innerHTML, /Comment hot</);
-  assert.doesNotMatch(normalList.innerHTML, /Comment hot</);
-  const savedHot = hotList.innerHTML;
+  assert.equal(normalSection.heading.textContent, '最新评论 · 2');
+  assert.equal(hotList.innerHTML, '');
+  assert.match(normalList.innerHTML, /Comment hot</);
   const next = ctx.loadMoreDetailComments();
   requests[1].resolve({ comments: [comment('later')], hasMore: false, nextCursor: '' });
   await next;
-  assert.equal(hotList.innerHTML, savedHot);
   assert.match(normalList.innerHTML, /Comment later</);
-  assert.equal(normalSection.heading.textContent, '更多评论 · 2');
+  assert.equal(normalSection.heading.textContent, '最新评论 · 3');
 });
 
 test('Qishui respects explicit end flags and stops empty or non-advancing pages', () => {
@@ -223,7 +294,8 @@ test('Netease HTTP route forwards the cursor and rejects oversized ones', async 
   const source = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
   const start = source.indexOf("  if (pn === '/api/song/comments') {");
   const end = source.indexOf("  if (pn === '/api/song/comments/like')", start);
-  for (const [cursor, expectCall, sort] of [['{"p":2,"c":"999"}', true, ''], ['{"p":2,"c":"normalHot#30"}', true, 'hot'], ['x'.repeat(300), false, '']]) {
+  for (const [cursor, expectCall, sort] of [['{"p":2,"c":"999"}', true, 'latest'], ['{"p":2,"c":"normalHot#30"}', true, 'hot'],
+    ['', true, ''], ['{"p":2,"c":"30"}', true, 'recommend'], ['x'.repeat(300), false, '']]) {
     const calls = [], responses = [];
     const ctx = vm.createContext({
       pn: '/api/song/comments', req: { method: 'GET' }, res: {}, userCookie: 'c', console,
@@ -233,7 +305,7 @@ test('Netease HTTP route forwards the cursor and rejects oversized ones', async 
     });
     await vm.runInContext('(async () => {' + source.slice(start, end) + '})()', ctx);
     assert.equal(calls.length, expectCall ? 1 : 0);
-    if (expectCall) assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['song', 'c', 30, cursor, sort || 'latest']);
+    if (expectCall) assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['song', 'c', 30, cursor, sort || 'recommend']);
     else assert.equal(responses[0].status, 400);
   }
 });
@@ -247,7 +319,7 @@ test('the 最新 / 热门 switch reloads by popularity as one section and drops 
   const song = { id: '186016', provider: 'netease' };
   ctx.detailCommentSong = song;
   const latest = ctx.loadDetailComments(song, 1);
-  assert.doesNotMatch(requests[0].url, /sort=/, 'newest is the default order');
+  assert.match(requests[0].url, /sort=latest$/, 'the selected order is explicit');
   const hot = ctx.setDetailCommentSort('hot');
   assert.match(requests[1].url, /cursor=&sort=hot$/);
   requests[0].resolve({ comments: [{ ...comment('old-hot'), isHot: true }, comment('old')], hasMore: true, nextCursor: 'old' });
@@ -256,7 +328,7 @@ test('the 最新 / 热门 switch reloads by popularity as one section and drops 
   assert.match(normalList.innerHTML, /Comment popular</);
   assert.doesNotMatch(normalList.innerHTML, /Comment old</, 'responses for the previous order are discarded');
   assert.equal(hotSection.hidden, true);
-  assert.equal(normalSection.heading.textContent, '热门评论 · 1');
+  assert.equal(normalSection.heading.textContent, '最热评论 · 1');
   assert.equal(buttons[1].classList.active, true);
   assert.equal(buttons[1]['aria-pressed'], 'true');
   const next = ctx.loadMoreDetailComments();
@@ -432,12 +504,12 @@ test('Netease time pagination traverses fewer than, exactly and more than 5,000 
     const ids = [];
     let cursor = '', page = 0;
     do {
-      const result = await ctx.handleNeteaseCommentPage('186016', '', 25, cursor);
+      const result = await ctx.handleNeteaseCommentPage('186016', '', 25, cursor, 'latest');
       page++;
       const normal = result.comments.filter(raw => !raw.isHot);
       ids.push(...normal.map(raw => raw.id));
       assert.equal(result.total, total);
-      assert.equal(result.comments.filter(raw => raw.isHot).length, page === 1 ? 2 : 0);
+      assert.equal(result.comments.filter(raw => raw.isHot).length, 0);
       assert(normal.every(raw => raw.replyCount === 3));
       if (result.hasMore) {
         const next = JSON.parse(result.nextCursor);
@@ -450,14 +522,14 @@ test('Netease time pagination traverses fewer than, exactly and more than 5,000 
     } while (cursor);
     assert.deepEqual(ids, newest.map(raw => String(raw.commentId)), 'newest order and every comment survive the boundary');
     assert.equal(page, Math.ceil(total / 25));
-    assert.equal(calls.filter(call => call.sortType === 2).length, 1);
+    assert.equal(calls.filter(call => call.sortType === 2).length, 0);
     const latest = calls.filter(call => call.sortType === 3);
     assert.equal(latest[199].cursor, String(newest[4974].time), 'the page ending at 5,000 is time-based');
     if (total > 5000) assert.equal(latest[200].cursor, String(newest[4999].time), 'the first page beyond 5,000 keeps the same time protocol');
   }
 });
 
-test('the renderer forwards deep newest cursors, keeps hot comments separate and deduplicates repeated IDs', async () => {
+test('the renderer forwards deep newest cursors without hot previews and deduplicates repeated IDs', async () => {
   const backend = deepNeteaseBackend(5040);
   const f = renderer();
   loadFunctions(f.ctx, 'public/js/modules/05-playback/06-track-detail-lyrics-actions.js', ['commentTimeLabel']);
@@ -467,7 +539,7 @@ test('the renderer forwards deep newest cursors, keeps hot comments separate and
     assert.equal(parsed.searchParams.has('offset'), false);
     assert.equal(parsed.searchParams.has('before'), false);
     const cursor = parsed.searchParams.get('cursor');
-    const result = await backend.ctx.handleNeteaseCommentPage(parsed.searchParams.get('id'), '', Number(parsed.searchParams.get('limit')), cursor);
+    const result = await backend.ctx.handleNeteaseCommentPage(parsed.searchParams.get('id'), '', Number(parsed.searchParams.get('limit')), cursor, parsed.searchParams.get('sort'));
     // A live list can repeat an already seen item, even after the 5,000 boundary.
     if (cursor && JSON.parse(cursor).p === 168) result.comments.unshift({ ...comment('4980'), time: 1800000000000 - 4980 });
     return result;
@@ -475,9 +547,9 @@ test('the renderer forwards deep newest cursors, keeps hot comments separate and
   await f.ctx.loadDetailComments({ id: '186016', provider: 'netease' }, 1);
   const savedHot = f.hotList.innerHTML;
   while (f.ctx.detailCommentsState.hasMore) await f.ctx.loadMoreDetailComments();
-  assert.equal(f.ctx.detailCommentsState.count, 5041);
-  assert.equal(f.ctx.detailCommentsState.hotCount, 2);
-  assert.equal(f.ctx.detailCommentsState.normalCount, 5039);
+  assert.equal(f.ctx.detailCommentsState.count, 5040);
+  assert.equal(f.ctx.detailCommentsState.hotCount, 0);
+  assert.equal(f.ctx.detailCommentsState.normalCount, 5040);
   assert.equal(f.hotList.innerHTML, savedHot);
   assert.equal(f.normalList.innerHTML.match(/Comment 4980</g).length, 1);
   assert(f.normalList.innerHTML.indexOf('Comment 4999<') < f.normalList.innerHTML.indexOf('Comment 5000<'));
@@ -500,12 +572,12 @@ test('Netease newest cursors follow the service, independently of duplicate time
       ], cursor: '1700000000399', hasMore: true } } };
     },
   });
-  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '');
-  assert.deepEqual(Array.from(first.comments, raw => raw.id), ['hot', 'a', 'b']);
+  const first = await ctx.handleNeteaseCommentPage('186016', '', 30, '', 'latest');
+  assert.deepEqual(Array.from(first.comments, raw => raw.id), ['a', 'b']);
   assert.equal(JSON.parse(first.nextCursor).c, '1700000000399');
-  const repeated = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor);
-  assert.equal(calls[2].sortType, 3);
-  assert.equal(calls[2].cursor, '1700000000399');
+  const repeated = await ctx.handleNeteaseCommentPage('186016', '', 30, first.nextCursor, 'latest');
+  assert.equal(calls[1].sortType, 3);
+  assert.equal(calls[1].cursor, '1700000000399');
   assert.equal(repeated.hasMore, false);
   assert.equal(repeated.nextCursor, '');
   await assert.rejects(ctx.handleNeteaseCommentPage('186016', '', 30, '{"p":168,"c":"normalHot#5010"}'), /Invalid comment cursor/);
@@ -519,7 +591,7 @@ test('a deep pending page cannot update a replacement song after close, includin
   await initial;
   const oldState = f.ctx.detailCommentsState;
   const deep = f.ctx.loadMoreDetailComments();
-  assert.match(f.requests[1].url, /cursor=%7B%22p%22%3A168%2C%22c%22%3A%221700000000000%22%7D$/);
+  assert.match(f.requests[1].url, /cursor=%7B%22p%22%3A168%2C%22c%22%3A%221700000000000%22%7D&sort=latest$/);
   // The success is already queued when the old owner closes.
   f.requests[1].resolve({ comments: [comment('old-deep')], nextCursor: '{"p":169,"c":"1699999999000"}', hasMore: true });
   f.ctx.closeTrackDetailModal();

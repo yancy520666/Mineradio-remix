@@ -60,7 +60,7 @@ if (typeof window !== 'undefined' && window.addEventListener) window.addEventLis
 var detailCommentSong = null;
 var detailCommentSubmitBusy = false;
 var detailCommentsState = null;
-var detailCommentSort = 'latest';
+var detailCommentSort = '';
 function normalizeArtistNameForMatch(name) {
   return String(name || '')
     .toLowerCase()
@@ -476,22 +476,34 @@ function detailCommentsConfig(song) {
   }
   return null;
 }
-// Qishui has a single order; the other platforms can list by time or popularity.
+function detailCommentSortOptions(config) {
+  if (!config) return [];
+  if (config.provider === 'netease') return [['recommend', '推荐'], ['hot', '最热'], ['latest', '最新']];
+  if (config.provider === 'qq' || config.provider === 'kugou') return [['hot', '最热'], ['latest', '最新']];
+  return [];
+}
+function resolveDetailCommentSort(config, sort) {
+  var options = detailCommentSortOptions(config);
+  return options.some(function (item) { return item[0] === sort; }) ? sort : (options.length ? options[0][0] : 'latest');
+}
+// Qishui currently exposes a single platform order.
 function detailCommentsSortable(config) {
-  return !!config && ['netease', 'qq', 'kugou'].indexOf(config.provider) >= 0;
+  return detailCommentSortOptions(config).length > 1;
 }
 function renderDetailCommentSort(config) {
   if (!detailCommentsSortable(config)) return '';
   return '<div class="detail-comment-sort" role="group" aria-label="评论排序">' +
-    [['latest', '最新'], ['hot', '热门']].map(function (item) {
-      var active = detailCommentSort === item[0];
+    detailCommentSortOptions(config).map(function (item) {
+      var active = resolveDetailCommentSort(config, detailCommentSort) === item[0];
       return '<button type="button" data-comment-sort="' + item[0] + '" aria-pressed="' + active + '"' +
         (active ? ' class="active"' : '') + ' onclick="setDetailCommentSort(\'' + item[0] + '\')">' + item[1] + '</button>';
     }).join('') + '</div>';
 }
 function setDetailCommentSort(sort) {
-  sort = sort === 'hot' ? 'hot' : 'latest';
-  if (sort === detailCommentSort || !detailCommentSong) return Promise.resolve();
+  if (!detailCommentSong) return Promise.resolve();
+  var config = detailCommentsConfig(detailCommentSong);
+  sort = resolveDetailCommentSort(config, sort);
+  if (sort === resolveDetailCommentSort(config, detailCommentSort)) return Promise.resolve();
   detailCommentSort = sort;
   document.querySelectorAll('.detail-comment-sort [data-comment-sort]').forEach(function (button) {
     var active = button.getAttribute('data-comment-sort') === sort;
@@ -614,12 +626,12 @@ function loadDetailComments(song, seq) {
     return Promise.resolve();
   }
   if (!target) return Promise.resolve();
-  detailCommentsState = { config: config, seq: seq, sort: detailCommentsSortable(config) ? detailCommentSort : 'latest', offset: 0, cursor: '', loading: false,
+  detailCommentsState = { config: config, seq: seq, sort: resolveDetailCommentSort(config, detailCommentSort), offset: 0, cursor: '', loading: false,
     hasMore: true, count: 0, hotCount: 0, normalCount: 0, seen: Object.create(null), error: false,
     threads: Object.create(null), threadIndex: 0 };
   target.innerHTML = '<div class="detail-scroll">' +
-    '<section class="detail-comments-hot" aria-label="热门评论" hidden>' +
-    '<h3 class="detail-comments-heading">热门评论</h3><div class="detail-comments-hot-list"></div></section>' +
+    '<section class="detail-comments-hot" aria-label="置顶与精选" hidden>' +
+    '<h3 class="detail-comments-heading">置顶与精选</h3><div class="detail-comments-hot-list"></div></section>' +
     '<section class="detail-comments-more" aria-label="更多评论" hidden>' +
     '<h3 class="detail-comments-heading">更多评论</h3><div class="detail-comments-more-list"></div></section>' +
     '<div class="detail-empty" hidden>暂无评论</div></div><div class="detail-comments-footer">' +
@@ -651,7 +663,7 @@ function loadMoreDetailComments() {
   // Kugou pages by offset; the other platforms return an opaque cursor.
   var cursorMode = state.config.provider !== 'kugou';
   var url = state.config.readUrl + (cursorMode ? '&cursor=' + encodeURIComponent(state.cursor) : '&offset=' + state.offset) +
-    (state.sort === 'hot' ? '&sort=hot' : '');
+    (detailCommentsSortable(state.config) ? '&sort=' + state.sort : '');
   return readDetailComments(state, url, state.count === 0 && state.cursor === '' && state.offset === 0).then(function (result) {
     if (state !== detailCommentsState || state.seq !== trackDetailSeq) return;
     if (!result || result.error || !Array.isArray(result.comments)) throw new Error('COMMENT_LOAD_FAILED');
@@ -665,8 +677,8 @@ function loadMoreDetailComments() {
     });
     var list = target.querySelector('.detail-scroll');
     if (fresh.length) {
-      var hot = fresh.filter(function (c) { return c.isHot === true; });
-      var normal = fresh.filter(function (c) { return c.isHot !== true; });
+      var hot = fresh.filter(function (c) { return state.sort === 'hot' && c.isFeatured === true; });
+      var normal = fresh.filter(function (c) { return state.sort !== 'hot' || c.isFeatured !== true; });
       if (hot.length) target.querySelector('.detail-comments-hot-list').insertAdjacentHTML('beforeend', renderDetailComments(hot));
       if (normal.length) target.querySelector('.detail-comments-more-list').insertAdjacentHTML('beforeend', renderDetailComments(normal));
       state.hotCount += hot.length;
@@ -677,8 +689,9 @@ function loadMoreDetailComments() {
     var normalSection = target.querySelector('.detail-comments-more');
     hotSection.hidden = !state.hotCount;
     normalSection.hidden = !state.normalCount;
-    hotSection.querySelector('.detail-comments-heading').textContent = '热门评论 · ' + state.hotCount;
-    var normalTitle = state.sort === 'hot' ? '热门评论' : (state.hotCount ? '更多评论' : '评论');
+    hotSection.querySelector('.detail-comments-heading').textContent = '置顶与精选 · ' + state.hotCount;
+    var normalTitle = state.sort === 'hot' ? '最热评论' : (state.sort === 'recommend' ? '推荐评论' :
+      (detailCommentsSortable(state.config) ? '最新评论' : '评论'));
     normalSection.querySelector('.detail-comments-heading').textContent = normalTitle + ' · ' + state.normalCount;
     normalSection.setAttribute('aria-label', normalTitle);
     if (cursorMode) {
@@ -906,7 +919,7 @@ function openTrackDetailModal(type, songOverride, navigationOptions) {
   if (typeof resetDetailReplyComposer === 'function') resetDetailReplyComposer();
   cancelDetailCommentReads(detailCommentsState);
   detailCommentsState = null;
-  detailCommentSort = 'latest';
+  detailCommentSort = '';
   detailCommentSubmitBusy = false;
   detailCommentSong = song;
   if (type === 'album') {

@@ -129,7 +129,7 @@ function renderer(provider = 'netease', options = {}) {
     apiJson(url, opts = {}) { return new Promise((resolve, reject) => requests.push({ url, opts, resolve, reject })); },
   });
   loadFunctions(ctx, 'public/js/modules/05-playback/00-api-quality-output.js', ['escHtml']);
-  loadFunctions(ctx, detailScript, ['accountActionAuthSnapshot', 'accountActionAuthCurrent', 'detailCommentsConfig', 'detailCommentsSortable',
+  loadFunctions(ctx, detailScript, ['accountActionAuthSnapshot', 'accountActionAuthCurrent', 'detailCommentsConfig', 'detailCommentsSortable', 'detailCommentSortOptions', 'resolveDetailCommentSort',
     'commentCountLabel', 'commentVipHtml', 'commentHeartSvg', 'commentLikeHtml', 'commentHeadHtml', 'commentTimeLabel', 'neteaseEmojiId', 'commentContentHtml',
     'renderDetailComments', 'bindDetailCommentLikes', 'renderDetailCommentComposer', 'cancelDetailCommentReads', 'detailCommentReadStore', 'invalidateDetailCommentReadCache',
     'readDetailComments', 'loadDetailComments', 'loadMoreDetailComments', 'updateDetailCommentsFooter', 'setDetailCommentSort', 'closeTrackDetailModal']);

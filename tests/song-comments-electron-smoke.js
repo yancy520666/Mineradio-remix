@@ -77,11 +77,13 @@ async function probe(live) {
     const provider = parsed.pathname.includes('/qq/') ? 'qq' : parsed.pathname.includes('/kugou/') ? 'kugou' : parsed.pathname.includes('/qishui/') ? 'qishui' : 'netease';
     // Kugou pages by offset; the other platforms by cursor.
     const offset = provider === 'kugou' ? Number(parsed.searchParams.get('offset')) : Number(parsed.searchParams.get('cursor')) || 0;
-    requests.push({ provider, offset });
+    const sort = parsed.searchParams.get('sort');
+    requests.push({ provider, offset, sort });
     await pause(20);
     if (failNext) { failNext = false; throw new Error('offline fixture'); }
     const normal = Array.from({ length: 30 }, (_, i) => comment(offset + i, false));
-    const comments = !offset && provider !== 'qishui' ? [comment(0, true), comment('hot', true), ...normal] : normal;
+    const featured = { ...comment('featured', true), isFeatured: true };
+    const comments = !offset && provider === 'qq' && sort === 'hot' ? [featured, ...normal] : normal;
     return { comments, hasMore: offset < 60, nextOffset: offset + 30, nextBefore: 1700000000000 - offset,
       nextCursor: String(offset + 30) };
   };
@@ -101,12 +103,12 @@ async function probe(live) {
     const hot = target.querySelector('.detail-comments-hot');
     const more = target.querySelector('.detail-comments-more');
     const button = target.querySelector('.detail-comments-footer button');
-    const hasHot = provider !== 'qishui';
+    const hasHot = provider === 'qq';
     check(hot.hidden === !hasHot, 'Hot section must reflect upstream classification');
-    check(hot.querySelectorAll('.comment-item').length === (hasHot ? 2 : 0), 'Hot comments classified incorrectly');
-    check(more.querySelectorAll('.comment-item').length === (hasHot ? 29 : 30), 'First normal page lost or duplicated');
-    if (hasHot) check(more.querySelector('h3').textContent.startsWith('更多评论'), 'More comments need a distinct heading');
-    else check(more.querySelector('h3').textContent.startsWith('评论'), 'No empty hot heading on Qishui');
+    check(hot.querySelectorAll('.comment-item').length === (hasHot ? 1 : 0), 'Hot comments classified incorrectly');
+    check(more.querySelectorAll('.comment-item').length === 30, 'First normal page lost or duplicated');
+    const title = provider === 'netease' ? '推荐评论' : provider === 'qishui' ? '评论' : '最热评论';
+    check(more.querySelector('h3').textContent.startsWith(title), 'Heading must reflect the selected platform category');
     // With the reply composer, zero/unknown counts keep a hidden toggle (shown once a reply is posted);
     // count what is actually visible, so a display rule overriding [hidden] still fails here.
     const visibleToggles = [...target.querySelectorAll('.comment-replies-toggle')].filter(el => !el.hidden && getComputedStyle(el).display !== 'none');
@@ -144,20 +146,28 @@ async function probe(live) {
     check(requests.length === previousRequests + 1, 'Repeated clicks issued duplicate pages');
     await loadMoreDetailComments();
     check(button.hidden && getComputedStyle(button).display === 'none', 'Last-page button must disappear');
-    check(detailCommentsState.count === (hasHot ? 91 : 90), 'Expected three unique normal pages plus hot comments');
-    check(hot.querySelectorAll('.comment-item').length === (hasHot ? 2 : 0), 'Later pages changed hot section');
+    check(detailCommentsState.count === (hasHot ? 91 : 90), 'Expected three ranked pages plus platform featured entries');
+    check(hot.querySelectorAll('.comment-item').length === (hasHot ? 1 : 0), 'Later pages changed hot section');
     providers.push({ provider, count: detailCommentsState.count, hot: detailCommentsState.hotCount,
       normal: detailCommentsState.normalCount, buttonHidden: button.hidden });
+    for (const [sort, title] of detailCommentSortOptions(detailCommentsState.config)) {
+      await setDetailCommentSort(sort);
+      check(document.querySelector('[data-comment-sort="' + sort + '"]').getAttribute('aria-pressed') === 'true', 'Category selection did not follow the clicked button');
+      check(document.querySelector('.detail-comments-more h3').textContent.startsWith(title + '评论'), 'Category heading is stale');
+      if (sort === 'latest') check(document.querySelector('.detail-comments-hot').hidden, 'Newest must not prepend a featured/hot section');
+      check(requests.at(-1).sort === sort, 'Request category differs from visible category');
+    }
+
   }
   // Leave the first page in view to inspect both headings together.
   await open('kugou');
   closeVisualGuide(true);
   await pause(350);
   const body = document.getElementById('track-detail-body');
-  const hot = document.querySelector('.detail-comments-hot');
+  const hot = document.querySelector('.detail-comments-more');
   body.scrollTop += hot.getBoundingClientRect().top - body.getBoundingClientRect().top - 12;
   await pause(100);
-  const headings = Array.from(document.querySelectorAll('#song-comments h3')).map(node => {
+  const headings = Array.from(document.querySelectorAll('#song-comments section:not([hidden]) h3')).map(node => {
     const bounds = node.getBoundingClientRect();
     const parent = node.parentElement.getBoundingClientRect();
     return { text: node.textContent, fits: bounds.left >= parent.left - 1 && bounds.right <= parent.right + 1 };

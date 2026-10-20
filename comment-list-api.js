@@ -5,8 +5,6 @@
 const { comment_new } = require('NeteaseCloudMusicApi');
 const { mapNeteaseComment, safeVipIcon } = require('./comment-replies-api');
 
-const HOT_PAGE_SIZE = 10;
-
 // Cursors are opaque to the renderer: {p: next page number, c: platform cursor}.
 function readCursor(text, platformCursor) {
   if (!text) return null;
@@ -18,29 +16,27 @@ function readCursor(text, platformCursor) {
   return value;
 }
 
-// sort "latest" (default): hot comments once, then newest by cursor. sort "hot": one list by popularity.
-async function handleNeteaseCommentPage(id, cookie, limit, cursorText, sort) {
+// Each category uses exactly one upstream order. Recommendation is Netease's
+// default (sortType 1 is translated to 99 by the installed API client).
+async function handleNeteaseCommentPage(id, cookie, limit, cursorText, sort = 'recommend') {
   if (!/^\d+$/.test(String(id || ''))) throw new Error('Missing Netease song id');
   const byHot = sort === 'hot';
   const cursorShape = byHot ? /^normalHot#\d{1,7}$/ : /^\d{1,20}$/;
   const cursor = readCursor(cursorText, cursorShape);
   const pageNo = cursor ? cursor.p : 1;
-  const request = (sortType, pageSize, extra) => comment_new({ type: 0, id, sortType, pageNo, pageSize, ...extra,
-    cookie, timestamp: Date.now() }).then(result => {
-    const body = result.body || result;
-    if (Number(body.code) !== 200 || !body.data || !Array.isArray(body.data.comments)) throw new Error('NETEASE_COMMENTS_UNAVAILABLE');
-    return body.data;
-  });
-  const [hot, latest] = await Promise.all([
-    cursor || byHot ? null : request(2, HOT_PAGE_SIZE, {}),
-    request(byHot ? 2 : 3, limit, cursor ? { cursor: cursor.c } : {}),
-  ]);
-  const comments = (hot ? hot.comments.map(c => ({ ...mapNeteaseComment(c), isHot: true })) : [])
-    .concat(latest.comments.map(c => ({ ...mapNeteaseComment(c), isHot: false })))
-    .filter(c => c.content);
-  const next = cursorShape.test(String(latest.cursor || '')) ? String(latest.cursor) : '';
-  const hasMore = latest.hasMore === true && latest.comments.length > 0 && !!next && (!cursor || next !== String(cursor.c));
-  return { provider: 'netease', id: String(id), total: Number(latest.totalCount) || 0, comments,
+  const sortType = byHot ? 2 : (sort === 'latest' ? 3 : 1);
+  const result = await comment_new({ type: 0, id, sortType, pageNo, pageSize: limit,
+    ...(cursor ? { cursor: cursor.c } : {}), cookie, timestamp: Date.now() });
+  const body = result.body || result;
+  if (Number(body.code) !== 200 || !body.data || !Array.isArray(body.data.comments)) throw new Error('NETEASE_COMMENTS_UNAVAILABLE');
+  const data = body.data;
+  const comments = data.comments.map(c => ({ ...mapNeteaseComment(c), isHot: false })).filter(c => c.content);
+  // Recommendation pages are offset-based in comment_new. Its response time
+  // cursor may repeat when the service includes the same recommended entries.
+  const next = sortType === 1 ? String(pageNo * limit)
+    : (cursorShape.test(String(data.cursor || '')) ? String(data.cursor) : '');
+  const hasMore = data.hasMore === true && data.comments.length > 0 && !!next && (!cursor || next !== String(cursor.c));
+  return { provider: 'netease', id: String(id), total: Number(data.totalCount) || 0, comments,
     nextCursor: hasMore ? JSON.stringify({ p: pageNo + 1, c: next }) : '', hasMore };
 }
 
@@ -57,6 +53,9 @@ function mapQQListComment(raw, isHot) {
     replyCount: Math.max(0, Number(raw.ReplyCnt) || 0),
     time: (Number(raw.PubTime) || 0) * 1000,
     isHot,
+    // QQ may boost editorial/pinned entries above the popularity ranking.
+    // Keep those visible in their own section, without changing the rank cursor.
+    isFeatured: isHot && (Number(raw.State) === 4 || Number(raw.HotScore) > Math.max(0, Number(raw.PraiseNum) || 0)),
     vip: qqVip(raw),
     user: { id: String(raw.EncryptUin || ''), nickname: String(raw.Nick || ''), avatar: String(raw.Avatar || '') },
   };
@@ -76,10 +75,6 @@ async function handleQQCommentPage(songId, limit, cursorText, request, sort) {
         param: { ...base, LastCommentSeqNo: cursor ? String(cursor.c) : '', PageNum: pageNum, PageSize: pageSize, HotType: 1, WithAirborne: 0 } }
       : { module: 'music.globalComment.CommentRead', method: 'GetNewCommentList',
         param: { ...base, LastCommentSeqNo: cursor ? String(cursor.c) : '', PageNum: pageNum, PageSize: pageSize, FromCommentId: '', WithHot: 0 } } };
-  if (!cursor && !byHot) {
-    payload.hot = { module: 'music.globalComment.CommentRead', method: 'GetHotCommentList',
-      param: { ...base, LastCommentSeqNo: '', PageNum: 0, PageSize: HOT_PAGE_SIZE, HotType: 1, WithAirborne: 0 } };
-  }
   const result = await request(payload, { cookie: true });
   const list = key => {
     const response = result && result[key];
@@ -88,9 +83,7 @@ async function handleQQCommentPage(songId, limit, cursorText, request, sort) {
     return data;
   };
   const latest = list('latest');
-  const hot = cursor || byHot ? null : list('hot');
-  const comments = (hot ? hot.Comments.map(c => mapQQListComment(c, true)) : [])
-    .concat(latest.Comments.map(c => mapQQListComment(c, false)))
+  const comments = latest.Comments.map(c => mapQQListComment(c, byHot))
     .filter(c => c.id && c.content);
   const last = latest.Comments[latest.Comments.length - 1];
   const next = last && /^\d{1,24}$/.test(String(last.SeqNo || '')) ? String(last.SeqNo) : '';

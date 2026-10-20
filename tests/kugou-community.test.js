@@ -31,7 +31,7 @@ async function withRequests(handler, task) {
 
 const raw = id => ({ id, content: '内容 ' + id, addtime: '2026-10-02 15:49:11',
   like: { count: 42 }, user_id: 7, user_name: '听众', user_pic: 'https://example.test/avatar.jpg' });
-test('Kugou resolves the public comment resource, separates hot/newest and paginates only newest', async () => {
+test('Kugou resolves the resource and pages newest without hot previews', async () => {
   await withRequests(({ url, options }) => {
     assert.equal(options.method, 'POST');
     assert(url.searchParams.has('signature'));
@@ -42,8 +42,8 @@ test('Kugou resolves the public comment resource, separates hot/newest and pagin
     return { status: 1, count: 35, list: Array.from({ length: start ? 5 : 30 }, (_, i) => raw(start + i)) };
   }, async calls => {
     const first = await handleKugouComments('300', '', 30, 0);
-    assert.equal(first.comments.length, 31);
-    assert.equal(first.comments[0].isHot, true);
+    assert.equal(first.comments.length, 30);
+    assert.equal(first.comments[0].isHot, false);
     assert.equal(first.comments[1].isHot, false);
     assert.equal(first.comments[0].likedCount, 42);
     assert.equal(first.comments[0].time, Date.parse('2026-10-02T15:49:11+08:00'));
@@ -53,7 +53,7 @@ test('Kugou resolves the public comment resource, separates hot/newest and pagin
     assert(last.comments.every(c => !c.isHot));
     assert.equal(last.hasMore, false);
     assert.equal(calls.filter(c => c.url.pathname.endsWith('/cmtlist')).length, 1);
-    assert.equal(calls.filter(c => c.url.pathname.endsWith('/topliked')).length, 1);
+    assert.equal(calls.filter(c => c.url.pathname.endsWith('/topliked')).length, 0);
     assert.equal(calls.at(-1).url.searchParams.get('p'), '2');
   });
 });
@@ -80,6 +80,22 @@ test('Kugou daily preserves the full real-schema list, metadata and quality hash
     assert.equal(result.songs[0].sqHash, 'sq');
     assert.equal(result.songs[0].fee, 1);
     assert.equal(result.mode, 'daily');
+  });
+});
+
+test('Kugou hot pages use the platform most-liked ranking with independent offsets', async () => {
+  await withRequests(({ url }) => {
+    if (url.pathname.endsWith('/cmtlist')) return { childrenid: '101', list: [] };
+    assert(url.pathname.endsWith('/topliked'));
+    return { list: [raw(url.searchParams.get('p'))], has_more: url.searchParams.get('p') === '1' };
+  }, async calls => {
+    const first = await handleKugouComments('301', '', 30, 0, 'hot');
+    assert(first.comments.every(c => c.isHot));
+    assert.equal(first.hasMore, true);
+    const next = await handleKugouComments('301', '', 30, first.nextOffset, 'hot');
+    assert.equal(next.hasMore, false);
+    assert.equal(calls.at(-1).url.searchParams.get('p'), '2');
+    assert.equal(calls.filter(c => c.url.pathname.endsWith('/newest')).length, 0);
   });
 });
 
