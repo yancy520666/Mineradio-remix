@@ -119,7 +119,7 @@ function updateLyricTextureClarityControls() {
 }
 function lyricTextureClarityLabel(value) {
   var tier = normalizeLyricTextureClarity(value);
-  return tier === 4 ? '4× 极致' : (tier === 3 ? '3× 超清' : (tier === 2 ? '2× 高清' : '1× 标清'));
+  return ['省资源', '均衡', '高清', '极致'][tier - 1];
 }
 function setLyricTextureClarity(value, silent) {
   var next = normalizeLyricTextureClarity(value);
@@ -127,7 +127,8 @@ function setLyricTextureClarity(value, silent) {
   fx.lyricTextureClarity = next;
   updateLyricTextureClarityControls();
   if (!changed) return;
-  if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('texture-clarity-change', { release: next <= 1 });
+  if (typeof refreshVisibleLyricQuality === 'function') refreshVisibleLyricQuality();
+  else if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('texture-clarity-change', { release: false });
   saveLyricLayout({ user: true, reason: 'lyricTextureClarity' });
   if (!silent) showToast('歌词清晰度: ' + lyricTextureClarityLabel(next));
 }
@@ -216,7 +217,8 @@ function applyPerformanceDetailProfile(previous) {
   if (previous.lyricClarity && typeof lyricTextureClarityScale === 'function') {
     var clarity = lyricTextureClarityScale();
     if (clarity !== previous.lyricClarity && typeof invalidateLyricQualityTextures === 'function') {
-      invalidateLyricQualityTextures('texture-clarity-change', { release: clarity <= 1 });
+      if (typeof refreshVisibleLyricQuality === 'function') refreshVisibleLyricQuality();
+      else invalidateLyricQualityTextures('texture-clarity-change', { release: false });
     }
   }
   if (previous.backgroundSize && typeof albumCoverBackgroundTargetSize === 'function' &&

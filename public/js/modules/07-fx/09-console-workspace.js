@@ -108,7 +108,7 @@ var FX_CONSOLE_LAYOUT = [
       ] },
       { key: 'type', title: '字体与排版', hint: '字体、字重、大小、位置和角度', items: [
         fxConsoleSubhead('字体与清晰度'),
-        fxConsoleItem('lyric-texture-quality-seg', '歌词清晰度', '分辨率 纹理 1x 2x 3x 4x 标清 高清 超清 极致 低配 显存 放大 清楚'),
+        fxConsoleItem('lyric-texture-quality-seg', '歌词清晰度', '分辨率 纹理 1x 2x 3x 4x 省资源 均衡 高清 极致 低配 显存 放大 清楚'),
         fxConsoleItem('lyric-font-grid', '歌词字体', '黑体 宋体 楷宋 Serif Gothic 等宽 上传字体'),
         fxConsoleSubhead('字形'),
         fxConsoleItem('fx-lyricspacing', '字间距', '文字间距'),

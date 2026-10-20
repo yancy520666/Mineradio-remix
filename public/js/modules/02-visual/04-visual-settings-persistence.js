@@ -57,7 +57,7 @@ function normalizeLyricTextureClarity(v) {
   var value = Number(v);
   if (!isFinite(value)) value = Number(fxDefaults.lyricTextureClarity) || 1;
   // Compatibility with the short-lived 1 / 1.25 / 1.5 experiment.  New
-  // archives store the user-facing raster multiplier directly as 1..4.
+  // Archives keep stable quality tier IDs 1..4; raster policy is independent.
   if (Math.abs(value - 1.25) < 0.001) return 2;
   if (Math.abs(value - 1.5) < 0.001) return 4;
   return clampRange(Math.round(value), 1, 4);

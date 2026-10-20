@@ -210,6 +210,7 @@ async function exercise(baseline, fullScene) {
   const ended = baseline || !lyricFxEditActive();
   const staleTrackVisible = !!stageLyrics.current;
   let newTrackRestored = false;
+  const pausedTiers = [];
   if (!baseline) {
     pointer(gapEl, 'pointerdown'); input('fx-lyrictranslationgap', 0.35);
     trackSwitchToken++; fx.lyricDisplayMode = 'single';
@@ -219,6 +220,16 @@ async function exercise(baseline, fullScene) {
     await until(() => stageLyrics.current.userData.lyric.rowLayers.some(row => row.isPrimary && row.glow?.visible && row.mat.uniforms.uEditPreview?.value === 0), 'New track effects after gesture');
     newTrackRestored = true;
     console.log('EDIT_STAGE:new-track-restored');
+    audio.pause(); playing = false;
+    for (const tier of [1, 4, 2]) {
+      setLyricTextureClarity(tier, true);
+      await until(() => {
+        const data = stageLyrics.current && stageLyrics.current.userData.lyric;
+        return data && !data.pausedFxCommitToken && data.rowLayers.some(row => row.isPrimary && row.renderWindowActive
+          && row.qualityTier === lyricTextureClarityScale() && row.qualityTexture && lyricQualityCurrentMap(row) === row.qualityTexture);
+      }, 'Paused clarity tier ' + tier);
+      pausedTiers.push(tier);
+    }
     clearStageLyrics();
   }
   const finalValues = Object.fromEntries(['lyricWeight', 'lyricLetterSpacing', 'lyricTranslationGap', 'lyricTextureClarity'].map(key => [key, fx[key]]));
@@ -228,7 +239,7 @@ async function exercise(baseline, fullScene) {
     preservedTier, savedWeight: saved.lyricWeight, savedSpacing: saved.lyricLetterSpacing, ended, staleTrackVisible,
     renderP95Ms: p95(durations), rafP95Ms: p95(intervals), drawCallsP95: p95(drawCalls), longTasks: longTasks.length,
     longestTaskMs: Math.max(0, ...longTasks), frames: durations.length, textReadyMs, effectsReadyMs, spacingCases,
-    uploadBudgetMax, singleGapError, missingTranslationRows, singlePlaybackAdvanced, singleTextBeforeEffects, newTrackRestored, finalValues, fullScene };
+    uploadBudgetMax, singleGapError, missingTranslationRows, singlePlaybackAdvanced, singleTextBeforeEffects, newTrackRestored, pausedTiers, finalValues, fullScene };
 }
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -251,6 +262,7 @@ async function main() {
     assert.equal(result.singlePlaybackAdvanced, true);
     assert.equal(result.singleTextBeforeEffects, true);
     assert.equal(result.newTrackRestored, true);
+    assert.deepEqual(result.pausedTiers, [1, 4, 2]);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/index.html`);
     console.log('EDIT_STAGE:reload');
     await win.webContents.executeJavaScript(`new Promise((resolve, reject) => { const end = Date.now() + 20000; (function ready(){ if(typeof fx!=='undefined'&&typeof bindFxPanel==='function')resolve(); else if(Date.now()>end)reject(new Error('Reload settings ready timeout')); else setTimeout(ready,50); })(); })`);

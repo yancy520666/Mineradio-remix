@@ -412,11 +412,9 @@ function lyricRunwayRowPixelBudget() {
 
 function lyricTextureClarityScale() {
   if (typeof normalizeLyricTextureClarity === 'function') {
-    var clarity = normalizeLyricTextureClarity(fx && fx.lyricTextureClarity);
-    // Low quality renders the untouched default at 1x; a user-chosen clarity is kept.
-    var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
-    var untouched = clarity === normalizeLyricTextureClarity(fxDefaults.lyricTextureClarity);
-    return detail && detail.lyricClarityCap && untouched ? Math.min(clarity, detail.lyricClarityCap) : clarity;
+    // The four controls keep their selected meaning. Eco mode constrains
+    // the cache instead of silently converting the selected second tier to 1.
+    return normalizeLyricTextureClarity(fx && fx.lyricTextureClarity);
   }
   var value = Number(fx && fx.lyricTextureClarity);
   if (!isFinite(value)) return 1;
@@ -442,12 +440,11 @@ function lyricRowTextureWidthBudget() {
 
 function lyricQualityPoolBudgetBytes(tier) {
   tier = clampRange(Math.round(Number(tier) || 1), 1, 4);
-  if (tier <= 1) return 0;
   var profile = typeof runtimeHardwareProfile !== 'undefined' ? runtimeHardwareProfile : null;
-  var mib = tier === 2 ? 64 : (tier === 3 ? 128 : 192);
-  if (profile && profile.lowSpec) mib = tier === 2 ? 32 : (tier === 3 ? 64 : 96);
-  else if (profile && profile.balancedSpec) mib = tier === 2 ? 48 : (tier === 3 ? 96 : 144);
-  return mib * 1024 * 1024;
+  var detail = typeof performanceDetailProfile === 'function' ? performanceDetailProfile() : null;
+  var budgets = ((profile && profile.lowSpec) || (detail && detail.quality === 'eco')) ? [8, 24, 40, 64]
+    : (profile && profile.balancedSpec ? [10, 28, 48, 76] : [12, 32, 56, 88]);
+  return budgets[tier - 1] * 1024 * 1024;
 }
 
 function lyricQualityMaxResidentRows() {
@@ -455,31 +452,49 @@ function lyricQualityMaxResidentRows() {
   return profile && profile.lowSpec ? 4 : (profile && profile.balancedSpec ? 6 : 8);
 }
 
+function lyricQualityCropRect(mask, logicalW, logicalH) {
+  // Row geometry and karaoke coordinates stay in the authored logical frame.
+  // Only the selected text raster drops transparent space around the glyphs.
+  var crop = { x: 0, y: 0, width: logicalW, height: logicalH };
+  if (mask.lines && mask.lines.length > 1) return crop;
+  var raster = Math.max(0.01, Number(mask.rasterScale) || 1);
+  var font = Number(mask.logicalFontSize) || (Number(mask.fontSize) || 128) / raster;
+  var textW = Number(mask.logicalTextWidth) || (Number(mask.textWidth) || logicalW) / raster;
+  var baseline = isFinite(Number(mask.logicalLineY0)) ? Number(mask.logicalLineY0) : (Number(mask.lineY0) || logicalH / 2 + font * 0.36) / raster;
+  var bounds = mask.inkBounds;
+  var top = bounds ? logicalH / 2 + Number(bounds.top) : baseline - font;
+  var bottom = bounds ? logicalH / 2 + Number(bounds.bottom) : baseline + font * 0.3;
+  var pad = Math.max(12, font * 0.30);
+  crop.x = Math.max(0, Math.floor((logicalW - textW) / 2 - pad));
+  crop.y = Math.max(0, Math.floor(top - pad));
+  crop.width = Math.min(logicalW, Math.ceil((logicalW + textW) / 2 + pad)) - crop.x;
+  crop.height = Math.min(logicalH, Math.ceil(bottom + pad)) - crop.y;
+  if (!(crop.width > 0 && crop.height > 0)) return { x: 0, y: 0, width: logicalW, height: logicalH };
+  return crop;
+}
+
 function lyricQualityTargetMetrics(mask, tier) {
   if (!mask) return null;
   tier = clampRange(Math.round(Number(tier) || 1), 1, 4);
-  if (tier <= 1) return null;
   var logicalW = Math.max(1, Number(mask.logicalWidth) || Number(mask.width) || 1);
   var logicalH = Math.max(1, Number(mask.logicalHeight) || Number(mask.height) || 1);
-  var baseW = mask.runwayPreview ? Math.min(logicalW, lyricRowTextureWidthBudget()) : Math.max(1, Number(mask.width) || logicalW);
-  var baseScale = baseW / logicalW;
-  var scale = baseScale * tier;
+  var crop = lyricQualityCropRect(mask, logicalW, logicalH);
+  var canvasWidth = renderer && renderer.domElement ? Number(renderer.domElement.width) : 1280;
+  // Stable 128-pixel buckets avoid rebuilding for single-pixel window changes.
+  var displayScale = clampRange(Math.round((canvasWidth || 1280) / 128) * 128 / 1280, 0.75, 2.5);
+  var scale = displayScale * [1, 1.5, 2, 3][tier - 1];
   var rendererMax = renderer && renderer.capabilities ? Number(renderer.capabilities.maxTextureSize) : 0;
   var maxDimension = Math.min(6144, isFinite(rendererMax) && rendererMax > 0 ? rendererMax : 4096);
-  scale = Math.min(scale, maxDimension / logicalW, maxDimension / logicalH);
-  var width = Math.max(1, Math.floor(logicalW * scale));
-  var height = Math.max(1, Math.floor(logicalH * scale));
-  var poolBudget = lyricQualityPoolBudgetBytes(tier);
-  var itemBudget = Math.min(64 * 1024 * 1024, poolBudget * 0.55);
-  var bytes = Math.ceil(width * height * 8.8);
-  if (itemBudget > 0 && bytes > itemBudget) {
-    scale *= Math.sqrt(itemBudget / bytes);
-    width = Math.max(1, Math.floor(logicalW * scale));
-    height = Math.max(1, Math.floor(logicalH * scale));
-    bytes = Math.ceil(width * height * 8.8);
-  }
-  if (width <= baseW + 8 || height <= Math.max(1, Number(mask.height) || logicalH) + 4) return null;
-  return { tier: tier, scale: scale, width: width, height: height, bytes: bytes, logicalWidth: logicalW, logicalHeight: logicalH };
+  scale = Math.min(scale, maxDimension / crop.width, maxDimension / crop.height);
+  // Leave room for both the active original and its translation.
+  var itemBudget = Math.floor(Math.min(32 * 1024 * 1024, lyricQualityPoolBudgetBytes(tier) * 0.45));
+  // CPU RGBA canvas + GPU RGBA with a complete mip chain.
+  // Cap the continuous area before rounding either axis to integer pixels.
+  scale = Math.min(scale, Math.sqrt(itemBudget / (crop.width * crop.height * (4 + 16 / 3))));
+  var width = Math.max(1, Math.floor(crop.width * scale));
+  var height = Math.max(1, Math.floor(crop.height * scale));
+  var bytes = Math.ceil(width * height * (4 + 16 / 3));
+  return { tier: tier, scale: scale, width: width, height: height, bytes: bytes, logicalWidth: logicalW, logicalHeight: logicalH, crop: crop };
 }
 
 function makeLyricQualityTexture(mask, tier) {
@@ -503,7 +518,8 @@ function makeLyricQualityTexture(mask, tier) {
   canvas.height = target.height;
   var ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.setTransform(target.scale, 0, 0, target.scale, 0, 0);
+  var scaleX = target.width / target.crop.width, scaleY = target.height / target.crop.height;
+  ctx.setTransform(scaleX, 0, 0, scaleY, -target.crop.x * scaleX, -target.crop.y * scaleY);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fff';
@@ -532,6 +548,7 @@ function makeLyricQualityTexture(mask, tier) {
   texture.userData = texture.userData || {};
   texture.userData.__mineradioLyricOwned = true;
   texture.userData.__mineradioLyricQuality = true;
+  texture.userData.lyricUvRect = [target.crop.x / logicalW, 1 - (target.crop.y + target.crop.height) / logicalH, target.crop.width / logicalW, target.crop.height / logicalH];
   texture.userData.__mineradioLyricQualityBytes = target.bytes;
   configureLyricTextureSampling(texture);
   return { texture: texture, tier: target.tier, width: target.width, height: target.height, bytes: target.bytes, key: target.tier + 'x|' + target.width + 'x' + target.height + '|' + stoneSeed };

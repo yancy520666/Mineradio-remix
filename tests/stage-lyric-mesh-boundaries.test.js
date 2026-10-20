@@ -69,11 +69,10 @@ test('quality targets respect original tier, texture dimensions and per-item byt
   for (const lowSpec of [false, true]) for (const maxTextureSize of [2048, 4096, 8192]) for (const tier of [1, 2, 3, 4]) {
     c.runtimeHardwareProfile.lowSpec = lowSpec; c.renderer.capabilities.maxTextureSize = maxTextureSize;
     const target = c.lyricQualityTargetMetrics(mask, tier);
-    if (tier === 1) { assert.equal(target, null); continue; }
-    if (!target) continue;
+    assert(target, 'even the resource-saving tier redraws the active glyphs');
     assert.equal(target.tier, tier);
     assert(target.width <= Math.min(6144, maxTextureSize) && target.height <= Math.min(6144, maxTextureSize));
-    assert(target.bytes <= Math.min(64 * 1024 * 1024, c.lyricQualityPoolBudgetBytes(tier) * 0.55));
+    assert(target.bytes <= Math.min(32 * 1024 * 1024, c.lyricQualityPoolBudgetBytes(tier) * 0.45));
   }
 });
 

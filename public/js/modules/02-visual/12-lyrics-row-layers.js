@@ -837,6 +837,10 @@ function setLyricRowTextureMap(row, texture) {
   if (!row || !row.mat || !texture) return false;
   if (row.mat.uniforms && row.mat.uniforms.uMap) row.mat.uniforms.uMap.value = texture;
   else row.mat.map = texture;
+  if (row.mat.uniforms && row.mat.uniforms.uMapUvRect) {
+    var rect = texture.userData && texture.userData.lyricUvRect || [0, 0, 1, 1];
+    row.mat.uniforms.uMapUvRect.value.set(rect[0], rect[1], rect[2], rect[3]);
+  }
   return true;
 }
 
@@ -1133,7 +1137,7 @@ function scheduleLyricQualityBuild(delay) {
 }
 
 function queueLyricRowQuality(data, row, tier, priority) {
-  if (!lyricQualityOwnerActive(data, row) || !row.lineMask || tier <= 1 || row.qualityWanted !== true || Number(row.qualityHotUntil) <= lyricQualityNowMs()) return;
+  if (!lyricQualityOwnerActive(data, row) || !row.lineMask || tier < 1 || row.qualityWanted !== true || Number(row.qualityHotUntil) <= lyricQualityNowMs()) return;
   var target = lyricQualityTargetMetrics(row.lineMask, tier);
   if (!target) return;
   var key = target.tier + 'x|' + target.width + 'x' + target.height + '|' + (Number(row.lineMask.stoneSeed) || 0);
@@ -1228,7 +1232,7 @@ function beginLyricQualitySelectionFrame(deferFinalize) {
 }
 
 function registerLyricQualityCandidates(data, candidates, tier, rootPriority) {
-  if (!lyricQualityOwnerActive(data) || !Array.isArray(candidates) || !candidates.length || tier <= 1) return;
+  if (!lyricQualityOwnerActive(data) || !Array.isArray(candidates) || !candidates.length || tier < 1) return;
   rootPriority = Number(rootPriority) || 0;
   for (var i = 0; i < candidates.length; i++) {
     var candidate = candidates[i];
@@ -1297,13 +1301,6 @@ function finalizeLyricQualitySelectionFrame() {
   if (typeof lyricFxEditActive === 'function' && lyricFxEditActive()) return;
   var tier = lyricTextureClarityScale();
   var now = lyricQualityNowMs();
-  if (tier <= 1) {
-    var baseRows = lyricQualityState.residents.slice();
-    for (var baseIndex = 0; baseIndex < baseRows.length; baseIndex++) releaseLyricRowQuality(baseRows[baseIndex], true);
-    pruneLyricQualityQueue(now);
-    updateLyricQualityStats(tier);
-    return;
-  }
   var sorted = lyricQualityState.frameCandidates.slice().sort(function (a, b) { return a.priority - b.priority; });
   var candidates = [];
   var candidateRows = [];
@@ -1714,10 +1711,10 @@ function updateLyricRowLayers(data, opts) {
       row.renderWindowActive = false;
       row.renderRevealAt = 0;
     }
-    var rowHighQualityAllowed = contextHighQualityEnabled || isActive || currentTranslation || !!(data.trackSeekHold && data.trackSeekHold.row === row);
+    var rowHighQualityAllowed = (lyricQualityTier > 1 && contextHighQualityEnabled) || isActive || currentTranslation || !!(data.trackSeekHold && data.trackSeekHold.row === row);
     if (editPreview || row.editTextPreview) {
       if (!row.editTextPreview && row.baseLineTexture && lyricQualityCurrentMap(row) !== row.baseLineTexture) setLyricRowTextureMap(row, row.baseLineTexture);
-    } else if (lyricQualityTier <= 1 || !rowHighQualityAllowed) {
+    } else if (!rowHighQualityAllowed) {
       if (row.qualityTexture || row.qualityPendingTexture || row.qualityQueuedKey) releaseLyricRowQuality(row, true);
     } else if (!initialTextRevealPending && (!movingTextPreview || pendingWindowAllowed) && (renderWindowActive || lineUploadPrewarm || pendingWindowAllowed)) {
       var qualityPriority = isActive ? 10 : (currentTranslation ? 11 : (row.isTranslation ? 22 : (lineUploadPrewarm ? 34 : 24 + Math.min(8, visibilityAbs))));

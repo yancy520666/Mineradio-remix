@@ -41,7 +41,8 @@ test('ordinary line advances have distinct stable modes with the same duration a
 });
 test('glass uses its own glyph material while other styles retain zero glass reflection', () => {
   const c=fixture();
-  c.THREE={ ShaderMaterial: class { constructor(options){ Object.assign(this,options); } }, DoubleSide:2 };
+  c.renderer={capabilities:{isWebGL2:false}};
+  c.THREE={ ShaderMaterial: class { constructor(options){ Object.assign(this,options); } }, Vector4:class {}, DoubleSide:2 };
   c.uniforms={uTime:{value:0}};
   c.lyricThreeColor=()=>({}); c.lyricStageGlowThreeColor=()=>({}); c.lyricBeatGlowThreeColor=()=>({});
   loadFunctions(c,'public/js/modules/02-visual/11-lyrics-shaders.js',['makeLyricShaderMaterial']);

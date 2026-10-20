@@ -14,7 +14,7 @@ function context() {
     clampRange(v,a,b) { return Math.max(a,Math.min(b,v)); }, lyricRowTextureWidthBudget() { return 1600; },
     lyricQualityPoolBudgetBytes() { return 64*1024*1024; }
   });
-  loadFunctions(c, 'public/js/modules/02-visual/10-lyrics-mask-textures.js', ['lyricRunwayRowPixelBudget','makeLyricMask','lyricQualityTargetMetrics']);
+  loadFunctions(c, 'public/js/modules/02-visual/10-lyrics-mask-textures.js', ['lyricRunwayRowPixelBudget','makeLyricMask','lyricQualityCropRect','lyricQualityTargetMetrics']);
   return c;
 }
 function mask(c) {
@@ -33,9 +33,12 @@ test('small preview raster preserves authored geometry and karaoke proportions',
   assert.equal(m.textWidth/m.width,800/2048);assert.equal(m.fontSize/m.width,128/2048);
   assert.ok(m.width <= 512);assert.ok(m.runwayPreview);
 });
-test('high quality redraw uses the original row width rather than enlarging the preview', () => {
+test('visible quality redraw uses logical glyph metrics and drops transparent runway padding', () => {
   const c=context(),m=mask(c),metrics=c.lyricQualityTargetMetrics(m,2);
-  assert.equal(metrics.width,3200);assert.equal(metrics.logicalWidth,2048);
+  assert.equal(metrics.logicalWidth,2048);
+  assert(metrics.crop.width < metrics.logicalWidth);
+  assert(metrics.scale * m.logicalFontSize > m.fontSize * 2);
+  assert(metrics.width < 2048 * metrics.scale);
 });
 test('resident work accepts the current prepared root but rejects old songs and disposed roots', () => {
   const mesh={userData:{preparedTrackToken:2}},other={userData:{preparedTrackToken:1}};

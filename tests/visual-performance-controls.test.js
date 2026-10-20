@@ -40,7 +40,7 @@ test('disabled controls bypass the expensive lyric and particle paths', () => {
   const particles = read('public/js/modules/02-visual/00-pointer-cover-particles.js');
 
   assert.match(lyric, /fx\.lyricLiveViewportFit !== false\)\) \{\s*baseScale \*= lyricRowLiveViewportScale/);
-  assert.match(lyric, /contextHighQualityEnabled \|\| isActive \|\| currentTranslation/);
+  assert.match(lyric, /lyricQualityTier > 1 && contextHighQualityEnabled\) \|\| isActive \|\| currentTranslation/);
   assert.match(lyric, /fx\.lyricBackdropAdapt !== false/);
   assert.match(uniforms, /fx\.coverBackdropAdapt !== false[\s\S]*?: 0;/);
   assert.ok((particles.match(/if \(backdropAdapt > 0\.001\)/g) || []).length >= 2);

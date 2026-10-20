@@ -63,9 +63,13 @@ function getLyricSunBloomTexture() {
 
 function makeLyricShaderMaterial(mask, pal, motionProfile) {
   motionProfile = motionProfile || lyricMotionProfile();
+  var derivativeAA = !!(renderer && (renderer.capabilities.isWebGL2 ||
+    renderer.extensions && renderer.extensions.has && renderer.extensions.has('OES_standard_derivatives')));
   return new THREE.ShaderMaterial({
+    extensions: { derivatives: derivativeAA },
     uniforms: {
       uMap: { value: mask.texture },
+      uMapUvRect: { value: new THREE.Vector4(0, 0, 1, 1) },
       uTime: uniforms.uTime,
       uProgress: { value: 0 },
       uTextMin: { value: mask.textMin },
@@ -94,16 +98,27 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
     fragmentShader: [
       'precision highp float;',
       'uniform sampler2D uMap;',
+      'uniform vec4 uMapUvRect;',
       'uniform float uEditPreview;',
       'uniform float uTime,uProgress,uTextMin,uTextMax,uOpacity,uFeather,uSolar,uSweep,uShimmer,uGlitch,uGlitchSlice,uGlitchChroma,uGlitchRate,uGlitchSeed,uGlitchBurst,uEdgeBoost,uActiveMix,uGlass;',
       'uniform vec3 uBaseColor,uHiColor,uGlowColor,uSolarColor;',
       'varying vec2 vUv;',
       'float hash(float n){ return fract(sin(n) * 43758.5453123); }',
       'float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }',
+      'float lyricMaskAlpha(vec2 uv) {',
+      '  vec2 mapUv = (uv - uMapUvRect.xy) / uMapUvRect.zw;',
+      '  if (any(lessThan(mapUv, vec2(0.0))) || any(greaterThan(mapUv, vec2(1.0)))) return 0.0;',
+      derivativeAA ? [
+        '  vec2 dx = dFdx(uv) * 0.25 / uMapUvRect.zw;',
+        '  vec2 dy = dFdy(uv) * 0.25 / uMapUvRect.zw;',
+        '  return 0.25 * (texture2D(uMap,mapUv-dx-dy).a + texture2D(uMap,mapUv+dx-dy).a',
+        '    + texture2D(uMap,mapUv-dx+dy).a + texture2D(uMap,mapUv+dx+dy).a);'
+      ].join('\n') : '  return texture2D(uMap, mapUv).a;',
+      '}',
       'void main(){',
       '  vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);',
       '  if (uEditPreview > 0.5) {',
-      '    float a = texture2D(uMap, uv).a; if (a < 0.01) discard;',
+      '    float a = lyricMaskAlpha(uv); if (a < 0.01) discard;',
       '    float p = clamp((uv.x-uTextMin)/max(0.001,uTextMax-uTextMin),0.0,1.0);',
       '    float fill = (1.0-smoothstep(uProgress,uProgress+uFeather,p))*clamp(uActiveMix,0.0,1.0);',
       '    gl_FragColor = vec4(mix(uBaseColor,uHiColor,fill*0.88),a*uOpacity); return;',
@@ -119,7 +134,7 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
       '  float glitchWave = (phaseRnd * 2.0 - 1.0) * (0.55 + micro * 0.95);',
       '  float glitchWidth = (0.0020 + rowRnd * rowRnd * 0.0085) * (0.55 + uGlitchBurst * 1.85);',
       '  vec2 sampleUv = uv + vec2(glitchGate * glitchDir * glitchWave * uGlitch * uGlitchSlice * glitchWidth, 0.0);',
-      '  float mask = texture2D(uMap, sampleUv).a;',
+      '  float mask = lyricMaskAlpha(sampleUv);',
       '  if(mask < 0.01) discard;',
       '  float activeMix = clamp(uActiveMix, 0.0, 1.0);',
       '  float denom = max(0.001, uTextMax - uTextMin);',
@@ -130,8 +145,11 @@ function makeLyricShaderMaterial(mask, pal, motionProfile) {
       '  float sweepLine = (1.0 - smoothstep(0.0, 0.080, abs((uv.x + uv.y * 0.42) - (sweepPhase * 1.42 - 0.18)))) * activeMix;',
       '  float fineLine = pow(max(0.0, sin((uv.x - uv.y * 0.18 + uTime * 0.82) * 42.0)), 24.0) * uShimmer * activeMix;',
       '  float chromaOffset = (0.0028 + phaseRnd * 0.0048 + uGlitchBurst * 0.0038) * uGlitch * uGlitchChroma;',
-      '  float chromaR = texture2D(uMap, sampleUv + vec2(chromaOffset * glitchDir, 0.0)).a;',
-      '  float chromaB = texture2D(uMap, sampleUv - vec2(chromaOffset * glitchDir, 0.0)).a;',
+      '  float chromaR = mask, chromaB = mask;',
+      '  if (uGlitch > 0.001 && uGlitchChroma > 0.001) {',
+      '    chromaR = lyricMaskAlpha(sampleUv + vec2(chromaOffset * glitchDir, 0.0));',
+      '    chromaB = lyricMaskAlpha(sampleUv - vec2(chromaOffset * glitchDir, 0.0));',
+      '  }',
       '  vec3 color = mix(uBaseColor, uHiColor, filled * 0.88);',
       '  color += uGlowColor * edge * 0.14 * uEdgeBoost;',
       '  color += uSolarColor * sweepLine * uSweep * (0.12 + filled * 0.30);',

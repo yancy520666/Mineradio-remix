@@ -752,13 +752,13 @@
           <div class="fx-seg lyric-texture-quality-seg" id="lyric-texture-quality-seg" role="group"
             aria-label="歌词纹理清晰度">
             <button type="button" data-lyric-texture-clarity="1" onclick="setLyricTextureClarity(1)"
-              title="1 倍基础纹理，节省显存，适合低配设备或超长歌词"><span>1×</span><small>标清</small></button>
+              title="当前歌词与译文清晰重绘，远处保留小纹理，优先节省资源"><span>省资源</span><small>当前句优先</small></button>
             <button type="button" data-lyric-texture-clarity="2" onclick="setLyricTextureClarity(2)"
-              title="2 倍可见歌词纹理，兼顾清晰度与流畅度"><span>2×</span><small>高清</small></button>
+              title="按窗口分辨率绘制可见歌词，兼顾清晰度和资源占用"><span>均衡</span><small>日常推荐</small></button>
             <button type="button" data-lyric-texture-clarity="3" onclick="setLyricTextureClarity(3)"
-              title="3 倍可见歌词纹理，适合大屏或歌词放大"><span>3×</span><small>超清</small></button>
+              title="增加字边细节，适合大屏；仅缓存需要的文字区域"><span>高清</span><small>大屏细节</small></button>
             <button type="button" data-lyric-texture-clarity="4" onclick="setLyricTextureClarity(4)"
-              title="4 倍可见歌词纹理，使用受控高清缓存以保护显存"><span>4×</span><small>极致</small></button>
+              title="为放大歌词保留更多采样细节，仍受纹理尺寸和缓存预算限制"><span>极致</span><small>放大更清楚</small></button>
           </div>
           <div class="fx-font-grid expanded" id="lyric-font-grid">
             <button type="button" data-font="sans" onclick="setLyricFont('sans')">默认</button>
@@ -1079,7 +1079,7 @@
             <div class="fx-toggle" id="t-lyricLiveViewportFit" onclick="toggleFx('lyricLiveViewportFit')"
               title="仅在歌词锁定视角时按屏幕余量适配；普通视角滚轮缩放不改变字号，歌单架单独适配"><span>锁定视角边界</span><span class="dot"></span></div>
             <div class="fx-toggle" id="t-lyricContextHighQuality" onclick="toggleFx('lyricContextHighQuality')"
-              title="为可见上下句和翻译预热高清纹理；关闭后只保留当前原文和当前翻译高清"><span>上下句高清纹理</span><span class="dot"></span></div>
+              title="均衡及更高档位可为上下句预热高清纹理；关闭或选择省资源时，只优先重绘当前原文与译文"><span>上下句高清纹理</span><span class="dot"></span></div>
             <div class="fx-toggle" id="t-lyricBackdropAdapt" onclick="toggleFx('lyricBackdropAdapt')"
               title="让所有可见歌词根据亮背景实时增强可读性；关闭后保留基础文字层"><span>全局歌词避光</span><span class="dot"></span></div>
             <div class="fx-toggle" id="t-coverBackdropAdapt" onclick="toggleFx('coverBackdropAdapt')"

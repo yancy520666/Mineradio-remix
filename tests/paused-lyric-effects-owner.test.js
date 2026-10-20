@@ -21,6 +21,18 @@ function ownerContext() {
   return { c, row, data, mesh };
 }
 
+test('manual clarity changes permit only the current visible paused rows to finish', () => {
+  const { c, row, data } = ownerContext(), invalidations = [];
+  data.rowLayers.push({ renderWindowActive: false });
+  c.invalidateLyricQualityTextures = (...args) => invalidations.push(args);
+  c.markRenderInteraction = () => {};
+  loadFunctions(c, previewPath, ['refreshVisibleLyricQuality']);
+  c.refreshVisibleLyricQuality();
+  assert.equal(invalidations.length, 1); assert.equal(invalidations[0][1].release, false);
+  assert.equal(data.pausedFxCommitToken, c.trackSwitchToken);
+  assert.equal(data.pausedFxCommitRows.length, 1); assert.equal(data.pausedFxCommitRows[0], row);
+});
+
 test('paused commit permission belongs only to the current original visible rows and generation', () => {
   const { c, row, data, mesh } = ownerContext();
   assert.equal(c.lyricFxPausedCommitActive(data, row), true);

@@ -12,6 +12,16 @@ function lyricFxPausedCommitActive(data, row) {
   return !row || !!(row.renderWindowActive && Array.isArray(data.pausedFxCommitRows)
     && data.pausedFxCommitRows.indexOf(row) >= 0);
 }
+function refreshVisibleLyricQuality() {
+  invalidateLyricQualityTextures('texture-clarity-change', { release: false });
+  var current = stageLyrics.current;
+  var data = current && current.userData && current.userData.lyric;
+  if (data && audio && audio.paused) {
+    data.pausedFxCommitToken = trackSwitchToken;
+    data.pausedFxCommitRows = (data.rowLayers || []).filter(function (row) { return row.renderWindowActive; });
+  }
+  if (typeof markRenderInteraction === 'function') markRenderInteraction('lyric-clarity-change', 1000);
+}
 function finishLyricFxPausedCommit(data) {
   if (!data || data.pausedFxCommitToken == null) return;
   if (!lyricFxPausedCommitActive(data)) {
@@ -27,7 +37,7 @@ function finishLyricFxPausedCommit(data) {
     visible += 1;
     if (row.editTextPreview || !row.renderLineUploaded || !row.readability || !row.renderReadabilityUploaded) return;
     if (fx.lyricGlow && Number(fx.lyricGlowStrength) > 0 && (!row.glow || !row.renderGlowUploaded)) return;
-    if (tier > 1 && row.qualityWanted === true) {
+    if (row.qualityWanted === true) {
       var target = lyricQualityCandidateTarget({ row: row, tier: tier });
       if (target && (row.qualityQueuedKey || row.qualityPendingTexture || !row.qualityTexture
         || row.qualityTier !== target.metrics.tier || row.qualityRasterKey !== target.key

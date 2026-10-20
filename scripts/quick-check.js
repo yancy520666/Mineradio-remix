@@ -3617,8 +3617,8 @@ app.whenReady().then(async () => {
         const builtTextures = [];
         try {
           mask = compactLyricLineMaskTexture(makeLyricMask('清晰度验证 High resolution lyric'));
-          const rows = [{ tier: 1, width: Number(mask && mask.width) || 0, height: Number(mask && mask.height) || 0 }];
-          [2, 3, 4].forEach(tier => {
+          const rows = [];
+          [1, 2, 3, 4].forEach(tier => {
             const built = makeLyricQualityTexture(mask, tier);
             if (built && built.texture) builtTextures.push(built.texture);
             rows.push({
@@ -3631,9 +3631,9 @@ app.whenReady().then(async () => {
           });
           const widths = rows.map(row => row.width);
           const heights = rows.map(row => row.height);
-          const monotonic = widths.every((width, index) => index === 0 || width > widths[index - 1]) && heights.every((height, index) => index === 0 || height > heights[index - 1]);
-          const boundedActualScale = widths[0] > 0 && widths[1] >= widths[0] * 1.75 && widths[2] >= widths[0] * 2.4 && widths[3] >= widths[0] * 3.0;
-          const marked = rows.slice(1).every(row => row.markedQuality && row.bytes > 0);
+          const monotonic = widths.every((width, index) => index === 0 || width >= widths[index - 1]) && heights.every((height, index) => index === 0 || height >= heights[index - 1]) && widths[3] > widths[0];
+          const boundedActualScale = widths[0] > 0 && rows.every(row => row.bytes <= Math.min(32 * 1024 * 1024, lyricQualityPoolBudgetBytes(row.tier) * 0.45));
+          const marked = rows.every(row => row.markedQuality && row.bytes > 0);
           return { ok: monotonic && boundedActualScale && marked, rows, monotonic, boundedActualScale, marked };
         } catch (error) {
           return { ok: false, reason: String(error && error.stack || error) };
@@ -3646,7 +3646,7 @@ app.whenReady().then(async () => {
         }
       }
       const lyricTextureQualityQa = inspectLyricTextureQualityTiers();
-      if (!lyricTextureQualityQa.ok) failures.push('1x-4x lyric texture quality is not physically increasing: ' + JSON.stringify(lyricTextureQualityQa));
+      if (!lyricTextureQualityQa.ok) failures.push('four-tier lyric text detail is not increasing within its resource budget: ' + JSON.stringify(lyricTextureQualityQa));
       async function inspectLyricQualityCacheStability() {
         const oldLines = window.lyricsLines;
         const oldTranslations = window.lyricsTranslationLines;
@@ -5476,10 +5476,10 @@ function checkFxConsoleWorkspaceGuard() {
   if (!/\.fx-console-toolbar/.test(css) || !/\.fx-console-group/.test(css) || !/prefers-reduced-motion:reduce/.test(css)) fail('visual console layout or reduced-motion styles are missing');
   if (!/fxConsoleSearchHitDelayTimer/.test(workspace) || !/outline-offset:\s*-2px/.test(css) || !/\.bg-media-actions,[\s\S]{0,160}\.wallpaper-engine-actions/.test(css)) fail('visual console search highlight or background media responsive layout is missing');
   const clarityButtonsReady = ['1', '2', '3', '4'].every(value => html.includes(`data-lyric-texture-clarity="${value}"`));
-  const clarityLabelsReady = ['1×', '2×', '3×', '4×', '标清', '高清', '超清', '极致'].every(label => html.includes(label));
+  const clarityLabelsReady = ['省资源', '均衡', '高清', '极致', '当前句优先', '日常推荐'].every(label => html.includes(label));
   const packagedDefaultsUseRuntimeDefaults = /PACKAGED_DEFAULT_FX_SNAPSHOT\s*=\s*Object\.freeze\(Object\.assign\(\{[\s\S]{0,180}visualPresetSchema:\s*VISUAL_PRESET_SCHEMA[\s\S]{0,120}\},\s*fxDefaults\)\)/.test(packagedDefaults);
-  if (!/id="lyric-texture-quality-seg"/.test(html) || !clarityButtonsReady || !clarityLabelsReady || /data-lyric-texture-clarity="1\.(?:25|5)"/.test(html) || !/lyricTextureClarity:\s*2/.test(defaults) || !packagedDefaultsUseRuntimeDefaults || !defaultArchive.snapshot || defaultArchive.snapshot.lyricTextureClarity !== 2 || !/normalizeLyricTextureClarity/.test(persistence + archive + panel) || !/invalidateLyricQualityTextures\('texture-clarity-change'/.test(panel) || /scheduleStageLyricFullTrackWarmup\('texture-clarity-change'/.test(panel) || !/function lyricQualityPoolBudgetBytes/.test(maskTexture) || !/function makeLyricQualityTexture/.test(maskTexture) || !/function queueLyricRowQuality/.test(rowLayers) || !/qualityHotUntil/.test(rowLayers) || !/backgroundStarRiver'\s*,\s*'lyricTextureClarity'\s*,\s*\/\/ Append-only:[\s\S]{0,120}'lyricLiveViewportFit'/.test(archive)) fail('1x-4x visible-row lyric quality, persistence, cache budget, or append-only MR2 archive wiring is incomplete');
-  if (!/function finalizeLyricQualitySelectionFrame/.test(rowLayers) || !/frameCandidates/.test(rowLayers) || !/function lyricQualityEffectiveBudgetBytes/.test(rowLayers) || !/qualityFallbackUntil/.test(rowLayers) || !/function pruneLyricQualityQueue/.test(rowLayers) || !/row\.qualityWanted !== true/.test(rowLayers) || !/lyricQualityEnsureCapacity\(job\.bytes[\s\S]{0,900}makeLyricQualityTexture/.test(rowLayers) || !/qualityRootPriority:\s*isCurrent \? 0 : 1000/.test(stageLyrics) || /qualityRetryAfter/.test(rowLayers) || !/fallbackHotUntil/.test(rowLayers) || !/release:\s*next <= 1/.test(panel)) fail('lyric quality global byte-aware selection, stale-job pruning, pre-render capacity check, or no-flash tier handoff is incomplete');
+  if (!/id="lyric-texture-quality-seg"/.test(html) || !clarityButtonsReady || !clarityLabelsReady || /data-lyric-texture-clarity="1\.(?:25|5)"/.test(html) || !/lyricTextureClarity:\s*2/.test(defaults) || !packagedDefaultsUseRuntimeDefaults || !defaultArchive.snapshot || defaultArchive.snapshot.lyricTextureClarity !== 2 || !/normalizeLyricTextureClarity/.test(persistence + archive + panel) || !/invalidateLyricQualityTextures\('texture-clarity-change'/.test(panel) || /scheduleStageLyricFullTrackWarmup\('texture-clarity-change'/.test(panel) || !/function lyricQualityPoolBudgetBytes/.test(maskTexture) || !/function makeLyricQualityTexture/.test(maskTexture) || !/function queueLyricRowQuality/.test(rowLayers) || !/qualityHotUntil/.test(rowLayers) || !/backgroundStarRiver'\s*,\s*'lyricTextureClarity'\s*,\s*\/\/ Append-only:[\s\S]{0,120}'lyricLiveViewportFit'/.test(archive)) fail('four-tier visible-row lyric quality, persistence, cache budget, or append-only MR2 archive wiring is incomplete');
+  if (!/function finalizeLyricQualitySelectionFrame/.test(rowLayers) || !/frameCandidates/.test(rowLayers) || !/function lyricQualityEffectiveBudgetBytes/.test(rowLayers) || !/qualityFallbackUntil/.test(rowLayers) || !/function pruneLyricQualityQueue/.test(rowLayers) || !/row\.qualityWanted !== true/.test(rowLayers) || !/lyricQualityEnsureCapacity\(job\.bytes[\s\S]{0,900}makeLyricQualityTexture/.test(rowLayers) || !/qualityRootPriority:\s*isCurrent \? 0 : 1000/.test(stageLyrics) || /qualityRetryAfter/.test(rowLayers) || !/fallbackHotUntil/.test(rowLayers) || !/release:\s*false/.test(panel)) fail('lyric quality global byte-aware selection, stale-job pruning, pre-render capacity check, or no-flash tier handoff is incomplete');
   const qualityCommitBody = rowLayers.slice(rowLayers.indexOf('function commitLyricRowQuality'), rowLayers.indexOf('function beginLyricQualitySelectionFrame'));
   if (!/frameCommits:\s*\[\]/.test(rowLayers) || !/function commitDeferredLyricQualityRows/.test(rowLayers) || !/lyricQualityState\.deferFinalize \|\| row\.qualityWanted !== true/.test(qualityCommitBody) || /discardLyricRowPendingQuality/.test(qualityCommitBody) || !/commitDeferredLyricQualityRows\(\)/.test(rowLayers) || !/function disposeLyricQualityOwner/.test(rowLayers) || !/__mineradioLyricQualityDisposed/.test(rowLayers) || !/disposeLyricQualityOwner\(lyricData\)/.test(starRiver) || !/qualityProjectedPoolBytes/.test(rowLayers) || !/function lyricQualityHasPendingTexture/.test(rowLayers)) fail('lyric quality deferred commit, disposed-owner cancellation, or bounded atomic tier replacement guard is incomplete');
   const fpsModesReady = ['vsync', '45', '60', '75', '90', '120'].every(value => html.includes(`data-foreground-fps="${value}"`));
