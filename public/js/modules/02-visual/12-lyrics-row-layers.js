@@ -144,6 +144,7 @@ function makeLyricBackfaceReadableMaterial(opts) {
   return new THREE.ShaderMaterial({
     uniforms: {
       uMap: { value: opts.map || null },
+      uMapUvRect: { value: new THREE.Vector4(0, 0, 1, 1) },
       uColor: { value: color },
       uOpacity: { value: opts.opacity == null ? 0 : clampRange(Number(opts.opacity) || 0, 0, 1) }
     },
@@ -157,12 +158,16 @@ function makeLyricBackfaceReadableMaterial(opts) {
     fragmentShader: [
       'precision highp float;',
       'uniform sampler2D uMap;',
+      'uniform vec4 uMapUvRect;',
       'uniform vec3 uColor;',
       'uniform float uOpacity;',
       'varying vec2 vUv;',
       'void main(){',
       '  vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);',
-      '  vec4 tex = texture2D(uMap, uv);',
+      // Translations use cropped quality maps too; retain the logical row frame.
+      '  vec2 mapUv = (uv - uMapUvRect.xy) / uMapUvRect.zw;',
+      '  if (any(lessThan(mapUv, vec2(0.0))) || any(greaterThan(mapUv, vec2(1.0)))) discard;',
+      '  vec4 tex = texture2D(uMap, mapUv);',
       '  gl_FragColor = vec4(uColor, tex.a * uOpacity);',
       '}'
     ].join('\n'),

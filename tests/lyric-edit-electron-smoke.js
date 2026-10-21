@@ -221,13 +221,21 @@ async function exercise(baseline, fullScene) {
     newTrackRestored = true;
     console.log('EDIT_STAGE:new-track-restored');
     audio.pause(); playing = false;
+    const pausedRows = stageLyrics.current.userData.lyric.rowLayers;
+    const rowLayout = JSON.stringify(pausedRows.map(row => ({ baseScale: row.baseScale, baseY: row.baseY,
+      geometry: row.mesh.geometry.parameters, fontScale: row.fontScale })));
     for (const tier of [1, 4, 2]) {
       setLyricTextureClarity(tier, true);
       await until(() => {
         const data = stageLyrics.current && stageLyrics.current.userData.lyric;
-        return data && !data.pausedFxCommitToken && data.rowLayers.some(row => row.isPrimary && row.renderWindowActive
-          && row.qualityTier === lyricTextureClarityScale() && row.qualityTexture && lyricQualityCurrentMap(row) === row.qualityTexture);
+        const visible = data && data.rowLayers.filter(row => row.renderWindowActive && row.qualityWanted);
+        return data && !data.pausedFxCommitToken && visible.some(row => row.isPrimary) && visible.some(row => row.isTranslation)
+          && visible.every(row => row.qualityTier === lyricTextureClarityScale() && row.qualityTexture
+            && lyricQualityCurrentMap(row) === row.qualityTexture && row.mat.uniforms.uMapUvRect
+            && row.mat.uniforms.uMapUvRect.value.toArray().join(',') === row.qualityTexture.userData.lyricUvRect.join(','));
       }, 'Paused clarity tier ' + tier);
+      if (JSON.stringify(pausedRows.map(row => ({ baseScale: row.baseScale, baseY: row.baseY,
+        geometry: row.mesh.geometry.parameters, fontScale: row.fontScale }))) !== rowLayout) throw Error('Clarity changed original or translation layout');
       pausedTiers.push(tier);
     }
     clearStageLyrics();
