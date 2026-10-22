@@ -142,6 +142,9 @@ test('a sharp-text job that repeats without progress backs off instead of spinni
   const data={};
   for (let i=0;i<4;i++){assert.equal(c.stageLyricSharpTextSpinning(data,13,13),false);now+=10;}
   assert.equal(c.stageLyricSharpTextSpinning(data,13,13),true);
+  now+=10;
+  assert.equal(c.stageLyricSharpTextSpinning(data,40,45),false,'another range can prepare during the back-off');
+  assert.equal(c.stageLyricSharpTextSpinning(data,13,13),true,'the spinning range remains held');
   now+=1000;assert.equal(c.stageLyricSharpTextSpinning(data,13,13),true,'still backing off');
   now+=2000;assert.equal(c.stageLyricSharpTextSpinning(data,13,13),false,'retries once the back-off ends');
   now+=1000;assert.equal(c.stageLyricSharpTextSpinning(data,14,14),false,'a new range is never delayed');

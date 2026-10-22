@@ -1187,6 +1187,7 @@ function startStageLyricResidentBuild(mesh, targetIndex, start, end, options) {
   var sourceMask = singleEffects && data.rowLayers.length ? data.rowLayers[0].lineMask : null;
   var maskLayout = data.persistentMaskLayout || { fontSize: sourceMask && sourceMask.logicalFontSize || 128, lineHeight: sourceMask && sourceMask.logicalLineHeight || 138 };
   var state = beginLyricRowLayerGroupBuild(payload, maskLayout, Number(data.worldW) || 6.10, Number(data.worldH) || 1.2, stageLyrics.palette, lyricMotionProfile());
+  if (state) state.residentRows = stageLyricPersistentResidentRowMap(data);
   // Resident chunks are extensions of one continuous track.  Reuse the
   // original track spacing instead of recalculating it from a compact raster.
   if (state && isFinite(Number(data.lineWorldStep))) state.lineStepWorld = Number(data.lineWorldStep);
@@ -1368,13 +1369,14 @@ function commitStageLyricPersistentPendingTarget(mesh) {
 // slightly soft text instead of an endless build/dispose loop.
 function stageLyricSharpTextSpinning(data, start, end) {
   var now = stageLyricNowMs();
-  if (now < (Number(data.trackSharpBackoffUntil) || 0)) return true;
   var key = start + '-' + end;
+  if (data.trackSharpBackoffKey === key && now < (Number(data.trackSharpBackoffUntil) || 0)) return true;
   var spin = data.trackSharpSpin;
   if (spin && spin.key === key && now - spin.at < 400) spin.count += 1;
   else spin = data.trackSharpSpin = { key: key, count: 1, at: now };
   spin.at = now;
   if (spin.count <= 4) return false;
+  data.trackSharpBackoffKey = key;
   data.trackSharpBackoffUntil = now + 2500;
   data.trackSharpSpin = null;
   return true;

@@ -103,3 +103,35 @@ test('cooperative cancellation is idempotent and rejects a stale finish before t
   assert.equal(c.finishCooperativeLyricMeshBuild(state), null);
   assert.deepEqual(releases, [texture, root]);
 });
+
+test('resident upgrades preserve the original glyph layout when the same translation changes role', () => {
+  const THREE = require('../public/vendor/three.r128.min.js');
+  for (const text of ['短译文', 'W'.repeat(70)]) for (const current of [false, true]) {
+    const { c } = maskContext();
+    c.THREE = Object.assign({}, THREE, { CanvasTexture: c.THREE.CanvasTexture });
+    c.lyricLayerVirtualIndex = () => 0;
+    c.lyricTranslationAnchoredY = () => 0;
+    c.lyricThreeColor = () => new THREE.Color('#fff');
+    c.makeLyricBackfaceReadableMaterial = () => new THREE.MeshBasicMaterial();
+    loadFunctions(c, visual + '12-lyrics-row-layers.js', ['makeLyricLineMask', 'lyricTranslationMeshScale',
+      'lyricRowUsesRunwayPreview', 'beginLyricRowLayerBuildEntry']);
+    const entry = { text, role: 'translation', translationLine: true, lineIndex: 0, parentIndex: 0,
+      parentRole: current ? 'current' : 'context', scale: current ? .8424 : .7176 };
+    const originalMask = c.makeLyricLineMask(entry, { fontSize: 128, lineHeight: 138 }, false, true);
+    const incoming = { ...entry, parentRole: current ? 'context' : 'current', scale: current ? .7176 : .8424 };
+    const state = { entries: [incoming], cursor: 0, rows: [], activeLine: 0, activeLineIndex: 0,
+      usesTrack: true, textOnly: true, payload: { trackRunwayPreview: false }, completedPhases: 0,
+      mask: { fontSize: 140, lineHeight: 150 }, worldW: 6.1, lineStepWorld: 1, translationLineStepWorld: 1,
+      root: new THREE.Group(), contextGroup: new THREE.Group(), pal: {}, motionProfile: {},
+      residentRows: { '0|translation': { text, lineMask: originalMask } } };
+    c.beginLyricRowLayerBuildEntry(state);
+    const rebuilt = state.rows[0];
+    assert.equal(rebuilt.lineMask.runwayPreview, undefined, 'the row really upgrades to a full base raster');
+    assert.equal(rebuilt.lineMask.entries[0].scale, entry.scale, 'changing the target line cannot change resident glyph size');
+    assert.equal(rebuilt.lineMask.logicalFontSize, originalMask.logicalFontSize);
+    assert.equal(rebuilt.lineMask.logicalLineHeight, originalMask.logicalLineHeight);
+    assert.equal(rebuilt.lineMask.logicalWidth, originalMask.logicalWidth);
+    assert.equal(rebuilt.lineWorldW, c.lyricRowLogicalWorldWidth(originalMask, 6.1), 'effect geometry matches the existing text plane');
+    assert(Math.abs(rebuilt.lineWorldH - rebuilt.lineWorldW * originalMask.logicalHeight / originalMask.logicalWidth) < 1e-12);
+  }
+});

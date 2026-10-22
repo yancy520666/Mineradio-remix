@@ -565,7 +565,12 @@ function beginLyricRowLayerBuildEntry(state) {
   var delta = virtualIndex - state.activeLine;
   var entryLineIndex = entry.lineIndex != null && isFinite(Number(entry.lineIndex)) ? Number(entry.lineIndex) : null;
   var isActive = !entry.translationLine && (state.usesTrack ? entryLineIndex === state.activeLineIndex : Math.abs(delta) < 0.001);
-  var lineMask = makeLyricLineMask(entry, state.mask, isActive, state.textOnly && state.usesTrack && lyricRowUsesRunwayPreview(state.payload, entryLineIndex));
+  // A resident row keeps its original glyph layout when its playback role changes.
+  // Build the sharper raster and its effects from that same layout, in the normal work slices.
+  var residentRow = state.residentRows && state.residentRows[entryLineIndex + '|' + (entry.translationLine ? 'translation' : 'primary')];
+  var residentMask = residentRow && residentRow.lineMask;
+  var maskEntry = residentMask && residentMask.entries && residentMask.entries[0] || entry;
+  var lineMask = makeLyricLineMask(maskEntry, residentMask || state.mask, isActive, state.textOnly && state.usesTrack && lyricRowUsesRunwayPreview(state.payload, entryLineIndex));
   var lineWorldW = lyricRowLogicalWorldWidth(lineMask, state.worldW);
   var lineWorldH = lineWorldW * ((lineMask.logicalHeight || lineMask.height) / (lineMask.logicalWidth || lineMask.width));
   var lineY = -delta * state.lineStepWorld;
