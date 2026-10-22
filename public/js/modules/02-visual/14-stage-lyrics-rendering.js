@@ -2472,8 +2472,13 @@ function stageLyricUsesSingleLineSwap(mesh) {
 var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08;
 var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
 var STAGE_LYRIC_SHELF_MIN_FIT = 0.3;
-// Width, in the same units as the worldW given to stageLyricShelfFit, that just fills the free space beside the shelf.
-var lyricShelfFitCapacity = 0;
+// The block as the last stageLyricShelfFit left it: projected width and centre (screen units, -1..1).
+var lyricShelfFitProbeCenter = 0;
+var lyricShelfFitWidth = 0;
+var lyricShelfFitCenter = 0;
+// How far the lines around the sung one may reach past the shelf edge (they are dimmed, so the overlap
+// reads as layering rather than clutter).
+var STAGE_LYRIC_SHELF_CONTEXT_OVERLAP_NDC = 0.34;
 var STAGE_LYRIC_SHELF_NOMINAL_ROOT_SCALE = 1.06;
 // With a detail list open the lyrics may reach into the song rows' left margin (they are drawn over the
 // rows, dimmed, so the overlap reads as transparency); this much of the screen, measured from the row's edge.
@@ -2680,7 +2685,13 @@ function stageLyricShelfFit(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, c
     stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW * fit, scaled, anchor);
     var rect = stageLyricShelfProjectedCaption(lyricShelfFlipTarget, worldW * fit, scaled, lyricShelfTurnQuat);
     var width = rect.right - rect.left;
+    lyricShelfFitProbeCenter = (rect.left + rect.right) / 2;
     return width > 0 && isFinite(width) ? width : NaN;
+  }
+  function note(fit) {
+    var w = widthAt(fit);
+    lyricShelfFitWidth = isFinite(w) ? w : 0;
+    lyricShelfFitCenter = lyricShelfFitProbeCenter;
   }
   // Width grows with the size only up to a point: a block far too wide is pushed against the shelf and
   // towards the camera, where it projects narrower again. A search from the top would be fooled by that and
@@ -2688,24 +2699,23 @@ function stageLyricShelfFit(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, c
   // size that no longer fits, then refine between the last size that did and that one.
   var steps = 10, good = STAGE_LYRIC_SHELF_MIN_FIT, bad = 0;
   var minWidth = widthAt(good);
-  lyricShelfFitCapacity = 0;
+  lyricShelfFitWidth = 0;
   if (!isFinite(minWidth)) return 1;
-  if (minWidth > avail) { lyricShelfFitCapacity = worldW * good * avail / minWidth; return good; }
+  if (minWidth > avail) { note(good); return good; }
   for (var step = 1; step <= steps; step++) {
     var fit = STAGE_LYRIC_SHELF_MIN_FIT + (1 - STAGE_LYRIC_SHELF_MIN_FIT) * step / steps;
     var width = widthAt(fit);
-    if (!isFinite(width)) { lyricShelfFitCapacity = worldW * good * avail / Math.max(0.001, widthAt(good)); return good; }
+    if (!isFinite(width)) { note(good); return good; }
     if (width > avail) { bad = fit; break; }
     good = fit;
   }
-  if (!bad) { lyricShelfFitCapacity = worldW * avail / Math.max(0.001, widthAt(1)); return 1; }
+  if (!bad) { note(1); return 1; }
   for (var refine = 0; refine < 5; refine++) {
     var mid = (good + bad) / 2;
     var midWidth = widthAt(mid);
     if (isFinite(midWidth) && midWidth <= avail) good = mid; else bad = mid;
   }
-  var goodWidth = widthAt(good);
-  if (goodWidth > 0) lyricShelfFitCapacity = worldW * good * avail / goodWidth;
+  note(good);
   return good;
 }
 // Where the flip starts from. While the shelf opens the lyrics leave the pose they were dragged to and
@@ -2945,9 +2955,17 @@ function updateStageLyricLayout(dt) {
     // Land on the fit at once while the flip is still running (it scales along the same curve); only a
     // longer line arriving later on a settled shelf eases in.
     stageLyrics.shelfFitScale += (shelfFitTarget - stageLyrics.shelfFitScale) * (shelfFlip < 1 ? 1 : 0.12);
-    // What a row may be wide before it spills past the free space, in the rows own units: the lines around
-    // the sung one are limited to it one by one instead of all riding the sung line's size.
-    stageLyrics.shelfRowCap = typeof lyricShelfFitCapacity !== 'undefined' && lyricShelfFitCapacity > 0 ? lyricShelfFitCapacity / Math.max(0.01, shelfFinalScale) : 0;
+    // How wide a row may be, in the rows own units: the lines around the sung one are held to the free space
+    // beside the shelf plus a little overlap onto it (limited per row, not by the sung line's size), and never
+    // past the screen's left edge. The block is centred on the sung line, so the nearer limit wins.
+    var rowCapW = typeof lyricShelfFitWidth !== 'undefined' ? lyricShelfFitWidth : 0;
+    if (rowCapW > 0) {
+      var rowCapEdge = shelfAnchor ? shelfAnchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
+      var rowCapNdc = Math.max(0.2, Math.min(2 * (lyricShelfFitCenter - STAGE_LYRIC_SCREEN_LEFT_NDC_X), 2 * (rowCapEdge + STAGE_LYRIC_SHELF_CONTEXT_OVERLAP_NDC - lyricShelfFitCenter)));
+      stageLyrics.shelfRowCap = rowCapNdc * refW / rowCapW;
+    } else {
+      stageLyrics.shelfRowCap = 0;
+    }
     shelfFinalScale *= stageLyrics.shelfFitScale;
     shelfLyricWorldW = refW * shelfFinalScale;
     shelfCaption.centerY *= shelfFinalScale;
