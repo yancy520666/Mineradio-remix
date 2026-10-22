@@ -598,20 +598,16 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
   }
   var cacheSeed = (opts.coverKey || thumbSrc || '') + '|tex=' + (cv.width || 0) + 'x' + (cv.height || 0);
   var cachedDepth = getCoverDepthCache(cacheSeed);
-  // Sonic colors should follow the decoded cover, not delayed edge/AI work.
+  // Lyric colors should follow the decoded cover in every preset, not delayed edge/AI work.
   // Read a small canvas so high-resolution covers cannot stall the first frame.
-  var paletteReady = false;
-  if (fx.preset === 8) {
-    var paletteCanvas = opts.paletteCanvas || cv;
-    if (!opts.paletteCanvas && (cv.width > 128 || cv.height > 128)) {
-      paletteCanvas = document.createElement('canvas');
-      paletteCanvas.width = paletteCanvas.height = 128;
-      var paletteContext = typeof coverCpuContext === 'function' ? coverCpuContext(paletteCanvas) : paletteCanvas.getContext('2d');
-      paletteContext.drawImage(cv, 0, 0, 128, 128);
-    }
-    updateLyricPaletteFromCover(paletteCanvas);
-    paletteReady = true;
+  var paletteCanvas = opts.paletteCanvas || cv;
+  if (!opts.paletteCanvas && (cv.width > 128 || cv.height > 128)) {
+    paletteCanvas = document.createElement('canvas');
+    paletteCanvas.width = paletteCanvas.height = 128;
+    var paletteContext = typeof coverCpuContext === 'function' ? coverCpuContext(paletteCanvas) : paletteCanvas.getContext('2d');
+    paletteContext.drawImage(cv, 0, 0, 128, 128);
   }
+  updateLyricPaletteFromCover(paletteCanvas);
   // 切歌颜色渐变: 把当前 coverTex 当作 prevCoverTex
   if (!opts.noCoverTransition && uniforms.uHasCover.value > 0.5 && coverTex.image) {
     var prevW = coverTex.image.width || 256;
@@ -660,7 +656,6 @@ function applyCoverCanvas(cv, thumbSrc, opts) {
     if (token !== coverProcessToken || !coverApplyStillCurrent(opts)) return;
     if (floatGroup) refreshFloatColorsFromCover(cv);
     if (backCoverGroup) refreshBackCoverColorsFromCanvas(cv);
-    if (!paletteReady) updateLyricPaletteFromCover(cv);
   }
 
   function runHeavyCoverWork() {

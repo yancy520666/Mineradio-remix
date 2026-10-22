@@ -25,26 +25,50 @@ function fixture(preset = 8) {
   return { c, tasks, palettes, deepWork: () => deepWork };
 }
 
-test('Sonic cover palette is available before deferred depth work, using a bounded image read', () => {
-  const f = fixture();
-  f.c.applyCoverCanvas({ width: 2048, height: 2048 }, '', { trackToken: 7, deferHeavy: true });
-  assert.equal(f.palettes.length, 1, 'palette must not wait for the heavy task');
-  assert(f.palettes[0].every(size => size <= 128));
-  assert.equal(f.deepWork(), 0);
-  f.tasks[0]();
-  assert.equal(f.deepWork(), 1);
-  assert.equal(f.palettes.length, 1, 'depth completion must not restart the same color transition');
-});
+for (const preset of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+  test(`preset ${preset} starts its cover palette before deferred depth work, using a bounded image read`, () => {
+    const f = fixture(preset);
+    f.c.applyCoverCanvas({ width: 2048, height: 2048 }, '', { trackToken: 7, deferHeavy: true });
+    assert.equal(f.palettes.length, 1, 'palette must not wait for the heavy task');
+    assert(f.palettes[0].every(size => size <= 128));
+    assert.equal(f.deepWork(), 0);
+    f.tasks[0]();
+    assert.equal(f.deepWork(), 1);
+    assert.equal(f.palettes.length, 1, 'depth completion must not restart the same color transition');
+  });
+}
 
-test('late old cover cannot recolor a new song; other presets keep their existing scheduling', () => {
+test('late old cover cannot recolor a new song', () => {
   const f = fixture();
   f.c.applyCoverCanvas({ width: 400, height: 400 }, '', { trackToken: 6 });
   assert.equal(f.palettes.length, 0); assert.equal(f.tasks.length, 0);
-  const other = fixture(0);
-  other.c.applyCoverCanvas({ width: 400, height: 400 }, '', { trackToken: 7, deferHeavy: true });
-  assert.equal(other.palettes.length, 0);
-  other.tasks[0]();
-  assert.equal(other.palettes.length, 1);
+});
+
+test('track-switch interaction holds depth work without delaying or restarting the palette', () => {
+  const f = fixture(0);
+  f.c.isRenderInteractionActive = () => true;
+  f.c.applyCoverCanvas({ width: 400, height: 400 }, '', { trackToken: 7, deferHeavy: true });
+  assert.equal(f.palettes.length, 1);
+  f.tasks[0]();
+  assert.equal(f.deepWork(), 0);
+  assert.equal(f.tasks.length, 2);
+  f.c.isRenderInteractionActive = () => false;
+  f.tasks[1]();
+  assert.equal(f.deepWork(), 1);
+  assert.equal(f.palettes.length, 1);
+});
+
+test('cached depth and a prefetched palette still start the palette immediately, only once', () => {
+  const f = fixture(5);
+  f.c.getCoverDepthCache = () => ({ canvas: {}, ai: true });
+  f.c.document.createElement = () => { throw new Error('prefetched palette should be reused'); };
+  f.c.applyCoverCanvas({ width: 2048, height: 2048 }, '', {
+    trackToken: 7, deferHeavy: true, paletteCanvas: { width: 128, height: 128 },
+  });
+  assert.deepEqual(f.palettes, [[128, 128]]);
+  f.tasks[0]();
+  assert.equal(f.deepWork(), 0);
+  assert.equal(f.palettes.length, 1);
 });
 
 test('bridge gradually finishes a theme, ignores repeated targets, and cancels an obsolete transition', () => {
