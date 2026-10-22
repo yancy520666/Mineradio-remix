@@ -130,7 +130,7 @@ assert.equal(result.shaderErrors, 0);
 for (const role of ['original', 'translation']) for (const text of ['爱 / Aa', '保持热爱，奔赴山海']) {
   const samples = result.results.filter(item => item.role === role && item.text === text);
   assert(samples.every(item => item.lit > 100), 'all four tiers must draw real glyphs');
-  assert(samples[3].error < samples[0].error, 'high tier must more closely match the 4x screen reference');
+  assert(samples[3].error < samples[0].error, 'high tier must more closely match the 4x screen reference: ' + role + ' ' + text + ' errors=' + samples.map(item => item.error).join(','));
   for (const item of samples) {
     assert(item.bytes < 32 * 1024 * 1024);
     assert(item.bounds.every((edge, i) => Math.abs(edge - item.baseBounds[i]) <= 2),
