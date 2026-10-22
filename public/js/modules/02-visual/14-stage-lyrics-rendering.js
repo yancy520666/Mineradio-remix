@@ -2773,6 +2773,38 @@ function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
   }
   return true;
 }
+// How far the camera has travelled between the home view (0) and the shelf pose it is gliding to or from (1).
+// The camera homes in per frame at its own, slower speed, so the lyrics follow its actual progress instead of
+// a clock: the block and the view then arrive together at any frame rate and camera speed, in both directions.
+// Null when the camera is not taking part (static shelf camera, free camera), where the lyrics use their own timing.
+function stageLyricShelfCameraProgress() {
+  if (typeof orbit === 'undefined' || !orbit || !orbit.focus || !orbit.lookAt) return null;
+  if (typeof freeCamera !== 'undefined' && freeCamera && (freeCamera.active || freeCamera.locked)) return null;
+  var focus = orbit.focus;
+  var live = !!(focus.active && /^shelf-/.test(String(focus.type || '')) && focus.lookAt);
+  if (live) {
+    var ref = stageLyrics.shelfPoseRef || (stageLyrics.shelfPoseRef = {});
+    ref.theta = focus.theta; ref.phi = focus.phi; ref.radius = focus.radius;
+    ref.lx = focus.lookAt.x; ref.ly = focus.lookAt.y; ref.lz = focus.lookAt.z;
+    stageLyrics.shelfCamSynced = true;
+  } else if (!(Number(stageLyrics.shelfFlipV) > 0.002)) {
+    stageLyrics.shelfCamSynced = false;
+  }
+  var pose = stageLyrics.shelfPoseRef;
+  if (!pose || !stageLyrics.shelfCamSynced) return null;
+  var radiusScale = 1.5 / Math.max(1, orbit.baselineRadius);
+  var theta0 = orbit.baselineTheta, phi0 = orbit.baselinePhi, radius0 = orbit.baselineRadius;
+  var ax = (typeof shortestAngleDelta === 'function' ? shortestAngleDelta(theta0, pose.theta) : pose.theta - theta0);
+  var ay = pose.phi - phi0, az = (pose.radius - radius0) * radiusScale;
+  var bx = (typeof shortestAngleDelta === 'function' ? shortestAngleDelta(theta0, orbit.theta - (orbit.cineTheta || 0)) : orbit.theta - (orbit.cineTheta || 0) - theta0);
+  var by = orbit.phi - (orbit.cinePhi || 0) - phi0, bz = (orbit.radius - (orbit.cineRadius || 0) - radius0) * radiusScale;
+  var lookAtWeight = 0.3;
+  var total = ax * ax + ay * ay + az * az + lookAtWeight * lookAtWeight * (pose.lx * pose.lx + pose.ly * pose.ly + pose.lz * pose.lz);
+  if (!(total > 1e-6)) return null;
+  var along = ax * bx + ay * by + az * bz + lookAtWeight * lookAtWeight * (pose.lx * orbit.lookAt.x + pose.ly * orbit.lookAt.y + pose.lz * orbit.lookAt.z);
+  return clampRange(along / total, 0, 1);
+}
+
 // How square-on the free camera is to the cover: 1 at the home view, easing to 0 as the user drags,
 // zooms or the shelf takes the camera. Measured from the user's pose, not the live one, so beat
 // kicks and idle drift never move it.
@@ -2862,8 +2894,10 @@ function updateStageLyricLayout(dt) {
     : 0;
   if (!isFinite(stageLyrics.shelfFlipV)) stageLyrics.shelfFlipV = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
   if (shelfFlipEligible) {
-    var shelfFlipGoal = shelfLyricAvoid ? 1 : 0;
-    stageLyrics.shelfFlipV += (shelfFlipGoal - stageLyrics.shelfFlipV) * durationEaseFactor(shelfFlipSeconds / 6, layoutDt);
+    var shelfCameraProgress = stageLyricShelfCameraProgress();
+    var shelfFlipGoal = shelfCameraProgress != null ? clampRange(shelfCameraProgress / 0.98, 0, 1) : (shelfLyricAvoid ? 1 : 0);
+    // Riding the camera needs only a short lag to stay smooth; on its own clock the flip takes the shelf's time.
+    stageLyrics.shelfFlipV += (shelfFlipGoal - stageLyrics.shelfFlipV) * durationEaseFactor(shelfCameraProgress != null ? 0.05 : shelfFlipSeconds / 6, layoutDt);
     if (Math.abs(shelfFlipGoal - stageLyrics.shelfFlipV) < 0.003) stageLyrics.shelfFlipV = shelfFlipGoal;
   } else {
     stageLyrics.shelfFlipV = 0;
