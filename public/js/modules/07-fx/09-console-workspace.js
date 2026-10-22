@@ -134,6 +134,7 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('fx-lyricmotionsoftness', '动画柔顺', '歌词滚动 丝滑 缓动'),
         fxConsoleItem('t-lyricVerticalFloat', '歌词上下浮动', '漂浮 垂直'),
         fxConsoleItem('t-lyricCameraLock', '歌词镜头绑定', '跟随镜头 锁定'),
+        fxConsoleItem('t-lyricAdaptiveFit', '歌词自适应', '长歌词 缩小 适应屏幕 回正视角 译文'),
         fxConsoleItem('t-lyricPauseHold', '暂停保留歌词', '暂停不隐藏')
       ] },
       { key: 'desktop', title: '桌面歌词', hint: '桌面层开关、位置、透明度和帧数', items: [

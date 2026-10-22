@@ -35,7 +35,7 @@ function shelfLyricFixture(extra) {
   vm.runInContext(extract(stage, 'stageLyricShelfCaptionMetrics'), c);
   vm.runInContext('var innerWidth = 1280, innerHeight = 720, lyricShelfCoverQuat = new THREE.Quaternion(), lyricShelfTurnQuat = new THREE.Quaternion(), lyricShelfRestQuat = new THREE.Quaternion(), lyricShelfCam = null;' +
     stage.slice(stage.indexOf('var STAGE_LYRIC_SHELF_FLIP_SECONDS'), stage.indexOf('var lyricShelfFlipDepthDir = null;') + 'var lyricShelfFlipDepthDir = null;'.length), c);
-  for (const name of ['lyricShelfActiveCamera', 'stageLyricShelfFlipEase', 'stageLyricShelfFlipSeconds', 'stageLyricStableShelfAnchor', 'stageLyricShelfFlipTarget', 'stageLyricShelfSourcePose', 'blendStageLyricShelfFlip', 'updateStageLyricLayout']) {
+  for (const name of ['lyricShelfActiveCamera', 'stageLyricShelfFlipEase', 'stageLyricShelfFlipSeconds', 'stageLyricStableShelfAnchor', 'stageLyricShelfFlipTarget', 'stageLyricShelfSourcePose', 'blendStageLyricShelfFlip', 'stageLyricHomeViewness', 'updateStageLyricAdaptiveFit', 'updateStageLyricLayout']) {
     vm.runInContext(extract(stage, name), c);
   }
   return { c, group, texture, state };

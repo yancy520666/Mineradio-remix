@@ -2735,6 +2735,36 @@ function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
   }
   return true;
 }
+// How square-on the free camera is to the cover: 1 at the home view, easing to 0 as the user drags,
+// zooms or the shelf takes the camera. Measured from the user's pose, not the live one, so beat
+// kicks and idle drift never move it.
+function stageLyricHomeViewness() {
+  if (typeof freeCamera !== 'undefined' && freeCamera && freeCamera.active) return 0;
+  if (typeof orbit === 'undefined' || !orbit || (orbit.focus && orbit.focus.active)) return 0;
+  var dTheta = typeof shortestAngleDelta === 'function'
+    ? shortestAngleDelta(orbit.userTheta, orbit.baselineTheta) : orbit.userTheta - orbit.baselineTheta;
+  var dev = Math.abs(dTheta) +
+    Math.abs(orbit.userPhi - orbit.baselinePhi) +
+    Math.abs(orbit.userRadius - orbit.baselineRadius) / Math.max(1, orbit.baselineRadius) * 1.5;
+  if (!orbit.centerLocked && typeof gestureRotation !== 'undefined' && gestureRotation) {
+    dev += Math.abs(gestureRotation.x || 0) + Math.abs(gestureRotation.y || 0);
+  }
+  if (!isFinite(dev)) return 1;
+  var t = clampRange((dev - 0.02) / 0.14, 0, 1);
+  return 1 - t * t * (3 - 2 * t);
+}
+
+// adaptiveFitBase follows the setting and the camera; adaptiveFitMix is that times the shelf's
+// "lyrics still home" share, so opening the shelf regrows the rows on the same curve as the flip.
+function updateStageLyricAdaptiveFit(dt, shelfFlip, available) {
+  var wanted = available && fx.lyricAdaptiveFit !== false ? stageLyricHomeViewness() : 0;
+  if (!isFinite(stageLyrics.adaptiveFitBase)) stageLyrics.adaptiveFitBase = wanted;
+  stageLyrics.adaptiveFitBase += (wanted - stageLyrics.adaptiveFitBase) * (1 - Math.exp(-6 * dt));
+  if (Math.abs(wanted - stageLyrics.adaptiveFitBase) < 0.002) stageLyrics.adaptiveFitBase = wanted;
+  stageLyrics.adaptiveFitMix = stageLyrics.adaptiveFitBase * (1 - clampRange(shelfFlip, 0, 1));
+  stageLyrics.adaptiveFitSteadyT = stageLyrics.adaptiveFitMix > 0.98 ? (Number(stageLyrics.adaptiveFitSteadyT) || 0) + dt : 0;
+  stageLyrics.adaptiveFitSteady = stageLyrics.adaptiveFitSteadyT > 0.3;
+}
 // Only move the existing lyric scene on interactive UI frames. Texture uploads,
 // row transitions, glow and particles stay on their original render budget.
 function updateStageLyricLayout(dt) {
@@ -2790,6 +2820,7 @@ function updateStageLyricLayout(dt) {
   var shelfFlip = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
   var shelfFlipArc = Math.sin(Math.PI * shelfFlip);
   var shelfFlipActive = shelfFlipEligible && (shelfLyricAvoid || stageLyrics.shelfFlipT > 0);
+  updateStageLyricAdaptiveFit(layoutDt, shelfFlip, !skullMouthLyrics && !wallpaperLyricLock && !fx.lyricCameraLock);
   var shelfLayoutMix = shelfFlipEligible ? shelfFlip : stageLyrics.shelfLayoutMix;
   // A fresh engagement: the shelf lyrics were at rest a frame ago. Remember the pose they leave from.
   var shelfFrom = stageLyrics.shelfFrom || (stageLyrics.shelfFrom = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), ready: false, follow: 0 });

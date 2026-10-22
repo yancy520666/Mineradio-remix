@@ -95,6 +95,7 @@ var fxDefaults = {
   backgroundStarRiver: true,
   lyricPauseHold: true,
   lyricCameraLock: false,
+  lyricAdaptiveFit: true,
   sonicGroundAmplitude: 50,
   sonicGroundMotionSpeed: 50,
   sonicGroundDensity: 46,

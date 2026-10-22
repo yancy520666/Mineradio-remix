@@ -255,7 +255,7 @@ function lyricViewportSafeMarginPx(viewportWidth) {
   return clampRange(Math.max(1, Number(viewportWidth) || 1) * 0.045, 42, 92);
 }
 
-function lyricViewportFitRatio(viewportWidth, centerX, projectedUnitTextWidth, intendedScale, marginPx) {
+function lyricViewportFitRatio(viewportWidth, centerX, projectedUnitTextWidth, intendedScale, marginPx, minRatio) {
   viewportWidth = Math.max(1, Number(viewportWidth) || 1);
   centerX = Number(centerX);
   projectedUnitTextWidth = Math.max(0, Number(projectedUnitTextWidth) || 0);
@@ -271,19 +271,72 @@ function lyricViewportFitRatio(viewportWidth, centerX, projectedUnitTextWidth, i
   var availableWidth = Math.max(1, Math.min(leftSpace, rightSpace) * 2);
   var intendedWidth = projectedUnitTextWidth * intendedScale;
   if (intendedWidth <= availableWidth) return 1;
-  return clampRange(availableWidth / intendedWidth, 0.22, 1);
+  return clampRange(availableWidth / intendedWidth, isFinite(Number(minRatio)) ? Number(minRatio) : 0.22, 1);
 }
 
 var lyricViewportFitLeft = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;
 var lyricViewportFitRight = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;
 
-function lyricRowLiveViewportScale(row, intendedScale) {
+// Home-view adaptive fit: a row never shrinks below this share of its authored size; past it the
+// edges clip rather than the text turning unreadable.
+var LYRIC_ADAPTIVE_FIT_MIN_RATIO = 0.28;
+
+// Fits a row to the screen while the view is square-on. stageLyrics.adaptiveFitMix (0..1) already
+// carries the setting, how far the camera is from the home view and the shelf flip, so toggling,
+// dragging and opening the shelf all fade this in and out instead of switching it.
+function lyricRowAdaptiveViewportScale(row, intendedScale, frameScale) {
+  var stage = typeof stageLyrics !== 'undefined' ? stageLyrics : null;
+  var base = stage ? Number(stage.adaptiveFitBase) || 0 : 0;
+  if (!(base > 0.002)) {
+    if (stage) stage.adaptiveActiveFit = undefined;
+    row.adaptiveFit = undefined;
+    row.adaptiveFitSnap = false;
+    row.viewportFitScale = 1;
+    return 1;
+  }
+  var mix = Number(stage.adaptiveFitMix) || 0;
+  var current = row.adaptiveFit;
+  // While the shelf turns the block its pose is not the home view, so keep the last good measurement.
+  var poseSettled = !(stage.shelfFlipT > 0);
+  if (poseSettled) {
+    var ratio = measureLyricRowViewportScale(row, intendedScale, LYRIC_ADAPTIVE_FIT_MIN_RATIO, true);
+    var partner = row.isTranslation ? row.tightParent : row.tightTranslation;
+    if (partner && partner.mesh && partner.lineMask) {
+      ratio = Math.min(ratio, measureLyricRowViewportScale(partner, partner.viewportUnfittedScale || partner.baseScale || 1, LYRIC_ADAPTIVE_FIT_MIN_RATIO, true));
+    }
+    if (!isFinite(current)) {
+      current = ratio;
+      // A row born while the fit is fully on starts at its fitted size instead of easing down on screen.
+      row.adaptiveFitSnap = stage.adaptiveFitSteady === true;
+    } else {
+      // A little quicker to shrink than to grow back; the low pass also absorbs camera shake.
+      var rate = ratio < current ? 0.14 : 0.08;
+      current += (ratio - current) * (1 - Math.pow(1 - rate, frameScale > 0 ? frameScale : 1));
+    }
+    row.adaptiveFit = current;
+  } else if (!isFinite(current)) {
+    current = 1;
+  }
+  // The line being sung sets the size of the whole block: its neighbours never end up larger than it.
+  var activePair = !!(row.isActive || (row.isTranslation && row.tightParent && row.tightParent.isActive));
+  var fit = current;
+  if (activePair) stage.adaptiveActiveFit = current;
+  else if (isFinite(stage.adaptiveActiveFit)) fit = Math.min(current, stage.adaptiveActiveFit);
+  var applied = 1 + (fit - 1) * clampRange(mix, 0, 1);
+  row.viewportFitScale = applied;
+  return applied;
+}
+
+function lyricRowLiveViewportScale(row, intendedScale, frameScale) {
   if (!row) return 1;
-  // Orbit zoom changes the apparent size, not the font size. Only lyrics
-  // locked to the camera need live edge fitting; the shelf fits its own block.
+  // Orbit zoom changes the apparent size, not the font size. Lyrics locked to the camera need live
+  // edge fitting at any time; in the free view only the home view gets it, as a fade (see above).
+  // The shelf fits its own block.
+  var liveFitOn = typeof fx === 'undefined' || !fx || fx.lyricLiveViewportFit !== false;
   var cameraLocked = !!(typeof fx !== 'undefined' && fx && fx.lyricCameraLock) ||
     (typeof shouldUseWallpaperLyricCameraLock === 'function' && shouldUseWallpaperLyricCameraLock());
-  if (!cameraLocked || (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.shelfFlipT > 0)) {
+  if (!cameraLocked) return lyricRowAdaptiveViewportScale(row, intendedScale, frameScale);
+  if (!liveFitOn || (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.shelfFlipT > 0)) {
     row.viewportFitScale = 1;
     return 1;
   }
@@ -296,7 +349,18 @@ function lyricRowLiveViewportScale(row, intendedScale) {
   return ratio;
 }
 
-function measureLyricRowViewportScale(row, intendedScale) {
+// The lyric block breathes between 0.96 and 1.06 of its size; the adaptive fit measures it at the peak so
+// the text stays inside the margin without the fit itself pumping with the breath.
+var LYRIC_ADAPTIVE_FIT_ROOT_SCALE = 1.06;
+function lyricRowRootScale(row) {
+  var group = typeof stageLyrics !== 'undefined' && stageLyrics ? stageLyrics.group : null;
+  for (var node = row && row.mesh; node && node.parent; node = node.parent) {
+    if (node.parent === group) return Math.max(0.2, Math.abs(Number(node.scale && node.scale.x) || 1));
+  }
+  return 1;
+}
+
+function measureLyricRowViewportScale(row, intendedScale, minRatio, normalizeRoot) {
   if (!row || !row.mesh || !row.lineMask || !lyricViewportFitLeft || !lyricViewportFitRight || typeof camera === 'undefined' || !camera) return 1;
   var documentWidth = typeof document !== 'undefined' && document.documentElement
     ? Number(document.documentElement.clientWidth) || 0
@@ -326,13 +390,15 @@ function measureLyricRowViewportScale(row, intendedScale) {
   var centerX = (leftPx + rightPx) * 0.5;
   var currentProjectedWidth = Math.abs(rightPx - leftPx);
   var projectedUnitTextWidth = currentProjectedWidth / currentScale;
+  if (normalizeRoot) projectedUnitTextWidth *= LYRIC_ADAPTIVE_FIT_ROOT_SCALE / lyricRowRootScale(row);
   var safeMargin = lyricViewportSafeMarginPx(viewportWidth);
   var ratio = lyricViewportFitRatio(
     viewportWidth,
     centerX,
     projectedUnitTextWidth,
     intendedScale,
-    safeMargin
+    safeMargin,
+    minRatio
   );
   row.viewportFitAvailableLeft = Math.max(0, centerX - safeMargin);
   row.viewportFitAvailableRight = Math.max(0, viewportWidth - safeMargin - centerX);
@@ -1811,8 +1877,8 @@ function updateLyricRowLayers(data, opts) {
       if (row.isTranslation) baseScale *= 1.00 + translationFocus * 0.16;
     }
     row.viewportUnfittedScale = baseScale;
-    if ((row.isPrimary || row.isTranslation) && renderWindowActive && (!fx || fx.lyricLiveViewportFit !== false)) {
-      baseScale *= lyricRowLiveViewportScale(row, baseScale);
+    if ((row.isPrimary || row.isTranslation) && renderWindowActive && (!fx || fx.lyricLiveViewportFit !== false || fx.lyricAdaptiveFit === true)) {
+      baseScale *= lyricRowLiveViewportScale(row, baseScale, frameScale);
     } else if (row.viewportFitScale !== 1) {
       row.viewportFitScale = 1;
     }
@@ -1824,6 +1890,12 @@ function updateLyricRowLayers(data, opts) {
       : (rowLineIndex != null ? rowLineIndex : i);
     var scaleTarget = baseScale * (motionAnchor || !verticalFloatOn ? 1 : (1 + Math.sin(t * 0.68 + seed + stableMotionIndex * 0.71) * (style === 'float' ? 0.012 : 0.004) * motionBlend));
     var translationGlowFocus = row.isTranslation ? translationFocus : 0;
+    if (row.adaptiveFitSnap) {
+      row.adaptiveFitSnap = false;
+      if (row.mesh) row.mesh.scale.setScalar(scaleTarget);
+      if (row.readability) row.readability.scale.setScalar(scaleTarget);
+      if (row.glow) row.glow.scale.setScalar(scaleTarget);
+    }
     if (row.mesh) {
       row.mesh.position.x += ((isActive ? jitterX : (currentTranslation ? jitterX * 0.82 : jitterX * 0.28)) - row.mesh.position.x) * (opts.glitchPulse ? 0.48 : 0.13);
       var rowYTarget = yTarget + (verticalFloatOn ? (isActive ? jitterY : (currentTranslation ? jitterY * 0.78 : jitterY * 0.24)) : 0);

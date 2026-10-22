@@ -406,6 +406,8 @@ function updateFxInputs() {
   if (lyricPauseHoldToggle) lyricPauseHoldToggle.classList.toggle('on', fx.lyricPauseHold !== false);
   var lyricCameraLockToggle = document.getElementById('t-lyricCameraLock');
   if (lyricCameraLockToggle) lyricCameraLockToggle.classList.toggle('on', fx.lyricCameraLock);
+  var lyricAdaptiveFitToggle = document.getElementById('t-lyricAdaptiveFit');
+  if (lyricAdaptiveFitToggle) lyricAdaptiveFitToggle.classList.toggle('on', fx.lyricAdaptiveFit !== false);
   document.getElementById('t-bloom').classList.toggle('on', fx.bloom);
   document.getElementById('t-edge').classList.toggle('on', fx.edge);
   updateVisualEffectScopeControls();
@@ -774,6 +776,7 @@ function ensureLyricPrimaryControls() {
     't-desktopLyricsCinema',
     't-desktopLyricsHighlight',
     't-lyricCameraLock',
+    't-lyricAdaptiveFit',
     't-lyricGlow',
     't-lyricGlowBeat',
     't-lyricGlowParticles',
