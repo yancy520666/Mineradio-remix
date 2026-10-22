@@ -2811,8 +2811,9 @@ function stageLyricShelfCameraProgress() {
 function stageLyricHomeViewness() {
   if (typeof freeCamera !== 'undefined' && freeCamera && freeCamera.active) return 0;
   if (typeof orbit === 'undefined' || !orbit) return 0;
-  // The shelf hands the lyrics over through its own flip (see updateStageLyricAdaptiveFit); other focus poses drop the fit.
-  if (orbit.focus && orbit.focus.active && !/^shelf-/.test(String(orbit.focus.type || ''))) return 0;
+  // Camera focus (the shelf, the queue panel) does not end the fit: the rows are measured on the live camera, so a
+  // focus glide only moves the fit with it. Dropping it here made the lyrics swell while the panel was open and
+  // shrink again when it closed. The shelf hands the lyrics over through its own flip (updateStageLyricAdaptiveFit).
   var dTheta = typeof shortestAngleDelta === 'function'
     ? shortestAngleDelta(orbit.userTheta, orbit.baselineTheta) : orbit.userTheta - orbit.baselineTheta;
   var dev = Math.abs(dTheta) +
