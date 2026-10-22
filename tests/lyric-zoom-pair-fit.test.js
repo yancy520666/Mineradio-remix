@@ -18,7 +18,7 @@ function fixture() {
     var translation={isTranslation:true,mesh:new THREE.Mesh(),lineWorldW:2,lineMask:{width:2048,textWidth:2048},baseScale:.8};
     root.add(primary.mesh,translation.mesh);`, c);
   loadFunctions(c, 'public/js/modules/02-visual/12a-lyrics-edit-preview.js', ['prepareLyricTranslationParents']);
-  loadFunctions(c, 'public/js/modules/02-visual/12-lyrics-row-layers.js', ['lyricViewportSafeMarginPx', 'lyricViewportFitRatio', 'measureLyricRowViewportScale', 'lyricRowAdaptiveViewportScale', 'lyricRowLiveViewportScale']);
+  loadFunctions(c, 'public/js/modules/02-visual/12-lyrics-row-layers.js', ['lyricViewportSafeMarginPx', 'lyricViewportFitRatio', 'measureLyricRowViewportScale', 'lyricRowAdaptiveViewportScale', 'lyricRowShelfFitScale', 'lyricRowLiveViewportScale']);
   c.prepareLyricTranslationParents({ rowLayers: [c.primary, c.translation] });
   return c;
 }

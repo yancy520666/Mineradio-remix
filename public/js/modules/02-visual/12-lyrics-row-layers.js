@@ -327,6 +327,32 @@ function lyricRowAdaptiveViewportScale(row, intendedScale, frameScale) {
   return applied;
 }
 
+// Beside the shelf the block as a whole is fitted by the shelf layout (it sizes to the sung line); the other
+// rows are held to the free space one by one, so a long neighbour cannot spill over the shelf when a short
+// line comes closer. stageLyrics.shelfRowCap is that width in row units; the flip progress fades it in and out.
+function lyricRowShelfFitScale(row, intendedScale, frameScale) {
+  var stage = typeof stageLyrics !== 'undefined' ? stageLyrics : null;
+  var flip = stage ? Number(stage.shelfFlipV) || 0 : 0;
+  var cap = stage ? Number(stage.shelfRowCap) || 0 : 0;
+  if (!(flip > 0.001) || !(cap > 0) || !row.lineMask || !row.lineMask.width) {
+    row.shelfFit = undefined;
+    return 1;
+  }
+  function ratioFor(r, scale) {
+    var mask = r.lineMask;
+    var unitW = (Number(r.lineWorldW) || 0) * clampRange((mask.activeTextWidth || mask.textWidth || mask.width) / mask.width, 0.02, 1) * LYRIC_ADAPTIVE_FIT_ROOT_SCALE;
+    return unitW > 0 ? clampRange(cap / (unitW * Math.max(0.001, scale)), LYRIC_ADAPTIVE_FIT_MIN_RATIO, 1) : 1;
+  }
+  var ratio = ratioFor(row, intendedScale);
+  var partner = row.isTranslation ? row.tightParent : row.tightTranslation;
+  if (partner && partner.lineMask && partner.lineMask.width) ratio = Math.min(ratio, ratioFor(partner, partner.viewportUnfittedScale || partner.baseScale || 1));
+  var current = row.shelfFit;
+  if (!isFinite(current)) current = ratio;
+  else current += (ratio - current) * (1 - Math.pow(1 - 0.2, frameScale > 0 ? frameScale : 1));
+  row.shelfFit = current;
+  return 1 + (current - 1) * clampRange(flip, 0, 1);
+}
+
 function lyricRowLiveViewportScale(row, intendedScale, frameScale) {
   if (!row) return 1;
   // Orbit zoom changes the apparent size, not the font size. Lyrics locked to the camera need live
@@ -335,7 +361,7 @@ function lyricRowLiveViewportScale(row, intendedScale, frameScale) {
   var liveFitOn = typeof fx === 'undefined' || !fx || fx.lyricLiveViewportFit !== false;
   var cameraLocked = !!(typeof fx !== 'undefined' && fx && fx.lyricCameraLock) ||
     (typeof shouldUseWallpaperLyricCameraLock === 'function' && shouldUseWallpaperLyricCameraLock());
-  if (!cameraLocked) return lyricRowAdaptiveViewportScale(row, intendedScale, frameScale);
+  if (!cameraLocked) return lyricRowAdaptiveViewportScale(row, intendedScale, frameScale) * lyricRowShelfFitScale(row, intendedScale, frameScale);
   if (!liveFitOn || (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.shelfFlipT > 0)) {
     row.viewportFitScale = 1;
     return 1;
