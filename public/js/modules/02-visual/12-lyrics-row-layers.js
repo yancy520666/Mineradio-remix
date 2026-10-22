@@ -2012,7 +2012,10 @@ function updateLyricRowLayers(data, opts) {
       var glowTargetY = row.mesh ? row.mesh.position.y : (yTarget + glowJitterY);
       var glowTargetZ = row.mesh ? (row.mesh.position.z - 0.030) : (zTarget - 0.030);
       var glowTargetScale = row.mesh ? row.mesh.scale.x : scaleTarget;
+      // A glow that is still fading out after its line stopped being active must keep riding its text: the
+      // fade is per frame, so after a slow frame or a restore snap an eased glow lingered visibly off the glyphs.
       var glowLockedToText = !!row.mesh && (isActive || currentTranslation || translationGlowFocus > 0.001 ||
+        restoreLayout || row.glow.visible || getLyricTextureMaterialOpacity(row.glowMat) > 0.004 ||
         (typeof stageLyrics !== 'undefined' && stageLyrics && stageLyrics.shelfFlipT > 0));
       if ((data.usesTrack && persistentPrimedTrack) || previewMotionLock || glowLockedToText) {
         row.glow.position.set(glowTargetX, glowTargetY, glowTargetZ);
