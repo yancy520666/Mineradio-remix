@@ -59,6 +59,8 @@ function applyPlaylistPanelFxSettings() {
   var alphas = playlistPanelAlphaVars(density);
   setPlaylistPanelCssVar('--mineradio-playlist-panel-open-ms', openMs + 'ms');
   setPlaylistPanelCssVar('--mineradio-playlist-panel-close-ms', closeMs + 'ms');
+  // The bottom-bar popovers (quality, mini queue) read the same opacity as the left panel.
+  document.documentElement.style.setProperty('--playlist-panel-density', density.toFixed(3));
   setPlaylistPanelCssVar('--playlist-panel-open-ms', openMs + 'ms');
   setPlaylistPanelCssVar('--playlist-panel-close-ms', closeMs + 'ms');
   // The sliders belong to the whole left panel. Keep the old sticky/toolbar

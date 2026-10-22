@@ -2868,7 +2868,9 @@ function updateStageLyricLayout(dt) {
   // The left playlist panel is a glass sheet over the scene: the lyrics behind it dim so big glowing text does not
   // fight the list. Lighter than beside a shelf detail list, and the layering stays as it is.
   var leftPanelEl = typeof document !== 'undefined' ? (stageLyrics.leftPanelEl || (stageLyrics.leftPanelEl = document.getElementById('playlist-panel'))) : null;
-  var leftPanelDim = !shelfDetailOpen && !!(leftPanelEl && leftPanelEl.classList && (leftPanelEl.classList.contains('show') || leftPanelEl.classList.contains('peek')));
+  var miniQueueEl = typeof document !== 'undefined' ? (stageLyrics.miniQueueEl || (stageLyrics.miniQueueEl = document.getElementById('mini-queue-popover'))) : null;
+  var leftPanelDim = !shelfDetailOpen && !!((leftPanelEl && leftPanelEl.classList && (leftPanelEl.classList.contains('show') || leftPanelEl.classList.contains('peek'))) ||
+    (miniQueueEl && miniQueueEl.classList && miniQueueEl.classList.contains('show')));
   var shelfDetailLyricProfile = leftPanelDim ? {
     opacity: 0.52,
     readability: 0.44,

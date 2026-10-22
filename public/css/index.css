@@ -20330,11 +20330,14 @@ html.control-glass-svg-ok #playlist-panel {
   background: rgba(8, 14, 24, calc(.40 + var(--playlist-row-selected-a, .38) * .6)) !important;
 }
 
-/* The popover lives inside the bottom bar, which has its own backdrop-filter and so is a backdrop root: its blur
-   only sees the bar, never the lyrics behind it. The tint is what keeps big lyric text from showing through. */
+/* These popovers live inside the bottom bar, which has its own backdrop-filter and so is a backdrop root: their blur
+   only sees the bar, never the lyrics behind them. The tint is what keeps big lyric text from showing through, so it
+   follows the left panel opacity slider (1.0 gives .80 / .72). */
 .quality-popover,
-html.control-glass-svg-ok .quality-popover {
-  background: linear-gradient(180deg, rgba(14, 16, 24, .80), rgba(9, 10, 16, .72)) !important;
+html.control-glass-svg-ok .quality-popover,
+.mini-queue-popover,
+html.control-glass-svg-ok .mini-queue-popover {
+  background: linear-gradient(180deg, rgba(14, 16, 24, calc(.34 + var(--playlist-panel-density, 1) * .46)), rgba(9, 10, 16, calc(.26 + var(--playlist-panel-density, 1) * .46))) !important;
 }
 .quality-option.active {
   background: rgba(var(--fc-accent-rgb), .16) !important;
