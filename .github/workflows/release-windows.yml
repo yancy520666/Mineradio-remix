@@ -17,6 +17,10 @@ on:
         description: Upload validated assets to a draft Release
         type: boolean
         default: false
+      skip_electron_smoke:
+        description: Skip only the Electron smoke tests (packaging and install/upgrade checks still run)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -62,6 +66,7 @@ jobs:
       - name: Check source and runtime guards
         run: npm run check
       - name: Check Electron startup and recovery
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_electron_smoke) }}
         run: npm run test:electron
       - name: Build Windows installer and update metadata
         env:
