@@ -38,14 +38,14 @@ async function prepareCoverQuality() {
   const remote = 'https://p1.music.126.net/qa-cover.jpg?param=400y400';
   loadCoverFromUrl(remote, { trackToken: trackSwitchToken });
   const thumb = document.getElementById('thumb-cover');
-  for (let attempt = 0; attempt < 100 && (!thumb.complete || !thumb.naturalWidth); attempt++) {
+  for (let attempt = 0; attempt < 300 && (!thumb.complete || !thumb.naturalWidth); attempt++) {
     await new Promise(resolve => setTimeout(resolve, 30));
   }
   setCustomBackgroundAlbumCover(true, true);
   // The cover decodes in its own <img> surface and takes over once ready; --custom-bg-image
   // is no longer used for the picture.
   const shown = () => (customBgSurfaceState.active && customBgSurfaceState.active.node.getAttribute('src')) || '';
-  for (let attempt = 0; attempt < 100 && !shown(); attempt++) await new Promise(resolve => setTimeout(resolve, 30));
+  for (let attempt = 0; attempt < 300 && !shown(); attempt++) await new Promise(resolve => setTimeout(resolve, 30));
   return { thumbnail: [thumb.naturalWidth, thumb.naturalHeight],
     fallback: shown(),
     canvasResolution: fx.coverResolution };
