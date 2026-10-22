@@ -253,11 +253,11 @@ function lyricTextPaletteFromHsl(hsl, avgL, chroma, opts) {
   var avgChroma = isFinite(Number(opts.avgChroma)) ? Number(opts.avgChroma) : sampleChroma;
   var maxChroma = isFinite(Number(opts.maxChroma)) ? Number(opts.maxChroma) : sampleChroma;
   var colorfulRatio = isFinite(Number(opts.colorfulRatio)) ? Number(opts.colorfulRatio) : (sampleChroma > 0.055 ? 1 : 0);
-  if (opts.monochrome === true || avgL < 0.16 || sampleChroma < 0.055 || avgChroma < 0.026 || maxChroma < 0.095 || colorfulRatio < 0.014 || hsl.s < 0.060) {
+  // Dark artwork can still have a strong hue. Lift text lightness below;
+  // reserve the neutral fallback for covers without usable colour.
+  if (opts.monochrome === true || sampleChroma < 0.055 || avgChroma < 0.026 || maxChroma < 0.095 || colorfulRatio < 0.014 || hsl.s < 0.060) {
     return silverBlueLyricPalette();
   }
-  var hue = hsl.h;
-  if (avgL < 0.30 && (hue < 0.06 || hue > 0.86 || (hue > 0.75 && hue < 0.86))) return silverBlueLyricPalette();
   var tone = lyricHighImpactTextHsl(hsl, { avgL: avgL, minS: 0.90, sampledBright: avgL > 0.66 || hsl.l > 0.62 });
   var c1 = hslToRgb(tone.h, tone.s, tone.l);
   var c2 = hslToRgb((tone.h + 0.08) % 1, clampRange(Math.max(tone.s * 0.90, 0.78), 0, 1), clampRange(tone.l - 0.10, 0.58, 0.86));

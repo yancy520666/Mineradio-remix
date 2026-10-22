@@ -48,6 +48,8 @@ Mineradio Remix 基于已停止维护的 [XxHuberrr/Mineradio-paused](https://gi
 
 修复切歌后歌词配色延迟变化的问题，新封面就绪后立即开始平滑变色。
 
+修复暗红、暗紫等有明显颜色的封面总被取成银白色歌词的问题。
+
 ## 目录
 
 - [为什么选 Remix](#为什么选-remix)
