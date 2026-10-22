@@ -146,3 +146,59 @@ test('dragged lyrics leave from where they are and the recentring cover undernea
   from.ready = false; r = rest(); ctx.stageLyricShelfSourcePose(r.pos, r.quat, 0);
   assert(r.pos.length() === 0, 'with nothing remembered the resting pose stands');
 });
+
+test('shelf camera progress reaches zero at the restored zoom and orbit, then releases synchronization', () => {
+  for (const saved of [
+    { centered: true, theta: 0.3, phi: -0.1, radius: 5 },
+    { centered: false, theta: 0, phi: 0.08, radius: 5 },
+    { centered: false, theta: 0.3, phi: -0.1, radius: 5 }
+  ]) {
+    const orbit = {
+      baselineTheta: 0, baselinePhi: 0.08, baselineRadius: 6.6,
+      centerLocked: saved.centered, userTheta: saved.theta, userPhi: saved.phi, userRadius: saved.radius,
+      theta: 0.42, phi: -0.12, radius: 4.2, lookAt: new THREE.Vector3(2.32, -0.1, 0.72),
+      focus: { active: true, type: 'shelf-side', theta: 0.42, phi: -0.12, radius: 4.2,
+        lookAt: new THREE.Vector3(2.32, -0.1, 0.72) }
+    };
+    const ctx = context({ orbit });
+    loadFunctions(ctx, file, ['stageLyricShelfCameraProgress']);
+    assert.equal(ctx.stageLyricShelfCameraProgress(), 1, 'opening still reaches the existing shelf pose');
+    ctx.stageLyrics.shelfFlipV = 1;
+    orbit.focus.active = false;
+    const target = saved.centered
+      ? { theta: orbit.baselineTheta, phi: orbit.baselinePhi, radius: orbit.baselineRadius }
+      : saved;
+    let previous = 1;
+    for (let frame = 0; frame < 180; frame++) {
+      orbit.theta += (target.theta - orbit.theta) * 0.1;
+      orbit.phi += (target.phi - orbit.phi) * 0.1;
+      orbit.radius += (target.radius - orbit.radius) * 0.07;
+      orbit.lookAt.multiplyScalar(0.9);
+      const progress = ctx.stageLyricShelfCameraProgress();
+      assert(progress <= previous + 1e-9, 'closing progress never reverses');
+      previous = progress;
+    }
+    assert(previous < 0.002, 'returning to a custom view must finish the lyric exit');
+    Object.assign(orbit, { theta: target.theta + 0.02, phi: target.phi - 0.01, radius: target.radius + 0.03,
+      cineTheta: 0.02, cinePhi: -0.01, cineRadius: 0.03 });
+    orbit.lookAt.set(0, 0, 0);
+    assert(ctx.stageLyricShelfCameraProgress() < 1e-9, 'cinematic offsets do not leave residual closing progress');
+    ctx.stageLyrics.shelfFlipV = 0;
+    assert.equal(ctx.stageLyricShelfCameraProgress(), null);
+    assert.equal(ctx.stageLyrics.shelfCamSynced, false);
+  }
+});
+
+test('another camera focus releases shelf synchronization instead of keeping a partial flip', () => {
+  const orbit = { baselineTheta: 0, baselinePhi: 0, baselineRadius: 6,
+    theta: 0.42, phi: -0.12, radius: 4.2, lookAt: new THREE.Vector3(2.32, -0.1, 0.72),
+    focus: { active: true, type: 'shelf-side', theta: 0.42, phi: -0.12, radius: 4.2,
+      lookAt: new THREE.Vector3(2.32, -0.1, 0.72) } };
+  const ctx = context({ orbit });
+  loadFunctions(ctx, file, ['stageLyricShelfCameraProgress']);
+  assert.equal(ctx.stageLyricShelfCameraProgress(), 1);
+  ctx.stageLyrics.shelfFlipV = 1;
+  orbit.focus.type = 'queue';
+  assert.equal(ctx.stageLyricShelfCameraProgress(), null, 'the shelf exit uses its own timing when another focus takes over');
+  assert.equal(ctx.stageLyrics.shelfCamSynced, false);
+});

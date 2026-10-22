@@ -61,8 +61,34 @@ assert(/function lyricRowLiveViewportScale/.test(source), 'visible lyric rows mu
 assert(/row\.mesh\.localToWorld\(lyricViewportFitLeft\)/.test(source), 'the measurement includes the current 3D lyric transform');
 assert(/lyricViewportFitLeft\.project\(camera\)/.test(source), 'the measurement projects the real lyric edge through the active camera');
 assert(/Math\.min\(leftSpace, rightSpace\) \* 2/.test(source), 'the shorter live side determines the usable centred width');
-assert(/if \(\(row\.isPrimary \|\| row\.isTranslation\) && renderWindowActive && \(!fx \|\| fx\.lyricLiveViewportFit !== false\)\)/.test(source), 'visible original and translated rows share the live measurement path when live fitting is enabled');
-assert(/baseScale \*= lyricRowLiveViewportScale\(row, baseScale\)/.test(source), 'the live fit ratio participates in the existing scale target');
+const fitStart = source.indexOf('    if ((row.isPrimary || row.isTranslation)');
+const fitEnd = source.indexOf('\n    if (!editPreview && row.isTranslation)', fitStart);
+assert(fitStart >= 0 && fitEnd > fitStart, 'the visible-row fit dispatch is present');
+const fitDispatch = source.slice(fitStart, fitEnd);
+for (const isTranslation of [false, true]) for (const renderWindowActive of [false, true]) {
+  for (const { fx, fitEnabled } of [
+    { fx: null, fitEnabled: true },
+    { fx: { lyricLiveViewportFit: true }, fitEnabled: true },
+    { fx: { lyricLiveViewportFit: false, lyricAdaptiveFit: true }, fitEnabled: true },
+    { fx: { lyricLiveViewportFit: false, lyricAdaptiveFit: false }, fitEnabled: false }
+  ]) {
+    let calls = 0;
+    const row = { isPrimary: !isTranslation, isTranslation, viewportFitScale: 0.7 };
+    const ctx = vm.createContext({ row, fx, renderWindowActive, baseScale: 0.8, frameScale: 0.5,
+      lyricRowLiveViewportScale(actualRow, scale, frameScale) {
+        assert.strictEqual(actualRow, row);
+        assert.strictEqual(scale, 0.8);
+        assert.strictEqual(frameScale, 0.5, 'frame timing reaches the fitting function');
+        calls++;
+        return 0.6;
+      } });
+    vm.runInContext(fitDispatch, ctx);
+    const enabled = renderWindowActive && fitEnabled;
+    assert.strictEqual(calls, enabled ? 1 : 0, 'only visible rows with an enabled fit measure the viewport');
+    assert.strictEqual(ctx.baseScale, enabled ? 0.48 : 0.8, 'the result participates in the authored scale');
+    if (!enabled) assert.strictEqual(row.viewportFitScale, 1, 'disabled or hidden rows release the previous fit');
+  }
+}
 assert(!/lyricLongLineDefaultScale|longLineScale|1380\s*\//.test(source), 'the old fixed-width hard compression must not return');
 assert(/var editLayoutEase = editPreview \? 1 : ease;/.test(source)
   && /var nextLineScale = row\.mesh\.scale\.x \+ \(scaleTarget - row\.mesh\.scale\.x\) \* editLayoutEase;/.test(source) && /row\.mesh\.scale\.setScalar\(nextLineScale\)/.test(source),

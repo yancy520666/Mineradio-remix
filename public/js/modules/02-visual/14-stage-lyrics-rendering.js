@@ -2773,7 +2773,7 @@ function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
   }
   return true;
 }
-// How far the camera has travelled between the home view (0) and the shelf pose it is gliding to or from (1).
+// How far the camera has travelled between its resting view (0) and the shelf pose (1).
 // The camera homes in per frame at its own, slower speed, so the lyrics follow its actual progress instead of
 // a clock: the block and the view then arrive together at any frame rate and camera speed, in both directions.
 // Null when the camera is not taking part (static shelf camera, free camera), where the lyrics use their own timing.
@@ -2787,13 +2787,18 @@ function stageLyricShelfCameraProgress() {
     ref.theta = focus.theta; ref.phi = focus.phi; ref.radius = focus.radius;
     ref.lx = focus.lookAt.x; ref.ly = focus.lookAt.y; ref.lz = focus.lookAt.z;
     stageLyrics.shelfCamSynced = true;
-  } else if (!(Number(stageLyrics.shelfFlipV) > 0.002)) {
+  } else if (focus.active || !(Number(stageLyrics.shelfFlipV) > 0.002)) {
     stageLyrics.shelfCamSynced = false;
   }
   var pose = stageLyrics.shelfPoseRef;
   if (!pose || !stageLyrics.shelfCamSynced) return null;
   var radiusScale = 1.5 / Math.max(1, orbit.baselineRadius);
   var theta0 = orbit.baselineTheta, phi0 = orbit.baselinePhi, radius0 = orbit.baselineRadius;
+  // Closing restores the user's saved orbit, which may be zoomed or turned away
+  // from the baseline. That actual destination must be zero progress.
+  if (!live && !orbit.centerLocked) {
+    theta0 = orbit.userTheta; phi0 = orbit.userPhi; radius0 = orbit.userRadius;
+  }
   var ax = (typeof shortestAngleDelta === 'function' ? shortestAngleDelta(theta0, pose.theta) : pose.theta - theta0);
   var ay = pose.phi - phi0, az = (pose.radius - radius0) * radiusScale;
   var bx = (typeof shortestAngleDelta === 'function' ? shortestAngleDelta(theta0, orbit.theta - (orbit.cineTheta || 0)) : orbit.theta - (orbit.cineTheta || 0) - theta0);
