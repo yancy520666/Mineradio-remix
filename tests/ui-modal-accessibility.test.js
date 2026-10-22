@@ -80,3 +80,16 @@ test('public hotkey open and close reuse modal focus without registering real sy
   f.context.openHotkeySettings();assert.equal(f.doc.activeElement,m);f.key('Tab');assert.equal(f.doc.activeElement,m.controls[0]);
   f.context.closeHotkeySettings();assert.equal(f.doc.activeElement,f.opener);assert.equal(m.getAttribute('aria-hidden'),'true');
 });
+
+test('the hotkey modal lives inside the rounded window shell so its backdrop keeps the window corners', () => {
+  const place=shell=>{
+    const parents=[],modal={addEventListener(){},setAttribute(){},set innerHTML(v){}};
+    const make=name=>({appendChild(el){parents.push(name);}});
+    const body=make('body'),sh=make('shell');
+    const context=vm.createContext({document:{getElementById:id=>id==='desktop-window-shell'?(shell?sh:null):null,createElement:()=>modal,body}});
+    loadFunctions(context,'public/js/modules/07-fx/06-hotkeys.js',['ensureHotkeyModal']);
+    context.ensureHotkeyModal();return parents;
+  };
+  assert.deepEqual(place(true),['shell']);
+  assert.deepEqual(place(false),['body']);
+});

@@ -241,7 +241,9 @@ function ensureHotkeyModal() {
     '<div id="hotkey-global-section" class="hotkey-section"></div>' +
     '<div class="hotkey-capture-tip" id="hotkey-capture-tip" role="status" aria-live="polite">点击按键开始录入 · Esc 取消 · Delete / Backspace 清空</div><div class="hotkey-footnote">Esc 保留为关闭 / 返回；自由镜头中的移动按键保持原有操作。</div>' +
     '</div>';
-  document.body.appendChild(modal);
+  // The desktop window's rounded corners are clipped by this shell; a backdrop
+  // appended to body would paint over them as square corners.
+  (document.getElementById('desktop-window-shell') || document.body).appendChild(modal);
   modal.addEventListener('click', function (e) {
     if (e.target === modal || e.target.closest('[data-hotkey-close]')) closeHotkeySettings();
     var scopeBtn = e.target.closest('[data-hotkey-scope]');
