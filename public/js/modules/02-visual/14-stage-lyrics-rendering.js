@@ -841,6 +841,31 @@ function alignStageLyricResidentEffectToRow(row, effect, zOffset) {
   effect.scale.copy(row.mesh.scale);
 }
 
+// How much of its frame a mask's text fills, in logical pixels so rasters of different scale compare.
+function stageLyricMaskTextFraction(mask) {
+  if (!mask) return 0;
+  var frame = Number(mask.logicalWidth) || Number(mask.width) || 0;
+  var text = Number(mask.logicalActiveTextWidth) || Number(mask.logicalTextWidth) ||
+    (Number(mask.activeTextWidth) || Number(mask.textWidth) || 0) / Math.max(0.01, Number(mask.rasterScale) || 1);
+  return frame > 0 && text > 0 ? text / frame : 0;
+}
+
+// A glow for the live row's own mask when the bundle row's mask holds text of a different size; null when they agree.
+function stageLyricResidentGlowFromOwnMask(liveRow, bundleRow, data) {
+  if (!liveRow || !liveRow.lineMask || !bundleRow || !bundleRow.lineMask || typeof makeLyricRowGlowMesh !== 'function') return null;
+  var live = stageLyricMaskTextFraction(liveRow.lineMask), bundled = stageLyricMaskTextFraction(bundleRow.lineMask);
+  if (!(live > 0 && bundled > 0) || Math.abs(live / bundled - 1) <= 0.02) return null;
+  return makeLyricRowGlowMesh({
+    text: liveRow.text,
+    lineMask: liveRow.lineMask,
+    lineWorldH: liveRow.lineWorldH,
+    isTranslation: liveRow.isTranslation,
+    baseY: liveRow.baseY,
+    baseZ: liveRow.baseZ,
+    baseScale: liveRow.baseScale
+  }, stageLyrics.palette, liveRow.lineWorldW || (data && data.worldW), null);
+}
+
 function stageLyricResidentDisplayedScrollOffset(data, fallbackOffset) {
   if (!data || !Array.isArray(data.rowLayers) || !data.rowLayers.length) return fallbackOffset;
   var lineStepWorld = lyricMeshLineStepWorld(data, false);
@@ -958,6 +983,15 @@ function mergeStageLyricResidentBundle(mesh, bundle) {
         row.readabilityMat = null;
       }
       if (!existingRow.glow && row.glow) {
+        // The bundle's glow was drawn from the bundle row's mask. A translation built as the current line has bigger
+        // text than the same line built as context, so a glow from the other kind of row would back the text at the
+        // wrong size: draw this row's own glow instead.
+        var ownGlow = stageLyricResidentGlowFromOwnMask(existingRow, row, data);
+        if (ownGlow) {
+          disposeLyricMesh(row.glow);
+          row.glow = ownGlow.glow;
+          row.glowMat = ownGlow.glowMat;
+        }
         if (row.glow.parent) row.glow.parent.remove(row.glow);
         effectParent.add(row.glow);
         existingRow.glow = row.glow;
