@@ -1479,7 +1479,8 @@ function checkLyricScrollPerformanceGuard() {
   if (/renderer\.initTexture/.test(maskText + rowText + meshText + stageText)) {
     fail('lyric texture prewarm must not force synchronous GPU uploads with renderer.initTexture');
   }
-  if (!/var lyricDisposeQueue = \[\]/.test(starRiverText) || !/function flushLyricDisposeQueue/.test(starRiverText) || !/processed < 12/.test(starRiverText)) {
+  if (!/var lyricDisposeQueue = \[\]/.test(starRiverText) || !/function flushLyricDisposeQueue/.test(starRiverText)
+    || !/var chunkLimit = lyricDisposeQueue\.length > \d+ \? \d{1,3} : 12;/.test(starRiverText) || !/processed < chunkLimit/.test(starRiverText)) {
     fail('lyric mesh disposal must stay split into bounded background chunks');
   }
   if (!/mesh\.visible = false/.test(rowText) || !/readability\.visible = false/.test(rowText) || !/renderRevealAt/.test(rowText) || !/renderLineUploaded/.test(rowText) || !/renderReadabilityUploaded/.test(rowText) || !/renderGlowUploaded/.test(rowText) || !/var renderRevealCandidates = \[\]/.test(rowText) || !/renderRevealCandidates\.sort/.test(rowText) || !/function resetLyricRenderUploadFrameBudget/.test(rowText) || !/function consumeLyricRenderUploadFrameBudget/.test(rowText) || !/if \(!consumeLyricRenderUploadFrameBudget\(\)\) break/.test(rowText) || !/resetLyricRenderUploadFrameBudget\(true\)/.test(stageText) || !/__mineradioLyricUploadBudgetStats/.test(rowText) || !/row\.mesh\.visible = lineLayerVisible/.test(rowText) || !/row\.glow\.visible = glowLayerVisible/.test(rowText)) {

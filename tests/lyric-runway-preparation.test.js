@@ -85,10 +85,10 @@ test('sharp upcoming text takes priority over the remaining whole-song runway', 
     stageLyricPersistentResidentRowMap(d){return Object.fromEntries(d.rowLayers.map(r=>[r.lineIndex+'|primary',r]));},
     stageLyricPersistentLineRowsResident(d,i,m){return !!m[i+'|primary'];},
     lyricDisplayOffsetsForMode(){return [0,1];},lyricLineDisplayTextAt(){return 'line';},
-    stageLyricTrackBaseEntry(){return {text:'line'};},normalizeLyricTranslationMode(){return 'off';},
+    stageLyricTrackBaseEntry(){return {text:'line'};},normalizeLyricTranslationMode(){return 'off';},stageLyricNowMs(){return 1000;},
     startStageLyricResidentBuild(m,i,start,end,options){calls.push({m,i,start,end,options});return true;}
   });
-  loadFunctions(c,'public/js/modules/02-visual/14-stage-lyrics-rendering.js',['ensureStageLyricPersistentTrackRows']);
+  loadFunctions(c,'public/js/modules/02-visual/14-stage-lyrics-rendering.js',['ensureStageLyricPersistentTrackRows','stageLyricSharpTextSpinning']);
   assert.equal(c.ensureStageLyricPersistentTrackRows(mesh,0),true);
   assert.equal(calls.length,1);assert.equal(calls[0].start,1);assert.equal(calls[0].end,3);
   assert.equal(calls[0].options.textOnly,true);assert.equal(calls[0].options.urgent,true);
@@ -106,4 +106,43 @@ test('startup prepares clear visible text without making the whole initial page 
   assert.equal(c.lyricRowUsesRunwayPreview(payload,7),true);
   payload.trackRunwayPreview=true;assert.equal(c.lyricRowUsesRunwayPreview(payload,0),true);
   payload.trackRunwayPreview=false;assert.equal(c.lyricRowUsesRunwayPreview(payload,7),false);
+});
+
+test('a runway flag requested by a resident job survives payload normalization', () => {
+  const c=vm.createContext({fx:{},clampRange(v,a,b){return Math.max(a,Math.min(b,v));},normalizeLyricDisplayMode(m){return m||'cinema';},normalizeLyricTranslationText(t){return t;}});
+  loadFunctions(c,'public/js/modules/02-visual/09-lyrics-payloads.js',['normalizeStageLyricText','normalizeStageLyricEntry','normalizeStageLyricPayload']);
+  const build=flag=>c.normalizeStageLyricPayload({mode:'cinema',entries:[{text:'a'}],trackEntries:[{text:'a'}],trackIndex:0,trackRunwayPreview:flag});
+  assert.equal(build(true).trackRunwayPreview,true);
+  assert.equal(build(false).trackRunwayPreview,false);
+  assert.equal(build(undefined).trackRunwayPreview,null);
+  assert.equal(c.normalizeStageLyricPayload('plain').trackRunwayPreview,null);
+});
+
+test('trim keeps the whole sharp-text window sharp so the two never fight over its edge rows', () => {
+  const released=[];
+  const make=lineIndex=>({lineIndex,isPrimary:true,runwayLineMask:{texture:{}},lineMask:{},baseLineTexture:{}});
+  // cinema shows offsets -2..2; ensure keeps sharp text from -3 up to +4 around the target.
+  const rows=[-3,4,6,7].map(d=>make(50+d)),data={trackPersistent:true,rowLayers:rows},mesh={userData:{lyric:data}};
+  const c=vm.createContext({ lyricsLines:new Array(300), fx:{},
+    lyricDisplayOffsetsForMode(){return [-2,-1,0,1,2];}, releaseLyricRowQuality(){},
+    setLyricRowTextureMap(r,t){r.map=t;}, disposeOwnedLyricTexture(t){released.push(t);},
+    updateStageLyricPersistentResidentBounds() {}, disposeLyricMesh(){}
+  });
+  loadFunctions(c,'public/js/modules/02-visual/14-stage-lyrics-rendering.js',['trimStageLyricPersistentTrackRows']);
+  c.trimStageLyricPersistentTrackRows(mesh,50);
+  assert.ok(rows[0].runwayLineMask&&rows[1].runwayLineMask,'rows inside the sharp window stay sharp');
+  assert.equal(rows[2].runwayLineMask,null,'rows well past the window return to the cheap mask');
+  assert.equal(rows[3].runwayLineMask,null);
+});
+
+test('a sharp-text job that repeats without progress backs off instead of spinning', () => {
+  let now=1000;
+  const c=vm.createContext({stageLyricNowMs(){return now;}});
+  loadFunctions(c,'public/js/modules/02-visual/14-stage-lyrics-rendering.js',['stageLyricSharpTextSpinning']);
+  const data={};
+  for (let i=0;i<4;i++){assert.equal(c.stageLyricSharpTextSpinning(data,13,13),false);now+=10;}
+  assert.equal(c.stageLyricSharpTextSpinning(data,13,13),true);
+  now+=1000;assert.equal(c.stageLyricSharpTextSpinning(data,13,13),true,'still backing off');
+  now+=2000;assert.equal(c.stageLyricSharpTextSpinning(data,13,13),false,'retries once the back-off ends');
+  now+=1000;assert.equal(c.stageLyricSharpTextSpinning(data,14,14),false,'a new range is never delayed');
 });

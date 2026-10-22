@@ -45,6 +45,8 @@ function normalizeStageLyricPayload(input) {
   var trackEnd = null;
   var trackLightweight = false;
   var trackTextOnly = false;
+  // null = not requested, so the row builder derives it from the display window.
+  var trackRunwayPreview = null;
   if (input && typeof input === 'object' && Array.isArray(input.entries)) {
     mode = normalizeLyricDisplayMode(input.mode || mode);
     activeLine = Math.max(0, Number(input.activeLine) || 0);
@@ -52,6 +54,7 @@ function normalizeStageLyricPayload(input) {
     activeLayer = input.activeLayer === true;
     trackLightweight = input.trackLightweight === true;
     trackTextOnly = input.trackTextOnly === true;
+    if (input.trackRunwayPreview === true || input.trackRunwayPreview === false) trackRunwayPreview = input.trackRunwayPreview;
     if (input.trackIndex != null && isFinite(Number(input.trackIndex))) trackIndex = Number(input.trackIndex);
     trackKey = input.trackKey || '';
     if (input.trackStart != null && isFinite(Number(input.trackStart))) trackStart = Number(input.trackStart);
@@ -91,6 +94,7 @@ function normalizeStageLyricPayload(input) {
     trackEnd: trackEnd,
     trackLightweight: trackLightweight,
     trackTextOnly: trackTextOnly,
+    trackRunwayPreview: trackRunwayPreview,
     text: active && active.text || entries[0].text,
     combinedText: entries.map(function (entry) { return entry.text; }).join(' / ')
   };

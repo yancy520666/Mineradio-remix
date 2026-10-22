@@ -1362,6 +1362,24 @@ function commitStageLyricPersistentPendingTarget(mesh) {
   return setLyricTrackTarget(mesh, payload);
 }
 
+// A sharp-text job that keeps finishing without the rows ever counting as sharp
+// would otherwise rebuild and dispose the same rows every turn. After a few
+// identical starts in a row it backs off, so a regression costs seconds of
+// slightly soft text instead of an endless build/dispose loop.
+function stageLyricSharpTextSpinning(data, start, end) {
+  var now = stageLyricNowMs();
+  if (now < (Number(data.trackSharpBackoffUntil) || 0)) return true;
+  var key = start + '-' + end;
+  var spin = data.trackSharpSpin;
+  if (spin && spin.key === key && now - spin.at < 400) spin.count += 1;
+  else spin = data.trackSharpSpin = { key: key, count: 1, at: now };
+  spin.at = now;
+  if (spin.count <= 4) return false;
+  data.trackSharpBackoffUntil = now + 2500;
+  data.trackSharpSpin = null;
+  return true;
+}
+
 function ensureStageLyricPersistentTrackRows(mesh, targetIndex, options) {
   options = options || {};
   var data = mesh && mesh.userData && mesh.userData.lyric;
@@ -1452,9 +1470,11 @@ function ensureStageLyricPersistentTrackRows(mesh, targetIndex, options) {
   if (firstSharpMissing >= 0 && firstVisibleMissing < 0) {
     var sharpJob = stageLyricResidentBuild.job;
     if (sharpJob && sharpJob.mesh === mesh && sharpJob.textOnly && !sharpJob.runwayPreview && sharpJob.start <= firstSharpMissing && sharpJob.end >= sharpEnd) return true;
-    return startStageLyricResidentBuild(mesh, targetIndex, firstSharpMissing, sharpEnd, {
-      textOnly: true, urgent: true, interactive: interactivePreview, reason: 'persistent-track-sharp-text'
-    });
+    if (!stageLyricSharpTextSpinning(data, firstSharpMissing, sharpEnd)) {
+      return startStageLyricResidentBuild(mesh, targetIndex, firstSharpMissing, sharpEnd, {
+        textOnly: true, urgent: true, interactive: interactivePreview, reason: 'persistent-track-sharp-text'
+      });
+    }
   }
   var firstMissing = firstVisibleMissing;
   if (firstMissing < 0) {
@@ -1561,6 +1581,10 @@ function trimStageLyricPersistentTrackRows(mesh, targetIndex, options) {
     preserveEnd = Math.min(lyricsLines.length - 1, preserveTargetIndex + maxOffset + 2);
   }
   var releasedEffects = 0;
+  // ensureStageLyricPersistentTrackRows keeps the sharp text window one row behind
+  // and two rows past the displayed lines; downgrading inside it would rebuild the
+  // same row every turn, so only rows past that window (plus one) fall back.
+  var sharpReach = Math.max(maxOffset + 2, 1 - minOffset) + 1;
   for (var i = 0; i < data.rowLayers.length; i++) {
     var row = data.rowLayers[i];
     var lineIndex = row && row.isTranslation
@@ -1571,7 +1595,7 @@ function trimStageLyricPersistentTrackRows(mesh, targetIndex, options) {
     var keepForCommittedWindow = roundedLineIndex != null && roundedLineIndex >= preserveStart && roundedLineIndex <= preserveEnd;
     var keepEffects = roundedLineIndex == null || keepForTarget || keepForCommittedWindow ||
       roundedLineIndex === targetIndex || roundedLineIndex === preserveTargetIndex;
-    if (row.runwayLineMask && Math.abs(lineIndex - targetIndex) > Math.max(3, maxOffset + 1) && !keepForCommittedWindow) {
+    if (row.runwayLineMask && Math.abs(lineIndex - targetIndex) > Math.max(3, sharpReach) && !keepForCommittedWindow) {
       releaseLyricRowQuality(row, true);
       var fullBase = row.baseLineTexture;
       row.lineMask = row.runwayLineMask;

@@ -167,7 +167,10 @@ function flushLyricDisposeQueue() {
   lyricDisposeTimer = 0;
   var startedAt = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
   var processed = 0;
-  while (lyricDisposeQueue.length && processed < 12) {
+  // The time slice still bounds each turn; a deep backlog (a long idle, a burst of
+  // line changes) may use more of it instead of holding GPU memory for minutes.
+  var chunkLimit = lyricDisposeQueue.length > 96 ? 64 : 12;
+  while (lyricDisposeQueue.length && processed < chunkLimit) {
     var job = lyricDisposeQueue[0];
     if (job.index < job.objects.length) {
       var obj = job.objects[job.index++];
@@ -184,7 +187,8 @@ function flushLyricDisposeQueue() {
       lyricDisposeQueue.shift();
     }
     var now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    if (processed > 0 && now - startedAt >= (typeof lyricWorkScheduler !== 'undefined' ? lyricWorkScheduler.sliceMs : 4.5)) break;
+    var sliceMs = typeof lyricWorkScheduler !== 'undefined' ? lyricWorkScheduler.sliceMs : 4.5;
+    if (processed > 0 && now - startedAt >= (lyricDisposeQueue.length > 96 ? sliceMs * 2 : sliceMs)) break;
   }
   if (typeof window !== 'undefined') {
     window.__mineradioLyricDisposeStats = {
