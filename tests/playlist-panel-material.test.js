@@ -42,7 +42,7 @@ function fixture(saved) {
   vm.runInContext(read(persistencePath), c);
   vm.runInContext(read(runtimePath), c);
   // Unrelated panel controls and GPU/desktop integrations are outside this fixture.
-  for (const name of ['liftFxFloatingPopups', 'relabelFxPanelControls', 'organizeFxPanel', 'bindHotkeySettings', 'bindCloseBehaviorControls',
+  for (const name of ['liftFxFloatingPopups', 'relabelFxPanelControls', 'organizeFxPanel', 'ensureHotkeySettingsButton', 'bindHotkeySettings', 'bindCloseBehaviorControls',
     'bindStartupResumeModeControls', 'bindAudioOutputControls', 'bindUiSfxVolumeControls', 'buildPresetGrid', 'renderUserFxArchives',
     'buildLyricColorControls', 'ensureFxSliderResetButton', 'bindColorLabPicker', 'bindColorLabRows', 'syncFxUniforms', 'syncLyricRealtimeFxChange',
     'animateFxResetButton', 'showToast', 'applyCoverParticleResolution', 'refreshStageLyricDisplayMode', 'applyDesktopLyricsState',
@@ -105,7 +105,8 @@ test('real slider input previews and commits reach panel CSS and reload with sav
       assert.equal(f.panelVars.get('--playlist-row-a'), f.c.playlistPanelAlphaVars(density).row.toFixed(3));
       assert.ok(Number(f.panelVars.get('--playlist-row-hover-a')) > Number(f.panelVars.get('--playlist-row-a')));
       assert.ok(Number(f.panelVars.get('--playlist-row-selected-a')) > Number(f.panelVars.get('--playlist-row-hover-a')));
-      for (const key of ['--playlist-panel-blur', '--playlist-panel-density', '--playlist-row-a']) assert.equal(f.rootVars.has(key), false, key + ' stays scoped to the left panel');
+      for (const key of ['--playlist-panel-blur', '--playlist-row-a']) assert.equal(f.rootVars.has(key), false, key + ' stays scoped to the left panel');
+      assert.equal(f.rootVars.get('--playlist-panel-density'), density.toFixed(3), 'bottom popovers follow the same opacity');
       f.sliders['fx-playlistdensity'].emit('change');
       const saved = JSON.parse(f.storage.get(storeKey));
       assert.equal(saved.playlistPanelGlassBlur, blur);
