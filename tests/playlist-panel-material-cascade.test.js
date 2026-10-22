@@ -75,8 +75,9 @@ test('queue, playlist cards and song rows share density and one panel blur throu
   for (const svg of [false, true]) for (const power of [[], ['render-background-eco'], ['render-deep-sleep']]) {
     const outer = panelPath(svg, power);
     assert.match(cascade(outer, 'background').value, /var\(--playlist-panel-density, 1\)/);
-    assert.equal(material(14, .55)(cascade(outer, 'backdrop-filter').value), 'blur(14px) saturate(1.16)');
-    assert.equal(material(60, 1)(cascade(outer, '-webkit-backdrop-filter').value), 'blur(60px) saturate(1.16)');
+    // One blur for the whole panel, plus a dimming that deepens as the density drops (see the glass block at the end of the stylesheet).
+    assert(material(14, .55)(cascade(outer, 'backdrop-filter').value).startsWith('blur(14px) saturate(1.16) brightness('));
+    assert(material(60, 1)(cascade(outer, '-webkit-backdrop-filter').value).startsWith('blur(60px) saturate(1.16) brightness('));
     const rows = [['queue-item'], ['pl-card'], ['pl-detail-row']];
     for (const classes of rows) for (const hover of [false, true]) {
       const row = panelPath(svg, power, classes, hover);

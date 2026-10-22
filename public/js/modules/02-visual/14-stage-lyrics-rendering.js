@@ -2865,7 +2865,18 @@ function updateStageLyricLayout(dt) {
   // detail list is open, where the dimmed lyrics may overlap the rows.
   var stageLyricRenderBase = shelfDetailOpen ? 340 : 260;
   stageLyrics.group.renderOrder = stageLyricRenderBase;
-  var shelfDetailLyricProfile = shelfDetailOpen ? {
+  // The left playlist panel is a glass sheet over the scene: the lyrics behind it dim so big glowing text does not
+  // fight the list. Lighter than beside a shelf detail list, and the layering stays as it is.
+  var leftPanelEl = typeof document !== 'undefined' ? (stageLyrics.leftPanelEl || (stageLyrics.leftPanelEl = document.getElementById('playlist-panel'))) : null;
+  var leftPanelDim = !shelfDetailOpen && !!(leftPanelEl && leftPanelEl.classList && (leftPanelEl.classList.contains('show') || leftPanelEl.classList.contains('peek')));
+  var shelfDetailLyricProfile = leftPanelDim ? {
+    opacity: 0.52,
+    readability: 0.44,
+    bloom: 0.46,
+    glowCap: 0.20,
+    outgoing: 0.60,
+    easeDown: 0.30
+  } : shelfDetailOpen ? {
     opacity: skullShelfDetailOpen ? 0.30 : 0.38,
     readability: skullShelfDetailOpen ? 0.20 : 0.26,
     bloom: skullShelfDetailOpen ? 0.20 : 0.24,
@@ -3096,7 +3107,7 @@ function updateStageLyricLayout(dt) {
     stageLyrics.group.position.copy(lyricLayoutTarget);
     stageLyrics.group.quaternion.copy(lyricTargetQuat);
   }
-  return { skullMouthLyrics: skullMouthLyrics, shelfDetailOpen: shelfDetailOpen, stageLyricRenderBase: stageLyricRenderBase, shelfDetailLyricProfile: shelfDetailLyricProfile };
+  return { skullMouthLyrics: skullMouthLyrics, shelfDetailOpen: shelfDetailOpen, leftPanelDim: leftPanelDim, stageLyricRenderBase: stageLyricRenderBase, shelfDetailLyricProfile: shelfDetailLyricProfile };
 }
 
 function updateStageLyrics3D(dt) {
@@ -3147,6 +3158,7 @@ function updateStageLyrics3D(dt) {
   var layout = updateStageLyricLayout(dt);
   var skullMouthLyrics = layout.skullMouthLyrics;
   var shelfDetailOpen = layout.shelfDetailOpen;
+  var lyricsDimmed = shelfDetailOpen || layout.leftPanelDim === true;
   // 歌单架占着画面时歌词上下漂浮、呼吸缩放只保留三成，免得歌词在歌单架旁边晃来晃去
   var shelfFloatDamp = 1 - (Number(stageLyrics.shelfLayoutMix) || 0) * 0.7;
   var stageLyricRenderBase = layout.stageLyricRenderBase;
@@ -3300,13 +3312,13 @@ function updateStageLyrics3D(dt) {
       var lyricOpacityTarget = entranceHeld ? 0 : shelfDetailLyricProfile.opacity;
       if (!isFinite(Number(data.globalOpacity))) data.globalOpacity = data.textMat && data.textMat.uniforms && data.textMat.uniforms.uOpacity ? Number(data.textMat.uniforms.uOpacity.value) || 0 : 0;
       var currentOpacity = data.globalOpacity;
-      var opacityEase = shelfDetailOpen && currentOpacity > lyricOpacityTarget ? shelfDetailLyricProfile.easeDown : 0.16;
+      var opacityEase = lyricsDimmed && currentOpacity > lyricOpacityTarget ? shelfDetailLyricProfile.easeDown : 0.16;
       opacity = clampRange(currentOpacity + (lyricOpacityTarget - currentOpacity) * opacityEase, 0, 1);
       data.globalOpacity = opacity;
       if (data.textMat) data.textMat.uniforms.uOpacity.value = opacity;
       if (data.readabilityMat) {
         var readabilityTarget = opacity * shelfDetailLyricProfile.readability;
-        var readabilityEase = shelfDetailOpen && data.readabilityMat.opacity > readabilityTarget ? 0.28 : 0.16;
+        var readabilityEase = lyricsDimmed && data.readabilityMat.opacity > readabilityTarget ? 0.28 : 0.16;
         data.readabilityMat.opacity += (readabilityTarget - data.readabilityMat.opacity) * readabilityEase;
       }
       var contextIntro = clampRange((mesh.userData.age - 0.04) / 0.48, 0, 1);

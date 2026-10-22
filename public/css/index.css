@@ -20296,3 +20296,47 @@ body.empty-home-active #search-area.peek {
 /* Keep titlebar setup/help entries with the DIY controls. */
 body:not(.diy-mode) #shortcut-settings-btn,
 body:not(.diy-mode) #visual-guide-btn { display: none !important; }
+
+/* Glass surfaces over the lyrics: enough tint and dimming that big glowing lyric text behind them stops
+   competing with the list, while the blur, edge light and shadow that make them read as glass stay. */
+#playlist-panel,
+html.control-glass-svg-ok #playlist-panel {
+  background: linear-gradient(180deg, rgba(15, 16, 24, calc(.38 + var(--playlist-panel-density, 1) * .66)), rgba(11, 11, 17, calc(.30 + var(--playlist-panel-density, 1) * .66))) !important;
+  backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) brightness(calc(.55 + var(--playlist-panel-density, 1) * .45)) !important;
+  -webkit-backdrop-filter: blur(var(--playlist-panel-blur, 14px)) saturate(1.16) brightness(calc(.55 + var(--playlist-panel-density, 1) * .45)) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 0 0 1px rgba(255, 255, 255, .035) !important;
+}
+#playlist-panel.pinned {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .45), 0 0 34px rgba(var(--fc-accent-rgb), .08), inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 0 0 1px rgba(255, 255, 255, .035) !important;
+}
+#playlist-panel .pl-card,
+#playlist-panel .pl-card.podcast-card,
+#playlist-panel .pl-card.podcast-child,
+#playlist-panel .queue-item,
+#playlist-panel .pl-detail-row {
+  background: rgba(0, 0, 0, calc(.26 + var(--playlist-row-a, .20) * .6)) !important;
+}
+#playlist-panel .pl-card:hover,
+#playlist-panel .pl-card.podcast-card:hover,
+#playlist-panel .pl-card.podcast-child:hover,
+#playlist-panel .queue-item:hover,
+#playlist-panel .pl-detail-row:hover {
+  background: rgba(18, 18, 22, calc(.30 + var(--playlist-row-hover-a, .30) * .6)) !important;
+}
+#playlist-panel .pl-card.expanded,
+#playlist-panel .pl-card.podcast-card.expanded,
+#playlist-panel .pl-card.podcast-child.expanded,
+#playlist-panel .queue-item.now {
+  background: rgba(8, 14, 24, calc(.40 + var(--playlist-row-selected-a, .38) * .6)) !important;
+}
+
+/* The popover lives inside the bottom bar, which has its own backdrop-filter and so is a backdrop root: its blur
+   only sees the bar, never the lyrics behind it. The tint is what keeps big lyric text from showing through. */
+.quality-popover,
+html.control-glass-svg-ok .quality-popover {
+  background: linear-gradient(180deg, rgba(14, 16, 24, .80), rgba(9, 10, 16, .72)) !important;
+}
+.quality-option.active {
+  background: rgba(var(--fc-accent-rgb), .16) !important;
+  border-color: rgba(var(--fc-accent-rgb), .40) !important;
+}
