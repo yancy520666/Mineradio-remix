@@ -163,6 +163,13 @@ test('shelf camera progress reaches zero at the restored zoom and orbit, then re
     const ctx = context({ orbit });
     loadFunctions(ctx, file, ['stageLyricShelfCameraProgress']);
     assert.equal(ctx.stageLyricShelfCameraProgress(), 1, 'opening still reaches the existing shelf pose');
+    // Opening from a zoomed or turned view must start at zero too, not jump in at the share the saved view already covers.
+    const pose = { theta: orbit.theta, phi: orbit.phi, radius: orbit.radius, lookAt: orbit.lookAt.clone() };
+    Object.assign(orbit, saved.centered ? { theta: orbit.baselineTheta, phi: orbit.baselinePhi, radius: orbit.baselineRadius }
+      : { theta: saved.theta, phi: saved.phi, radius: saved.radius });
+    orbit.lookAt.set(0, 0, 0);
+    assert(ctx.stageLyricShelfCameraProgress() < 0.005, 'opening starts at the restored view with no head start');
+    Object.assign(orbit, pose); orbit.lookAt.copy(pose.lookAt);
     ctx.stageLyrics.shelfFlipV = 1;
     orbit.focus.active = false;
     const target = saved.centered
@@ -190,7 +197,7 @@ test('shelf camera progress reaches zero at the restored zoom and orbit, then re
 });
 
 test('another camera focus releases shelf synchronization instead of keeping a partial flip', () => {
-  const orbit = { baselineTheta: 0, baselinePhi: 0, baselineRadius: 6,
+  const orbit = { baselineTheta: 0, baselinePhi: 0, baselineRadius: 6, userTheta: 0, userPhi: 0, userRadius: 6,
     theta: 0.42, phi: -0.12, radius: 4.2, lookAt: new THREE.Vector3(2.32, -0.1, 0.72),
     focus: { active: true, type: 'shelf-side', theta: 0.42, phi: -0.12, radius: 4.2,
       lookAt: new THREE.Vector3(2.32, -0.1, 0.72) } };

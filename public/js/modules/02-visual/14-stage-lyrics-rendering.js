@@ -2794,9 +2794,9 @@ function stageLyricShelfCameraProgress() {
   if (!pose || !stageLyrics.shelfCamSynced) return null;
   var radiusScale = 1.5 / Math.max(1, orbit.baselineRadius);
   var theta0 = orbit.baselineTheta, phi0 = orbit.baselinePhi, radius0 = orbit.baselineRadius;
-  // Closing restores the user's saved orbit, which may be zoomed or turned away
-  // from the baseline. That actual destination must be zero progress.
-  if (!live && !orbit.centerLocked) {
+  // The shelf opens from and closes back to the user's saved orbit, which may be zoomed or turned away
+  // from the baseline: that view, not the baseline, is zero progress in both directions.
+  if (!orbit.centerLocked) {
     theta0 = orbit.userTheta; phi0 = orbit.userPhi; radius0 = orbit.userRadius;
   }
   var ax = (typeof shortestAngleDelta === 'function' ? shortestAngleDelta(theta0, pose.theta) : pose.theta - theta0);
