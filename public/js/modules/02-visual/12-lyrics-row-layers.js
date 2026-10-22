@@ -298,6 +298,8 @@ function lyricRowAdaptiveViewportScale(row, intendedScale, frameScale) {
   var current = row.adaptiveFit;
   // While the shelf turns the block its pose is not the home view, so keep the last good measurement.
   var poseSettled = !(stage.shelfFlipT > 0);
+  // Frozen while the queue panel holds the camera: keep the last fit, but still measure a row that has none yet.
+  if (stage.adaptiveFitHold && isFinite(current)) poseSettled = false;
   if (poseSettled) {
     var ratio = measureLyricRowViewportScale(row, intendedScale, LYRIC_ADAPTIVE_FIT_MIN_RATIO, true);
     var partner = row.isTranslation ? row.tightParent : row.tightTranslation;

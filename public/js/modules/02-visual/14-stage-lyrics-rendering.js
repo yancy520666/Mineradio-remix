@@ -2830,6 +2830,10 @@ function stageLyricHomeViewness() {
 // adaptiveFitBase follows the setting and the camera; adaptiveFitMix is that times the shelf's
 // "lyrics still home" share, so opening the shelf regrows the rows on the same curve as the flip.
 function updateStageLyricAdaptiveFit(dt, shelfFlip, available) {
+  // While the left playlist panel holds the camera (and while it glides back) the fit is frozen: lyrics keep the
+  // size they had instead of adapting to the panel's camera move and then back again.
+  stageLyrics.adaptiveFitHold = !!(typeof orbit !== 'undefined' && orbit && orbit.focus && orbit.focus.type === 'queue' && orbit.focus.active) ||
+    !!(typeof queueFocusTween !== 'undefined' && queueFocusTween && queueFocusTween.active);
   var wanted = available && fx.lyricAdaptiveFit !== false ? stageLyricHomeViewness() : 0;
   if (!isFinite(stageLyrics.adaptiveFitBase)) stageLyrics.adaptiveFitBase = wanted;
   stageLyrics.adaptiveFitBase += (wanted - stageLyrics.adaptiveFitBase) * (1 - Math.exp(-6 * dt));
