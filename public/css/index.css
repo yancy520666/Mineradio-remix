@@ -20292,3 +20292,6 @@ body.empty-home-active #search-area.peek {
 #search-box #search-clear-btn:hover { color: #fff; background: rgba(255,255,255,.10); }
 #search-box #search-clear-btn:active { background: rgba(255,255,255,.16); }
 #search-box #search-clear-btn:focus-visible { outline: 2px solid rgb(var(--fc-accent-rgb)); outline-offset: 2px; }
+
+/* Keep the titlebar shortcut entry with the DIY controls. */
+body:not(.diy-mode) #shortcut-settings-btn { display: none !important; }
