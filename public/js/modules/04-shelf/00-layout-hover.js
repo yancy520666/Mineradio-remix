@@ -42,6 +42,7 @@ function syncShelfCanvasQuality(target, logicalWidth, logicalHeight, viewportFra
   return changed;
 }
 var shelfOpenAnimAt = -10;
+var shelfCloseAnimAt = -10;
 var shelfHoverCue = { target: 0, value: 0, x: 0, y: 0, lastAt: 0, enteredAt: 0, zoneActive: false, guide: false };
 var shelfVisibility = 0;  // 0..1, 侧栏自动隐藏的整体透明度系数
 var shelfPlaybackSwitchGuardUntil = 0;
@@ -314,11 +315,13 @@ function setShelfPinnedOpen(open, immediate, persist) {
     if (!previewVisible && shelfManager && shelfManager.resetToStart) shelfManager.resetToStart();
     var summon = shelfSummonSettings();
     shelfOpenAnimAt = previewVisible ? nowT - summon.openDuration : nowT;
+    shelfCloseAnimAt = -10;
     shelfHoverCue.target = 0;
     shelfHoverCue.zoneActive = false;
     shelfHoverCue.enteredAt = 0;
   }
   if (nextOpen !== shelfPinnedOpen && typeof markRenderInteraction === 'function') markRenderInteraction('shelf-pin', 1100);
+  var wasPinnedOpen = shelfPinnedOpen;
   shelfPinnedOpen = nextOpen;
   if (fx) fx.shelfPinnedOpen = nextOpen;
   if (!nextOpen) {
@@ -328,7 +331,10 @@ function setShelfPinnedOpen(open, immediate, persist) {
     shelfHoverCue.zoneActive = false;
     shelfHoverCue.enteredAt = 0;
     shelfHoverCue.guide = false;
-    shelfVisibility = 0;
+    // A shelf that was open fades out over its closing time (the manager eases shelfVisibility down);
+    // only a preview that was never opened is dropped at once.
+    if (!wasPinnedOpen) shelfVisibility = 0;
+    else shelfCloseAnimAt = typeof uniforms !== 'undefined' && uniforms && uniforms.uTime ? uniforms.uTime.value : performance.now() / 1000;
     if (typeof setShelfHoverTabVisible === 'function') setShelfHoverTabVisible(false);
     if (shelfManager && shelfManager.clearSelected) shelfManager.clearSelected();
   }

@@ -472,6 +472,11 @@ function makeShelfManager() {
       var breathPulse = hoverBreath * (0.5 + 0.5 * Math.sin(nowT * 1.22 + card.index * 0.74));
       var revealRaw = Math.max(0, Math.min(1, (nowT - shelfOpenAnimAt - absD * 0.035 * summon.stagger) / summon.openDuration));
       var reveal = revealRaw * revealRaw * (3 - 2 * revealRaw);
+      // Closing a pinned shelf plays the entrance backwards (stagger included) while shelfVisibility fades it.
+      if (!shelfPinnedOpen && !detailOpenSide && shelfCloseAnimAt > 0 && nowT - shelfCloseAnimAt < summon.closeDuration + 0.30 * summon.stagger + 0.10) {
+        var closeRaw = Math.max(0, Math.min(1, (nowT - shelfCloseAnimAt - absD * 0.035 * summon.stagger) / Math.max(0.08, summon.closeDuration)));
+        reveal *= 1 - closeRaw * closeRaw * (3 - 2 * closeRaw);
+      }
       var entry = (1 - reveal) * (0.82 + absD * 0.075 * summon.stagger) * summon.slide;
       var paneRaw = Math.max(0, Math.min(1, (nowT - paneSwitchAt - absD * 0.030 * summon.stagger) / Math.max(0.12, summon.openDuration * 1.16)));
       var paneEase = 1 - paneRaw * paneRaw * (3 - 2 * paneRaw);
