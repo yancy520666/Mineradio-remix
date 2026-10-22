@@ -866,6 +866,24 @@ function stageLyricResidentGlowFromOwnMask(liveRow, bundleRow, data) {
   }, stageLyrics.palette, liveRow.lineWorldW || (data && data.worldW), null);
 }
 
+// The same for the dark backing layer, which is drawn on a frame as big as the text row's.
+function stageLyricResidentReadabilityFromOwnMask(liveRow, bundleRow, data) {
+  if (!liveRow || !liveRow.lineMask || !bundleRow || !bundleRow.lineMask || typeof beginLyricReadabilityTextureBuild !== 'function') return null;
+  var live = stageLyricMaskTextFraction(liveRow.lineMask), bundled = stageLyricMaskTextFraction(bundleRow.lineMask);
+  if (!(live > 0 && bundled > 0) || Math.abs(live / bundled - 1) <= 0.02) return null;
+  var build = beginLyricReadabilityTextureBuild(liveRow.lineMask);
+  for (var guard = 0; guard < 64 && !stepLyricReadabilityTextureBuild(build); guard++) { }
+  var texture = finishLyricReadabilityTextureBuild(build);
+  if (!texture) return null;
+  var material = makeLyricBackfaceReadableMaterial({ map: texture, opacity: 0, color: 0xffffff });
+  var plane = new THREE.Mesh(new THREE.PlaneGeometry(liveRow.lineWorldW || (data && data.worldW) || 6.10, liveRow.lineWorldH, 1, 1), material);
+  plane.renderOrder = bundleRow.readability.renderOrder;
+  plane.position.copy(bundleRow.readability.position);
+  plane.scale.copy(bundleRow.readability.scale);
+  plane.visible = false;
+  return { readability: plane, readabilityMat: material };
+}
+
 function stageLyricResidentDisplayedScrollOffset(data, fallbackOffset) {
   if (!data || !Array.isArray(data.rowLayers) || !data.rowLayers.length) return fallbackOffset;
   var lineStepWorld = lyricMeshLineStepWorld(data, false);
@@ -973,6 +991,12 @@ function mergeStageLyricResidentBundle(mesh, bundle) {
         else if (row.mat) row.mat.map = null;
       }
       if (!existingRow.readability && row.readability) {
+        var ownReadability = stageLyricResidentReadabilityFromOwnMask(existingRow, row, data);
+        if (ownReadability) {
+          disposeLyricMesh(row.readability);
+          row.readability = ownReadability.readability;
+          row.readabilityMat = ownReadability.readabilityMat;
+        }
         if (row.readability.parent) row.readability.parent.remove(row.readability);
         effectParent.add(row.readability);
         existingRow.readability = row.readability;
