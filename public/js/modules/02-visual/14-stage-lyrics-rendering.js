@@ -2471,7 +2471,7 @@ function stageLyricUsesSingleLineSwap(mesh) {
 // gliding in or the cards sliding in never push them around.
 var STAGE_LYRIC_SHELF_EDGE_NDC_X = -0.08;
 var STAGE_LYRIC_SCREEN_LEFT_NDC_X = -0.96;
-var STAGE_LYRIC_SHELF_MIN_FIT = 0.5;
+var STAGE_LYRIC_SHELF_MIN_FIT = 0.3;
 var STAGE_LYRIC_SHELF_NOMINAL_ROOT_SCALE = 1.06;
 // With a detail list open the lyrics may reach into the song rows' left margin (they are drawn over the
 // rows, dimmed, so the overlap reads as transparency); this much of the screen, measured from the row's edge.
@@ -2663,7 +2663,7 @@ function stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, wo
   lyricShelfTurnQuat.copy(lyricTargetQuat);
   clampStageLyricTargetForShelf(lyricShelfFlipTarget, worldW, caption, lyricShelfTurnQuat, anchor);
 }
-// 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 50%）。
+// 长歌词放不下时的缩小系数（只在歌单架占用画面时使用，最多缩到 30%，与首页自适应下限一致，避免更长的句子冲出屏幕）。
 // Solved on the real projected block: it is placed beside the shelf (turn and depth included) and measured
 // there, twice, because shrinking it moves it. A line that fits is not shrunk for room it does not need.
 function stageLyricShelfFit(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, caption, anchor) {
@@ -2740,7 +2740,9 @@ function clampStageLyricTargetForShelf(target, worldW, caption, quat, anchor) {
 // kicks and idle drift never move it.
 function stageLyricHomeViewness() {
   if (typeof freeCamera !== 'undefined' && freeCamera && freeCamera.active) return 0;
-  if (typeof orbit === 'undefined' || !orbit || (orbit.focus && orbit.focus.active)) return 0;
+  if (typeof orbit === 'undefined' || !orbit) return 0;
+  // The shelf hands the lyrics over through its own flip (see updateStageLyricAdaptiveFit); other focus poses drop the fit.
+  if (orbit.focus && orbit.focus.active && !/^shelf-/.test(String(orbit.focus.type || ''))) return 0;
   var dTheta = typeof shortestAngleDelta === 'function'
     ? shortestAngleDelta(orbit.userTheta, orbit.baselineTheta) : orbit.userTheta - orbit.baselineTheta;
   var dev = Math.abs(dTheta) +
@@ -2761,7 +2763,9 @@ function updateStageLyricAdaptiveFit(dt, shelfFlip, available) {
   if (!isFinite(stageLyrics.adaptiveFitBase)) stageLyrics.adaptiveFitBase = wanted;
   stageLyrics.adaptiveFitBase += (wanted - stageLyrics.adaptiveFitBase) * (1 - Math.exp(-6 * dt));
   if (Math.abs(wanted - stageLyrics.adaptiveFitBase) < 0.002) stageLyrics.adaptiveFitBase = wanted;
-  stageLyrics.adaptiveFitMix = stageLyrics.adaptiveFitBase * (1 - clampRange(shelfFlip, 0, 1));
+  // The rows regrow while the shelf fit shrinks the whole block; handing over on a gentler curve than the
+  // flip keeps the on-screen size falling steadily instead of swelling mid-flip.
+  stageLyrics.adaptiveFitMix = stageLyrics.adaptiveFitBase * Math.pow(1 - clampRange(shelfFlip, 0, 1), 0.8);
   stageLyrics.adaptiveFitSteadyT = stageLyrics.adaptiveFitMix > 0.98 ? (Number(stageLyrics.adaptiveFitSteadyT) || 0) + dt : 0;
   stageLyrics.adaptiveFitSteady = stageLyrics.adaptiveFitSteadyT > 0.3;
 }
