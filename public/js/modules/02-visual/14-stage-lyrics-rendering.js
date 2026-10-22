@@ -2557,8 +2557,8 @@ function stageLyricShelfAnchor(cam) {
 }
 var STAGE_LYRIC_SHELF_FLIP_SECONDS = 0.62;
 var STAGE_LYRIC_SHELF_TURN_DEG = 30;
-var STAGE_LYRIC_SHELF_FLIP_OVERSHOOT_DEG = 12;
-var STAGE_LYRIC_SHELF_FLIP_DEPTH = 0.32;
+var STAGE_LYRIC_SHELF_FLIP_OVERSHOOT_DEG = 0;
+var STAGE_LYRIC_SHELF_FLIP_DEPTH = 0;
 var lyricShelfFlipTarget = null;
 var lyricShelfFlipDepthDir = null;
 // Same S-curve the shelf cards use to appear (smoothstep), so lyrics and shelf start and land together.
@@ -2669,16 +2669,36 @@ function stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, wo
 function stageLyricShelfFit(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW, caption, anchor) {
   var edge = anchor ? anchor.left : STAGE_LYRIC_SHELF_EDGE_NDC_X;
   var avail = Math.max(0.24, edge - STAGE_LYRIC_SCREEN_LEFT_NDC_X);
-  var fit = 1;
-  for (var pass = 0; pass < 2; pass++) {
+  // Projected width of the block placed beside the shelf at a given shrink. Measured, not predicted: shrinking moves it.
+  function widthAt(fit) {
     var scaled = { centerY: (caption ? caption.centerY || 0 : 0) * fit, centerZ: (caption ? caption.centerZ || 0 : 0) * fit, h: (caption ? caption.h || 0 : 0) * fit };
     stageLyricShelfFlipTarget(base, x, y, z, turnBaseQuat, tiltX, tiltY, worldW * fit, scaled, anchor);
     var rect = stageLyricShelfProjectedCaption(lyricShelfFlipTarget, worldW * fit, scaled, lyricShelfTurnQuat);
     var width = rect.right - rect.left;
-    if (!(width > 0) || !isFinite(width)) return fit;
-    fit = clampRange(fit * avail / width, STAGE_LYRIC_SHELF_MIN_FIT, 1);
+    return width > 0 && isFinite(width) ? width : NaN;
   }
-  return fit;
+  // Width grows with the size only up to a point: a block far too wide is pushed against the shelf and
+  // towards the camera, where it projects narrower again. A search from the top would be fooled by that and
+  // jump between sizes as the line length changes, so walk up from the smallest size and stop at the first
+  // size that no longer fits, then refine between the last size that did and that one.
+  var steps = 10, good = STAGE_LYRIC_SHELF_MIN_FIT, bad = 0;
+  var minWidth = widthAt(good);
+  if (!isFinite(minWidth)) return 1;
+  if (minWidth > avail) return good;
+  for (var step = 1; step <= steps; step++) {
+    var fit = STAGE_LYRIC_SHELF_MIN_FIT + (1 - STAGE_LYRIC_SHELF_MIN_FIT) * step / steps;
+    var width = widthAt(fit);
+    if (!isFinite(width)) return good;
+    if (width > avail) { bad = fit; break; }
+    good = fit;
+  }
+  if (!bad) return 1;
+  for (var refine = 0; refine < 5; refine++) {
+    var mid = (good + bad) / 2;
+    var midWidth = widthAt(mid);
+    if (isFinite(midWidth) && midWidth <= avail) good = mid; else bad = mid;
+  }
+  return good;
 }
 // Where the flip starts from. While the shelf opens the lyrics leave the pose they were dragged to and
 // head straight for the spot beside the shelf; the cover turning back to centre underneath must not
@@ -2812,18 +2832,27 @@ function updateStageLyricLayout(dt) {
   stageLyrics.shelfLayoutMix += ((shelfLyricAvoid ? 1 : 0) - stageLyrics.shelfLayoutMix) * layoutEase;
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
-  // Opening the shelf flips the lyrics to its left on one timed curve (position, turn and a small
-  // overshoot together) that lasts as long as the shelf takes to appear, so the two move as one;
-  // closing plays it backwards over the shelf's closing time.
+  // Opening the shelf flips the lyrics to its left (position, turn and size together) over about as long
+  // as the shelf takes to appear. The progress homes in on its goal the way the shelf camera does (quick
+  // off the mark, easing into place, both ways, no overshoot), so the lyrics and the gliding camera move
+  // as one instead of the lyrics starting late and then catching up. shelfFlipT stays the linear clock.
   var shelfFlipEligible = !wallpaperLyricLock && !skullMouthLyrics;
   var shelfFlipSeconds = stageLyricShelfFlipSeconds(shelfLyricAvoid);
   if (!isFinite(stageLyrics.shelfFlipT)) stageLyrics.shelfFlipT = 0;
   stageLyrics.shelfFlipT = shelfFlipEligible
     ? clampRange(stageLyrics.shelfFlipT + (shelfLyricAvoid ? 1 : -1) * layoutDt / shelfFlipSeconds, 0, 1)
     : 0;
-  var shelfFlip = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
+  if (!isFinite(stageLyrics.shelfFlipV)) stageLyrics.shelfFlipV = stageLyricShelfFlipEase(stageLyrics.shelfFlipT);
+  if (shelfFlipEligible) {
+    var shelfFlipGoal = shelfLyricAvoid ? 1 : 0;
+    stageLyrics.shelfFlipV += (shelfFlipGoal - stageLyrics.shelfFlipV) * durationEaseFactor(shelfFlipSeconds / 6, layoutDt);
+    if (Math.abs(shelfFlipGoal - stageLyrics.shelfFlipV) < 0.003) stageLyrics.shelfFlipV = shelfFlipGoal;
+  } else {
+    stageLyrics.shelfFlipV = 0;
+  }
+  var shelfFlip = stageLyrics.shelfFlipV;
   var shelfFlipArc = Math.sin(Math.PI * shelfFlip);
-  var shelfFlipActive = shelfFlipEligible && (shelfLyricAvoid || stageLyrics.shelfFlipT > 0);
+  var shelfFlipActive = shelfFlipEligible && (shelfLyricAvoid || stageLyrics.shelfFlipT > 0 || shelfFlip > 0);
   updateStageLyricAdaptiveFit(layoutDt, shelfFlip, !skullMouthLyrics && !wallpaperLyricLock && !fx.lyricCameraLock);
   var shelfLayoutMix = shelfFlipEligible ? shelfFlip : stageLyrics.shelfLayoutMix;
   // A fresh engagement: the shelf lyrics were at rest a frame ago. Remember the pose they leave from.
