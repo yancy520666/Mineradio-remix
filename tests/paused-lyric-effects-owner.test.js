@@ -33,6 +33,22 @@ test('manual clarity changes permit only the current visible paused rows to fini
   assert.equal(data.pausedFxCommitRows.length, 1); assert.equal(data.pausedFxCommitRows[0], row);
 });
 
+test('a freshly redrawn paused owner snapshots only its requested display window', () => {
+  const { c, row, data } = ownerContext(); row.renderWindowActive = false;
+  const translation = { isTranslation: true, parentIndex: 5, renderWindowActive: false };
+  const farRow = { lineIndex: 20, renderWindowActive: false };
+  data.rowLayers.push(translation, farRow); data.displayMode = 'triple'; c.stageLyrics.currentIdx = 5;
+  c.lyricLineAllowedForDisplayMode = (index, target) => Math.abs(index - target) <= 1;
+  c.invalidateLyricQualityTextures = () => {};
+  loadFunctions(c, previewPath, ['refreshVisibleLyricQuality']); c.refreshVisibleLyricQuality('style-refresh');
+  assert.equal(data.pausedFxCommitRows.length, 2);
+  assert.equal(c.lyricFxPausedCommitActive(data, row), false, 'uploads still wait for an actual visibility tick');
+  row.renderWindowActive = translation.renderWindowActive = farRow.renderWindowActive = true;
+  assert.equal(c.lyricFxPausedCommitActive(data, row), true);
+  assert.equal(c.lyricFxPausedCommitActive(data, translation), true);
+  assert.equal(c.lyricFxPausedCommitActive(data, farRow), false, 'later runway rows cannot inherit refresh permission');
+});
+
 test('paused commit permission belongs only to the current original visible rows and generation', () => {
   const { c, row, data, mesh } = ownerContext();
   assert.equal(c.lyricFxPausedCommitActive(data, row), true);

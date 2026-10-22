@@ -12,13 +12,22 @@ function lyricFxPausedCommitActive(data, row) {
   return !row || !!(row.renderWindowActive && Array.isArray(data.pausedFxCommitRows)
     && data.pausedFxCommitRows.indexOf(row) >= 0);
 }
-function refreshVisibleLyricQuality() {
-  invalidateLyricQualityTextures('texture-clarity-change', { release: false });
+function refreshVisibleLyricQuality(reason) {
+  invalidateLyricQualityTextures(reason || 'texture-clarity-change', { release: false });
   var current = stageLyrics.current;
   var data = current && current.userData && current.userData.lyric;
   if (data && audio && audio.paused) {
     data.pausedFxCommitToken = trackSwitchToken;
-    data.pausedFxCommitRows = (data.rowLayers || []).filter(function (row) { return row.renderWindowActive; });
+    var rows = data.rowLayers || [];
+    var hasVisible = rows.some(function (row) { return row.renderWindowActive; });
+    data.pausedFxCommitRows = rows.filter(function (row) {
+      if (hasVisible) return row.renderWindowActive;
+      // A freshly redrawn paused owner has not had its first visibility tick.
+      // Snapshot only its requested display window, never the whole runway.
+      var index = row.isTranslation ? row.parentIndex : row.lineIndex;
+      return typeof lyricLineAllowedForDisplayMode === 'function' && index != null
+        && lyricLineAllowedForDisplayMode(index, stageLyrics.currentIdx, data.displayMode);
+    });
   }
   if (typeof markRenderInteraction === 'function') markRenderInteraction('lyric-clarity-change', 1000);
 }

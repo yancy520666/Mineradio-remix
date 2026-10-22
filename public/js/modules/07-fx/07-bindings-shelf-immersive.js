@@ -412,7 +412,8 @@ function toggleFx(key) {
   if (key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight') pushDesktopLyricsState(true);
   if (key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles') pushDesktopLyricsState(true);
   if (key === 'lyricContextHighQuality' && typeof invalidateLyricQualityTextures === 'function') {
-    invalidateLyricQualityTextures('context-quality-toggle', { release: true });
+    if (typeof refreshVisibleLyricQuality === 'function') refreshVisibleLyricQuality('context-quality-toggle');
+    else invalidateLyricQualityTextures('context-quality-toggle', { release: false });
   }
   if (key === 'backgroundStarRiver') {
     if (typeof updateBackgroundStarRiverState === 'function') updateBackgroundStarRiverState(0.016, true);

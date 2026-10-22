@@ -34,6 +34,7 @@ function setup() {
       return true;
     },
     updateLyricMeshProgress(mesh, progress) { calls.push(['progress', progress]); },
+    refreshVisibleLyricQuality(reason) { calls.push(['quality', reason]); },
     scheduleStageLyricFullTrackWarmup(reason, delay) { calls.push(['warmup', reason, delay]); },
   });
   loadFunctions(context, stagePath, ['applyCurrentLyricStyleRefresh', 'refreshCurrentLyricStyle']);
@@ -55,6 +56,7 @@ function setup() {
   assert.equal(c.stageLyrics.transitionLineStep, 0);
   assert.equal(c.stageLyrics.current.userData.age, 0.48);
   assert.deepEqual(calls.find(v => v[0] === 'progress'), ['progress', 0.4]);
+  assert.deepEqual(calls.find(v => v[0] === 'quality'), ['quality', 'style-refresh']);
   assert.deepEqual(calls.find(v => v[0] === 'warmup'), ['warmup', 'style-refresh', 180]);
 }
 for (const stalePoint of ['payload', 'show']) {
@@ -69,7 +71,7 @@ for (const stalePoint of ['payload', 'show']) {
     };
     c.applyCurrentLyricStyleRefresh();
     assert.equal(c.stageLyrics.currentIdx, 0, 'stale refresh must not update the new song index');
-    assert(!calls.some(v => v[0] === 'progress' || v[0] === 'warmup'), 'stale refresh must not schedule new-song work');
+    assert(!calls.some(v => v[0] === 'progress' || v[0] === 'warmup' || v[0] === 'quality'), 'stale refresh must not schedule new-song work');
     if (stalePoint === 'payload') assert(!calls.some(v => v[0] === 'show'));
   }
 }

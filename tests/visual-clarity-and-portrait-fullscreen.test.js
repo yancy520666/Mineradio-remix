@@ -14,7 +14,8 @@ test('translation lyrics share high clarity sampling and global bright-backgroun
   assert.match(textures, /function configureLyricTextureSampling\(/);
   assert.match(textures, /THREE\.LinearMipmapLinearFilter/);
   assert.match(textures, /profile && profile\.lowSpec \? 4/);
-  assert.match(rows, /currentTranslation \? 11 : \(row\.isTranslation \? 22/);
+  assert.match(rows, /currentTranslation \? 11/);
+  assert.match(rows, /renderWindowActive \? 20 : 40/, 'visible original/translation rows precede off-screen preparation');
   assert.match(rows, /readabilityMix = Math\.max\(readabilityMix, row\.isTranslation/);
   assert.match(rows, /readabilityBoost = 1 \+ backdropAdapt \* \(row\.isTranslation \? 0\.66 : 0\.78\)/);
 });

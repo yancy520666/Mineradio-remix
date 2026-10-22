@@ -2425,6 +2425,7 @@ function applyCurrentLyricStyleRefresh() {
   stageLyrics.currentIdx = index < 0 ? -2 : index;
   if (stageLyrics.current) updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
+  if (typeof refreshVisibleLyricQuality === 'function') refreshVisibleLyricQuality('style-refresh');
   if (index >= 0) scheduleStageLyricFullTrackWarmup('style-refresh', 180);
 }
 function refreshCurrentLyricStyle() {

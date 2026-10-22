@@ -324,7 +324,7 @@ function runLyricFontLoadRefresh() {
   if (lyricFontLoadRefreshTimer) clearTimeout(lyricFontLoadRefreshTimer);
   lyricFontLoadRefreshTimer = setTimeout(function () {
     lyricFontLoadRefreshTimer = 0;
-    if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('lyric-font-loaded', { release: true });
+    if (typeof invalidateLyricQualityTextures === 'function') invalidateLyricQualityTextures('lyric-font-loaded', { release: false });
     if (typeof refreshCurrentLyricStyle === 'function') refreshCurrentLyricStyle();
   }, 60);
 }

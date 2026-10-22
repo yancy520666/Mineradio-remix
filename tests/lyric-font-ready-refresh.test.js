@@ -7,6 +7,15 @@ const vm = require('node:vm');
 const { loadFunctions } = require('./helpers/classic-functions');
 const fontPath = 'public/js/modules/02-visual/05-lyrics-fonts-texture.js';
 
+test('late font refresh retains committed quality until the replacement owner is ready', () => {
+  const calls = []; let run;
+  const c = vm.createContext({ lyricFontLoadRefreshTimer: 0, setTimeout: fn => { run = fn; return 1; }, clearTimeout() {},
+    invalidateLyricQualityTextures: (reason, options) => calls.push([reason, options.release]),
+    refreshCurrentLyricStyle: () => calls.push('refresh') });
+  loadFunctions(c, fontPath, ['runLyricFontLoadRefresh']); c.runLyricFontLoadRefresh(); run();
+  assert.deepEqual(calls, [['lyric-font-loaded', false], 'refresh']);
+});
+
 test('a saved selected font refreshes rendered lyrics when its delayed load completes', async () => {
   const pending = [], added = [], calls = [];
   const records = [{ id: 'selected', family: 'FixtureSelected', dataUrl: 'data:font/ttf;base64,AAAA' },

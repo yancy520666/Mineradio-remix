@@ -5,7 +5,7 @@ const textures = 'public/js/modules/02-visual/10-lyrics-mask-textures.js';
 function fixture() {
   const c = vm.createContext({ renderer: { domElement: { width: 1280 }, capabilities: { maxTextureSize: 4096 } },
     runtimeHardwareProfile: {}, clampRange: (v, lo, hi) => Math.max(lo, Math.min(hi, v)) });
-  loadFunctions(c, textures, ['lyricQualityPoolBudgetBytes', 'lyricQualityCropRect', 'lyricQualityTargetMetrics']);
+  loadFunctions(c, textures, ['lyricQualityPoolBudgetBytes', 'lyricQualityVisibleRowSlots', 'lyricQualityCropRect', 'lyricQualityTargetMetrics']);
   return c;
 }
 function mask(textWidth = 128) {
@@ -31,6 +31,28 @@ test('window-size quantization is stable and high-density screens receive more d
   assert.equal(c.lyricQualityTargetMetrics(m, 2).width, normal.width);
   c.renderer.domElement.width = 2560;
   assert(c.lyricQualityTargetMetrics(m, 2).width > normal.width);
+});
+
+test('multi-line bilingual windows reserve selected-tier rasters for every visible row within the same pool', () => {
+  const c = fixture(); c.fx = { lyricDisplayMode: 'custom', lyricTranslationMode: 'multi', lyricContextHighQuality: true };
+  c.lyricDisplayLineCountForMode = () => 10; c.lyricTextureClarityScale = () => 4;
+  loadFunctions(c, textures, ['lyricQualityMaxResidentRows']);
+  for (const profile of [{}, { lowSpec: true }, { balancedSpec: true }]) {
+    c.runtimeHardwareProfile = profile;
+    for (const count of [3, 5, 10]) for (const tier of [2, 3, 4]) {
+      c.lyricDisplayLineCountForMode = () => count;
+      const m = mask(5900); m.logicalWidth = 6144;
+      const t = c.lyricQualityTargetMetrics(m, tier);
+      assert(t.bytes * count * 2 <= c.lyricQualityPoolBudgetBytes(tier) * 0.90);
+      assert(c.lyricQualityMaxResidentRows() >= count * 2);
+      const previous = c.lyricQualityTargetMetrics(m, tier - 1);
+      assert(t.width >= previous.width && t.height >= previous.height, 'higher controls cannot reduce current glyph detail');
+    }
+  }
+  c.fx.lyricContextHighQuality = false;
+  assert.equal(c.lyricQualityVisibleRowSlots(), 2);
+  c.fx.lyricContextHighQuality = true;
+  assert.equal(c.lyricQualityVisibleRowSlots(), 20);
 });
 test('eco mode budgets the selected tier without silently changing the second control to the first', () => {
   const c = fixture(); c.fx = { lyricTextureClarity: 2 };

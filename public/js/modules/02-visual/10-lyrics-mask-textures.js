@@ -447,9 +447,20 @@ function lyricQualityPoolBudgetBytes(tier) {
   return budgets[tier - 1] * 1024 * 1024;
 }
 
+function lyricQualityVisibleRowSlots() {
+  // Use the same density ladder in every tier, including tier 1, which still
+  // prepares only the current pair. Advancing a tier must not reduce detail.
+  if (typeof fx === 'undefined' || !fx || fx.lyricContextHighQuality === false) return 2;
+  var lines = typeof lyricDisplayLineCountForMode === 'function' ? lyricDisplayLineCountForMode(fx.lyricDisplayMode) : 1;
+  var translation = fx.lyricTranslationMode;
+  var translated = translation === 'multi' ? lines : (translation === 'dual' ? Math.min(2, lines) : (translation === 'current' ? 1 : 0));
+  return clampRange(lines + translated, 2, 20);
+}
+
 function lyricQualityMaxResidentRows() {
   var profile = typeof runtimeHardwareProfile !== 'undefined' ? runtimeHardwareProfile : null;
-  return profile && profile.lowSpec ? 4 : (profile && profile.balancedSpec ? 6 : 8);
+  var baseRows = profile && profile.lowSpec ? 4 : (profile && profile.balancedSpec ? 6 : 8);
+  return Math.max(baseRows, lyricQualityVisibleRowSlots());
 }
 
 function lyricQualityCropRect(mask, logicalW, logicalH) {
@@ -486,8 +497,11 @@ function lyricQualityTargetMetrics(mask, tier) {
   var rendererMax = renderer && renderer.capabilities ? Number(renderer.capabilities.maxTextureSize) : 0;
   var maxDimension = Math.min(6144, isFinite(rendererMax) && rendererMax > 0 ? rendererMax : 4096);
   scale = Math.min(scale, maxDimension / crop.width, maxDimension / crop.height);
-  // Leave room for both the active original and its translation.
-  var itemBudget = Math.floor(Math.min(32 * 1024 * 1024, lyricQualityPoolBudgetBytes(tier) * 0.45));
+  // Share the bounded pool across the configured visible original/translation
+  // window. Two large current rasters must not force checked context rows back
+  // to their scrolling previews. This share stays stable while lines advance.
+  var itemShare = 0.90 / lyricQualityVisibleRowSlots();
+  var itemBudget = Math.floor(Math.min(32 * 1024 * 1024, lyricQualityPoolBudgetBytes(tier) * itemShare));
   // CPU RGBA canvas + GPU RGBA with a complete mip chain.
   // Cap the continuous area before rounding either axis to integer pixels.
   scale = Math.min(scale, Math.sqrt(itemBudget / (crop.width * crop.height * (4 + 16 / 3))));

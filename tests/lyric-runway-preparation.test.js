@@ -14,7 +14,7 @@ function context() {
     clampRange(v,a,b) { return Math.max(a,Math.min(b,v)); }, lyricRowTextureWidthBudget() { return 1600; },
     lyricQualityPoolBudgetBytes() { return 64*1024*1024; }
   });
-  loadFunctions(c, 'public/js/modules/02-visual/10-lyrics-mask-textures.js', ['lyricRunwayRowPixelBudget','makeLyricMask','lyricQualityCropRect','lyricQualityTargetMetrics']);
+  loadFunctions(c, 'public/js/modules/02-visual/10-lyrics-mask-textures.js', ['lyricRunwayRowPixelBudget','makeLyricMask','lyricQualityVisibleRowSlots','lyricQualityCropRect','lyricQualityTargetMetrics']);
   return c;
 }
 function mask(c) {

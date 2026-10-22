@@ -1722,7 +1722,10 @@ function updateLyricRowLayers(data, opts) {
     } else if (!rowHighQualityAllowed) {
       if (row.qualityTexture || row.qualityPendingTexture || row.qualityQueuedKey) releaseLyricRowQuality(row, true);
     } else if (!initialTextRevealPending && (!movingTextPreview || pendingWindowAllowed) && (renderWindowActive || lineUploadPrewarm || pendingWindowAllowed)) {
-      var qualityPriority = isActive ? 10 : (currentTranslation ? 11 : (row.isTranslation ? 22 : (lineUploadPrewarm ? 34 : 24 + Math.min(8, visibilityAbs))));
+      // Both sides of the visible window precede every off-screen prewarm.
+      // A future translation must not evict a currently visible original.
+      var qualityPriority = isActive ? 10 : (currentTranslation ? 11
+        : (renderWindowActive ? 20 : 40) + Math.min(8, visibilityAbs) * 2 + (row.isTranslation ? 1 : 0));
       lyricQualityCandidates.push({
         row: row,
         priority: qualityPriority,
